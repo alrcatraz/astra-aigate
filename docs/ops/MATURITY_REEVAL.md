@@ -57,27 +57,27 @@ Result: the per-module mutation score **cannot regress** — coverage has ceased
 ### 2.3 ✅ Quick-win gates (Phase 6A/7) delivered
 
 - **a11y axe-core "fake-green" fixed:** `@axe-core/playwright` in devDeps; `a11y.spec.ts` with conditional `REQUIRE_AXE` skip; job in `nightly-resilience.yml`.
-- **complexity scans `bin/`+`electron`:** `check-complexity.mjs` includes those directories in `ESLINT_ARGS`.
+- **complexity scans `bin/`:** `check-complexity.mjs` includes that directory in `ESLINT_ARGS`.
 - **tracked-artifacts in pre-commit + pre-push:** `.husky/pre-commit` + `pre-push` block accidentally tracked artifacts.
 
 ---
 
 ## 3. The 12 categories — status (delta-focused)
 
-| #   | Category                         | Status 06-30                                                                             |
-| --- | -------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1   | Style & formatting               | ✅ unchanged (Prettier+ESLint lint-staged)                                               |
-| 2   | Types                            | ✅ **reinforced** — `typecheck:core` now also in the PR→release gate                     |
-| 3   | Tests (intensity)                | ✅ **reinforced** — mutation testing became a ratchet; deterministic suite at merge gate |
-| 4   | Test policy (anti-gaming)        | ✅ unchanged (pr-test-policy/test-masking/pr-evidence)                                   |
-| 5   | Complexity & health              | ✅ **reinforced** — complexity scans bin/electron                                        |
-| 6   | Static security (SAST+secrets)   | 🟡 CodeQL default-setup (advanced = owner); semgrep cloud not versioned                  |
-| 7   | Supply-chain (deps)              | ✅ unchanged (osv/audit/Trivy/Dependabot + allowlist)                                    |
-| 8   | Supply-chain (build/release)     | 🟡 SLSA L2 (L3 = hermetic builder, owner/infra)                                          |
-| 9   | Contracts & API                  | 🟡 oasdiff/osv advisory (candidates for blocking-with-scope, P1)                         |
-| 10  | Docs & i18n (anti-rot)           | ✅ **reinforced** — `fabricated-docs --strict` blocking (exit 0 verified)                |
-| 11  | Anti-hallucination / consistency | ✅ unchanged (known-symbols/fetch-targets/docs-symbols/db-rules)                         |
-| 12  | Resilience & domain              | ✅ unchanged (chaos/heap/k6/promptfoo/garak nightly)                                     |
+| #   | Category                         | Status 06-30                                                                                             |
+| --- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1   | Style & formatting               | ✅ unchanged (Prettier+ESLint lint-staged)                                                               |
+| 2   | Types                            | ✅ **reinforced** — `typecheck:core` now also in the PR→release gate                                     |
+| 3   | Tests (intensity)                | ✅ **reinforced** — mutation testing became a ratchet; deterministic suite at merge gate                 |
+| 4   | Test policy (anti-gaming)        | ✅ unchanged (pr-test-policy/test-masking/pr-evidence)                                                   |
+| 5   | Complexity & health              | ✅ **reinforced** — complexity scans bin/                                                                |
+| 6   | Static security (SAST+secrets)   | 🟡 CodeQL default-setup (advanced = owner); semgrep cloud not versioned                                  |
+| 7   | Supply-chain (deps)              | ✅ unchanged (osv/audit/Trivy/Dependabot + allowlist)                                                    |
+| 8   | Supply-chain (build/release)     | 🟡 SLSA L2 (L3 = hermetic builder, owner/infra)                                                          |
+| 9   | Contracts & API                  | 🟡 oasdiff/osv advisory (candidates for blocking-with-scope, P1)                                         |
+| 10  | Docs (anti-rot)                  | ✅ **reinforced** — `fabricated-docs --strict` blocking (exit 0 verified); docs/i18n mirror tree removed |
+| 11  | Anti-hallucination / consistency | ✅ unchanged (known-symbols/fetch-targets/docs-symbols/db-rules)                                         |
+| 12  | Resilience & domain              | ✅ unchanged (chaos/heap/k6/promptfoo/garak nightly)                                                     |
 
 ---
 

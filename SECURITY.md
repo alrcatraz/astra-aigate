@@ -2,10 +2,11 @@
 
 ## Reporting Vulnerabilities
 
-If you discover a security vulnerability in OmniRoute, please report it responsibly:
+If you discover a security vulnerability in astra-aigate, please report it responsibly:
 
 1. **DO NOT** open a public GitHub issue
-2. Use [GitHub Security Advisories](https://github.com/diegosouzapw/OmniRoute/security/advisories/new)
+2. Use [GitHub Security Advisories](https://github.com/alrcatraz/astra-aigate/security/advisories/new)
+   (available once the repository is published publicly)
 3. Include: description, reproduction steps, and potential impact
 
 ## Response Timeline
@@ -28,7 +29,7 @@ If you discover a security vulnerability in OmniRoute, please report it responsi
 
 ## Security Architecture
 
-OmniRoute implements a multi-layered security model:
+astra-aigate implements a multi-layered security model:
 
 ```
 Request → CORS → Authz pipeline (classify → policies → enforce)
@@ -65,7 +66,7 @@ STORAGE_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 ### 🛡️ Guardrails Framework
 
-OmniRoute ships a hot-reloadable **guardrails registry** (`src/lib/guardrails/`) with 3 built-in guardrails ordered by priority:
+astra-aigate ships a hot-reloadable **guardrails registry** (`src/lib/guardrails/`) with 3 built-in guardrails ordered by priority:
 
 | Guardrail          | Priority | Purpose                                                                                 |
 | ------------------ | -------- | --------------------------------------------------------------------------------------- |
@@ -186,7 +187,7 @@ docker run -d \
   -e JWT_SECRET="$(openssl rand -base64 48)" \
   -e API_KEY_SECRET="$(openssl rand -hex 32)" \
   -e STORAGE_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
-  diegosouzapw/omniroute:latest
+  localhost/astra-aigate:latest
 ```
 
 ---

@@ -17,7 +17,6 @@ lastUpdated: 2026-06-28
 OmniRoute/
 ├── src/                  # Next.js 16 application (UI + API routes + libs + domain + server)
 ├── open-sse/             # Streaming engine workspace (handlers, executors, translator, MCP server)
-├── electron/             # Desktop wrapper (Electron 41 + electron-builder 26.10)
 ├── bin/                  # CLI entry point and command handlers
 ├── scripts/              # Build, check, sync, and one-off scripts
 ├── docs/                 # Public documentation (you are here)
@@ -297,20 +296,6 @@ open-sse/
 
 ---
 
-## `electron/` — Desktop Wrapper
-
-| File             | Purpose                                                                           |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `main.js`        | Electron main process (BrowserWindow, embedded Next.js server, tray, auto-update) |
-| `preload.js`     | IPC bridge (contextBridge → `window.omniroute`)                                   |
-| `package.json`   | electron-builder config + Electron 41 + electron-builder 26.10 deps               |
-| `assets/`        | App icons (Windows .ico, macOS .icns, Linux .png)                                 |
-| `dist-electron/` | Build output (gitignored)                                                         |
-| `types.d.ts`     | Type declarations for renderer bridge                                             |
-| `README.md`      | Internal Electron README (see also `docs/guides/ELECTRON_GUIDE.md`)               |
-
----
-
 ## `bin/` — CLI
 
 | File                                                                                                        | Purpose                                                                                                                    |
@@ -358,16 +343,11 @@ open-sse/
 | `check-supported-node-runtime.ts`   | Validate current Node version is supported                                 |
 | `check-pr-test-policy.mjs`          | Enforce "tests required" rule on production code changes                   |
 | **`gen-provider-reference.ts`**     | NEW: auto-generate `docs/reference/PROVIDER_REFERENCE.md` from catalog     |
-| `i18n/generate-multilang.mjs`       | Translate UI strings + docs via Google Translate                           |
-| `i18n_autotranslate.py`             | LLM-based doc translation pipeline                                         |
-| `validate_translation.py`           | Per-locale translation validation                                          |
-| `check_translations.py`             | Code-side i18n key check                                                   |
 | `run-playwright-tests.mjs`          | Playwright E2E runner                                                      |
 | `run-protocol-clients-tests.mjs`    | MCP/A2A E2E runner                                                         |
 | `run-ecosystem-tests.mjs`           | Ecosystem (provider integration) tests                                     |
 | `test-report-summary.mjs`           | Generate coverage summary markdown                                         |
-| `smoke-electron-packaged.mjs`       | Smoke-test packaged Electron build                                         |
-| `native-binary-compat.mjs`          | Validate native deps (`better-sqlite3`) match Electron's Node              |
+| `native-binary-compat.mjs`          | Validate native deps (`better-sqlite3`)                                    |
 | `validate-pack-artifact.ts`         | Validate npm pack output                                                   |
 | `responses-ws-proxy.mjs`            | WebSocket bridge for Codex Responses API                                   |
 | `v1-ws-bridge.mjs`                  | WebSocket bridge for `/api/v1/ws` endpoint                                 |
@@ -390,7 +370,7 @@ open-sse/
 | `USER_GUIDE.md`             | End-user manual (setup, models, combos, CLIs, audio, etc.)                            |
 | `API_REFERENCE.md`          | API endpoint reference with auth model                                                |
 | `openapi.yaml`              | OpenAPI 3.0 spec (121 paths)                                                          |
-| `SETUP_GUIDE.md`            | Install methods (npm, npx, Docker, Electron, Termux, source)                          |
+| `SETUP_GUIDE.md`            | Install methods (npm, npx, Docker, Termux, source)                                    |
 | `ENVIRONMENT.md`            | All env vars (~219 used in code, ~810 lines `.env.example`)                           |
 | `TROUBLESHOOTING.md`        | Common errors + v3.8.0 known issues                                                   |
 | `RELEASE_CHECKLIST.md`      | Full release flow (skills, husky, conventional commits, deploy)                       |
@@ -440,7 +420,6 @@ open-sse/
 | `FLY_IO_DEPLOYMENT_GUIDE.md` | Fly.io deployment (currently Chinese-only)                        |
 | `TERMUX_GUIDE.md`            | Android headless via Termux                                       |
 | `PWA_GUIDE.md`               | Progressive Web App install + service worker                      |
-| `ELECTRON_GUIDE.md`          | Desktop app build + sign + distribute                             |
 | `TUNNELS_GUIDE.md`           | Cloudflared + ngrok + Tailscale Funnel                            |
 | `PROXY_GUIDE.md`             | 4-level outbound proxy + 1proxy marketplace                       |
 
@@ -449,7 +428,6 @@ open-sse/
 | Subdir                | Purpose                                                                                                                                                                                        |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `docs/archive/`       | Archived/historical docs (e.g., `RFC-AUTO-ASSESSMENT-DRAFT.md` — superseded by EVALS)                                                                                                          |
-| `docs/i18n/`          | Localized doc translations (~42 locales)                                                                                                                                                       |
 | `docs/screenshots/`   | Image assets for guides                                                                                                                                                                        |
 | `_tasks/superpowers/` | Plans/specs from superpowers (`writing-plans`/`brainstorming`) + research — isolated, separately-versioned repo, gitignored by the main tree. See CLAUDE.md → "Planning & Research Artifacts". |
 

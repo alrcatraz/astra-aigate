@@ -71,7 +71,7 @@ The original issue thread floated a larger cluster rewrite. After auditing the a
 | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------ |
 | **Dragonfly**                        | **DROP** | `redis:7-alpine` is already fine for the rate-limit workload at production scale; no ceiling to break. |
 | **NATS**                             | **DROP** | Each `omniroute` replica is a single Node.js process; no multi-process pub/sub workload exists.        |
-| **PostgreSQL**                       | **DROP** | SQLite + sqlite-vec + FTS5 cover all 3 use cases; 97 migrations + Electron packaging block migration.  |
+| **PostgreSQL**                       | **DROP** | SQLite + sqlite-vec + FTS5 cover all 3 use cases; 97 migrations block migration.                       |
 | **Neo4j**                            | **DROP** | Routing is a 5-table join; recursive CTE on SQLite is sufficient.                                      |
 | **MinIO**                            | **DROP** | No multi-MB blob workload; images/audio are passthrough proxies.                                       |
 | **pgvector / pg_ai / pg_textsearch** | **DROP** | Same SQLite-ceiling reason as PostgreSQL; pgvector ecosystem fragmented.                               |

@@ -65,6 +65,7 @@ directly from anywhere — CI can only stage; only the owner's 2FA releases.
 as the default reflex (minutes, reversible); `npm unpublish` only inside the 72h/no-dependents
 window and never as the first move. Docker: never rewrite a version tag — rollback is
 repointing `latest` to the last good digest.
+
 ## Hotfix Fast-Lane (label `hotfix`)
 
 A PR labeled `hotfix` skips the heavy CI matrix (9-shard E2E, coverage ratchet,
@@ -100,7 +101,7 @@ matrix automatically, without any label.
 ### Version & Changelog
 
 - [ ] Run `/version-bump-cc <patch|minor|major>` (Claude Code skill)
-  - Bumps `package.json`, `electron/package.json`
+  - Bumps `package.json`
   - Regenerates `CHANGELOG.md` from git commits since last tag
   - Updates README.md badges
 - [ ] Manually review CHANGELOG.md and clean up commit messages if needed
@@ -167,10 +168,9 @@ Breaking changes: add `BREAKING CHANGE:` footer or `!` after the scope (e.g. `fe
 
 ### i18n
 
-- [ ] `npm run i18n:check` exits 0 — translation state (`.i18n-state.json`) in sync with source docs (no drifted sources in strict mode; warn-mode advisory is acceptable for last-minute doc touch-ups, but should be 0 before tagging)
+> **Note:** The `docs/i18n/` documentation mirror tree and its associated scripts (`i18n:run`, translation pipeline) were removed. Only UI i18n locale checks remain.
+
 - [ ] `npm run i18n:check-ui-coverage` exits 0 — every UI locale at or above the 80% coverage floor
-- [ ] `npm run i18n:sync-ui:dry` reports 0 missing keys across all 42 locales
-- [ ] If source English docs changed, run `npm run i18n:run` (requires `OMNIROUTE_TRANSLATION_API_KEY` in `.env`) before tagging
 - [ ] Translation contributions can be deferred to next release if minor (track in CHANGELOG)
 
 ### Database Migrations
@@ -193,16 +193,6 @@ Breaking changes: add `BREAKING CHANGE:` footer or `!` after the scope (e.g. `fe
 - [ ] If non-OpenAI format: translator in `open-sse/translator/`
 - [ ] Models registered in `open-sse/config/providerRegistry.ts`
 - [ ] Unit tests in `tests/unit/` cover provider classification and routing
-
-### Desktop (Electron)
-
-If `electron/` changed:
-
-- [ ] `npm run electron:smoke:packaged` passes
-- [ ] Builds tested for at least one of `:win`, `:mac`, `:linux`
-- [ ] Code signing certs not expired (if signing)
-- [ ] `electron/package.json` version matches root `package.json`
-- [ ] Auto-update channel pointer updated if releasing to `stable`
 
 ### Build Layout
 
@@ -243,7 +233,6 @@ Do NOT run `npm run build` followed by a separate `npm run build:cli` for deploy
   - Creates tag `vX.Y.Z`
   - Pushes tag and branch
   - Opens GitHub Release with changelog body
-  - Attaches Electron installers (if built)
 - [ ] Or manually:
   ```bash
   git tag -a vX.Y.Z -m "Release vX.Y.Z"
@@ -363,7 +352,7 @@ If release has critical issue:
 - Never skip Husky hooks (`--no-verify`)
 - Never commit secrets, credentials, or `.env` files
 - Coverage must stay ≥60/60/60/60 (statements/lines/functions/branches)
-- Always include or update tests when changing production code in `src/`, `open-sse/`, `electron/`, or `bin/`
+- Always include or update tests when changing production code in `src/`, `open-sse/`, or `bin/`
 
 ## Automated Sync Check
 

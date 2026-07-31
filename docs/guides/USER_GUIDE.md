@@ -29,7 +29,7 @@ Complete guide for configuring providers, creating combos, integrating CLI tools
 - [Cloud Agents](#-cloud-agents)
 - [Programmatic Management](#-programmatic-management)
 - [Internal CLI](#-internal-cli)
-- [Desktop Application (Electron)](#-desktop-application-electron)
+- [Desktop Application (Electron)](#-desktop-application-electron) — **Removed**
 
 ---
 
@@ -1212,50 +1212,7 @@ Tip: pair `omniroute doctor --json` with your monitoring tool to alert on unheal
 
 ## 🖥️ Desktop Application (Electron)
 
-OmniRoute is available as a native desktop application for Windows, macOS, and Linux.
+> ℹ️ **Desktop app removed** — OmniRoute no longer ships a desktop Electron wrapper. Install
+> from source or use the web dashboard and API.
 
-### Installation
-
-```bash
-# From the electron directory:
-cd electron
-npm install
-
-# Development mode (connect to running Next.js dev server):
-npm run dev
-
-# Production mode (uses standalone build):
-npm start
-```
-
-### Building Installers
-
-```bash
-cd electron
-npm run build          # Current platform
-npm run build:win      # Windows (.exe NSIS)
-npm run build:mac      # macOS (.dmg universal)
-npm run build:linux    # Linux (.AppImage)
-```
-
-Output → `electron/dist-electron/`
-
-### Key Features
-
-| Feature                     | Description                                          |
-| --------------------------- | ---------------------------------------------------- |
-| **Server Readiness**        | Polls server before showing window (no blank screen) |
-| **System Tray**             | Minimize to tray, change port, quit from tray menu   |
-| **Port Management**         | Change server port from tray (auto-restarts server)  |
-| **Content Security Policy** | Restrictive CSP via session headers                  |
-| **Single Instance**         | Only one app instance can run at a time              |
-| **Offline Mode**            | Bundled Next.js server works without internet        |
-
-### Environment Variables
-
-| Variable              | Default | Description                      |
-| --------------------- | ------- | -------------------------------- |
-| `OMNIROUTE_PORT`      | `20128` | Server port                      |
-| `OMNIROUTE_MEMORY_MB` | `512`   | Node.js heap limit (64–16384 MB) |
-
-📖 Full documentation: [`electron/README.md`](../../electron/README.md)
+📖 Full documentation: [`docs/`](../../docs/)
