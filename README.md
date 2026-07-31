@@ -23,7 +23,7 @@ astra-aigate is a self-hosted AI gateway console managing three categories of se
 2. **MCP Servers** — MCP server registration, tool aggregation and connectivity checks
 3. **Auxiliary Services** — health monitoring and reverse proxying for non-MCP tools (Camofox, SearXNG, etc.)
 
-It is an **independent project** (not a GitHub fork), seeded from [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) and evolving its own identity: Expo design language instead of Carbon, Next.js 16 + React 19 frontend, British English locale, zh-CN/zh-TW translations.
+It is an **independent project** (not a GitHub fork), seeded from [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) and evolving its own identity: Expo design language, Next.js 16 + React 19 frontend, British English locale, zh-CN/zh-TW translations.
 
 ## Features
 
@@ -36,9 +36,9 @@ It is an **independent project** (not a GitHub fork), seeded from [OmniRoute](ht
 ## Quick Start
 
 ```bash
-# Build (on a build host — see Development), then run on the target host:
-podman run -d --name astra-aigate --env-file .env -p 20129:20128 localhost/astra-aigate:latest
-# Open http://<host>:20129 — first login uses INITIAL_PASSWORD from .env
+# Run the prebuilt image on the target host:
+podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astra-aigate:latest
+# Open http://<host>:<port> — first login uses INITIAL_PASSWORD from .env
 ```
 
 ## Tech Stack
@@ -67,13 +67,13 @@ scripts/test/regression-final.mjs                   # Playwright regression suit
 
 ```bash
 # Route an LLM request through a provider combo (fallback built in):
-curl http://<host>:20129/v1/chat/completions \
+curl http://<host>:<port>/v1/chat/completions \
   -H "Authorization: Bearer <api-key>" \
   -H "Content-Type: application/json" \
   -d '{"model":"<combo-name>","messages":[{"role":"user","content":"Hello"}]}'
 
 # Aggregate MCP tools across registered servers:
-curl http://<host>:20129/mcp \
+curl http://<host>:<port>/mcp \
   -H "Authorization: Bearer <api-key>" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -82,16 +82,8 @@ curl http://<host>:20129/mcp \
 Full configuration reference lives in `.env.example`; the web dashboard
 (Providers / Combos / MCP / Services) covers day-to-day management.
 
-## Development
-
-- **NEVER run `next build` on HomeCentre01** (OOM kills the host) — build on SUSETLearn00:
-  `podman build --build-arg AIGATE_BUILD_MEMORY_MB=8192 -t localhost/astra-aigate:webpack-verify .`
-- **i18n key changes require a rebuild** — messages are bundled at build time
-- Regression: `BASE=http://host:20129 PASSWORD=xxx node scripts/test/regression-final.mjs`
-
 ## Documentation
 
-- `PLAN.md` — development plan and phase tracking
 - `AGENTS.md` — project context for AI agents
 - `DESIGN.md` — Expo design system specification
 - `docs/` — operational references (incident response, performance budgets)
@@ -128,7 +120,7 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
 2. **MCP 服务器** — MCP 服务器注册、工具聚合和连通性检查
 3. **辅助服务** — 非 MCP 工具（Camofox、SearXNG 等）的健康监控和反向代理
 
-本项目是**独立项目**（非 GitHub fork），种子代码来自 [OmniRoute](https://github.com/diegosouzapw/OmniRoute)（MIT），正在形成自己的身份：以 Expo 设计语言取代 Carbon，Next.js 16 + React 19 前端，英式英语 locale，zh-CN/zh-TW 翻译。
+本项目是**独立项目**（非 GitHub fork），种子代码来自 [OmniRoute](https://github.com/diegosouzapw/OmniRoute)（MIT），正在形成自己的身份：以 Expo 设计语言，Next.js 16 + React 19 前端，英式英语 locale，zh-CN/zh-TW 翻译。
 
 ## 特性
 
@@ -141,9 +133,9 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
 ## 快速开始
 
 ```bash
-# 在构建主机上构建（见「开发」），然后在目标主机运行：
-podman run -d --name astra-aigate --env-file .env -p 20129:20128 localhost/astra-aigate:latest
-# 打开 http://<host>:20129 — 首次登录使用 .env 中的 INITIAL_PASSWORD
+# 在目标主机上运行预构建镜像：
+podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astra-aigate:latest
+# 打开 http://<host>:<port> — 首次登录使用 .env 中的 INITIAL_PASSWORD
 ```
 
 ## 技术栈
@@ -172,13 +164,13 @@ scripts/test/regression-final.mjs                   # Playwright 回归套件
 
 ```bash
 # 通过提供商组合路由 LLM 请求（内置故障转移）：
-curl http://<host>:20129/v1/chat/completions \
+curl http://<host>:<port>/v1/chat/completions \
   -H "Authorization: Bearer <api-key>" \
   -H "Content-Type: application/json" \
   -d '{"model":"<combo-name>","messages":[{"role":"user","content":"你好"}]}'
 
 # 跨已注册服务器聚合 MCP 工具：
-curl http://<host>:20129/mcp \
+curl http://<host>:<port>/mcp \
   -H "Authorization: Bearer <api-key>" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -187,16 +179,8 @@ curl http://<host>:20129/mcp \
 完整配置参考见 `.env.example`；日常管理由 Web 控制台
 （Providers / Combos / MCP / Services）覆盖。
 
-## 开发
-
-- **切勿在 HomeCentre01 上运行 `next build`**（OOM 会整机崩溃）——请在 SUSETLearn00 构建：
-  `podman build --build-arg AIGATE_BUILD_MEMORY_MB=8192 -t localhost/astra-aigate:webpack-verify .`
-- **i18n 键改动必须重建镜像** — messages 在构建时打包
-- 回归测试：`BASE=http://host:20129 PASSWORD=xxx node scripts/test/regression-final.mjs`
-
 ## 文档
 
-- `PLAN.md` — 开发计划与阶段追踪
 - `AGENTS.md` — AI 代理项目上下文
 - `DESIGN.md` — Expo 设计系统规范
 - `docs/` — 运维参考（事件响应、性能预算）

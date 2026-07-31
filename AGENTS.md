@@ -49,9 +49,13 @@ Unified AI service gateway web console managing three categories:
 
 ## Git & Versioning
 
-- Remote: `gitea` (private) → when ready: `public` (GitHub)
-- Version: 3-layer SemVer: `Z.alrcatraz.Y.angelia.Z`
-- `alrcatraz` is the author
+- Remotes: `gitea` (private, git01.wrt.astra-lab.org) + `github` (public,
+  alrcatraz/astra-aigate) — dual push
+- Workflow: feature branches (`phase2-<topic>`) → PR → **rebase merge** to
+  main → local sync `git pull --ff-only` (no force push after Phase 1)
+- Version: standard SemVer; 0.x per completed phase (0.1.0 = Phase 1),
+  1.0.0 = all PLAN phases done
+- `alrcatraz` is the author; all commits GPG-signed
 
 ## Design Decisions
 
