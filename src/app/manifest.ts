@@ -1,11 +1,11 @@
 import type { MetadataRoute } from "next";
+import { APP_CONFIG } from "@/shared/constants/appConfig";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "OmniRoute AI Gateway",
-    short_name: "Astra AI Gate",
-    description:
-      "OmniRoute is an AI gateway for multi-provider LLMs. One endpoint for all your AI providers.",
+    name: APP_CONFIG.name,
+    short_name: APP_CONFIG.name,
+    description: APP_CONFIG.description,
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",
@@ -47,7 +47,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "1280x720",
         type: "image/png",
         form_factor: "wide",
-        label: "OmniRoute Dashboard",
+        label: `${APP_CONFIG.name} Dashboard`,
       },
     ],
   };

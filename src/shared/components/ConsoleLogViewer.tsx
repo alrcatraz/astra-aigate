@@ -12,6 +12,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { copyToClipboard } from "@/shared/utils/clipboard";
+import { APP_CONFIG } from "@/shared/constants/appConfig";
 
 interface LogEntry {
   timestamp: string;
@@ -240,11 +241,8 @@ export default function ConsoleLogViewer() {
       >
         {/* Header bar */}
         <div className="sticky top-0 z-10 px-4 py-2 bg-[#161b22] border-b border-[#30363d] flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-          <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-          <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
           <span className="ml-3 text-[#8b949e] text-[11px]">
-            OmniRoute — {tv("applicationConsole")}
+            {APP_CONFIG.name} — {tv("applicationConsole")}
           </span>
         </div>
 

@@ -9007,7 +9007,7 @@
     "nodeIncompatibleHint": "OmniRoute wymaga Node.js 22.22.2+ (22.x LTS) lub 24.0.0+ (24.x LTS). Zalecany jest Node 24 LTS."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Przejdź do strony głównej",
     "toggleMenu": "Przełącz menu",
     "featuresLink": "Funkcje",

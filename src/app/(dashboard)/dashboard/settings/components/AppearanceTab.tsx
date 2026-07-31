@@ -11,6 +11,7 @@ import {
   normalizeComboConfigMode,
   type ComboConfigMode,
 } from "@/shared/constants/comboConfigMode";
+import { APP_CONFIG } from "@/shared/constants/appConfig";
 import { PIN_PROVIDER_QUOTA_TO_HOME_KEY } from "@/shared/constants/homeWidgets";
 import AccountEmailVisibilitySetting from "./AccountEmailVisibilitySetting";
 import LanguageSelector from "@/shared/components/LanguageSelector";
@@ -554,9 +555,9 @@ export default function AppearanceTab() {
               </div>
               <input
                 type="text"
-                value={settings.instanceName || "Astra AI Gate"}
+                value={settings.instanceName || APP_CONFIG.name}
                 onChange={(e) => updateSetting("instanceName", e.target.value)}
-                placeholder="Astra AI Gate"
+                placeholder={APP_CONFIG.name}
                 maxLength={100}
                 className="h-10 px-3 rounded-lg bg-surface border border-border text-sm text-text-main focus:outline-none focus:border-primary w-48"
               />

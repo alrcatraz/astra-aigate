@@ -8985,7 +8985,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "オムニルート",
+    "brandName": "Astra AI Gate",
     "navigateHome": "ホームに移動する",
     "toggleMenu": "メニューの切り替え",
     "featuresLink": "特長",
