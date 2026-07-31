@@ -8,7 +8,7 @@
  * (the existing frontmatter is preserved as-is). Files without a leading
  * `# Title` heading fall back to the basename humanized as a title.
  *
- * Excludes: docs/i18n/, docs/screenshots/, docs/superpowers/,
+ * Excludes: docs/screenshots/, docs/superpowers/,
  *           docs/diagrams/exported/. Subfolder READMEs are included.
  *
  * Usage: node scripts/docs/add-frontmatter.mjs [--version X.Y.Z] [--date YYYY-MM-DD]
@@ -23,12 +23,7 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..", "..");
 const DOCS_DIR = path.join(ROOT, "docs");
 
-const EXCLUDE_PREFIXES = [
-  "docs/i18n/",
-  "docs/screenshots/",
-  "docs/superpowers/",
-  "docs/diagrams/exported/",
-];
+const EXCLUDE_PREFIXES = ["docs/screenshots/", "docs/superpowers/", "docs/diagrams/exported/"];
 
 const args = process.argv.slice(2);
 let version = "3.8.0";

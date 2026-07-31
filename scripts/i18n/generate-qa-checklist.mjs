@@ -7,7 +7,6 @@ const ROOT = process.cwd();
 const APP_DIR = path.join(ROOT, "src", "app");
 const MESSAGES_DIR = path.join(ROOT, "src", "i18n", "messages");
 const REPORTS_DIR = path.join(ROOT, "docs", "reports");
-const I18N_README_DIR = path.join(ROOT, "docs", "i18n");
 
 const PRIORITY_LOCALES = ["es", "fr", "de", "ja", "ar"];
 
@@ -187,51 +186,9 @@ async function runAutomatedChecks() {
     }
   }
 
-  const readmeLabelChecks = [];
-  // Check that README has language selector line with emoji flag
-  const expectedPattern = /^🌐 \*\*Languages:\*\*/;
-
-  for (const code of PRIORITY_LOCALES) {
-    const readmePath = path.join(I18N_README_DIR, code, "README.md");
-    let content = "";
-    try {
-      content = await fs.readFile(readmePath, "utf8");
-    } catch {
-      // Skip if README doesn't exist
-      continue;
-    }
-    const line = content.split("\n").find((entry) => entry.startsWith("🌐 **Languages:**")) || "";
-    const ok = expectedPattern.test(line);
-
-    readmeLabelChecks.push({ file: `docs/i18n/${code}/README.md`, ok, line });
-  }
-
-  let anchorLineRemoved = true;
-  let brAppendixRemoved = true;
-
-  // Check specific languages (ar, ja) for legacy content
-  const legacyCheckLocales = ["ar", "ja"];
-  for (const code of legacyCheckLocales) {
-    const readmePath = path.join(I18N_README_DIR, code, "README.md");
-    try {
-      const content = await fs.readFile(readmePath, "utf8");
-      if (content.includes("**[English](#-omniroute--the-free-ai-gateway)**")) {
-        anchorLineRemoved = false;
-      }
-      if (content.includes("## 🇧🇷 OmniRoute")) {
-        brAppendixRemoved = false;
-      }
-    } catch {
-      // Skip if README doesn't exist
-    }
-  }
-
   return {
     localeCodes,
     parityIssues,
-    readmeLabelChecks,
-    anchorLineRemoved,
-    brAppendixRemoved,
   };
 }
 
@@ -269,13 +226,6 @@ async function main() {
       )
     );
   }
-
-  automatedChecksLines.push(
-    `- Language selector (🌐 **Languages:**) in README (es/fr/de/ja/ar): **${automated.readmeLabelChecks.every((item) => item.ok) ? "OK" : "FALHAS"}**`,
-    `- Linha legacy EN/PT removida em ja/ar: **${automated.anchorLineRemoved ? "OK" : "PENDENTE"}**`,
-    `- Apêndice "## 🇧🇷 OmniRoute" removido em ja/ar: **${automated.brAppendixRemoved ? "OK" : "PENDENTE"}**`,
-    "- RTL habilitado globalmente para `ar` e `he` via `dir=rtl` no layout."
-  );
 
   const routeTableHeader =
     "| Rota | Prioridade | Arquivos da rota | Risco truncamento (w-*) | Risco RTL direcional (left/right etc.) | Clipping (`truncate/line-clamp/overflow-hidden`) | Status |";

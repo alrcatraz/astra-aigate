@@ -5,8 +5,7 @@
  * scripts/i18n/glossary/<locale>.json, used by three call sites so they can
  * never disagree about what canonical means:
  *
- *   - scripts/i18n/run-translation.mjs        (active docs pipeline)
- *   - scripts/i18n/generate-multilang.mjs     (deprecated legacy generator)
+ *   - scripts/i18n/sync-ui-keys.mjs       (UI message markers)
  *   - scripts/i18n/check-glossary-consistency.mjs (drift gate)
  *
  * Why `blockedPrefixes` exists: a synonym is matched as a plain substring, and

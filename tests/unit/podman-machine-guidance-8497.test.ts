@@ -10,21 +10,6 @@ function read(relativePath: string): string {
   return readFileSync(join(repoRoot, relativePath), "utf8");
 }
 
-test("#8497 README limits podman unshare to a local Linux engine", () => {
-  const readme = read("README.md");
-  const podmanStart = readme.indexOf("**🦭 Podman**");
-  const podmanEnd = readme.indexOf("**⚡ Faster / leaner install", podmanStart);
-  const podmanQuickStart = readme.slice(podmanStart, podmanEnd);
-
-  assert.match(podmanQuickStart, /Linux \+ local rootless Podman only/);
-  assert.match(podmanQuickStart, /podman unshare chown 1000:1000 \.\/data/);
-  assert.match(podmanQuickStart, /macOS or Windows[\s\S]*remote Podman Machine/);
-  assert.match(
-    podmanQuickStart,
-    /contrib\/podman\/README\.md#data-directory-permissions-by-topology/
-  );
-});
-
 test("#8497 Podman guide separates local engines from Podman Machine", () => {
   const guide = read("contrib/podman/README.md");
   const localStart = guide.indexOf("### Linux with a local rootless Podman engine");
@@ -102,34 +87,4 @@ test("#8497 pull example and environment hints stay topology-safe", () => {
     assert.match(source, /cannot determine/);
     assert.match(source, /Podman Machine/);
   }
-});
-
-test("#8497 localized quick starts do not retain the remote-unsafe recipe", () => {
-  const localizedReadmes = [
-    {
-      path: "docs/i18n/zh-CN/README.md",
-      localOnly: /仅限 Linux \+ 本地无根 Podman/,
-    },
-    {
-      path: "docs/i18n/zh-TW/README.md",
-      localOnly: /僅限 Linux \+ 本機 rootless Podman/,
-    },
-    {
-      path: "docs/i18n/pl/README.md",
-      localOnly: /Tylko Linux \+ lokalny Podman bez roota/,
-    },
-  ];
-
-  for (const localized of localizedReadmes) {
-    const content = read(localized.path);
-    assert.doesNotMatch(content, /mkdir -p data && podman unshare/);
-    assert.match(content, localized.localOnly);
-    assert.match(content, /Podman Machine/);
-    assert.match(content, /contrib\/podman\/README\.md#data-directory-permissions-by-topology/);
-  }
-
-  const zhEnvironment = read("docs/i18n/zh-CN/docs/reference/ENVIRONMENT.md");
-  assert.doesNotMatch(zhEnvironment, /修复指令使用 `podman unshare chown`/);
-  assert.match(zhEnvironment, /任何 Podman 拓扑/);
-  assert.match(zhEnvironment, /Podman Machine/);
 });

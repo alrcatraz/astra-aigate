@@ -196,9 +196,6 @@ function listExternalFiles() {
     "src",
     "tests",
     "vscode-extension",
-    // i18n mirrors — root-level locale files (llm.txt, CHANGELOG.md, etc.) reference
-    // the root /docs/ paths and must stay in sync after restructure.
-    "docs/i18n",
   ];
   for (const d of dirs) {
     const full = path.join(ROOT, d);

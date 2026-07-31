@@ -183,7 +183,7 @@ function walkMarkdown(dir, acc = []) {
   return acc;
 }
 
-/** Build normKey → docs absolute path for English docs (docs/ minus docs/i18n). */
+/** Build normKey → docs absolute path for the canonical English docs tree. */
 function indexEnglishDocs() {
   const docsRoot = path.join(ROOT, "docs");
   const files = walkMarkdown(docsRoot).filter((f) => !f.includes(`${path.sep}i18n${path.sep}`));

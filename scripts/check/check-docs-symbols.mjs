@@ -184,14 +184,13 @@ export function runDocsSymbolsCheck(opts = {}) {
   const root = opts.root || ROOT;
   const docsDir = path.join(root, "docs");
   const routeFiles = opts.routeFiles || collectApiRouteFiles(root);
-  // docs/i18n/** são espelhos auto-gerados das docs canônicas — validar só o canônico
-  // evita 40× de ruído duplicado (e os mirrors herdam qualquer fix do canônico).
+  // docs/i18n/ mirrors were removed; only the canonical tree is validated.
   // docs/superpowers/** são planos internos de implementação (snapshots históricos
   // de intenção — podem citar rotas planejadas/abandonadas), não claims sobre o
   // código atual; fora do escopo do gate (drift surgiu no ciclo v3.8.18).
   const docFiles = walk(docsDir, (n) => /\.md$/.test(n)).filter((f) => {
     const rel = path.relative(root, f).replace(/\\/g, "/");
-    return !rel.startsWith("docs/i18n/") && !rel.startsWith("docs/superpowers/");
+    return !rel.startsWith("docs/superpowers/");
   });
   const docPathsByFile = docFiles.map((f) => ({
     file: path.relative(root, f).replace(/\\/g, "/"),

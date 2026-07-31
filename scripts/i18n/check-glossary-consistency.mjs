@@ -3,7 +3,7 @@
  * OmniRoute — Chinese terminology glossary consistency gate (zh-CN + zh-TW).
  *
  * Complements the existing parity (check-ui-keys-coverage.mjs) and ICU
- * (validate_translation.py) checks with a native-quality layer:
+ * checks with a native-quality layer:
  *   - glossary-synonym: a value uses a non-canonical synonym for a concept
  *     that has an actively-normalized canonical rendering
  *     (scripts/i18n/glossary/<locale>.json).

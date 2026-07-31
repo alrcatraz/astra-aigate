@@ -108,22 +108,6 @@ test("git() passes a widened maxBuffer (ENOBUFS on `git show origin/main:CHANGEL
   assert.ok(gitFn.includes("maxBuffer"), "git() helper must set maxBuffer above the 1 MiB default");
 });
 
-test("i18n resync also propagates the FINALIZED [prevVersion] section into the mirrors, not just [NEXT]", () => {
-  const src = readFileSync(SCRIPT_PATH, "utf8");
-  assert.ok(
-    src.includes('"release:sync-changelog-i18n", "--", NEXT, prevVersion'),
-    "syncs the new cycle section"
-  );
-  assert.ok(
-    src.includes("versionAfter(mainChangelog, prevVersion)"),
-    "computes the boundary below the shipped section"
-  );
-  assert.ok(
-    src.includes('"release:sync-changelog-i18n", "--", prevVersion, belowPrev'),
-    "syncs the shipped (finalized) section — without this all 42 mirrors keep it as TBD"
-  );
-});
-
 // WS0.3 (v3.8.49 quality plan): the captain's sync-back push is the one write path
 // with NO CI gate — the merged tree must pass release-green --quick BEFORE the push,
 // or the whole PR queue inherits a red tip (G1). --skip-green-gate is the documented

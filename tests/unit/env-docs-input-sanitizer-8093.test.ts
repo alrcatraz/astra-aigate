@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -37,29 +37,4 @@ test("#8093: main ENVIRONMENT.md lists default as true", () => {
   assert.ok(line, "ENVIRONMENT.md should have INPUT_SANITIZER_ENABLED entry");
   assert.ok(line.includes("`true`"), "ENVIRONMENT.md should list default as `true`");
   assert.ok(!line.includes("`false`"), "ENVIRONMENT.md should NOT list default as `false`");
-});
-
-test("#8093: all i18n ENVIRONMENT.md translations list default as true", () => {
-  const i18nDir = join(repoRoot, "docs/i18n");
-  const locales = readdirSync(i18nDir);
-
-  const mismatches: string[] = [];
-  for (const locale of locales) {
-    const envMd = join(i18nDir, locale, "docs/reference/ENVIRONMENT.md");
-    try {
-      const content = readFileSync(envMd, "utf8");
-      const line = content.split("\n").find((l) => l.includes("INPUT_SANITIZER_ENABLED"));
-      if (line && line.includes("`false`")) {
-        mismatches.push(locale);
-      }
-    } catch {
-      // File doesn't exist for this locale — skip
-    }
-  }
-
-  assert.deepEqual(
-    mismatches,
-    [],
-    `i18n locales still listing INPUT_SANITIZER_ENABLED as false: ${mismatches.join(", ")}`
-  );
 });
