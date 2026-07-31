@@ -48,6 +48,22 @@ export const AUDIO_TRANSCRIPTION_PROVIDERS: Record<string, AudioProvider> = {
     ],
   },
 
+  // SiliconFlow CN — mainland-China RMB site (api.siliconflow.cn). Verified
+  // against the CN model directory on 2026-07-31: SenseVoiceSmall +
+  // TeleSpeechASR. Shares the provider's key pool (multi-key round-robin,
+  // see registered-keys + auth.ts) with
+  // chat/image/embedding/rerank/tts.
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    baseUrl: "https://api.siliconflow.cn/v1/audio/transcriptions",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "FunAudioLLM/SenseVoiceSmall", name: "SenseVoice Small" },
+      { id: "TeleAI/TeleSpeechASR", name: "TeleSpeech ASR" },
+    ],
+  },
+
   openrouter: {
     id: "openrouter",
     baseUrl: "https://openrouter.ai/api/v1/audio/transcriptions",
@@ -275,6 +291,23 @@ export const AUDIO_SPEECH_PROVIDERS: Record<string, AudioProvider> = {
       { id: "tts-1-hd", name: "TTS 1 HD" },
       { id: "tts-1", name: "TTS 1" },
       { id: "gpt-4o-mini-tts", name: "GPT-4o Mini TTS" },
+    ],
+  },
+
+  // SiliconFlow CN — mainland-China RMB site (api.siliconflow.cn). Verified
+  // against the CN model directory on 2026-07-31: CosyVoice2 + MOSS-TTSD.
+  // (The international site also carries CosyVoice2 plus IndexTTS-2 — an
+  // international-exclusive model not present on the CN site.) Shares the
+  // provider's key pool (multi-key round-robin, see registered-keys +
+  // auth.ts) with chat/image/embedding/rerank/stt.
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    baseUrl: "https://api.siliconflow.cn/v1/audio/speech",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "FunAudioLLM/CosyVoice2-0.5B", name: "CosyVoice2 0.5B" },
+      { id: "fnlp/MOSS-TTSD-v0.5", name: "MOSS-TTSD v0.5" },
     ],
   },
 

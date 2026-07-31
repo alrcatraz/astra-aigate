@@ -17,6 +17,7 @@ import {
 
 import { CategoryDot } from "./CategoryDot";
 import { isKimiPartnerProviderId } from "../featuredProviders";
+import type { MediaKind } from "../../media-providers/components/mediaKinds";
 
 interface ProviderStats {
   total?: number;
@@ -30,7 +31,13 @@ interface ProviderStats {
   codexServiceTier?: "default" | "priority" | "flex" | null;
 }
 
-const KIND_LABEL: Record<string, string> = {
+/**
+ * Short badge labels for service kinds. Typed as a complete map over
+ * MediaKind (+ the legacy "llm") so adding a kind without a label is a
+ * compile error — this has drifted before (ocr was missing, so OCR
+ * providers rendered no badge).
+ */
+const KIND_LABEL: Record<MediaKind | "llm", string> = {
   llm: "Chat",
   embedding: "Embed",
   image: "Image",
@@ -41,6 +48,10 @@ const KIND_LABEL: Record<string, string> = {
   webFetch: "Fetch",
   video: "Video",
   music: "Music",
+  ocr: "OCR",
+  rerank: "Rank",
+  moderation: "Mod",
+  audioTranslation: "A→T",
 };
 
 /** Maps a compatible-provider `apiType` to its `KIND_LABEL` key (#6936: non-chat
@@ -400,15 +411,17 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                     key={k}
                     className="text-[10px] px-1.5 py-0.5 rounded bg-bg-subtle border border-border text-text-muted leading-none"
                   >
-                    {KIND_LABEL[k] ?? k}
+                    {KIND_LABEL[k as keyof typeof KIND_LABEL] ?? k}
                   </span>
                 ))}
                 {isCompatible && (
                   <Badge variant="default" size="sm">
                     {provider.apiType === "responses"
                       ? t("responses")
-                      : (KIND_LABEL[COMPATIBLE_API_TYPE_KIND[provider.apiType ?? ""] ?? ""] ??
-                        t("chat"))}
+                      : (KIND_LABEL[
+                          (COMPATIBLE_API_TYPE_KIND[provider.apiType ?? ""] ??
+                            "") as keyof typeof KIND_LABEL
+                        ] ?? t("chat"))}
                   </Badge>
                 )}
                 {isCcCompatible && (

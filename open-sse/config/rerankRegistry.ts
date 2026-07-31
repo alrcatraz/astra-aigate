@@ -93,6 +93,25 @@ export const RERANK_PROVIDERS = {
     ],
   },
 
+  // SiliconFlow CN — mainland-China RMB site. Same Qwen3-Reranker family as
+  // the international site above, plus the VL reranker. Verified against the
+  // CN model directory on 2026-07-31 (5 models). Shares the provider's
+  // key pool (multi-key round-robin, see registered-keys + auth.ts) with
+  // chat/image/embedding/tts/stt.
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    baseUrl: "https://api.siliconflow.cn/v1/rerank",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "Qwen/Qwen3-Reranker-8B", name: "Qwen3 Reranker 8B" },
+      { id: "Qwen/Qwen3-Reranker-4B", name: "Qwen3 Reranker 4B" },
+      { id: "Qwen/Qwen3-Reranker-0.6B", name: "Qwen3 Reranker 0.6B" },
+      { id: "Qwen/Qwen3-VL-Reranker-8B", name: "Qwen3-VL Reranker 8B" },
+      { id: "BAAI/bge-reranker-v2-m3", name: "BGE Reranker v2 m3" },
+    ],
+  },
+
   // OpenRouter exposes a separate, Cohere-compatible POST /api/v1/rerank endpoint
   // (not surfaced by its live /v1/models feed, which contains 0 rerank ids — confirmed
   // by direct curl). Model IDs keep their vendor slash (e.g. "cohere/rerank-4-pro");

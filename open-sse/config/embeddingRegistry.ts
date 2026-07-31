@@ -394,6 +394,28 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
       },
     ],
   },
+
+  // SiliconFlow CN — mainland-China RMB site (api.siliconflow.cn). Verified
+  // against the CN model directory on 2026-07-31: Qwen3-Embedding family
+  // (0.6B/4B/8B, all 1024-dim) + Qwen3-VL + three BGE models. The
+  // international site (api.siliconflow.com) carries the same Qwen3 family.
+  // Shares the provider's key pool (multi-key round-robin, see
+  // registered-keys + auth.ts) with chat/image/rerank/tts/stt.
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    baseUrl: "https://api.siliconflow.cn/v1/embeddings",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "Qwen/Qwen3-Embedding-8B", name: "Qwen3 Embedding 8B", dimensions: 1024 },
+      { id: "Qwen/Qwen3-Embedding-4B", name: "Qwen3 Embedding 4B", dimensions: 1024 },
+      { id: "Qwen/Qwen3-Embedding-0.6B", name: "Qwen3 Embedding 0.6B", dimensions: 1024 },
+      { id: "Qwen/Qwen3-VL-Embedding-8B", name: "Qwen3-VL Embedding 8B", dimensions: 1024 },
+      { id: "BAAI/bge-m3", name: "BGE M3", dimensions: 1024 },
+      { id: "BAAI/bge-large-zh-v1.5", name: "BGE Large ZH v1.5", dimensions: 1024 },
+      { id: "BAAI/bge-large-en-v1.5", name: "BGE Large EN v1.5", dimensions: 1024 },
+    ],
+  },
 };
 
 const EMBEDDING_PROVIDER_ALIASES: Record<string, string> = {

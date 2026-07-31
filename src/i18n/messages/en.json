@@ -2304,7 +2304,10 @@
       "webFetch": "Web Fetch",
       "video": "Video",
       "music": "Music",
-      "ocr": "OCR"
+      "ocr": "OCR",
+      "rerank": "Rerank",
+      "moderation": "Moderation",
+      "audioTranslation": "Audio Translation"
     },
     "noProviders": "No providers configured for this kind yet.",
     "addConnection": "Add Connection",
