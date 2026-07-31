@@ -11,6 +11,10 @@ import { KIE_IMAGE_MODELS } from "./providers/registry/kie/imageModels.ts";
 import { FREEPIK_IMAGE_PROVIDER } from "./providers/registry/freepik/index.ts";
 import { STABILITY_AI_IMAGE_MODELS } from "./providers/registry/stability-ai/imageModels.ts";
 import { GEMINI_IMAGEN_PROVIDER } from "./providers/registry/gemini/imageModels.ts";
+import { SILICONFLOW_IMAGE_MODELS } from "./providers/registry/siliconflow/imageModels.ts";
+import { SILICONFLOW_CN_IMAGE_MODELS } from "./providers/registry/siliconflow-cn/imageModels.ts";
+import { ZAI_IMAGE_MODELS } from "./providers/registry/zai/imageModels.ts";
+import { DMXAPI_IMAGE_MODELS } from "./providers/registry/dmxapi/imageModels.ts";
 
 interface ImageModelEntry {
   id: string;
@@ -176,6 +180,59 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
       { id: "gpt-image-1.5", name: "GPT Image 1.5" },
       { id: "gpt-image-1-mini", name: "GPT Image 1 Mini" },
     ],
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  // SiliconFlow — OpenAI-compatible image endpoint (verified 2026-07-31).
+  // `image_size` is an ASPECT RATIO ("1:1"), not pixels; the OpenAI handler
+  // passes `size` through verbatim so clients must send ratios here.
+  // NOTE: this is the INTERNATIONAL site (api.siliconflow.com, USD). The
+  // mainland-China RMB site has a DIFFERENT catalogue (no FLUX, extra
+  // Z-Image/ERNIE/Kolors) — see the `siliconflow-cn` provider below.
+  siliconflow: {
+    id: "siliconflow",
+    baseUrl: "https://api.siliconflow.com/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: SILICONFLOW_IMAGE_MODELS,
+    supportedSizes: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+  },
+
+  // SiliconFlow CN — mainland-China RMB site (api.siliconflow.cn).
+  // Different catalogue from the international site: no FLUX models; adds
+  // Z-Image, ERNIE-Image-Turbo, Qwen-Image-Edit-2509, Kolors. Use this
+  // provider when the configured key was issued on the .cn site.
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    baseUrl: "https://api.siliconflow.cn/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: SILICONFLOW_CN_IMAGE_MODELS,
+    supportedSizes: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+  },
+
+  // Z.ai (Zhipu international) — OpenAI-compatible images endpoint.
+  // NOTE: /v1/models does NOT list these; this registry is their only catalog.
+  zai: {
+    id: "zai",
+    baseUrl: "https://api.z.ai/api/paas/v4/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: ZAI_IMAGE_MODELS,
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  // DMXAPI (www.dmxapi.cn) — RMB-priced Chinese aggregator, OpenAI-compatible.
+  dmxapi: {
+    id: "dmxapi",
+    baseUrl: "https://www.dmxapi.cn/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: DMXAPI_IMAGE_MODELS,
     supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
   },
 
