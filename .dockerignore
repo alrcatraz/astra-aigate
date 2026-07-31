@@ -42,13 +42,8 @@ blob-report
 # Issue #2348: The Dashboard Docs viewer reads markdown from `/app/docs` at
 # runtime. The previous `docs/*` block hid every file except openapi.yaml,
 # so the in-product help screen failed with ENOENT for every page.
-# We now keep the English markdown tree plus the docs assets imported by MDX
-# during `next build`, while still dropping the bulky translated docs and
-# extra raster diagram sources that account for most of the docs footprint
-# of the ~50 MB docs directory. The Docs viewer reads the default-locale
-# (English) sources at runtime, so translations are not required in the
-# container image.
-docs/i18n/**
+# We keep the English markdown tree plus the docs assets imported by MDX
+# during `next build`, while dropping bulky raster diagram sources.
 docs/diagrams/**/*.png
 docs/diagrams/**/*.jpg
 docs/diagrams/**/*.jpeg

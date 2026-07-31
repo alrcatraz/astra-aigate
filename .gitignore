@@ -28,6 +28,11 @@ coverage/
 reports/mutation/
 stryker-output-*.json
 
+# Local work directories (never publish)
+PLAN.md
+.codegraph/
+.vscode/
+
 
 # Memory Bank and Cursor rules (local-only AI agent context)
 memory-bank/

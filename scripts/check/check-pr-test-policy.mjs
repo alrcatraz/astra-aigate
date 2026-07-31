@@ -2,15 +2,10 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const SOURCE_ROOTS = ["src/", "open-sse/", "electron/", "bin/"];
+const SOURCE_ROOTS = ["src/", "open-sse/", "bin/"];
 const TEST_PATTERNS = [/^tests\//, /(?:^|\/)__tests__\//, /\.(?:test|spec)\.[cm]?[jt]sx?$/];
 // Test files for specific source types (e.g., Python validation scripts for i18n)
-const TEST_FILE_PATTERNS = {
-  "src/i18n/messages/": [
-    /\/scripts\/validate_translation\.py$/,
-    /\/scripts\/check_translations\.py$/,
-  ],
-};
+const TEST_FILE_PATTERNS = {};
 // Exclude directories that don't require tests (i18n has Python validation, docs, config)
 const EXCLUDED_PATTERNS = [
   /\/i18n\/messages\//, // i18n files have their own Python test scripts

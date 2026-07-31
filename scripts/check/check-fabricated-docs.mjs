@@ -359,7 +359,6 @@ const ENDPOINT_ALLOWLIST = new Set([
 const SKIP_DOC_FILES = new Set([
   "docs/reference/PROVIDER_REFERENCE.md", // auto-generated from providers.ts
   "docs/openapi.yaml",
-  "docs/i18n", // translations — separate workflow
   // Design / research / plan docs: by definition describe not-yet-built files and
   // proposed (not-yet-shipped) endpoints (each carries a `Status: Design`/`Active
   // research`/`Plano` header). Same rationale as the audit report above — these are

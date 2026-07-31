@@ -255,11 +255,6 @@
       "count": 1
     }
   },
-  "src/app/(dashboard)/dashboard/HomePageClient.tsx": {
-    "react-hooks/exhaustive-deps": {
-      "count": 1
-    }
-  },
   "src/app/(dashboard)/dashboard/cli-agents/CliAgentsPageClient.tsx": {
     "no-restricted-syntax": {
       "count": 4
@@ -1433,11 +1428,6 @@
   "tests/unit/duckduckgo-web-executor.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
-    }
-  },
-  "tests/unit/electron-main.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
     }
   },
   "tests/unit/embeddings-proxy-forwarding.test.ts": {

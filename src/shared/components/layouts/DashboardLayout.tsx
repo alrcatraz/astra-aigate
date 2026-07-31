@@ -8,7 +8,6 @@ import MaintenanceBanner from "../MaintenanceBanner";
 import CommandPalette from "../CommandPalette";
 import NavigationProgress from "../NavigationProgress";
 import Sidebar from "../Sidebar";
-import { useIsElectron } from "@/shared/hooks/useElectron";
 import {
   installDashboardCsrfFetch,
   prefetchDashboardCsrfToken,
@@ -20,7 +19,6 @@ const isE2EMode = process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE === "1";
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const isElectron = useIsElectron();
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const mainRef = useRef<HTMLElement>(null);
@@ -31,17 +29,6 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [pathname]);
-
-  const isMacElectron =
-    isElectron &&
-    typeof globalThis.window !== "undefined" &&
-    globalThis.electronAPI?.platform === "darwin";
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.body.classList.toggle("electron-macos", isMacElectron);
-    return () => document.body.classList.remove("electron-macos");
-  }, [isMacElectron]);
 
   useInsertionEffect(() => {
     const uninstallBasePathFetch = installBasePathFetch();
@@ -122,7 +109,6 @@ export default function DashboardLayout({ children }) {
             collapsed={collapsed}
             onClose={() => setSidebarOpen(false)}
             onToggleCollapse={() => setCollapsed(!collapsed)}
-            isMacElectron={isMacElectron}
           />
         </div>
 
@@ -131,11 +117,7 @@ export default function DashboardLayout({ children }) {
           <div className="fixed inset-0 z-50 flex md:hidden">
             <div className="fixed inset-0 bg-black/20" onClick={() => setSidebarOpen(false)} />
             <div className="relative z-10">
-              <Sidebar
-                collapsed={false}
-                onClose={() => setSidebarOpen(false)}
-                isMacElectron={isMacElectron}
-              />
+              <Sidebar collapsed={false} onClose={() => setSidebarOpen(false)} />
             </div>
           </div>
         )}

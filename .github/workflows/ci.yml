@@ -20,9 +20,7 @@ env:
   # test installed a fake PEM on a persistent self-hosted runner and broke all
   # system TLS). Belt-and-suspenders with tests/_setup/isolateDataDir.ts.
   OMNIROUTE_SKIP_SYSTEM_TRUST: "1"
-  CI_NODE_VERSION: "24"
-  CI_NODE_24_VERSION: "24"
-  CI_NODE_26_VERSION: "26"
+  CI_NODE_VERSION: "26"
 
 jobs:
   changes:
@@ -70,7 +68,7 @@ jobs:
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
     # Path filter: pure docs / pure message-catalog PRs skip the code lint bag + typecheck.
-    # Existence reason of this job is code regression; docs/i18n have dedicated jobs.
+    # Existence reason of this job is code regression; docs/ has dedicated jobs.
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.code == 'true') }}
     env:
       # tsx gates below (known-symbols, route-guard-membership) import modules that
@@ -132,8 +130,9 @@ jobs:
         run: docker run --rm -i hadolint/hadolint@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e hadolint --failure-threshold error - < Dockerfile
       - run: npm run check:lockfile
       - run: npm run check:licenses
-      # check:docs-sync is run by the docs-sync-strict job (via check:docs-all) and the
-      # husky pre-commit hook; the standalone copy here was redundant (ROI dedup).
+      # check:docs-all runs in the docs-sync-strict job (renamed gate — the
+      # 42-locale docs mirror was removed; remaining checks: docs-counts,
+      # env-doc-sync, deprecated-versions, doc-links, fabricated-docs).
       - run: npm run typecheck:core
       # #7033: typecheck:core's curated file allowlist does not cover
       # src/app/(dashboard) TSX (and next.config.mjs sets ignoreBuildErrors:
@@ -160,7 +159,7 @@ jobs:
     # release PR #4854, where the drift cascade only surfaced post-merge in #5029).
     # The coverage.* metrics degrade gracefully: the download is continue-on-error and
     # the ratchet runs with --allow-missing, so absent coverage is skipped, not failed.
-    # Path filter: code-only — pure docs/i18n PRs have nothing for these ratchets to guard.
+    # Path filter: code-only — pure docs PRs have nothing for these ratchets to guard.
     if: ${{ !cancelled() && !contains(github.event.pull_request.labels.*.name, 'hotfix') && (github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.code == 'true' && (needs.lint.result == 'success' || needs.lint.result == 'failure'))) }}
     # security-events: read lets the CodeQL ratchet read open code-scanning alerts
     # via `gh api .../code-scanning/alerts`. contents: read keeps checkout working.
@@ -406,8 +405,6 @@ jobs:
       # One FS inventory of src/app/api for both anti-hallucination directions.
       - name: API docs refs (openapi + prose → routes)
         run: npm run check:api-docs-refs
-      - name: i18n translation drift (warn)
-        run: node scripts/i18n/check-translation-drift.mjs --warn
 
   docs-lint:
     name: Docs Lint (prose — advisory)
@@ -429,7 +426,7 @@ jobs:
           node-version: ${{ env.CI_NODE_VERSION }}
           cache: npm
       - name: markdownlint (docs + root, advisory)
-        run: npx --yes markdownlint-cli2 "docs/**/*.md" "*.md" "!docs/i18n" "!docs/research" || true
+        run: npx --yes markdownlint-cli2 "docs/**/*.md" "*.md" "!docs/research" || true
       - name: Vale prose lint (Microsoft style, advisory)
         # Non-fatal: a Vale/reviewdog setup error must not turn this advisory job red.
         continue-on-error: true
@@ -495,48 +492,6 @@ jobs:
   # e pagava spin-up + arredondamento de billing por idioma. Um único job itera os idiomas
   # (mesmo script), com grupo de log por idioma e artifact único de resultados nomeados por
   # idioma (a matrix antiga subia 40 artifacts cujo result.txt colidia no merge-multiple).
-  i18n:
-    name: i18n Validation (all languages)
-    runs-on: ubuntu-latest
-    needs: changes
-    # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
-    # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
-    # Message-catalog / i18n-tooling only — pure code without i18n surface skips this lane.
-    if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.i18n == 'true') }}
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - name: Validate all languages
-        run: |
-          set -uo pipefail
-          mkdir -p i18n-results
-          FAIL=0
-          for f in src/i18n/messages/*.json; do
-            lang=$(basename "$f" .json)
-            [ "$lang" = "en" ] && continue
-            echo "::group::i18n $lang"
-            if python3 scripts/i18n/validate_translation.py quick -l "$lang" > "i18n-results/$lang.txt" 2>&1; then
-              echo "OK $lang"
-            else
-              FAIL=1
-              echo "FAIL $lang"
-              cat "i18n-results/$lang.txt"
-            fi
-            echo "::endgroup::"
-          done
-          exit "$FAIL"
-      - name: Upload results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: i18n-results
-          path: i18n-results/
-
   pr-test-policy:
     name: PR Test Policy
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
@@ -570,15 +525,7 @@ jobs:
 
   build:
     name: Build
-    # Dynamic runner: when the release captain flips the USE_VPS_RUNNER repo var to
-    # 'true' (scripts/vps/release-runner-up.sh does it after the self-hosted VM is
-    # online), the heavy jobs run on the dedicated 32-core VPS runners (label
-    # omni-release) instead of queueing on the 20-concurrent-job hosted pool.
-    # Safety: fork PRs NEVER reach the self-hosted runner — the expression falls
-    # back to ubuntu-latest unless the PR head repo is this repository (push /
-    # dispatch events are own-origin by definition). Any failure path (VM down,
-    # var unset/false) also falls back to ubuntu-latest.
-    runs-on: ${{ (vars.USE_VPS_RUNNER == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","omni-release"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
@@ -597,20 +544,19 @@ jobs:
       # so restoring the old ~0.5 GB webpack cache would only waste download time.
       # Rolling back to webpack = revert this commit (cache step comes back with it).
       #
-      # Turbopack production build (Next 16, stable): benchmarked 1.9× faster than the
-      # webpack pass (9min0s vs 17min15s on a 32-core box; multi-core Rust vs webpack's
-      # single-threaded compile). Standalone output smoke-validated (server boots,
-      # /api/monitoring/health 200). Downstream jobs (e2e ×9, package-artifact,
-      # electron-package-smoke) consume this artifact, so a green run here validates
-      # the Turbopack artifact end-to-end.
+      # Webpack production build (Next 16) — matches the deployment contract:
+      # the Dockerfile forces OMNIROUTE_USE_TURBOPACK=0 (memory-constrained hosts),
+      # so CI validates the exact build path that ships. Standalone output is
+      # smoke-validated (server boots, /api/monitoring/health 200). Downstream
+      # jobs (e2e ×9, package-artifact) consume this artifact.
       - run: npm run build
         env:
-          OMNIROUTE_USE_TURBOPACK: "1"
+          OMNIROUTE_USE_TURBOPACK: "0"
       - name: Archive Next.js build for downstream jobs
         # Use tar so the archive preserves paths relative to CWD (.build/next/...).
         # upload-artifact path-stripping is ambiguous when exclude patterns are used;
         # an explicit tar avoids the double-nesting issue (.build/next/next/...).
-        # Keep standalone/node_modules intact: package/electron jobs consume the
+        # Keep standalone/node_modules intact: the package job consumes the
         # Next-traced standalone tree and must not replace it with root node_modules.
         run: |
           tar -czf /tmp/e2e-build.tar.gz \
@@ -659,72 +605,14 @@ jobs:
       - name: Boot-smoke the packed tarball
         run: npm run check:pack-boot
 
-  electron-package-smoke:
-    name: Electron Package Smoke (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    needs: build
-    # WS1.5 (v3.8.49 plan): the Electron rebuild/spawn path previously executed for
-    # the FIRST time on the release tag — the v3.8.48 Windows bug (npx.cmd spawned
-    # without shell, CVE-2024-27980 behavior change) could only surface at release.
-    # windows-latest runs prepare:bundle (the ABI rebuild + spawn plan) per release
-    # PR; ubuntu keeps the full pack + headless smoke.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    env:
-      JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.CI_NODE_VERSION }}
-          cache: npm
-      - uses: ./.github/actions/npm-ci-retry
-      - run: npm run check:node-runtime
-      - name: Download Next.js build artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: next-build
-          path: /tmp/
-      - name: Extract Next.js build artifact
-        run: |
-          tar -xzf /tmp/e2e-build.tar.gz
-      - name: Install Electron dependencies
-        working-directory: electron
-        run: npm install --no-audit --no-fund
-      - name: Pack Electron app
-        if: runner.os == 'Linux'
-        working-directory: electron
-        run: npm run pack
-      # ADVISORY while the new Windows leg matures (repo convention, dast-smoke
-      # precedent): its first-ever real run (2026-07-15, run 29457533565) died in
-      # 0.7s with the error swallowed by pwsh — bash shell captures stderr and
-      # continue-on-error keeps the heavy gate green while we harden it (#7336).
-      - name: Prepare Electron standalone (Windows ABI rebuild + spawn path)
-        if: runner.os == 'Windows'
-        working-directory: electron
-        continue-on-error: true
-        shell: bash
-        run: npm run prepare:bundle 2>&1
-      - name: Smoke packaged Electron app
-        if: runner.os == 'Linux'
-        env:
-          ELECTRON_SMOKE_TIMEOUT_MS: 60000
-        run: xvfb-run -a npm run electron:smoke:packaged
-
   test-unit:
     name: Unit Tests (${{ matrix.shard }}/8)
-    # Same dynamic-runner rule as Build (own-origin only; fallback ubuntu-latest).
-    runs-on: ${{ (vars.USE_VPS_RUNNER == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","omni-release"]') || 'ubuntu-latest' }}
+    # Same hosted-runner rule as Build.
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     # needs: changes (not build) — this job never downloads the next-build artifact;
     # gating it on Build only serialized ~20min of wall-clock for nothing. Jobs that
-    # DO consume the artifact (e2e, package-artifact, electron-package-smoke) keep
+    # DO consume the artifact (e2e, package-artifact) keep
     # needs: build. The `if` mirrors Build's own skip condition so docs-only PRs
     # still skip the suite.
     needs: changes
@@ -791,8 +679,8 @@ jobs:
 
   test-vitest:
     name: Vitest (MCP / autoCombo / UI components)
-    # Same dynamic-runner rule as Build (own-origin only; fallback ubuntu-latest).
-    runs-on: ${{ (vars.USE_VPS_RUNNER == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","omni-release"]') || 'ubuntu-latest' }}
+    # Same hosted-runner rule as Build.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
@@ -819,21 +707,7 @@ jobs:
       # PR #7127 — 69 fails triaged: matchMedia polyfill, node:test→vitest migration,
       # CompareTab D22 cap). Promoted to BLOCKING per the plan's post-merge step.
       - run: npm run test:vitest:ui -- --reporter=default --reporter=junit --outputFile.junit=trunk-junit/vitest-ui.xml
-      # Trunk Flaky Tests upload — advisory (never blocks), own-origin only (fork PRs
-      # have no TRUNK_TOKEN). Pinned by SHA (tag v2.1.2).
-      - name: Upload test results to Trunk (advisory)
-        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        continue-on-error: true
-        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
-        with:
-          junit-paths: trunk-junit/**/*.xml
-          org-slug: omniroute
-          token: ${{ secrets.TRUNK_TOKEN }}
 
-  # Node 24/26 compatibility matrices moved to .github/workflows/nightly-compat.yml
-  # (plano mestre testes+CI, Eixo D2 — they cost ~28% of every heavy run to catch a
-  # failure class that rarely originates in a PR; nightly catches it within 24h and
-  # the release gate can still exercise them via workflow_dispatch when needed).
   test-coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -1014,7 +888,7 @@ jobs:
         run: |
           mkdir -p .artifacts
           {
-            echo "<!-- omniroute-coverage-report -->"
+            echo "<!-- astra-aigate-coverage-report -->"
             echo "## CI Coverage Report"
             echo ""
             echo "- Coverage job: \`${COVERAGE_RESULT}\`"
@@ -1029,14 +903,14 @@ jobs:
               echo ""
               echo "## PR Test Policy"
               echo ""
-              echo "This PR changes production code in \`src/\`, \`open-sse/\`, \`electron/\`, or \`bin/\` without accompanying automated tests."
+              echo "This PR changes production code in \`src/\`, \`open-sse/\`, or \`bin/\` without accompanying automated tests."
             fi
           } > .artifacts/pr-coverage-comment.md
       - uses: actions/github-script@v9
         with:
           script: |
             const fs = require("fs");
-            const marker = "<!-- omniroute-coverage-report -->";
+            const marker = "<!-- astra-aigate-coverage-report -->";
             const body = fs.readFileSync(".artifacts/pr-coverage-comment.md", "utf8");
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
@@ -1132,15 +1006,6 @@ jobs:
             echo "[e2e-balance] balancer unavailable — plain --shard fallback"
             npx playwright test tests/e2e/*.spec.ts --shard="$SHARD"/9 --reporter=line,junit
           fi
-      # WS5.2/5.3: Trunk Flaky Tests upload — advisory, own-origin only, SHA-pinned.
-      - name: Upload test results to Trunk (advisory)
-        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        continue-on-error: true
-        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
-        with:
-          junit-paths: junit-e2e-results.xml
-          org-slug: omniroute
-          token: ${{ secrets.TRUNK_TOKEN }}
 
   test-integration:
     name: Integration Tests (${{ matrix.shard }}/2)
@@ -1157,7 +1022,7 @@ jobs:
       JWT_SECRET: ci-test-secret-with-sufficient-length-for-validation
       API_KEY_SECRET: ci-test-api-key-secret-long
       INITIAL_PASSWORD: ci-test-password-for-integration
-      DATA_DIR: /tmp/omniroute-ci-${{ matrix.shard }}
+      DATA_DIR: /tmp/astra-aigate-ci-${{ matrix.shard }}
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
       - uses: actions/checkout@v7
@@ -1208,7 +1073,6 @@ jobs:
       - pr-test-policy
       - build
       - package-artifact
-      - electron-package-smoke
       - test-unit
       - test-coverage
       - sonarqube
@@ -1259,7 +1123,6 @@ jobs:
           echo "|-----|--------|" >> "$GITHUB_STEP_SUMMARY"
           echo "| Build Matrix | $(status '${{ needs.build.result }}') |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Package Artifact | $(status '${{ needs.package-artifact.result }}') |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Electron Package Smoke | $(status '${{ needs.electron-package-smoke.result }}') |" >> "$GITHUB_STEP_SUMMARY"
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## 🧪 Tests" >> "$GITHUB_STEP_SUMMARY"

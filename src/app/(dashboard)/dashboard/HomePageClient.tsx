@@ -17,7 +17,7 @@ import { useNotificationStore } from "@/store/notificationStore";
 import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { copyToClipboard } from "@/shared/utils/clipboard";
 import { getProviderDisplayLabel } from "@/shared/utils/providerDisplayLabel";
-import { useIsElectron, useOpenExternal } from "@/shared/hooks/useElectron";
+import { useOpenExternal } from "@/shared/hooks/useElectron";
 import { HomeProviderTopologySection } from "./HomeProviderTopologySection";
 import { shouldShowProviderTopologyOnHome } from "./homeAppearance";
 
@@ -106,7 +106,6 @@ function mergeUpdateStep(steps: UpdateStep[], nextStep: UpdateStep) {
 
 export default function HomePageClient({ machineId }: HomePageClientProps) {
   const router = useRouter();
-  const isElectron = useIsElectron();
   const { openExternal } = useOpenExternal();
   const t = useTranslations("home");
   const tp = useTranslations("providers");
@@ -129,70 +128,6 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
 
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [updating, setUpdating] = useState(false);
-
-  // Platform detection and download links for Electron
-  const platform =
-    typeof globalThis.window === "undefined" ? undefined : globalThis.window.electronAPI?.platform;
-  const electronDownload = useMemo(() => {
-    const latest = versionInfo?.latest || "";
-    const cleanLatest = latest.replace(/^v/, "");
-    if (platform === "darwin") {
-      return {
-        label: "Download DMG (macOS)",
-        url: `https://github.com/diegosouzapw/OmniRoute/releases/download/v${cleanLatest}/OmniRoute-${cleanLatest}.dmg`,
-        desc: `A new version of the OmniRoute desktop app is available. Please download and install the macOS DMG installer to update (current: v${versionInfo?.current || ""}).`,
-      };
-    }
-    if (platform === "win32") {
-      return {
-        label: "Download EXE (Windows)",
-        url: `https://github.com/diegosouzapw/OmniRoute/releases/download/v${cleanLatest}/OmniRoute.Setup.${cleanLatest}.exe`,
-        desc: `A new version of the OmniRoute desktop app is available. Please download and install the Windows EXE installer to update (current: v${versionInfo?.current || ""}).`,
-      };
-    }
-    if (platform === "linux") {
-      return {
-        label: "Download AppImage (Linux)",
-        url: `https://github.com/diegosouzapw/OmniRoute/releases/download/v${cleanLatest}/OmniRoute-${cleanLatest}.AppImage`,
-        desc: `A new version of the OmniRoute desktop app is available. Please download the Linux AppImage package to update (current: v${versionInfo?.current || ""}).`,
-      };
-    }
-    return {
-      label: "Download Update",
-      url: `https://github.com/diegosouzapw/OmniRoute/releases/tag/v${cleanLatest}`,
-      desc: `A new version of the OmniRoute desktop app is available. Please download the respective app format for your system to update (current: v${versionInfo?.current || ""}).`,
-    };
-  }, [platform, versionInfo?.latest, versionInfo?.current]);
-
-  // Electron internal auto-updater state and listeners
-  const [electronUpdateStatus, setElectronUpdateStatus] = useState<{
-    status:
-      "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
-    version?: string;
-    percent?: number;
-    message?: string;
-  }>({ status: "idle" });
-
-  useEffect(() => {
-    if (!isElectron || typeof globalThis.window === "undefined" || !globalThis.window.electronAPI)
-      return;
-
-    // Trigger initial check silently on mount
-    globalThis.window.electronAPI.checkForUpdates().catch((err: any) => {
-      console.error("[Electron] Check for updates failed:", err);
-    });
-
-    const dispose = globalThis.window.electronAPI.onUpdateStatus((data: any) => {
-      setElectronUpdateStatus({
-        status: data.status,
-        version: data.version,
-        percent: data.percent,
-        message: data.message,
-      });
-    });
-
-    return dispose;
-  }, [isElectron]);
 
   const [updateSteps, setUpdateSteps] = useState<UpdateStep[]>([]);
   const [updatePhase, setUpdatePhase] = useState<"idle" | "running" | "done" | "failed">("idle");
@@ -905,167 +840,60 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
             <div className="flex min-h-[48px] items-center justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 <span className="material-symbols-outlined shrink-0 text-[24px]">
-                  {isElectron && electronUpdateStatus.status === "downloading"
-                    ? "downloading"
-                    : "system_update_alt"}
+                  system_update_alt
                 </span>
                 <div>
-                  <p className="font-semibold text-sm">
-                    Update Available: v{versionInfo.latest} {isElectron && "(Desktop App)"}
-                  </p>
+                  <p className="font-semibold text-sm">Update Available: v{versionInfo.latest}</p>
                   <p className="text-xs opacity-80 mt-0.5">
-                    {isElectron ? (
-                      <>
-                        {electronUpdateStatus.status === "checking" && "Checking for updates..."}
-                        {electronUpdateStatus.status === "available" &&
-                          `Version v${versionInfo.latest} is available for download.`}
-                        {electronUpdateStatus.status === "downloading" &&
-                          `Downloading update... ${electronUpdateStatus.percent || 0}% complete.`}
-                        {electronUpdateStatus.status === "downloaded" &&
-                          "Update downloaded successfully! Click Restart & Install to apply."}
-                        {electronUpdateStatus.status === "error" &&
-                          `Auto-update failed: ${electronUpdateStatus.message || "Unknown error"}.`}
-                        {(electronUpdateStatus.status === "idle" ||
-                          electronUpdateStatus.status === "not-available") &&
-                          `Version v${versionInfo.latest} is available for the desktop app.`}
-                      </>
-                    ) : versionInfo.autoUpdateSupported ? (
-                      t("updateAvailableDesc") ||
-                      `You are currently using v${versionInfo.current}. Update to access the latest features and bug fixes.`
-                    ) : (
-                      versionInfo.autoUpdateError ||
-                      "Manual update required for this installation type."
-                    )}
+                    {versionInfo.autoUpdateSupported
+                      ? t("updateAvailableDesc") ||
+                        `You are currently using v${versionInfo.current}. Update to access the latest features and bug fixes.`
+                      : versionInfo.autoUpdateError ||
+                        "Manual update required for this installation type."}
                   </p>
                 </div>
               </div>
-
-              {isElectron ? (
-                <div className="flex gap-2 shrink-0 ml-4">
-                  {electronUpdateStatus.status === "available" && (
-                    <Button
-                      size="sm"
-                      onClick={() => globalThis.window.electronAPI?.downloadUpdate()}
-                      className="font-semibold"
-                    >
-                      Download Update
-                    </Button>
-                  )}
-                  {electronUpdateStatus.status === "downloading" && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/20">
-                      <span className="material-symbols-outlined text-primary text-[16px] animate-spin">
-                        progress_activity
-                      </span>
-                      <span className="text-xs font-semibold">
-                        {electronUpdateStatus.percent || 0}%
-                      </span>
-                    </div>
-                  )}
-                  {electronUpdateStatus.status === "downloaded" && (
-                    <Button
-                      size="sm"
-                      onClick={() => globalThis.window.electronAPI?.installUpdate()}
-                      className="font-semibold animate-pulse"
-                    >
-                      Restart & Install
-                    </Button>
-                  )}
-                  {(electronUpdateStatus.status === "error" ||
-                    electronUpdateStatus.status === "idle" ||
-                    electronUpdateStatus.status === "not-available") && (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setElectronUpdateStatus({ status: "checking" });
-                        globalThis.window.electronAPI?.checkForUpdates().catch((err: any) => {
-                          setElectronUpdateStatus({ status: "error", message: err.message });
-                        });
-                      }}
-                      className="font-semibold"
-                    >
-                      Check for Update
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={versionInfo.autoUpdateSupported ? handleUpdate : undefined}
-                  disabled={updating || !versionInfo.autoUpdateSupported}
-                  className="ml-4 shrink-0 font-semibold"
-                  title={versionInfo.autoUpdateError || ""}
-                >
-                  {versionInfo.autoUpdateSupported
-                    ? t("updateNow") || "Update Now"
-                    : "Manual Update"}
-                </Button>
-              )}
+              <Button
+                size="sm"
+                onClick={versionInfo.autoUpdateSupported ? handleUpdate : undefined}
+                disabled={updating || !versionInfo.autoUpdateSupported}
+                className="ml-4 shrink-0 font-semibold"
+                title={versionInfo.autoUpdateError || "Update"}
+              >
+                {updating ? "Updating..." : "Update Now"}
+              </Button>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Direct download fallback links shown if in Electron and auto-updater has failed, is idle, or has completed check */}
-            {isElectron &&
-              (electronUpdateStatus.status === "error" ||
-                electronUpdateStatus.status === "idle" ||
-                electronUpdateStatus.status === "available" ||
-                electronUpdateStatus.status === "not-available") && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-primary/20 mt-2 pt-3 gap-2">
-                  <p className="text-xs opacity-75">
-                    Or download the respective installer format directly:
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() =>
-                        openExternal(
-                          `https://github.com/diegosouzapw/OmniRoute/releases/tag/v${versionInfo.latest}`
-                        )
-                      }
-                      className="font-semibold text-xs py-1"
-                    >
-                      Release Notes
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => openExternal(electronDownload.url)}
-                      className="font-semibold text-xs py-1"
-                    >
-                      {electronDownload.label}
-                    </Button>
-                  </div>
-                </div>
-              )}
+      {/* News Notification Banner */}
+      {versionInfo?.news && (
+        <div className="flex min-h-[64px] items-center justify-between rounded-lg border border-border bg-surface px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bg text-text-muted">
+              <span className="material-symbols-outlined text-[22px] text-primary">
+                {versionInfo.news.icon || "campaign"}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-text-main">{versionInfo.news.title}</p>
+              <p className="mt-0.5 max-w-[560px] text-xs leading-relaxed text-text-muted">
+                {versionInfo.news.message}
+              </p>
+            </div>
           </div>
 
-          {/* News Notification Banner */}
-          {versionInfo?.news && (
-            <div className="flex min-h-[64px] items-center justify-between rounded-lg border border-border bg-surface px-5 py-4">
-              <div className="flex min-w-0 items-center gap-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bg text-text-muted">
-                  <span className="material-symbols-outlined text-[22px] text-primary">
-                    {versionInfo.news.icon || "campaign"}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-text-main">{versionInfo.news.title}</p>
-                  <p className="mt-0.5 max-w-[560px] text-xs leading-relaxed text-text-muted">
-                    {versionInfo.news.message}
-                  </p>
-                </div>
-              </div>
-
-              {versionInfo.news.link && (
-                <a
-                  href={versionInfo.news.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-bg px-4 py-2 text-xs font-semibold text-text-main transition-colors hover:border-primary/30 hover:text-primary"
-                >
-                  {versionInfo.news.linkLabel || "Ler Mais"}
-                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                </a>
-              )}
-            </div>
+          {versionInfo.news.link && (
+            <a
+              href={versionInfo.news.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-bg px-4 py-2 text-xs font-semibold text-text-main transition-colors hover:border-primary/30 hover:text-primary"
+            >
+              {versionInfo.news.linkLabel || "Ler Mais"}
+              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            </a>
           )}
         </div>
       )}

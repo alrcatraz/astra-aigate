@@ -53,7 +53,6 @@ type SidebarProps = {
   onClose?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  isMacElectron?: boolean;
 };
 
 type HoveredItem = { id: string; label: string; x: number; y: number } | null;
@@ -88,12 +87,7 @@ function loadRecordFromStorage(key: string): Record<string, boolean> {
   return {};
 }
 
-export default function Sidebar({
-  onClose,
-  collapsed = false,
-  onToggleCollapse,
-  isMacElectron = false,
-}: SidebarProps) {
+export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const getIconStyle = (itemId: string): SidebarGlyphStyle => {
     const accent = getSidebarIconAccent(itemId);
     return {
@@ -473,7 +467,6 @@ export default function Sidebar({
           "flex h-full min-h-0 flex-col border-r border-black/5 bg-sidebar transition-all duration-300 ease-in-out dark:border-white/5",
           collapsed ? "w-16" : "w-[220px]"
         )}
-        style={{ paddingTop: isMacElectron ? "var(--desktop-safe-top)" : undefined }}
       >
         <a
           href="#main-content"
