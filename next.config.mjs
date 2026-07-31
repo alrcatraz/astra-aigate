@@ -68,12 +68,12 @@ function isNextIntlExtractorDynamicImportWarning(warning) {
   );
 }
 
-// OMNIROUTE_BUILD_PROFILE=minimal physically removes four optional privileged
+// AIGATE_BUILD_PROFILE=minimal physically removes four optional privileged
 // modules (MITM cert install, Zed keychain import, Cloud Sync, 9router
 // installer) from the built bundle by aliasing them to feature-disabled stubs.
-// The resulting artifact is intended to be published as `omniroute-secure`
+// The resulting artifact is intended to be published as `astra-aigate-secure`
 // for security-sensitive environments. See docs/security/SOCKET_DEV_FINDINGS.md.
-const isMinimalBuild = process.env.OMNIROUTE_BUILD_PROFILE === "minimal";
+const isMinimalBuild = process.env.AIGATE_BUILD_PROFILE === "minimal";
 
 const minimalBuildAliases = isMinimalBuild
   ? {
@@ -97,18 +97,18 @@ function readTimeoutMs(...values) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Opt-in subpath deployment behind a reverse proxy (e.g. nginx/Caddy serving
-  // OmniRoute under https://host/omniroute/). Empty by default so root-path
+  // astra-aigate under https://host/astra-aigate/). Empty by default so root-path
   // deployments are unaffected. Next.js strips this prefix from `pathname`
   // before route matching, so authz classification (classifyRoute/isLocalOnlyPath)
   // keeps operating on un-prefixed paths — see src/server/authz/pipeline.ts for
   // the two redirect call sites that re-add it via `request.nextUrl.basePath`.
-  basePath: normalizeBasePath(process.env.OMNIROUTE_BASE_PATH),
+  basePath: normalizeBasePath(process.env.AIGATE_BASE_PATH),
   // Client-visible mirror of basePath for fetch/EventSource rewriting under reverse
   // proxies (installBasePathFetch), and for client display helpers (useDisplayBaseUrl)
   // that append the subpath to window.location.origin when building curl/endpoint
   // examples. Empty by default (root deploys unchanged).
   env: {
-    NEXT_PUBLIC_OMNIROUTE_BASE_PATH: normalizeBasePath(process.env.OMNIROUTE_BASE_PATH),
+    NEXT_PUBLIC_AIGATE_BASE_PATH: normalizeBasePath(process.env.AIGATE_BASE_PATH),
   },
   distDir,
   // Turbopack config: redirect native modules to stubs at build time
@@ -116,7 +116,7 @@ const nextConfig = {
     root: projectRoot,
     resolveAlias: {
       // @/mitm/manager → stub ONLY where the runtime can't run the MITM stack
-      // (Docker sets OMNIROUTE_MITM_STUB=1 — #3390 graceful degradation). The
+      // (Docker sets AIGATE_MITM_STUB=1 — #3390 graceful degradation). The
       // alias used to be unconditional, which was fine while Docker was the
       // only Turbopack consumer — but the v3.8.45 bundler-default flip shipped
       // the stub to every npm/Electron/VPS artifact and broke Agent Bridge
@@ -171,7 +171,7 @@ const nextConfig = {
   // more.
   experimental: {
     serverActions: {
-      bodySizeLimit: process.env.OMNIROUTE_SERVER_ACTIONS_BODY_LIMIT || "50mb",
+      bodySizeLimit: process.env.AIGATE_SERVER_ACTIONS_BODY_LIMIT || "50mb",
     },
     // Next.js proxy (middleware) has a default 10MB body clone limit. File
     // uploads (OpenAI-compatible /v1/files) routinely exceed this. Match the
@@ -186,7 +186,7 @@ const nextConfig = {
     // or the full date-fns surface when only one helper is used.
     //
     // NOTE: this list must only contain EXTERNAL barrel libraries. Do NOT add
-    // the internal `@omniroute/open-sse` workspace here: optimizePackageImports
+    // the internal `@astra-aigate/open-sse` workspace here: optimizePackageImports
     // makes Next.js resolve every export of the package's barrel at build time,
     // and open-sse's `index.ts` re-exports the entire streaming engine
     // (executors/translators/services/handlers/mcp-server — thousands of
@@ -285,7 +285,7 @@ const nextConfig = {
     "util",
     "process",
   ],
-  transpilePackages: ["@omniroute/open-sse", "@lobehub/icons", "fumadocs-ui", "fumadocs-core"],
+  transpilePackages: ["@astra-aigate/open-sse", "@lobehub/icons", "fumadocs-ui", "fumadocs-core"],
   allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.0.250"],
   typescript: {
     // TODO: Re-enable after fixing all sub-component useTranslations scope issues

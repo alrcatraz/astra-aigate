@@ -3,14 +3,20 @@
 import { cn } from "@/shared/utils/cn";
 
 const variants = {
-  primary: "bg-[image:var(--grad-brand)] text-white shadow-sm hover:brightness-105",
-  accent: "bg-accent text-white shadow-sm hover:bg-accent-hover",
+  primary:
+    "bg-black text-white shadow-sm hover:bg-[#333333] disabled:bg-silver/25 disabled:text-silver disabled:shadow-none",
+  accent:
+    "bg-link-cobalt text-white shadow-sm hover:bg-[#0b5fad] disabled:bg-silver/25 disabled:text-silver disabled:shadow-none",
   secondary:
-    "bg-white dark:bg-white/10 border border-black/10 dark:border-white/10 text-text-main hover:bg-black/5 dark:hover:bg-white/5",
-  outline: "border border-black/15 dark:border-white/15 text-text-main hover:bg-black/5",
-  ghost: "text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main",
-  warning: "bg-amber-500 text-white hover:bg-amber-600 shadow-sm",
-  danger: "bg-red-500 text-white hover:bg-red-600 shadow-sm",
+    "bg-white dark:bg-white/10 border border-black/20 dark:border-white/20 text-text-main hover:bg-black/5 dark:hover:bg-white/5 disabled:text-silver disabled:border-silver/25",
+  outline:
+    "border border-black/25 dark:border-white/25 text-text-main hover:bg-black/5 disabled:text-silver disabled:border-silver/25",
+  ghost:
+    "text-text-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-text-main disabled:text-silver",
+  warning:
+    "bg-amber-500 text-white hover:bg-amber-600 shadow-sm disabled:bg-silver/25 disabled:text-silver disabled:shadow-none",
+  danger:
+    "bg-red-500 text-white hover:bg-red-600 shadow-sm disabled:bg-silver/25 disabled:text-silver disabled:shadow-none",
 };
 
 export type ButtonVariant = keyof typeof variants;
@@ -49,7 +55,7 @@ export default function Button({
       type="button"
       className={cn(
         "inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 cursor-pointer",
-        "active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+        "active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed disabled:active:scale-100",
         variants[variant],
         sizes[size],
         fullWidth && "w-full",

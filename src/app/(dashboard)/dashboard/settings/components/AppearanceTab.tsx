@@ -14,6 +14,7 @@ import {
 } from "@/shared/constants/comboConfigMode";
 import { PIN_PROVIDER_QUOTA_TO_HOME_KEY } from "@/shared/constants/homeWidgets";
 import AccountEmailVisibilitySetting from "./AccountEmailVisibilitySetting";
+import LanguageSelector from "@/shared/components/LanguageSelector";
 
 export default function AppearanceTab() {
   const { theme, setTheme, isDark } = useTheme();
@@ -184,6 +185,22 @@ export default function AppearanceTab() {
                 <span>{themeOptionLabels[option] || option}</span>
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-border">
+          <div className="mb-3">
+            <p className="font-medium">{t("language")}</p>
+            <p className="text-sm text-text-muted">{t("languageDesc")}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-surface/40">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <p className="font-medium">{t("uiLanguage")}</p>
+                <p className="text-sm text-text-muted">{t("uiLanguageDesc")}</p>
+              </div>
+              <LanguageSelector />
+            </div>
           </div>
         </div>
 
@@ -546,9 +563,9 @@ export default function AppearanceTab() {
               </div>
               <input
                 type="text"
-                value={settings.instanceName || "OmniRoute"}
+                value={settings.instanceName || "Astra AI Gate"}
                 onChange={(e) => updateSetting("instanceName", e.target.value)}
-                placeholder="OmniRoute"
+                placeholder="Astra AI Gate"
                 maxLength={100}
                 className="h-10 px-3 rounded-lg bg-surface border border-border text-sm text-text-main focus:outline-none focus:border-primary w-48"
               />

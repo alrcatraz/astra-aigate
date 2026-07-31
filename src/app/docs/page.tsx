@@ -3,11 +3,11 @@ import { Metadata } from "next";
 import { source } from "@/lib/source";
 
 export const metadata: Metadata = {
-  title: "OmniRoute Documentation",
+  title: "Astra AI Gate Documentation",
   description:
     "Everything you need to route, compress, and scale your AI — setup guides, API reference, compression, deployment, and more.",
   openGraph: {
-    title: "OmniRoute Documentation",
+    title: "Astra AI Gate Documentation",
     description:
       "Comprehensive docs for OmniRoute AI gateway — setup, API, compression, deployment, and more.",
     type: "website",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "OmniRoute Documentation",
+    title: "Astra AI Gate Documentation",
     description: "Comprehensive docs for OmniRoute AI gateway",
   },
 };
@@ -54,7 +54,15 @@ const sections = [
     subtitle: "Deep dive into architecture, APIs, and internals",
     icon: "code",
     color: "blue",
-    folders: ["architecture", "reference", "frameworks", "routing", "security", "compression", "ops"],
+    folders: [
+      "architecture",
+      "reference",
+      "frameworks",
+      "routing",
+      "security",
+      "compression",
+      "ops",
+    ],
   },
 ];
 

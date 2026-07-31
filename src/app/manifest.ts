@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "OmniRoute AI Gateway",
-    short_name: "OmniRoute",
+    short_name: "Astra AI Gate",
     description:
       "OmniRoute is an AI gateway for multi-provider LLMs. One endpoint for all your AI providers.",
     start_url: "/dashboard",

@@ -53,7 +53,7 @@ export default function Card({
               </div>
             )}
             <div>
-              {title && <h3 className="text-text-main font-semibold">{title}</h3>}
+              {title && <h3 className="text-xl text-text-main font-semibold">{title}</h3>}
               {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}
             </div>
           </div>

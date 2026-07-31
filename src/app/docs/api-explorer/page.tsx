@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { ApiExplorerClient } from "../components/ApiExplorerClient";
 
 export const metadata: Metadata = {
-  title: "API Explorer — OmniRoute Docs",
+  title: "API Explorer — Astra AI Gate Docs",
   description: "Interactive API explorer — try OmniRoute endpoints live with real-time responses",
 };
 

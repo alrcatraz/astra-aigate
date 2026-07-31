@@ -58,9 +58,9 @@ function ProviderNode({ data }: { data: ProviderNodeData }) {
 
   return (
     <div
-      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border-2 transition-all duration-300 bg-bg"
+      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border-2 transition-all duration-300 bg-white"
       style={{
-        borderColor: error ? RED : active ? color : healthy ? GREEN : "var(--color-border)",
+        borderColor: error ? RED : active ? color : healthy ? GREEN : "#e0e1e6",
         boxShadow: error
           ? `0 0 12px ${RED}30`
           : active
@@ -106,7 +106,7 @@ function ProviderNode({ data }: { data: ProviderNodeData }) {
       <span
         className="text-xs font-medium truncate flex-1"
         style={{
-          color: active ? color : error ? RED : healthy ? GREEN : "var(--color-text-main)",
+          color: active ? color : error ? RED : healthy ? GREEN : "#000000",
         }}
       >
         {label}
@@ -216,9 +216,7 @@ function buildLayout(
       return 4;
     };
     const d = rank(a) - rank(b);
-    return d !== 0
-      ? d
-      : a.provider.toLowerCase().localeCompare(b.provider.toLowerCase()); // ASCII kasıtlı
+    return d !== 0 ? d : a.provider.toLowerCase().localeCompare(b.provider.toLowerCase()); // ASCII kasıtlı
   });
 
   let provIdx = 0;

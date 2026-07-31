@@ -18,74 +18,117 @@ const HOME_ITEMS: readonly SidebarItemDefinition[] = [
   },
 ];
 
-const OMNI_PROXY_ITEMS: readonly SidebarItemDefinition[] = [
-  {
-    id: "endpoints",
-    href: "/dashboard/endpoint",
-    i18nKey: "endpoints",
-    subtitleKey: "endpointsSubtitle",
-    icon: "api",
-  },
-  {
-    id: "api-manager",
-    href: "/dashboard/api-manager",
-    i18nKey: "apiManager",
-    subtitleKey: "apiManagerSubtitle",
-    icon: "vpn_key",
-  },
-  {
-    id: "providers",
-    href: "/dashboard/providers",
-    i18nKey: "providers",
-    subtitleKey: "providersSubtitle",
-    icon: "dns",
-  },
-  {
-    id: "embedded-services",
-    href: "/dashboard/providers/services",
-    i18nKey: "embeddedServices",
-    subtitleKey: "embeddedServicesSubtitle",
-    icon: "deployed_code",
-  },
-  {
-    id: "combos",
-    href: "/dashboard/combos",
-    i18nKey: "combos",
-    subtitleKey: "combosSubtitle",
-    icon: "layers",
-  },
-  {
-    id: "combos-live",
-    href: "/dashboard/combos/live",
-    i18nKey: "combosLive",
-    labelFallback: "Combo Studio",
-    subtitleKey: "combosLiveSubtitle",
-    subtitleFallback: "Live routing cascade",
-    icon: "account_tree",
-  },
-  {
-    id: "quota",
-    href: "/dashboard/quota",
-    i18nKey: "providerQuota",
-    subtitleKey: "providerQuotaSubtitle",
-    icon: "tune",
-  },
-  {
-    id: "costs-quota-share",
-    href: "/dashboard/costs/quota-share",
-    i18nKey: "costsQuotaShare",
-    subtitleKey: "costsQuotaShareSubtitle",
-    icon: "pie_chart",
-  },
-];
+const ROUTING_GROUP: SidebarItemGroup = {
+  type: "group",
+  id: "routing",
+  titleKey: "routingGroup",
+  titleFallback: "Routing & Access",
+  items: [
+    {
+      id: "endpoints",
+      href: "/dashboard/endpoint",
+      i18nKey: "endpoints",
+      subtitleKey: "endpointsSubtitle",
+      icon: "api",
+    },
+    {
+      id: "api-manager",
+      href: "/dashboard/api-manager",
+      i18nKey: "apiManager",
+      subtitleKey: "apiManagerSubtitle",
+      icon: "vpn_key",
+    },
+    {
+      id: "providers",
+      href: "/dashboard/providers",
+      i18nKey: "providers",
+      subtitleKey: "providersSubtitle",
+      icon: "dns",
+    },
+    {
+      id: "embedded-services",
+      href: "/dashboard/providers/services",
+      i18nKey: "embeddedServices",
+      subtitleKey: "embeddedServicesSubtitle",
+      icon: "deployed_code",
+    },
+    {
+      id: "quota",
+      href: "/dashboard/quota",
+      i18nKey: "providerQuota",
+      subtitleKey: "providerQuotaSubtitle",
+      icon: "tune",
+    },
+    {
+      id: "costs-quota-share",
+      href: "/dashboard/costs/quota-share",
+      i18nKey: "costsQuotaShare",
+      subtitleKey: "costsQuotaShareSubtitle",
+      icon: "pie_chart",
+    },
+  ],
+};
+
+const COMBOS_GROUP: SidebarItemGroup = {
+  type: "group",
+  id: "combos",
+  titleKey: "combosGroup",
+  titleFallback: "Combos",
+  items: [
+    {
+      id: "combos",
+      href: "/dashboard/combos",
+      i18nKey: "combos",
+      subtitleKey: "combosSubtitle",
+      icon: "layers",
+    },
+    {
+      id: "combos-live",
+      href: "/dashboard/combos/live",
+      i18nKey: "combosLive",
+      labelFallback: "Combo Studio",
+      subtitleKey: "combosLiveSubtitle",
+      subtitleFallback: "Live routing cascade",
+      icon: "account_tree",
+    },
+    {
+      id: "combos-playground",
+      href: "/dashboard/combos/playground",
+      i18nKey: "combosPlayground",
+      labelFallback: "Combo Playground",
+      subtitleKey: "combosPlaygroundSubtitle",
+      subtitleFallback: "Test combo cascades",
+      icon: "science",
+    },
+  ],
+};
 
 export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
   type: "group",
   id: "compression-context",
   titleKey: "compressionContextGroup",
   titleFallback: "Compression Context",
-  // Order: Settings (the unified panel) → Combos → per-engine pages → Studio (analytics).
+  // Order: Overview → Settings → Combos → per-engine pages → Studio → Live.
   items: [
+    {
+      id: "context",
+      href: "/dashboard/context",
+      i18nKey: "context",
+      labelFallback: "Context",
+      subtitleKey: "contextSubtitle",
+      subtitleFallback: "Compression overview",
+      icon: "compress",
+      exact: true,
+    },
+    {
+      id: "compression-live",
+      href: "/dashboard/compression/live",
+      i18nKey: "compressionLive",
+      labelFallback: "Live Compression",
+      subtitleKey: "compressionLiveSubtitle",
+      subtitleFallback: "Real-time compression monitor",
+      icon: "monitor_heart",
+    },
     {
       id: "context-settings",
       href: "/dashboard/context/settings",
@@ -424,6 +467,15 @@ const SYSTEM_GROUP: SidebarItemGroup = {
       subtitleKey: "runtimeSubtitle",
       icon: "bolt",
     },
+    {
+      id: "system-mitm-proxy",
+      href: "/dashboard/system/mitm-proxy",
+      i18nKey: "systemMitmProxy",
+      labelFallback: "MITM Proxy",
+      subtitleKey: "systemMitmProxySubtitle",
+      subtitleFallback: "Man-in-the-middle proxy",
+      icon: "encrypted",
+    },
   ],
 };
 
@@ -556,7 +608,7 @@ const AGENTIC_FEATURES_ITEMS: readonly SidebarSectionChild[] = [
     href: "/dashboard/omni-skills",
     i18nKey: "omniSkills",
     subtitleKey: "omniSkillsSubtitle",
-    icon: "auto_fix_high",
+    icon: "auto_fix_normal",
   },
   MCP_ITEM,
   {
@@ -586,7 +638,7 @@ const GAMIFICATION_GROUP: SidebarItemGroup = {
       href: "/dashboard/leaderboard",
       i18nKey: "leaderboard",
       subtitleKey: "leaderboardSubtitle",
-      icon: "emoji_events",
+      icon: "trophy",
     },
     {
       id: "profile",
@@ -602,6 +654,15 @@ const GAMIFICATION_GROUP: SidebarItemGroup = {
       subtitleKey: "tokensSubtitle",
       icon: "toll",
     },
+    {
+      id: "gamification-admin",
+      href: "/dashboard/gamification/admin",
+      i18nKey: "gamificationAdmin",
+      labelFallback: "Admin Panel",
+      subtitleKey: "gamificationAdminSubtitle",
+      subtitleFallback: "Gamification administration",
+      icon: "admin_panel_settings",
+    },
   ],
 };
 
@@ -611,6 +672,24 @@ const OTHER_FEATURES_ITEMS: readonly SidebarItemDefinition[] = [
     href: "/dashboard/cache/media",
     i18nKey: "media",
     subtitleKey: "mediaSubtitle",
+    icon: "perm_media",
+  },
+  {
+    id: "relay",
+    href: "/dashboard/relay",
+    i18nKey: "relay",
+    labelFallback: "Relay",
+    subtitleKey: "relaySubtitle",
+    subtitleFallback: "Relay deployments",
+    icon: "lan",
+  },
+  {
+    id: "media-providers",
+    href: "/dashboard/media-providers",
+    i18nKey: "mediaProviders",
+    labelFallback: "Media Providers",
+    subtitleKey: "mediaProvidersSubtitle",
+    subtitleFallback: "Image/audio/video providers",
     icon: "perm_media",
   },
 ];
@@ -758,9 +837,10 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
   {
     id: "omni-proxy",
     titleKey: "omniProxySection",
-    titleFallback: "OmniProxy",
+    titleFallback: "OmniRoute",
     children: [
-      ...OMNI_PROXY_ITEMS,
+      ROUTING_GROUP,
+      COMBOS_GROUP,
       COMPRESSION_CONTEXT_GROUP,
       TOOLS_GROUP,
       INTEGRATIONS_GROUP,

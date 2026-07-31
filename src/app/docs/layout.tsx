@@ -21,7 +21,7 @@ export const metadata = {
 
 const docsLayoutOptions: BaseLayoutProps = {
   nav: {
-    title: "OmniRoute Docs",
+    title: "Astra AI Gate Docs",
     url: "/docs",
     children: (
       <Suspense fallback={<div className="w-24 h-8" />}>

@@ -8,8 +8,13 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "embedded-services",
   "combos",
   "combos-live",
+  "auto-combo",
+  "combos-playground",
   "quota",
   // OmniProxy > Compression Context (Settings → Combos → engines → Studio)
+  "context",
+  "compression",
+  "compression-live",
   "context-settings",
   "context-combos",
   "context-caveman",
@@ -47,6 +52,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "analytics-compression",
   "analytics-search",
   "analytics-evals",
+  "analytics-limits",
   "provider-stats",
   // Monitoring — flat
   "activity",
@@ -57,6 +63,8 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "logs-activity",
   "health",
   "runtime",
+  "system-1proxy",
+  "system-mitm-proxy",
   // Costs section
   "costs-pricing",
   "costs-budget",
@@ -83,8 +91,11 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "leaderboard",
   "profile",
   "tokens",
+  "gamification-admin",
   // Other Features — flat
   "media",
+  "relay",
+  "media-providers",
   // Other Features > Batch
   "batch",
   "batch-files",
@@ -100,6 +111,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "settings-feature-flags",
   "settings-cache",
   "settings-sidebar",
+  "settings-pricing",
   // Help
   "docs",
   "issues",

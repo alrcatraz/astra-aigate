@@ -42,6 +42,7 @@ const isE2EMode = process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE === "1";
 const DEFAULT_EXPANDED: SidebarSectionId = "omni-proxy";
 const EXPANDED_SECTIONS_KEY = "sidebar-expanded-sections";
 const PINNED_SECTIONS_KEY = "sidebar-pinned-sections";
+const SUBGROUP_COLLAPSE_KEY = "sidebar-collapsed-subgroups";
 
 type SidebarGlyphStyle = CSSProperties & {
   "--sidebar-icon-accent": string;
@@ -72,6 +73,19 @@ function saveToStorage(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
+}
+
+function loadRecordFromStorage(key: string): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, boolean>;
+      }
+    }
+  } catch {}
+  return {};
 }
 
 export default function Sidebar({
@@ -107,6 +121,16 @@ export default function Sidebar({
     new Set([DEFAULT_EXPANDED])
   );
   const [pinnedSections, setPinnedSections] = useState<Set<SidebarSectionId>>(new Set());
+  const [collapsedSubGroups, setCollapsedSubGroups] = useState<Record<string, boolean>>(() =>
+    loadRecordFromStorage(SUBGROUP_COLLAPSE_KEY)
+  );
+  const toggleSubGroup = (id: string) => {
+    setCollapsedSubGroups((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      saveToStorage(SUBGROUP_COLLAPSE_KEY, next);
+      return next;
+    });
+  };
   const [sidebarExpansionLoaded, setSidebarExpansionLoaded] = useState(false);
   const skipInitialActiveExpansion = useRef(false);
   const [hoveredItem, setHoveredItem] = useState<HoveredItem>(null);
@@ -632,17 +656,39 @@ export default function Sidebar({
                       if (child.type === "group") {
                         if (child.items.length === 0) return null;
                         const separatorHidden = child.separatorHidden === true;
+                        const subGroupCollapsed =
+                          !isSearching && collapsedSubGroups[child.id] === true;
                         return (
                           <div key={child.id} className={separatorHidden ? "mt-0.5" : "mt-2"}>
-                            {!separatorHidden && (
-                              <div className="flex items-center gap-1.5 px-2 py-0.5 mb-0.5">
-                                <div className="h-px flex-1 bg-black/8 dark:bg-white/8" />
-                                <span className="text-[8px] font-semibold text-text-muted/40 uppercase tracking-widest">
-                                  {child.title}
-                                </span>
-                              </div>
-                            )}
-                            {child.items.map(renderNavLink)}
+                            <button
+                              type="button"
+                              onClick={() => toggleSubGroup(child.id)}
+                              aria-expanded={!subGroupCollapsed}
+                              className={cn(
+                                "flex w-full items-center gap-1.5 rounded-md px-2 py-1 mb-0.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5",
+                                !separatorHidden && "border-t border-black/8 dark:border-white/8"
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "flex-1 truncate font-semibold text-text-muted/40 uppercase tracking-widest",
+                                  separatorHidden
+                                    ? "text-[11px] normal-case tracking-normal text-text-muted/60"
+                                    : "text-[8px]"
+                                )}
+                              >
+                                {child.title}
+                              </span>
+                              <span
+                                className={cn(
+                                  "material-symbols-outlined text-[14px] text-text-muted/40 transition-all duration-200",
+                                  !subGroupCollapsed && "rotate-180"
+                                )}
+                              >
+                                expand_more
+                              </span>
+                            </button>
+                            {!subGroupCollapsed && child.items.map(renderNavLink)}
                           </div>
                         );
                       }

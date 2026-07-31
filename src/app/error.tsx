@@ -22,17 +22,13 @@ export default function Error({ error, reset }: ErrorProps) {
       <div className="text-[64px] mb-4" aria-hidden="true">
         🔧
       </div>
-      <h1 className="text-[28px] font-bold mb-2 text-[var(--color-text-main)]">
-        Internal Server Error
-      </h1>
-      <p className="text-[15px] text-[var(--color-text-muted)] max-w-[400px] leading-relaxed mb-2">
+      <h1 className="text-[28px] font-bold mb-2 text-[#000000]">Internal Server Error</h1>
+      <p className="text-[15px] text-[#60646c] max-w-[400px] leading-relaxed mb-2">
         Something went wrong while processing your request. Our team has been notified and is
         working on a fix.
       </p>
       {error?.digest && (
-        <p className="text-xs text-[var(--color-text-muted)] mb-6 font-mono">
-          Error ID: {error.digest}
-        </p>
+        <p className="text-xs text-[#60646c] mb-6 font-mono">Error ID: {error.digest}</p>
       )}
       {process.env.NODE_ENV === "development" && error?.message && (
         <pre
@@ -46,20 +42,20 @@ export default function Error({ error, reset }: ErrorProps) {
         <button
           onClick={reset}
           aria-label="Retry loading the page"
-          className="px-6 py-2.5 rounded-lg text-white text-sm font-semibold cursor-pointer transition-all duration-200 motion-reduce:transition-none bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-accent)]"
+          className="px-6 py-2.5 rounded-full text-white text-sm font-semibold cursor-pointer transition-all duration-200 bg-[#000000] hover:bg-[#333333] focus:outline-2 focus:outline-offset-2 focus:outline-[#000000]"
         >
           Try Again
         </button>
         <a
           href="/dashboard"
-          className="px-6 py-2.5 rounded-lg text-[var(--color-text-main)] text-sm font-semibold cursor-pointer transition-all duration-200 motion-reduce:transition-none border border-[var(--color-border)] hover:bg-[var(--color-bg-alt)] no-underline focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-accent)]"
+          className="px-6 py-2.5 rounded-full text-[#000000] text-sm font-semibold cursor-pointer transition-all duration-200 border border-[#e0e1e6] hover:bg-gray-50 no-underline focus:outline-2 focus:outline-offset-2 focus:outline-[#000000]"
           aria-label="Return to dashboard"
         >
           Go to Dashboard
         </a>
         <a
           href="/status"
-          className="px-6 py-2.5 rounded-lg text-[var(--color-text-main)] text-sm font-semibold cursor-pointer transition-all duration-200 motion-reduce:transition-none border border-[var(--color-border)] hover:bg-[var(--color-bg-alt)] no-underline focus:outline-2 focus:outline-offset-2 focus:outline-[var(--color-accent)]"
+          className="px-6 py-2.5 rounded-full text-[#000000] text-sm font-semibold cursor-pointer transition-all duration-200 border border-[#e0e1e6] hover:bg-gray-50 no-underline focus:outline-2 focus:outline-offset-2 focus:outline-[#000000]"
           aria-label="Open system status"
         >
           System Status

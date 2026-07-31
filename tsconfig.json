@@ -18,8 +18,8 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@omniroute/open-sse": ["./open-sse"],
-      "@omniroute/open-sse/*": ["./open-sse/*"]
+      "@astra-aigate/open-sse": ["./open-sse"],
+      "@astra-aigate/open-sse/*": ["./open-sse/*"]
     },
     "plugins": [
       {
@@ -44,8 +44,6 @@
   ],
   "exclude": [
     "node_modules",
-    "electron/node_modules",
-    "electron/dist-electron",
     ".build",
     "open-sse",
     "dist",
@@ -54,7 +52,7 @@
     ".tmp",
     ".claude",
     ".worktrees",
-    "@omniroute",
+    "@astra-aigate",
     "_tasks",
     "_ideia",
     "_mono_repo",

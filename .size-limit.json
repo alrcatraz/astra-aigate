@@ -1,7 +1,7 @@
 [
   {
-    "name": "CLI entry (omniroute.mjs)",
-    "path": "bin/omniroute.mjs",
+    "name": "CLI entry (astra-aigate.mjs)",
+    "path": "bin/astra-aigate.mjs",
     "limit": "15 KB"
   },
   {

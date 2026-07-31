@@ -9,6 +9,12 @@ import { TierTour } from "./steps/TierTour";
 const STEP_IDS = ["welcome", "tiers", "security", "provider", "test", "done"];
 const STEP_ICONS = ["waving_hand", "layers", "lock", "dns", "play_circle", "check_circle"];
 
+const STEPS = STEP_IDS.map((id, i) => ({
+  id,
+  icon: STEP_ICONS[i],
+  title: `onboarding.${id}Title`,
+}));
+
 const COMMON_PROVIDERS = [
   { id: "openai", name: "OpenAI", color: "#10A37F" },
   { id: "anthropic", name: "Anthropic", color: "#D97757" },
@@ -17,6 +23,22 @@ const COMMON_PROVIDERS = [
   { id: "groq", name: "Groq", color: "#F55036" },
   { id: "mistral", name: "Mistral", color: "#FF7000" },
 ];
+
+// Progress bar
+function ProgressDots({ current, total }) {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-8">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className={`h-1.5 rounded-full transition-all duration-300 ${
+            i <= current ? "bg-black w-6" : "bg-[#e0e1e6] w-1.5"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function OnboardingWizard() {
   const router = useRouter();
@@ -45,32 +67,23 @@ export default function OnboardingWizard() {
 
   // Check if setup is already complete
   useEffect(() => {
-    const checkSetup = async () => {
-      try {
-        const res = await fetch("/api/settings");
-        if (res.ok) {
-          const settings = await res.json();
-          if (settings.setupComplete) {
-            router.replace("/dashboard");
-            return;
-          }
+    fetch("/api/settings/require-login")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.requireLogin === true) {
+          router.replace("/login");
+        } else {
+          setLoading(false);
         }
-      } catch {
-        // Continue with setup
-      }
-      setLoading(false);
-    };
-    checkSetup();
+      })
+      .catch(() => setLoading(false));
   }, [router]);
 
-  const STEPS = STEP_IDS.map((id, i) => ({
-    id,
-    title: t(id === "done" ? "ready" : id),
-    icon: STEP_ICONS[i],
-  }));
-
-  const currentStep = STEPS[step];
+  const currentStep = STEPS[step] || STEPS[0];
   const isLastStep = step === STEPS.length - 1;
+
+  // Error state (shared across steps)
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleNext = () => {
     if (step < STEPS.length - 1) setStep(step + 1);
@@ -79,8 +92,6 @@ export default function OnboardingWizard() {
   const handleBack = () => {
     if (step > 0) setStep(step - 1);
   };
-
-  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSetPassword = async () => {
     if (skipSecurity) {
@@ -104,23 +115,13 @@ export default function OnboardingWizard() {
         body: JSON.stringify({ requireLogin: true, password }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.error || t("failedSetPassword"));
-        return;
-      }
-      const loginRes = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (!loginRes.ok) {
-        const data = await loginRes.json().catch(() => ({}));
-        setErrorMessage(data.error || t("connectionError"));
+        const data = await res.json();
+        setErrorMessage(data.error || "Failed to set password");
         return;
       }
       handleNext();
     } catch {
-      setErrorMessage(t("connectionError"));
+      setErrorMessage("Network error");
     }
   };
 
@@ -128,415 +129,430 @@ export default function OnboardingWizard() {
     if (!selectedProvider || !providerKey) return;
     setErrorMessage("");
     try {
-      const provider = COMMON_PROVIDERS.find((p) => p.id === selectedProvider);
-      const defaultUrls = {
-        openai: "https://api.openai.com",
-        anthropic: "https://api.anthropic.com",
-        google: "https://generativelanguage.googleapis.com",
-        openrouter: "https://openrouter.ai/api",
-        groq: "https://api.groq.com/openai",
-        mistral: "https://api.mistral.ai",
+      const data = {
+        id: selectedProvider,
+        name: providerName,
+        baseUrl: providerUrl || undefined,
+        apiKey: providerKey,
       };
-      const res = await fetch("/api/providers", {
+      const res = await fetch("/api/v1/provider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: selectedProvider,
-          name: providerName || provider?.name || selectedProvider,
-          url: providerUrl || defaultUrls[selectedProvider] || "",
-          apiKey: providerKey,
-          isActive: true,
-        }),
+        body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setErrorMessage(data.error || t("failedAddProvider"));
+        const err = await res.json();
+        setErrorMessage(err.error || "Failed to add provider");
         return;
       }
       handleNext();
     } catch {
-      setErrorMessage(t("connectionError"));
+      setErrorMessage("Network error");
     }
   };
 
   const handleTestProvider = async () => {
     setTestStatus("testing");
-    setTestMessage(t("testingConnection"));
+    setTestMessage(t("testingProvider"));
     try {
-      const res = await fetch("/api/providers");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      const conn = data.connections?.[0];
-      if (!conn) {
-        setTestStatus("error");
-        setTestMessage(t("noProviderFound"));
-        return;
-      }
-      const testRes = await fetch(`/api/providers/${conn.id}/test`, { method: "POST" });
-      if (testRes.ok) {
+      const res = await fetch("/api/v1/health/models", { method: "GET" });
+      if (res.ok) {
         setTestStatus("success");
-        setTestMessage(t("connectionSuccessful"));
+        setTestMessage(t("testSuccess"));
       } else {
-        const err = await testRes.json().catch(() => ({}));
         setTestStatus("error");
-        setTestMessage(err.error || t("testFailed"));
+        setTestMessage(t("testFailed"));
       }
     } catch {
       setTestStatus("error");
-      setTestMessage(t("couldNotTest"));
+      setTestMessage("Network error");
     }
   };
 
-  const handleFinish = async () => {
-    try {
-      // (#574) If no password was set during wizard, disable requireLogin
-      // to prevent the user from being locked out on the login page
-      const settings = await fetch("/api/settings/require-login")
-        .then((r) => r.json())
-        .catch(() => ({}));
-      if (!settings.hasPassword) {
-        await fetch("/api/settings/require-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ requireLogin: false }),
-        }).catch(() => {});
-      }
+  const handleDone = () => {
+    router.push("/dashboard");
+  };
 
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ setupComplete: true }),
-      });
-    } catch {
-      // Non-critical
-    }
+  const handleFinish = () => {
     router.push("/dashboard");
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-text-muted">{tc("loading")}</div>
+      <div className="min-h-screen bg-[#f0f0f3] flex items-center justify-center">
+        <div className="flex items-center gap-2 text-[#60646c]">
+          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <span className="text-sm">{t("loading")}</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#f0f0f3] flex items-center justify-center p-6">
       <div className="w-full max-w-lg">
-        {/* Progress Indicator */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          {STEPS.map((s, i) => (
-            <div key={s.id} className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                  i < step
-                    ? "bg-green-500/20 text-green-400"
-                    : i === step
-                      ? "bg-primary/20 text-primary ring-2 ring-primary/40"
-                      : "bg-white/5 text-text-muted"
-                }`}
-              >
-                {i < step ? (
-                  <span className="material-symbols-outlined text-[16px]">check</span>
-                ) : (
-                  i + 1
-                )}
-              </div>
-              {i < STEPS.length - 1 && (
-                <div
-                  className={`w-8 h-0.5 rounded-full transition-colors ${
-                    i < step ? "bg-green-500/40" : "bg-white/10"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+        {/* Progress dots */}
+        <ProgressDots current={step} total={STEPS.length} />
+
+        {/* Step label */}
+        <p className="text-center text-xs font-medium text-[#b0b4ba] uppercase tracking-wider mb-1">
+          {t(`${currentStep.id}Title`)}
+        </p>
 
         {/* Card */}
-        <div className="bg-surface rounded-2xl border border-white/[0.06] p-8 shadow-xl">
+        <div className="bg-white rounded-xl border border-[#e0e1e6] p-8">
           {/* Step Header */}
           <div className="text-center mb-6">
-            <span
-              className={`material-symbols-outlined text-[48px] mb-3 block ${
-                currentStep.id === "done" ? "text-green-400" : "text-primary"
-              }`}
-            >
+            <span className="material-symbols-outlined block text-4xl mb-3 text-[#000000]">
               {currentStep.icon}
             </span>
-            <h2 className="text-2xl font-bold text-text-main">{currentStep.title}</h2>
+            <h2 className="text-xl font-semibold text-[#000000] tracking-tight">
+              {t(`${currentStep.id}Title`)}
+            </h2>
             {currentStep.id === "tiers" && (
-              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-muted text-balance">
+              <p className="mt-2 text-sm text-[#60646c] max-w-md mx-auto leading-relaxed">
                 {t("tier.subtitle")}
               </p>
             )}
           </div>
 
-          {/* Step Content */}
-          <div className="min-h-[200px]">
-            {/* Welcome */}
-            {currentStep.id === "welcome" && (
-              <div className="text-center space-y-4">
-                <p className="text-text-muted">{t("welcomeDesc")}</p>
-                <div className="mt-6 grid grid-cols-3 gap-3 items-stretch">
-                  {[
-                    { icon: "swap_horiz", label: t("multiProvider") },
-                    { icon: "monitoring", label: t("usageTracking") },
-                    { icon: "shield", label: t("apiKeyMgmt") },
-                  ].map((f) => (
-                    <div
-                      key={f.icon}
-                      className="h-full bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]"
-                    >
-                      <div className="flex h-full flex-col items-center justify-center">
-                        <span className="material-symbols-outlined text-primary text-[24px] mb-1 block">
-                          {f.icon}
-                        </span>
-                        <span className="text-xs text-text-muted">{f.label}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Tiers */}
-            {currentStep.id === "tiers" && <TierTour />}
-
-            {/* Security */}
-            {currentStep.id === "security" && (
-              <div className="space-y-4">
-                <p className="text-sm text-text-muted text-center">{t("securityDesc")}</p>
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-text-muted">
-                  <input
-                    type="checkbox"
-                    checked={skipSecurity}
-                    onChange={(e) => setSkipSecurity(e.target.checked)}
-                    className="accent-primary"
-                  />
-                  {t("skipPassword")}
-                </label>
-                {!skipSecurity && (
-                  <div className="space-y-3">
-                    <input
-                      type="password"
-                      placeholder={t("enterPassword")}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
-                      onKeyUp={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
-                      className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                    <input
-                      type="password"
-                      placeholder={t("confirmPasswordPlaceholder")}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
-                      onKeyUp={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
-                      className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                    {capsLockOn && (
-                      <p className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1 animate-in fade-in duration-200">
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                          keyboard_capslock
-                        </span>
-                        Caps Lock is on
-                      </p>
-                    )}
-                    {password && confirmPassword && password !== confirmPassword && (
-                      <p className="text-xs text-red-400">{t("passwordsMismatch")}</p>
-                    )}
+          {/* Welcome */}
+          {currentStep.id === "welcome" && (
+            <div className="text-center">
+              <p className="text-sm text-[#60646c] mb-6">{t("welcomeDesc")}</p>
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {[
+                  { icon: "swap_horiz", label: t("multiProvider") },
+                  { icon: "monitoring", label: t("usageTracking") },
+                  { icon: "shield", label: t("apiKeyMgmt") },
+                ].map((f) => (
+                  <div key={f.icon} className="bg-[#f0f0f3] rounded-xl p-4 text-center">
+                    <span className="material-symbols-outlined block text-2xl mb-2 text-[#000000]">
+                      {f.icon}
+                    </span>
+                    <span className="text-xs text-[#60646c] leading-tight block">{f.label}</span>
                   </div>
-                )}
+                ))}
               </div>
-            )}
+              <button
+                onClick={handleNext}
+                className="w-full bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] transition-colors"
+              >
+                {t("getStarted")}
+              </button>
+            </div>
+          )}
 
-            {/* Provider */}
-            {currentStep.id === "provider" && (
-              <div className="space-y-4">
-                <p className="text-sm text-text-muted text-center">{t("providerDesc")}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {COMMON_PROVIDERS.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        setSelectedProvider(p.id);
-                        setProviderName(p.name);
-                      }}
-                      className={`p-3 rounded-xl border text-center text-xs font-medium transition-all cursor-pointer ${
-                        selectedProvider === p.id
-                          ? "border-primary/60 bg-primary/10 text-primary"
-                          : "border-white/10 bg-white/[0.03] text-text-muted hover:border-white/20"
-                      }`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
+          {/* Tiers */}
+          {currentStep.id === "tiers" && (
+            <div>
+              <TierTour />
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 border border-[#e0e1e6] text-[#60646c] rounded-full px-6 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  {tc("back")}
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="flex-[2] bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] transition-colors"
+                >
+                  {t("continue")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Security */}
+          {currentStep.id === "security" && (
+            <div>
+              <p className="text-sm text-[#60646c] mb-6 text-center">{t("securityDesc")}</p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSetPassword();
+                }}
+              >
+                <div className="space-y-4 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={skipSecurity}
+                      onChange={(e) => setSkipSecurity(e.target.checked)}
+                      className="rounded border-[#e0e1e6] text-[#000000] focus:ring-[#000000]"
+                    />
+                    <span className="text-sm text-[#60646c]">{t("skipSecurity")}</span>
+                  </label>
+                  {!skipSecurity && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-[#60646c] mb-1.5">
+                          {t("setPassword")}
+                        </label>
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          onKeyDown={(e) => setCapsLockOn(e.getModifierState("CapsLock"))}
+                          placeholder={t("passwordPlaceholder")}
+                          className="w-full h-10 px-3 rounded-lg border border-[#e0e1e6] bg-white text-sm text-[#000000] placeholder:text-[#b0b4ba] focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-[#60646c] mb-1.5">
+                          {t("confirmPassword")}
+                        </label>
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder={t("confirmPasswordPlaceholder")}
+                          className="w-full h-10 px-3 rounded-lg border border-[#e0e1e6] bg-white text-sm text-[#000000] placeholder:text-[#b0b4ba] focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors"
+                        />
+                      </div>
+                      {password && confirmPassword && password !== confirmPassword && (
+                        <div className="bg-red-50 text-[#dc2626] text-xs rounded-lg px-3 py-2">
+                          {t("passwordsDoNotMatch")}
+                        </div>
+                      )}
+                      {capsLockOn && (
+                        <div className="bg-amber-50 text-[#f59e0b] text-xs rounded-lg px-3 py-2">
+                          {t("capsLockOn")}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {selectedProvider && (
-                  <div className="space-y-3 mt-4">
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="flex-1 border border-[#e0e1e6] text-[#60646c] rounded-full px-6 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    {tc("back")}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      !skipSecurity &&
+                      (!password || !confirmPassword || password !== confirmPassword)
+                    }
+                    className="flex-[2] bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {t("continue")}
+                  </button>
+                </div>
+              </form>
+              {errorMessage && (
+                <div className="mt-4 bg-red-50 text-[#dc2626] text-xs rounded-lg px-3 py-2">
+                  {errorMessage}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Provider */}
+          {currentStep.id === "provider" && (
+            <div>
+              <p className="text-sm text-[#60646c] text-center mb-6">{t("providerDesc")}</p>
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {COMMON_PROVIDERS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedProvider(p.id);
+                      setProviderName(p.name);
+                    }}
+                    className={`rounded-xl border p-4 text-center transition-all ${
+                      selectedProvider === p.id
+                        ? "border-[#000000] bg-gray-50"
+                        : "border-[#e0e1e6] hover:border-[#b0b4ba] hover:bg-gray-50"
+                    }`}
+                  >
+                    <div
+                      className="w-3 h-3 rounded-full mx-auto mb-2"
+                      style={{ backgroundColor: p.color }}
+                    />
+                    <span className="text-xs font-medium text-[#60646c]">{p.name}</span>
+                  </button>
+                ))}
+              </div>
+              {selectedProvider && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[#60646c] mb-1.5">
+                      {t("apiKey")}
+                    </label>
                     <input
                       type="password"
-                      placeholder={t("apiKeyRequired")}
                       value={providerKey}
                       onChange={(e) => setProviderKey(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      placeholder={t("apiKeyRequired")}
+                      className="w-full h-10 px-3 rounded-lg border border-[#e0e1e6] bg-white text-sm text-[#000000] placeholder:text-[#b0b4ba] focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#60646c] mb-1.5">
+                      {t("apiUrl")}
+                    </label>
                     <input
                       type="text"
-                      placeholder={t("customUrlOptional")}
                       value={providerUrl}
                       onChange={(e) => setProviderUrl(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-text-main text-sm placeholder:text-text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      placeholder={t("customUrlOptional")}
+                      className="w-full h-10 px-3 rounded-lg border border-[#e0e1e6] bg-white text-sm text-[#000000] placeholder:text-[#b0b4ba] focus:outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors"
                     />
                   </div>
-                )}
+                </div>
+              )}
+              {errorMessage && (
+                <div className="mt-4 bg-red-50 text-[#dc2626] text-xs rounded-lg px-3 py-2">
+                  {errorMessage}
+                </div>
+              )}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleBack}
+                  className="flex-1 border border-[#e0e1e6] text-[#60646c] rounded-full px-6 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  {tc("back")}
+                </button>
+                <button
+                  onClick={handleAddProvider}
+                  disabled={!selectedProvider || !providerKey}
+                  className="flex-[2] bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {t("addProvider")}
+                </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Test */}
-            {currentStep.id === "test" && (
-              <div className="text-center space-y-4">
-                <p className="text-sm text-text-muted">{t("testDesc")}</p>
-                {testStatus === "idle" && (
-                  <button
-                    onClick={handleTestProvider}
-                    className="px-6 py-2.5 bg-primary rounded-lg text-white font-medium text-sm hover:bg-primary/90 transition-colors cursor-pointer"
-                  >
-                    {t("runTest")}
-                  </button>
-                )}
-                {testStatus === "testing" && (
-                  <div className="flex items-center justify-center gap-2 text-text-muted">
-                    <span className="material-symbols-outlined animate-spin text-[20px]">
-                      progress_activity
-                    </span>
-                    <span className="text-sm">{testMessage}</span>
+          {/* Test */}
+          {currentStep.id === "test" && (
+            <div className="text-center">
+              <p className="text-sm text-[#60646c] mb-6">{t("testDesc")}</p>
+              {testStatus === "idle" && (
+                <button
+                  onClick={handleTestProvider}
+                  className="w-full bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] transition-colors"
+                >
+                  {t("runTest")}
+                </button>
+              )}
+              {testStatus === "testing" && (
+                <div className="flex items-center justify-center gap-2 text-[#60646c]">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  <span className="text-sm">{testMessage}</span>
+                </div>
+              )}
+              {testStatus === "success" && (
+                <div>
+                  <span className="material-symbols-outlined text-4xl text-[#16a34a]">
+                    check_circle
+                  </span>
+                  <p className="text-sm font-semibold text-[#16a34a] mt-2">{t("testSuccess")}</p>
+                  {testMessage && testMessage !== t("testSuccess") && (
+                    <p className="text-xs text-[#60646c] mt-1">{testMessage}</p>
+                  )}
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={handleBack}
+                      className="flex-1 border border-[#e0e1e6] text-[#60646c] rounded-full px-6 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      {tc("back")}
+                    </button>
+                    <button
+                      onClick={handleNext}
+                      className="flex-[2] bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] transition-colors"
+                    >
+                      {t("continue")}
+                    </button>
                   </div>
-                )}
-                {testStatus === "success" && (
-                  <div className="flex items-center justify-center gap-2 text-green-400">
-                    <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                    <span className="text-sm">{testMessage}</span>
-                  </div>
-                )}
-                {testStatus === "error" && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center gap-2 text-amber-400">
-                      <span className="material-symbols-outlined text-[20px]">warning</span>
-                      <span className="text-sm">{testMessage}</span>
-                    </div>
+                </div>
+              )}
+              {testStatus === "error" && (
+                <div>
+                  <span className="material-symbols-outlined text-4xl text-[#dc2626]">error</span>
+                  <p className="text-sm font-semibold text-[#dc2626] mt-2">{t("testFailed")}</p>
+                  {testMessage && testMessage !== t("testFailed") && (
+                    <p className="text-xs text-[#60646c] mt-1">{testMessage}</p>
+                  )}
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={handleBack}
+                      className="flex-1 border border-[#e0e1e6] text-[#60646c] rounded-full px-6 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      {tc("back")}
+                    </button>
                     <button
                       onClick={handleTestProvider}
-                      className="text-xs text-text-muted underline cursor-pointer"
+                      className="flex-[2] bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] transition-colors"
                     >
                       {t("retry")}
                     </button>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Done */}
-            {currentStep.id === "done" && (
-              <div className="text-center space-y-4">
-                <p className="text-text-muted">{t("doneDesc")}</p>
-                <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.06] text-left">
-                  <p className="text-xs text-text-muted mb-2 font-medium">{t("yourEndpoint")}</p>
-                  <code className="text-sm text-primary">{apiEndpoint}</code>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
-          {/* Footer Actions */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t border-white/[0.06]">
-            <div>
-              {step > 0 && !isLastStep && (
-                <button
-                  onClick={handleBack}
-                  className="px-4 py-2 text-sm text-text-muted hover:text-text-main transition-colors cursor-pointer"
-                >
-                  {tc("back")}
-                </button>
-              )}
+          {/* Done */}
+          {currentStep.id === "done" && (
+            <div className="text-center">
+              <p className="text-sm text-[#60646c] mb-6">{t("doneDesc")}</p>
+              <div className="bg-[#f0f0f3] rounded-xl p-4 mb-6 text-left">
+                <p className="text-xs font-medium text-[#60646c] mb-1">{t("yourEndpoint")}</p>
+                <code className="text-sm text-[#000000] break-all">{apiEndpoint}</code>
+              </div>
+              <button
+                onClick={handleDone}
+                className="w-full bg-[#000000] text-white rounded-full px-6 py-2.5 text-sm font-medium hover:bg-[#333333] transition-colors"
+              >
+                {t("launchDashboard")}
+              </button>
             </div>
-            <div className="flex items-center gap-3">
-              {!isLastStep && step > 0 && (
-                <button
-                  onClick={handleNext}
-                  className="px-4 py-2 text-sm text-text-muted hover:text-text-main transition-colors cursor-pointer"
-                >
-                  {t("skip")}
-                </button>
-              )}
-              {currentStep.id === "welcome" && (
-                <button
-                  onClick={handleNext}
-                  className="px-6 py-2.5 bg-primary rounded-lg text-white font-medium text-sm hover:bg-primary/90 transition-colors cursor-pointer"
-                >
-                  {t("getStarted")}
-                </button>
-              )}
-              {currentStep.id === "tiers" && (
-                <button
-                  onClick={handleNext}
-                  className="px-6 py-2.5 bg-primary rounded-lg text-white font-medium text-sm hover:bg-primary/90 transition-colors cursor-pointer"
-                >
-                  {t("continue")}
-                </button>
-              )}
-              {currentStep.id === "security" && (
-                <button
-                  onClick={handleSetPassword}
-                  disabled={!skipSecurity && (!password || password !== confirmPassword)}
-                  className="px-6 py-2.5 bg-primary rounded-lg text-white font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {skipSecurity ? t("skipAndContinue") : t("setPassword")}
-                </button>
-              )}
-              {currentStep.id === "provider" && (
-                <button
-                  onClick={handleAddProvider}
-                  disabled={!selectedProvider || !providerKey}
-                  className="px-6 py-2.5 bg-primary rounded-lg text-white font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {t("addProvider")}
-                </button>
-              )}
-              {currentStep.id === "test" && (
-                <button
-                  onClick={handleNext}
-                  className="px-6 py-2.5 bg-primary rounded-lg text-white font-medium text-sm hover:bg-primary/90 transition-colors cursor-pointer"
-                >
-                  {testStatus === "success" ? t("continue") : t("skip")}
-                </button>
-              )}
-              {isLastStep && (
-                <button
-                  onClick={handleFinish}
-                  className="px-6 py-2.5 bg-green-500 rounded-lg text-white font-medium text-sm hover:bg-green-500/90 transition-colors cursor-pointer"
-                >
-                  {t("goToDashboard")}
-                </button>
-              )}
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Skip Wizard */}
-        {!isLastStep && (
-          <div className="text-center mt-4">
-            <button
-              onClick={handleFinish}
-              className="text-xs text-text-muted/60 hover:text-text-muted transition-colors cursor-pointer"
-            >
-              {t("skipWizard")}
-            </button>
-          </div>
-        )}
+        {/* Skip link */}
+        <div className="text-center mt-4">
+          <button
+            onClick={handleFinish}
+            className="text-xs text-[#b0b4ba] hover:text-[#60646c] transition-colors cursor-pointer bg-transparent border-none"
+          >
+            {t("skipWizard")}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -91,19 +91,19 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
 # 2026-07-05 with clean amd64 (12min14s, image smoke-tested: /api/monitoring/health
 # 200) and arm64 (qemu, exit 0, zero panic strings) builds. Turbopack cut the bare
 # build from 17min to 9min on the same 32-core box. Webpack stays available as the
-# escape hatch: `--build-arg`/-e OMNIROUTE_USE_TURBOPACK=0.
+# escape hatch: `--build-arg`/-e AIGATE_USE_TURBOPACK=0.
 # See docs/ops/QUALITY_GATE_PLAYBOOK.md Parte 6.
-ENV OMNIROUTE_USE_TURBOPACK=1
+ENV AIGATE_USE_TURBOPACK=1
 
-# Next.js basePath is fixed at build time; pass OMNIROUTE_BASE_PATH here when the
+# Next.js basePath is fixed at build time; pass AIGATE_BASE_PATH here when the
 # image should serve under a reverse-proxy subpath without a runtime patch.
-ARG OMNIROUTE_BASE_PATH=""
-ENV OMNIROUTE_BASE_PATH=$OMNIROUTE_BASE_PATH
+ARG AIGATE_BASE_PATH=""
+ENV AIGATE_BASE_PATH=$AIGATE_BASE_PATH
 
 # Docker containers cannot run the MITM/Agent-Bridge stack (no host DNS/cert
 # access), so keep @/mitm/manager on the graceful stub (#3390). This flag is
 # Docker-only: npm/Electron/VPS builds must bundle the REAL manager (#6344).
-ENV OMNIROUTE_MITM_STUB=1
+ENV AIGATE_MITM_STUB=1
 
 # Raise the V8 heap ceiling for the build. The webpack production optimization
 # pass needs more than V8's default ceiling (~2 GB) for a codebase this size; a
@@ -113,9 +113,12 @@ ENV OMNIROUTE_MITM_STUB=1
 # on V8, so keep the ceiling. NODE_OPTIONS propagates to the spawned `next build`
 # child (build-next-isolated.mjs → resolveNextBuildEnv spreads process.env).
 # Build-only; the runtime heap is set separately on the runner stage
-# (OMNIROUTE_MEMORY_MB). Override: `--build-arg OMNIROUTE_BUILD_MEMORY_MB=6144`.
-ARG OMNIROUTE_BUILD_MEMORY_MB=4096
-ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
+# (AIGATE_MEMORY_MB). Override: `--build-arg AIGATE_BUILD_MEMORY_MB=6144`.
+ARG AIGATE_BUILD_MEMORY_MB=4096
+ENV NODE_OPTIONS="--max-old-space-size=${AIGATE_BUILD_MEMORY_MB}"
+# Force webpack — Turbopack (Rust) bypasses V8 --max-old-space-size and can OOM
+# the builder (#6283). Webpack respects the V8 ceiling set above.
+ENV OMNIROUTE_USE_TURBOPACK=0
 
 COPY . ./
 RUN --mount=type=cache,id=next-cache,target=/app/.build/next/cache \
@@ -124,12 +127,12 @@ RUN --mount=type=cache,id=next-cache,target=/app/.build/next/cache \
 # ── Runner base ────────────────────────────────────────────────────────────
 FROM base AS runner-base
 
-LABEL org.opencontainers.image.title="omniroute" \
+LABEL org.opencontainers.image.title="astra-aigate" \
   org.opencontainers.image.description="Unified AI proxy — route any LLM through one endpoint" \
-  org.opencontainers.image.url="https://omniroute.online" \
-  org.opencontainers.image.source="https://github.com/diegosouzapw/OmniRoute" \
-  org.opencontainers.image.licenses="MIT"
-
+  org.opencontainers.image.url="https://git01.wrt.astra-lab.org/alrcatraz/astra-aigate" \
+  org.opencontainers.image.source="https://git01.wrt.astra-lab.org/alrcatraz/astra-aigate" \
+  org.opencontainers.image.licenses="MIT" \
+  org.opencontainers.image.version="${BUILD_VERSION}"
 ENV NODE_ENV=production
 ENV PORT=20128
 ENV HOSTNAME=0.0.0.0
@@ -137,10 +140,10 @@ ENV HOSTNAME=0.0.0.0
 # for large fusion-combo panels (many models fanned out in parallel, each
 # response buffered in full — see open-sse/services/fusion.ts::FUSION_DEFAULTS
 # .maxPanel, issue #1905). Override at `docker run` time with
-# `-e OMNIROUTE_MEMORY_MB=2048` (or higher) if you raise fusionTuning.maxPanel
+# `-e AIGATE_MEMORY_MB=2048` (or higher) if you raise fusionTuning.maxPanel
 # above the default cap.
-ENV OMNIROUTE_MEMORY_MB=1024
-ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_MEMORY_MB}"
+ENV AIGATE_MEMORY_MB=1024
+ENV NODE_OPTIONS="--max-old-space-size=${AIGATE_MEMORY_MB}"
 
 # Data directory inside Docker — must match the volume mount in docker-compose.yml
 ENV DATA_DIR=/app/data
@@ -161,7 +164,7 @@ COPY --from=builder /app/.build/next/standalone ./
 # starts, so guarantee the complete package independent of trace behaviour.
 COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
 # migrations land at <standalone>/migrations via assembleStandalone; point the runtime at them.
-ENV OMNIROUTE_MIGRATIONS_DIR=/app/migrations
+ENV AIGATE_MIGRATIONS_DIR=/app/migrations
 
 # Docker healthcheck script — not traced by Next.js standalone output, so copy
 # it explicitly. The HEALTHCHECK CMD references it as `node healthcheck.mjs`.
@@ -190,14 +193,14 @@ CMD ["node", "dev/run-standalone.mjs"]
 # ── Runner Web (web-cookie providers: Gemini Web, Claude Turnstile) ───────────
 #
 #  Two image flavors:
-#    runner-base  →  omniroute:VERSION        Lean base (~500 MB). No browsers.
-#    runner-web   →  omniroute:VERSION-web    +Chromium/Playwright (~800 MB).
+#    runner-base  →  astra-aigate:VERSION        Lean base (~500 MB). No browsers.
+#    runner-web   →  astra-aigate:VERSION-web    +Chromium/Playwright (~800 MB).
 #
 #  Use runner-web when you need web-cookie providers (gemini-web, claude-web,
 #  claude-turnstile). For all other providers runner-base is sufficient.
 #
 #  Build:
-#    docker build --target runner-web -t omniroute:web .
+#    docker build --target runner-web -t astra-aigate:web .
 #  Compose:
 #    build:
 #      context: .
