@@ -294,6 +294,22 @@ export const AUDIO_SPEECH_PROVIDERS: Record<string, AudioProvider> = {
     ],
   },
 
+  // SiliconFlow intl — USD site (api.siliconflow.com). Verified against the
+  // .com model directory + docs 2026-07-31: CosyVoice2-0.5B, Fish Speech 1.5
+  // and IndexTTS-2 (international-exclusive). Shares the provider's key pool
+  // with chat/image/embedding/rerank.
+  siliconflow: {
+    id: "siliconflow",
+    baseUrl: "https://api.siliconflow.com/v1/audio/speech",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "FunAudioLLM/CosyVoice2-0.5B", name: "CosyVoice2 0.5B" },
+      { id: "fishaudio/fish-speech-1.5", name: "Fish Speech 1.5" },
+      { id: "IndexTeam/IndexTTS-2", name: "IndexTTS-2" },
+    ],
+  },
+
   // SiliconFlow CN — mainland-China RMB site (api.siliconflow.cn). Verified
   // against the CN model directory on 2026-07-31: CosyVoice2 + MOSS-TTSD.
   // (The international site also carries CosyVoice2 plus IndexTTS-2 — an
