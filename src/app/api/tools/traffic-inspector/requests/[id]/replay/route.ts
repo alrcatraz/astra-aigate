@@ -9,13 +9,14 @@
  */
 
 import { buildErrorBody, sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
+import { resolveOmniRouteBaseUrl } from "@/shared/utils/resolveOmniRouteBaseUrl";
 import { globalTrafficBuffer } from "@/mitm/inspector/buffer";
 
 interface Params {
   params: Promise<{ id: string }>;
 }
 
-const OMNIROUTE_BASE = process.env.OMNIROUTE_BASE_URL ?? "http://127.0.0.1:20128";
+const OMNIROUTE_BASE = resolveOmniRouteBaseUrl();
 
 export async function POST(_request: Request, { params }: Params): Promise<Response> {
   const { id } = await params;

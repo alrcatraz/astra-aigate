@@ -24,6 +24,7 @@ import {
   GLM_TIMEOUT_MS,
   GLMT_TIMEOUT_MS,
   GLM_SHARED_MODELS,
+  GLM_STANDARD_API_MODELS,
 } from "../glmProvider.ts";
 import { MARITALK_DEFAULT_BASE_URL } from "../maritalk.ts";
 import {
@@ -99,6 +100,27 @@ export interface RegistryOAuth {
   pollUrlBase?: string;
 }
 
+/**
+ * Auth literal unions — enumerated from every registry entry 2026-08-01
+ * (0 non-literal assignments). Narrowing these fields is what makes
+ * ProviderLinked<P> (config/providerLink.ts) able to FORCE media-registry
+ * auth fields to match their linked provider at compile time; a wide
+ * `string` here would silently accept any value.
+ */
+export type RegistryAuthType = "apikey" | "oauth" | "optional" | "none" | "cookie";
+export type RegistryAuthHeader =
+  | "bearer"
+  | "cookie"
+  | "Authorization"
+  | "x-api-key"
+  | "none"
+  | "x-goog-api-key"
+  | "x-freepik-api-key"
+  | "key"
+  | "HAIPER_KEY"
+  | "authorization"
+  | "Api-Key";
+
 export interface RegistryEntry {
   id: string;
   alias?: string;
@@ -117,8 +139,8 @@ export interface RegistryEntry {
   messagesUrl?: string;
   urlSuffix?: string;
   urlBuilder?: (base: string, model: string, stream: boolean) => string;
-  authType: string;
-  authHeader: string;
+  authType: RegistryAuthType;
+  authHeader: RegistryAuthHeader;
   authPrefix?: string;
   headers?: Record<string, string>;
   extraHeaders?: Record<string, string>;
@@ -222,6 +244,14 @@ export interface LegacyProvider {
 
 export const buildModels = (ids: readonly string[]): RegistryModel[] =>
   ids.map((id) => ({ id, name: id }));
+
+// SiliconFlow dual-site base URLs — single source for all media registries
+// (embedding/rerank/audio). Media entries build their full endpoint from
+// these; changing a domain updates every capability at once.
+export const SILICONFLOW_BASE = {
+  cn: "https://api.siliconflow.cn",
+  intl: "https://api.siliconflow.com",
+} as const;
 
 export const GPT_5_5_CONTEXT_LENGTH = 1050000;
 export const GPT_5_5_CODEX_CAPABILITIES = {
@@ -697,6 +727,7 @@ export {
   GLM_TIMEOUT_MS,
   GLMT_TIMEOUT_MS,
   GLM_SHARED_MODELS,
+  GLM_STANDARD_API_MODELS,
   MARITALK_DEFAULT_BASE_URL,
   CURSOR_REGISTRY_VERSION,
   getAntigravityProviderHeaders,

@@ -1,5 +1,5 @@
 import type { RegistryEntry } from "../../shared.ts";
-import { GLM_REQUEST_DEFAULTS, GLM_TIMEOUT_MS, GLM_SHARED_MODELS } from "../../shared.ts";
+import { GLM_REQUEST_DEFAULTS, GLM_TIMEOUT_MS, GLM_STANDARD_API_MODELS } from "../../shared.ts";
 
 /**
  * Zhipu standard API (open.bigmodel.cn) — the non-Coding-Plan tier.
@@ -26,6 +26,6 @@ export const zhipuProvider: RegistryEntry = {
   defaultContextLength: 200000,
   requestDefaults: GLM_REQUEST_DEFAULTS,
   timeoutMs: GLM_TIMEOUT_MS,
-  models: [...GLM_SHARED_MODELS],
+  models: [...GLM_STANDARD_API_MODELS],
   passthroughModels: true,
 };

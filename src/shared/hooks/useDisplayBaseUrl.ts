@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DEFAULT_OMNIROUTE_BASE_URL } from "@/shared/utils/resolveOmniRouteBaseUrl";
 
-export const DEFAULT_DISPLAY_BASE_URL = "http://localhost:20128";
+export const DEFAULT_DISPLAY_BASE_URL = DEFAULT_OMNIROUTE_BASE_URL;
 
 function normalizeUrl(value?: string): string | null {
   const trimmed = value?.trim();

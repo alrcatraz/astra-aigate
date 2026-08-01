@@ -67,6 +67,28 @@ Unified AI service gateway web console managing three categories:
 6. Podman container deployment; no standalone binary
 7. MIT license
 
+## Registry & Config Conventions (Phase 2)
+
+- **Capability = registry membership.** Media capabilities (embedding/rerank/
+  tts/stt/image/...) are derived from `open-sse/config/*Registry.ts` via
+  `mediaServiceKinds.ts`; adding a kind touches exactly 3 places
+  (enum + i18n key + KIND_LABEL), pages are zero-change.
+- **Registry entries are self-contained** (full endpoint URLs, own auth) —
+  deliberately NOT ID-referenced (Option B, 2.3/2.4). New media entries MUST
+  carry a typed `providerId: keyof typeof REGISTRY` link (compile-time
+  existence check) + `satisfies` auth consistency with the provider def.
+- **Ports/hostnames: single source only.** OmniRoute base URL must come from
+  `src/shared/utils/resolveOmniRouteBaseUrl()` (env `OMNIROUTE_BASE_URL` →
+  `DEFAULT_OMNIROUTE_BASE_URL`). Never write `localhost:20128` literals —
+  exception: substring/heuristic checks (letta-settings, tool-detector) and
+  example/doc strings.
+- **Repeated timeouts → shared constants** in `open-sse/config/constants.ts`
+  or `providers/shared.ts` (e.g. `DEFAULT_SEARCH_TIMEOUT_MS`), never inline.
+- **modelSpecs.ts** is the single source for contextLength/maxOutputTokens;
+  handlers must not hardcode model IDs (registry-driven).
+- **Unverified ≠ registered**: a capability/endpoint only gets a registry
+  entry after a live 200 probe (or authoritative docs).
+
 ## Rename Strategy (OmniRoute → astra-aigate)
 
 Three tiers, defined in PLAN.md §1.7:

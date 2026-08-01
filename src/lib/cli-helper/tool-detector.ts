@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { DEFAULT_OMNIROUTE_BASE_URL } from "@/shared/utils/resolveOmniRouteBaseUrl";
 import { getCurrentHermesAgentRoles } from "./config-generator/hermes-agent";
 import {
   getLookupEnv,
@@ -74,7 +75,7 @@ function isConfigured(content: string, baseUrl: string): boolean {
   const normalized = baseUrl.replace(/\/+$/, "");
   return (
     content.includes(normalized) ||
-    content.includes("localhost:20128") ||
+    content.includes(new URL(DEFAULT_OMNIROUTE_BASE_URL).host) ||
     content.includes("OMNIROUTE_BASE_URL")
   );
 }
@@ -151,7 +152,7 @@ export async function detectTool(id: string): Promise<DetectedTool | null> {
   const { installed, version } = await detectBinary(tool.id);
   const configPath = expandHome(tool.configPath);
   const configContents = await readConfigFile(tool.configPath);
-  const configured = !!configContents && isConfigured(configContents, "http://localhost:20128");
+  const configured = !!configContents && isConfigured(configContents, DEFAULT_OMNIROUTE_BASE_URL);
 
   const result: DetectedTool = {
     id: tool.id,
@@ -172,8 +173,8 @@ export async function detectTool(id: string): Promise<DetectedTool | null> {
       Object.entries(roles).forEach(([role, info]) => {
         const usingOmni =
           info?.provider === "omniroute" ||
-          (info?.base_url || "").includes("20128") ||
-          (info?.base_url || "").includes("localhost:20128");
+          (info?.base_url || "").includes(new URL(DEFAULT_OMNIROUTE_BASE_URL).port) ||
+          (info?.base_url || "").includes(new URL(DEFAULT_OMNIROUTE_BASE_URL).host);
 
         richRoles[role] = {
           model: info.model,

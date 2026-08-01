@@ -1,12 +1,10 @@
 import { classifyHostLocality } from "@/server/authz/routeGuard";
 import { PEER_IP_HEADER } from "@/server/authz/headers";
 import { resolveStampedPeer } from "@/server/authz/peerStamp";
+import { DEFAULT_OMNIROUTE_BASE_URL } from "@/shared/utils/resolveOmniRouteBaseUrl";
 
 export type PublicOriginSource =
-  | "configured"
-  | "trusted-forwarded"
-  | "request-url"
-  | "direct-local-host";
+  "configured" | "trusted-forwarded" | "request-url" | "direct-local-host";
 
 export interface PublicOriginCandidate {
   origin: string;
@@ -200,7 +198,7 @@ function directLocalHostOrigin(request: Request): string | null {
   if (classifyHostLocality(peer) === "remote") return null;
 
   const rawHost = trustsForwardedHeaders(request)
-    ? firstHeaderValue(request.headers.get("x-forwarded-host")) ?? request.headers.get("host")
+    ? (firstHeaderValue(request.headers.get("x-forwarded-host")) ?? request.headers.get("host"))
     : request.headers.get("host");
   const host = sanitizeForwardedHost(rawHost);
   if (!host) return null;
@@ -246,7 +244,7 @@ export function resolvePublicOrigin(request: Request): PublicOriginCandidate {
   const requestOrigin = requestUrlOrigin(request);
   if (requestOrigin) return { origin: requestOrigin, source: "request-url" };
 
-  return { origin: "http://localhost:20128", source: "request-url" };
+  return { origin: DEFAULT_OMNIROUTE_BASE_URL, source: "request-url" };
 }
 
 export function validateBrowserMutationOrigin(request: Request): BrowserMutationOriginVerdict {

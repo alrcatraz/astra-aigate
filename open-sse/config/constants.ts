@@ -65,27 +65,27 @@ export const PROVIDERS: Record<string, LegacyProvider> = new Proxy(
   {} as Record<string, LegacyProvider>,
   {
     get(_, prop) {
-      if (typeof prop === 'symbol') return undefined;
+      if (typeof prop === "symbol") return undefined;
       return Reflect.get(initProviders(), prop, _providers);
     },
     has(_, prop) {
-      if (typeof prop === 'symbol') return false;
+      if (typeof prop === "symbol") return false;
       return Reflect.has(initProviders(), prop);
     },
     ownKeys() {
       return Reflect.ownKeys(initProviders());
     },
     getOwnPropertyDescriptor(_, prop) {
-      if (typeof prop === 'symbol') return undefined;
+      if (typeof prop === "symbol") return undefined;
       return Object.getOwnPropertyDescriptor(initProviders(), prop);
     },
     set(_, prop, value) {
-      if (typeof prop === 'symbol') return false;
+      if (typeof prop === "symbol") return false;
       (initProviders() as Record<string, LegacyProvider>)[prop] = value;
       return true;
     },
     deleteProperty(_, prop) {
-      if (typeof prop === 'symbol') return false;
+      if (typeof prop === "symbol") return false;
       return Reflect.deleteProperty(initProviders(), prop);
     },
   }
@@ -315,3 +315,9 @@ export const STREAM_RECOVERY = {
   BUFFER_MAX_BYTES: 65536,
   EARLY_RETRY_MAX: 4,
 } as const;
+
+// Search providers (searchRegistry) default request timeout. Most providers
+// answer well within 10s; Firecrawl (full-page scraping) is deliberately
+// slower and gets its own budget.
+export const DEFAULT_SEARCH_TIMEOUT_MS = 10_000;
+export const FIRECRAWL_TIMEOUT_MS = 30_000;

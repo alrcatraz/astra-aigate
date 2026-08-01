@@ -8,6 +8,12 @@
  * keyed by provider ID (e.g. "nebius", "openai").
  */
 
+import { ProviderLinked } from "./providerLink.ts";
+import { REGISTRY } from "./providers/index.ts";
+import { siliconflowProvider } from "./providers/registry/siliconflow/index.ts";
+import { siliconflow_cnProvider } from "./providers/registry/siliconflow-cn/index.ts";
+import { SILICONFLOW_BASE } from "./providers/shared.ts";
+
 export type EmbeddingModality = "text" | "image" | "audio" | "video" | "document";
 export type StructuredEmbeddingProtocol = "jina-v1" | "gemini-embed-content";
 
@@ -28,6 +34,9 @@ export interface EmbeddingModel {
 
 export interface EmbeddingProvider {
   id: string;
+  /** Option-B link to the chat provider this media entry serves (PLAN §2.4).
+   *  When present, satisfies ProviderLinked<P> forces auth fields to match. */
+  providerId?: keyof typeof REGISTRY;
   baseUrl: string;
   authType: string;
   authHeader: string;
@@ -401,15 +410,16 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
   // chat/image/rerank/tts.
   siliconflow: {
     id: "siliconflow",
-    baseUrl: "https://api.siliconflow.com/v1/embeddings",
-    authType: "apikey",
-    authHeader: "bearer",
+    providerId: "siliconflow",
+    baseUrl: SILICONFLOW_BASE.intl + "/v1/embeddings",
+    authType: siliconflowProvider.authType,
+    authHeader: siliconflowProvider.authHeader,
     models: [
       { id: "Qwen/Qwen3-Embedding-8B", name: "Qwen3 Embedding 8B", dimensions: 1024 },
       { id: "Qwen/Qwen3-Embedding-4B", name: "Qwen3 Embedding 4B", dimensions: 1024 },
       { id: "Qwen/Qwen3-Embedding-0.6B", name: "Qwen3 Embedding 0.6B", dimensions: 1024 },
     ],
-  },
+  } satisfies EmbeddingProvider & ProviderLinked<"siliconflow">,
 
   // SiliconFlow CN — mainland-China RMB site (api.siliconflow.cn). Verified
   // against the CN model directory on 2026-07-31: Qwen3-Embedding family
@@ -419,9 +429,10 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
   // registered-keys + auth.ts) with chat/image/rerank/tts/stt.
   "siliconflow-cn": {
     id: "siliconflow-cn",
-    baseUrl: "https://api.siliconflow.cn/v1/embeddings",
-    authType: "apikey",
-    authHeader: "bearer",
+    providerId: "siliconflow-cn",
+    baseUrl: SILICONFLOW_BASE.cn + "/v1/embeddings",
+    authType: siliconflow_cnProvider.authType,
+    authHeader: siliconflow_cnProvider.authHeader,
     models: [
       { id: "Qwen/Qwen3-Embedding-8B", name: "Qwen3 Embedding 8B", dimensions: 1024 },
       { id: "Qwen/Qwen3-Embedding-4B", name: "Qwen3 Embedding 4B", dimensions: 1024 },
@@ -431,7 +442,7 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
       { id: "BAAI/bge-large-zh-v1.5", name: "BGE Large ZH v1.5", dimensions: 1024 },
       { id: "BAAI/bge-large-en-v1.5", name: "BGE Large EN v1.5", dimensions: 1024 },
     ],
-  },
+  } satisfies EmbeddingProvider & ProviderLinked<"siliconflow-cn">,
 };
 
 const EMBEDDING_PROVIDER_ALIASES: Record<string, string> = {

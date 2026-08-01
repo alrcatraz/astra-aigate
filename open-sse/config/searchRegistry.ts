@@ -10,6 +10,8 @@
  * perplexity-search reuses credentials from the "perplexity" chat provider.
  */
 
+import { DEFAULT_SEARCH_TIMEOUT_MS, FIRECRAWL_TIMEOUT_MS } from "./constants.ts";
+
 export interface SearchProviderConfig {
   id: string;
   name: string;
@@ -45,7 +47,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 100,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -61,7 +63,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 20,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -77,7 +79,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web"],
     defaultMaxResults: 5,
     maxMaxResults: 20,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -93,7 +95,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 100,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -109,7 +111,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 20,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -125,7 +127,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 100,
-    timeoutMs: 30_000,
+    timeoutMs: FIRECRAWL_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -141,7 +143,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 10,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -157,7 +159,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web"],
     defaultMaxResults: 5,
     maxMaxResults: 50,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -173,7 +175,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 100,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -189,7 +191,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 100,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -205,7 +207,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web", "news"],
     defaultMaxResults: 5,
     maxMaxResults: 50,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 3 * 60 * 1000,
   },
 
@@ -221,7 +223,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web"],
     defaultMaxResults: 5,
     maxMaxResults: 10,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -237,7 +239,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web"],
     defaultMaxResults: 5,
     maxMaxResults: 50,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
   },
 
@@ -256,7 +258,7 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     searchTypes: ["web"],
     defaultMaxResults: 5,
     maxMaxResults: 25,
-    timeoutMs: 10_000,
+    timeoutMs: DEFAULT_SEARCH_TIMEOUT_MS,
     cacheTTLMs: 5 * 60 * 1000,
     fallbackOnly: true,
   },

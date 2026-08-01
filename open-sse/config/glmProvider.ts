@@ -126,6 +126,20 @@ export const GLM_SHARED_MODELS = Object.freeze([
   },
 ]);
 
+/**
+ * Standard-API subset (open.bigmodel.cn/api/paas/v4) of the Coding Plan
+ * catalogue. Verified against docs.bigmodel.cn 2026-08-01: glm-5.2-high and
+ * glm-5.2-max are Coding Plan (z.ai / .../coding/paas) exclusives — they do
+ * NOT exist on the standard API. Everything else in GLM_SHARED_MODELS is
+ * documented on the standard API (quick-start + model pages show
+ * glm-5.2/5.1/5/5-turbo/4.7/4.7-flash/4.6/4.6v/4.5/4.5v/4.5-air). The zhipu
+ * registry entry serves this list; passthroughModels still lets live
+ * model-sync correct from /v1/models.
+ */
+export const GLM_STANDARD_API_MODELS = Object.freeze(
+  GLM_SHARED_MODELS.filter((m) => m.id !== "glm-5.2-high" && m.id !== "glm-5.2-max")
+);
+
 export const GLM_MODELS_URLS = Object.freeze({
   international: "https://api.z.ai/api/coding/paas/v4/models",
   china: "https://open.bigmodel.cn/api/coding/paas/v4/models",

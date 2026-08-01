@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireCliToolsAuth } from "@/lib/api/requireCliToolsAuth";
+import { resolveOmniRouteBaseUrl } from "@/shared/utils/resolveOmniRouteBaseUrl";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     const { toolId, baseUrl, apiKey, model, dryRun } = parsed.data;
 
     const result = await generateConfig(toolId, {
-      baseUrl: baseUrl || "http://localhost:20128/v1",
+      baseUrl: baseUrl || resolveOmniRouteBaseUrl() + "/v1",
       apiKey,
       model,
     });

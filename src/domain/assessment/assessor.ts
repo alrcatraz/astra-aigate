@@ -17,6 +17,7 @@ import type {
   AssessmentTrigger,
 } from "./types";
 import { DEFAULT_ASSESSMENT_CONFIG, PROBE_MESSAGES, PROBE_MAX_TOKENS } from "./types";
+import { resolveOmniRouteBaseUrl } from "@/shared/utils/resolveOmniRouteBaseUrl";
 
 interface ProbeResult {
   status: AssessmentStatus;
@@ -34,7 +35,7 @@ export class Assessor {
 
   constructor(
     apiKey: string,
-    baseUrl: string = "http://localhost:20128/v1",
+    baseUrl: string = resolveOmniRouteBaseUrl() + "/v1",
     config: Partial<AssessmentConfig> = {}
   ) {
     this.apiKey = apiKey;

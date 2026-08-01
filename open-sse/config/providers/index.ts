@@ -144,6 +144,7 @@ import { xaiProvider } from "./registry/xai/index.ts";
 import { xai_oauthProvider } from "./registry/xai-oauth/index.ts";
 import { morphProvider } from "./registry/morph/index.ts";
 import { siliconflowProvider } from "./registry/siliconflow/index.ts";
+import { siliconflow_cnProvider } from "./registry/siliconflow-cn/index.ts";
 import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
 import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
@@ -223,7 +224,7 @@ import { hcnsecProvider } from "./registry/hcnsec/index.ts";
 import { promptqlProvider } from "./registry/promptql/index.ts";
 import { hyperagentProvider } from "./registry/hyperagent/index.ts";
 
-export const REGISTRY: Record<string, RegistryEntry> = {
+export const REGISTRY = {
   aimlapi: aimlapiProvider,
   "ollama-cloud": ollama_cloudProvider,
   synthetic: syntheticProvider,
@@ -366,6 +367,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "xai-oauth": xai_oauthProvider,
   morph: morphProvider,
   siliconflow: siliconflowProvider,
+  "siliconflow-cn": siliconflow_cnProvider,
   "gitlab-duo": gitlab_duoProvider,
   "command-code": command_codeProvider,
   novita: novitaProvider,
@@ -446,4 +448,4 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   hcnsec: hcnsecProvider,
   promptql: promptqlProvider,
   hyperagent: hyperagentProvider,
-};
+} satisfies Record<string, RegistryEntry>;
