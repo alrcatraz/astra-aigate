@@ -63,7 +63,7 @@ Unified AI service gateway web console managing three categories:
 2. OmniRoute source fully preserved — only frontend is replaced
 3. MCP uses `@modelcontextprotocol/sdk` directly, not MetaMCP
 4. Non-MCP services (Camofox, SearXNG) use reverse proxy, not MCP wrapper
-5. UI uses Expo Design System
+5. UI uses Next.js App Router + Carbon Design System (Expo shell superseded in Phase 1)
 6. Podman container deployment; no standalone binary
 7. MIT license
 
@@ -88,6 +88,17 @@ Unified AI service gateway web console managing three categories:
   handlers must not hardcode model IDs (registry-driven).
 - **Unverified ≠ registered**: a capability/endpoint only gets a registry
   entry after a live 200 probe (or authoritative docs).
+- **Auth fields reference provider constants directly** (2.4): media registry
+  entries import `SILICONFLOW_BASE`-style constants and the provider's own
+  authType/authHeader rather than restating them — runtime drift is impossible;
+  `satisfies ProviderLinked<P>` keeps the link compile-checked.
+- **Dashboard auth checks reuse `isDashboardSessionAuthenticated`** (2.5):
+  any route that needs to know "is a dashboard session present?" must call the
+  shared guard (cookies + jwtVerify), never reimplement token parsing.
+- **SSRF guard docs live in `docs/security/SSRF_GUARD.md`** (2.5): three
+  switches (`OUTBOUND_SSRF_GUARD_ENABLED`, `OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS`,
+  `OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS`); local-first default; cloud-metadata
+  always blocked.
 
 ## Rename Strategy (OmniRoute → astra-aigate)
 

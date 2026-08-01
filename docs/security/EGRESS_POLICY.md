@@ -248,3 +248,4 @@ When a resolved proxy object carries a non-`auto` `family`, `proxyConfigToUrl` a
 > - [Proxy Guide](../ops/PROXY_GUIDE.md) — full proxy system: registry CRUD, 4-level resolution, rotation, health checking, API reference
 > - [Stealth Guide](./STEALTH_GUIDE.md) — TLS fingerprint and CLI fingerprint layers that ride on top of the proxy
 > - [Route Guard Tiers](./ROUTE_GUARD_TIERS.md) — loopback enforcement for local-only routes
+> - [Outbound SSRF Guard](./SSRF_GUARD.md) — blocking provider-validation requests to private/metadata targets
