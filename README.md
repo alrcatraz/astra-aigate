@@ -28,9 +28,9 @@ It is an **independent project** (not a GitHub fork), seeded from [OmniRoute](ht
 ## Features
 
 - **Expo design language** — luminous monochrome UI with pure-black (#000000) primary actions
-- **Data-driven sidebar** — `sections.ts` is the single source of truth for navigation; collapsible sub-groups (Routing & Access, Combos); redundant redirect stubs removed
+- **Data-driven sidebar** — `sections.ts` is the single source of truth for navigation; collapsible sub-groups (Routing & Access, Combos); media-providers entry; redundant redirect stubs removed
 - **Independent scrolling** — fixed-height layout with sidebar-internal and main-content scroll reset on route change
-- **i18n** — English (British), zh-CN, zh-TW; language switcher in Settings > Appearance and docs layout
+- **i18n** — 43 locales (English (British), zh-CN, zh-TW, and 40 more); language switcher in Settings > Appearance and docs layout
 - **Podman deployment** — multi-stage standalone build, no Turbopack (webpack-only)
 
 ## Quick Start
@@ -59,7 +59,7 @@ podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astr
 src/shared/constants/sidebarVisibility/sections.ts  # single nav data source
 src/shared/components/Sidebar.tsx                   # sidebar (collapsible sub-groups)
 src/shared/components/layouts/DashboardLayout.tsx   # fixed-height layout + scroll reset
-src/i18n/messages/{en,zh-CN,zh-TW}.json             # locales (British English)
+src/i18n/messages/*.json                        # 43 locales (British English base)
 scripts/test/regression-final.mjs                   # Playwright regression suite
 ```
 
@@ -125,9 +125,9 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
 ## 特性
 
 - **Expo 设计语言** — 明亮单色 UI，纯黑（#000000）主按钮
-- **数据驱动侧边栏** — `sections.ts` 是导航的唯一数据源；可折叠子分组（Routing & Access、Combos）；清除纯重定向冗余项
+- **数据驱动侧边栏** — `sections.ts` 是导航的唯一数据源；可折叠子分组（Routing & Access、Combos）；media-providers 入口；清除纯重定向冗余项
 - **独立滚动** — 固定高度布局，侧边栏内部滚动 + 路由切换时主内容滚动归零
-- **i18n** — 英语（英式）、zh-CN、zh-TW；Settings > Appearance 和 docs 布局中有语言切换器
+- **i18n** — 43 个 locale（英语（英式）、zh-CN、zh-TW 及另外 40 种）；Settings > Appearance 和 docs 布局中有语言切换器
 - **Podman 部署** — 多阶段 standalone 构建，仅 webpack（禁用 Turbopack）
 
 ## 快速开始
@@ -156,7 +156,7 @@ podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astr
 src/shared/constants/sidebarVisibility/sections.ts  # 导航唯一数据源
 src/shared/components/Sidebar.tsx                   # 侧边栏（可折叠子分组）
 src/shared/components/layouts/DashboardLayout.tsx   # 固定高度布局 + 滚动重置
-src/i18n/messages/{en,zh-CN,zh-TW}.json             # locale（英式英语）
+src/i18n/messages/*.json                        # 43 个 locale（英式英语为基准）
 scripts/test/regression-final.mjs                   # Playwright 回归套件
 ```
 
