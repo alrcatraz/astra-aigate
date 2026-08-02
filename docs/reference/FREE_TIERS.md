@@ -6,7 +6,7 @@ lastUpdated: 2026-06-28
 
 # Free Tiers & Free-Token Budget
 
-> **For Users**: Looking for a simple guide? See the [Free Tiers Guide](../getting-started/FREE-TIERS-GUIDE.md) for step-by-step instructions on getting free AI.
+> **For Users**: Looking for a simple guide? See `docs/reference/FREE_TIERS.md` for step-by-step instructions on getting free AI.
 
 > **Last researched:** 2026-06-17 — per-provider web research (official docs + last-7-days news, 50-agent pass with adversarial verification) refreshing every free-tier quota + ToS.
 > **Source of truth (catalog):** `open-sse/config/freeModelCatalog.ts` (per-MODEL budgets, pool-deduped). The token-budget numbers below come from live web research and are an **approximation** — see [Methodology & caveats](#methodology--caveats).

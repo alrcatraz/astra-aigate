@@ -23,14 +23,13 @@ const DOCKERIGNORE = path.resolve(REPO_ROOT, ".dockerignore");
 // Subset of the docs viewer's catalog that MUST survive the docker filter.
 // Sourced from src/app/docs/lib/docs-auto-generated.ts.
 const REQUIRED_DOCS = [
-  "docs/README.md",
   "docs/providers/CLAUDE_WEB.md",
   "docs/routing/AUTO-COMBO.md",
-  "docs/guides/SETUP_GUIDE.md",
-  "docs/guides/TROUBLESHOOTING.md",
   "docs/reference/API_REFERENCE.md",
   "docs/reference/PROVIDER_REFERENCE.md",
   "docs/reference/ENVIRONMENT.md",
+  "docs/architecture/ARCHITECTURE.md",
+  "docs/compression/COMPRESSION_GUIDE.md",
 ];
 
 // Referenced from docs/**/*.md — fumadocs-mdx webpack build fails if missing.
