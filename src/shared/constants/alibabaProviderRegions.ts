@@ -2,7 +2,7 @@ export const ALIBABA_PROVIDER_REGION_VALUES = ["global-sg", "china-beijing"] as 
 
 export type AlibabaProviderRegion = (typeof ALIBABA_PROVIDER_REGION_VALUES)[number];
 export type AlibabaProviderFamily =
-  "alibaba" | "bailian-coding-plan" | "qwen-cloud" | "qwen-cloud-token-plan";
+  "alibaba" | "bailian-coding-plan" | "qwen-cloud" | "qwen-cloud-token-plan" | "zhipu";
 
 export const ALIBABA_PROVIDER_ENDPOINTS: Readonly<
   Record<AlibabaProviderFamily, Readonly<Record<AlibabaProviderRegion, string>>>
@@ -23,6 +23,10 @@ export const ALIBABA_PROVIDER_ENDPOINTS: Readonly<
     "global-sg": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
     "china-beijing": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
   },
+  zhipu: {
+    "global-sg": "https://api.z.ai/api/paas/v4/chat/completions",
+    "china-beijing": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+  },
 };
 
 const REGIONAL_PROVIDER_IDS = new Set([
@@ -31,6 +35,7 @@ const REGIONAL_PROVIDER_IDS = new Set([
   "bailian-coding-plan",
   "qwen-cloud",
   "qwen-cloud-token-plan",
+  "zhipu",
 ]);
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -45,7 +50,8 @@ function canonicalProviderFamily(providerId: string): AlibabaProviderFamily | nu
     providerId === "alibaba" ||
     providerId === "bailian-coding-plan" ||
     providerId === "qwen-cloud" ||
-    providerId === "qwen-cloud-token-plan"
+    providerId === "qwen-cloud-token-plan" ||
+    providerId === "zhipu"
   ) {
     return providerId;
   }
@@ -88,7 +94,8 @@ export function isAlibabaRegionalProvider(providerId: string | null | undefined)
 export function getDefaultAlibabaProviderRegion(
   providerId: string | null | undefined
 ): AlibabaProviderRegion {
-  return providerId === "alibaba-cn" ? "china-beijing" : "global-sg";
+  if (providerId === "alibaba-cn" || providerId === "zhipu") return "china-beijing";
+  return "global-sg";
 }
 
 export function normalizeAlibabaProviderRegion(
