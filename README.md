@@ -2,7 +2,7 @@
 
 # astra-aigate — Unified AI Service Gateway
 
-One web UI to configure, monitor and route **LLM providers**, **MCP servers** and **auxiliary services**.
+One web UI to configure, monitor and route **LLM providers** (290), **MCP servers** and **auxiliary services**.
 
 <div align="center">
 
@@ -31,6 +31,7 @@ It is an **independent project** (not a GitHub fork), seeded from [OmniRoute](ht
 - **Data-driven sidebar** — `sections.ts` is the single source of truth for navigation; collapsible sub-groups (Routing & Access, Combos); media-providers entry; redundant redirect stubs removed
 - **Independent scrolling** — fixed-height layout with sidebar-internal and main-content scroll reset on route change
 - **i18n** — 43 locales (English (British), zh-CN, zh-TW, and 40 more); language switcher in Settings > Appearance and docs layout
+- **Pluggable database** — SQLite by default (zero-ops), optional PostgreSQL via `DB_DRIVER=postgres`; unified async `DatabaseAdapter` interface with a dialect translation layer
 - **Podman deployment** — multi-stage standalone build, no Turbopack (webpack-only)
 
 ## Quick Start
@@ -41,17 +42,25 @@ podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astr
 # Open http://<host>:<port> — first login uses INITIAL_PASSWORD from .env
 ```
 
+### PostgreSQL (optional)
+
+Set `DB_DRIVER=postgres` and `DATABASE_URL` in `.env` to back the gateway
+with PostgreSQL instead of SQLite. The schema is created automatically on a
+fresh database; migrate an existing SQLite deployment with
+`scripts/migrate-sqlite-to-pg.ts`. In containers, reach the host database via
+`host.containers.internal` (rootless Podman cannot reach the host IP directly).
+
 ## Tech Stack
 
-| Layer         | Choice                                                  |
-| ------------- | ------------------------------------------------------- |
-| Runtime       | Node.js 26 (container, trixie)                          |
-| Database      | SQLite via better-sqlite3                               |
-| API framework | Fastify (carried from OmniRoute)                        |
-| Frontend      | Next.js 16 (App Router) + React 19 + Expo design tokens |
-| i18n          | next-intl (messages bundled at build time)              |
-| Auth          | Password + API keys (JWT)                               |
-| Deployment    | Podman multi-stage standalone build                     |
+| Layer         | Choice                                                                            |
+| ------------- | --------------------------------------------------------------------------------- |
+| Runtime       | Node.js 26 (container, trixie)                                                    |
+| Database      | SQLite via better-sqlite3 (default) / PostgreSQL (optional, `DB_DRIVER=postgres`) |
+| API framework | Fastify (carried from OmniRoute)                                                  |
+| Frontend      | Next.js 16 (App Router) + React 19 + Expo design tokens                           |
+| i18n          | next-intl (messages bundled at build time)                                        |
+| Auth          | Password + API keys (JWT)                                                         |
+| Deployment    | Podman multi-stage standalone build                                               |
 
 ## Project Layout
 
@@ -128,6 +137,7 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
 - **数据驱动侧边栏** — `sections.ts` 是导航的唯一数据源；可折叠子分组（Routing & Access、Combos）；media-providers 入口；清除纯重定向冗余项
 - **独立滚动** — 固定高度布局，侧边栏内部滚动 + 路由切换时主内容滚动归零
 - **i18n** — 43 个 locale（英语（英式）、zh-CN、zh-TW 及另外 40 种）；Settings > Appearance 和 docs 布局中有语言切换器
+- **可插拔数据库** — 默认 SQLite（零运维），可选 PostgreSQL（`DB_DRIVER=postgres`）；统一异步 `DatabaseAdapter` 接口 + 方言翻译层
 - **Podman 部署** — 多阶段 standalone 构建，仅 webpack（禁用 Turbopack）
 
 ## 快速开始
@@ -138,17 +148,24 @@ podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astr
 # 打开 http://<host>:<port> — 首次登录使用 .env 中的 INITIAL_PASSWORD
 ```
 
+### PostgreSQL（可选）
+
+在 `.env` 中设置 `DB_DRIVER=postgres` 和 `DATABASE_URL`，即可用 PostgreSQL
+替代 SQLite 作为网关存储。新库自动建表；迁移现有 SQLite 数据用
+`scripts/migrate-sqlite-to-pg.ts`。容器内访问宿主数据库须用
+`host.containers.internal`（rootless Podman 无法直连宿主 IP）。
+
 ## 技术栈
 
-| 层       | 选型                                               |
-| -------- | -------------------------------------------------- |
-| 运行时   | Node.js 26（容器，trixie）                         |
-| 数据库   | SQLite via better-sqlite3                          |
-| API 框架 | Fastify（继承自 OmniRoute）                        |
-| 前端     | Next.js 16（App Router）+ React 19 + Expo 设计令牌 |
-| i18n     | next-intl（messages 构建时打包）                   |
-| 认证     | 密码 + API 密钥（JWT）                             |
-| 部署     | Podman 多阶段 standalone 构建                      |
+| 层       | 选型                                                                        |
+| -------- | --------------------------------------------------------------------------- |
+| 运行时   | Node.js 26（容器，trixie）                                                  |
+| 数据库   | SQLite via better-sqlite3（默认）/ PostgreSQL（可选，`DB_DRIVER=postgres`） |
+| API 框架 | Fastify（继承自 OmniRoute）                                                 |
+| 前端     | Next.js 16（App Router）+ React 19 + Expo 设计令牌                          |
+| i18n     | next-intl（messages 构建时打包）                                            |
+| 认证     | 密码 + API 密钥（JWT）                                                      |
+| 部署     | Podman 多阶段 standalone 构建                                               |
 
 ## 项目结构
 

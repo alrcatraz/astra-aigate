@@ -48,7 +48,7 @@ Code.
 ## Prerequisites
 
 - An AgentRouter account and API key. New signups get free credits via the affiliate
-  link in the project [README](../README.md).
+  link in the project [README](../../README.md).
 - OmniRoute running with the `ENABLE_CC_COMPATIBLE_PROVIDER` feature flag enabled
   (see below).
 

@@ -162,7 +162,6 @@ The cache exposes two endpoints under `src/app/api/cache/reasoning/route.ts`. Bo
 ## See Also
 
 - [RESILIENCE_GUIDE.md](../architecture/RESILIENCE_GUIDE.md) — circuit breakers, cooldowns, model lockouts
-- [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) — diagnosing upstream 400s
 - Source: `src/lib/db/reasoningCache.ts`, `open-sse/services/reasoningCache.ts`, `open-sse/translator/index.ts`
 - Migration: `src/lib/db/migrations/033_create_reasoning_cache.sql`
 - API route: `src/app/api/cache/reasoning/route.ts`

@@ -51,17 +51,17 @@ used when neither a DB override nor an environment variable is present.
 
 ### Security (7)
 
-| Key                              | Type    | Default  | Description                                                                   |
-| -------------------------------- | ------- | -------- | ----------------------------------------------------------------------------- |
-| `REQUIRE_API_KEY`                | boolean | `false`  | Require an API key for all incoming requests.                                 |
-| `INPUT_SANITIZER_ENABLED`        | boolean | `true`   | Enable input sanitization for all requests.                                   |
-| `INJECTION_GUARD_MODE`           | enum    | `off`    | Prompt injection guard mode. Values: `off`, `warn`, `block`, `redact`.        |
-| `INPUT_SANITIZER_BLOCK_THRESHOLD` | enum    | `high`   | Minimum severity blocked when mode is `block` (`high`/`medium`/`low`). Medium families are observe-only at default. |
-| `INJECTION_GUARD_BLOCK_THRESHOLD` | enum    | _(unset)_ | Legacy alias for `INPUT_SANITIZER_BLOCK_THRESHOLD`. |
-| `PII_REDACTION_ENABLED`          | boolean | `false`  | Redact PII from requests (independent of `INPUT_SANITIZER_MODE`).              |
-| `PII_RESPONSE_SANITIZATION`      | boolean | `false`  | Sanitize PII from provider responses.                                         |
-| `PII_RESPONSE_SANITIZATION_MODE` | enum    | `redact` | Mode for PII response sanitization. Values: `redact`, `warn`, `block`, `off`. |
-| `OUTBOUND_SSRF_GUARD_ENABLED`    | boolean | `true`   | Block outbound requests to private/internal IP ranges.                        |
+| Key                               | Type    | Default   | Description                                                                                                         |
+| --------------------------------- | ------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `REQUIRE_API_KEY`                 | boolean | `false`   | Require an API key for all incoming requests.                                                                       |
+| `INPUT_SANITIZER_ENABLED`         | boolean | `true`    | Enable input sanitization for all requests.                                                                         |
+| `INJECTION_GUARD_MODE`            | enum    | `off`     | Prompt injection guard mode. Values: `off`, `warn`, `block`, `redact`.                                              |
+| `INPUT_SANITIZER_BLOCK_THRESHOLD` | enum    | `high`    | Minimum severity blocked when mode is `block` (`high`/`medium`/`low`). Medium families are observe-only at default. |
+| `INJECTION_GUARD_BLOCK_THRESHOLD` | enum    | _(unset)_ | Legacy alias for `INPUT_SANITIZER_BLOCK_THRESHOLD`.                                                                 |
+| `PII_REDACTION_ENABLED`           | boolean | `false`   | Redact PII from requests (independent of `INPUT_SANITIZER_MODE`).                                                   |
+| `PII_RESPONSE_SANITIZATION`       | boolean | `false`   | Sanitize PII from provider responses.                                                                               |
+| `PII_RESPONSE_SANITIZATION_MODE`  | enum    | `redact`  | Mode for PII response sanitization. Values: `redact`, `warn`, `block`, `off`.                                       |
+| `OUTBOUND_SSRF_GUARD_ENABLED`     | boolean | `true`    | Block outbound requests to private/internal IP ranges.                                                              |
 
 ### Network (8)
 
@@ -86,19 +86,19 @@ used when neither a DB override nor an environment variable is present.
 
 ### Runtime (11)
 
-| Key                                         | Type    | Default | Restart | Description                                                                                                                                         |
-| ------------------------------------------- | ------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EXPOSE_CC_DISCOVERY_ALIASES`               | boolean | `false` |         | Advertise `claude/<provider>/<model>` mirror ids on `/v1/models` so Claude Code gateway model discovery lists non-Claude models. Global level of the three-level gate (env wins over the dashboard override). See [Claude Code configuration](../guides/CLAUDE-CODE-CONFIGURATION.md#discovery-aliases--surface-non-claude-models-in-the-model-picker). |
-| `OMNIROUTE_MCP_ENFORCE_SCOPES`              | boolean | `true`  |         | Enforce scope restrictions on MCP tool access.                                                                                                      |
-| `OMNIROUTE_MCP_COMPRESS_DESCRIPTIONS`       | boolean | `false` |         | Compress MCP tool descriptions to reduce token usage.                                                                                               |
-| `OMNIROUTE_ENABLE_RUNTIME_BACKGROUND_TASKS` | boolean | `false` |         | Enable background task processing at runtime.                                                                                                       |
-| `OMNIROUTE_DISABLE_BACKGROUND_SERVICES`     | boolean | `false` | ✓       | Disable all background services (quota refresh, sync, etc).                                                                                         |
-| `OMNIROUTE_RTK_TRUST_PROJECT_FILTERS`       | boolean | `false` |         | Trust project-level RTK filters without validation.                                                                                                 |
-| `OMNIROUTE_ENABLE_LIVE_WS`                  | boolean | `true`  | ✓       | Start the real-time dashboard WebSocket server on import (port 20129 by default).                                                                   |
-| `OMNIROUTE_CODEX_WS_ENABLED`                | boolean | `true`  |         | Allow Codex to use the Responses-over-WebSocket transport. When off, Codex falls back to HTTP Responses.                                            |
-| `OMNIROUTE_EMERGENCY_FALLBACK`              | boolean | `true`  |         | Route budget-exhausted requests to the emergency free fallback provider/model. (See [Emergency Budget Fallback](#emergency-budget-fallback) below.) |
-| `MODEL_CATALOG_INCLUDE_NAMES`               | boolean | `true`  |         | Include display-friendly name fields in `/v1/models` responses. Disable for clients that expect model IDs only.                                     |
-| `ARENA_ELO_SYNC_ENABLED`                    | boolean | `true`  |         | Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.                                                                      |
+| Key                                         | Type    | Default | Restart | Description                                                                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPOSE_CC_DISCOVERY_ALIASES`               | boolean | `false` |         | Advertise `claude/<provider>/<model>` mirror ids on `/v1/models` so Claude Code gateway model discovery lists non-Claude models. Global level of the three-level gate (env wins over the dashboard override). See [CLI-TOOLS.md → Claude Code](../reference/CLI-TOOLS.md#claude-code). |
+| `OMNIROUTE_MCP_ENFORCE_SCOPES`              | boolean | `true`  |         | Enforce scope restrictions on MCP tool access.                                                                                                                                                                                                                                         |
+| `OMNIROUTE_MCP_COMPRESS_DESCRIPTIONS`       | boolean | `false` |         | Compress MCP tool descriptions to reduce token usage.                                                                                                                                                                                                                                  |
+| `OMNIROUTE_ENABLE_RUNTIME_BACKGROUND_TASKS` | boolean | `false` |         | Enable background task processing at runtime.                                                                                                                                                                                                                                          |
+| `OMNIROUTE_DISABLE_BACKGROUND_SERVICES`     | boolean | `false` | ✓       | Disable all background services (quota refresh, sync, etc).                                                                                                                                                                                                                            |
+| `OMNIROUTE_RTK_TRUST_PROJECT_FILTERS`       | boolean | `false` |         | Trust project-level RTK filters without validation.                                                                                                                                                                                                                                    |
+| `OMNIROUTE_ENABLE_LIVE_WS`                  | boolean | `true`  | ✓       | Start the real-time dashboard WebSocket server on import (port 20129 by default).                                                                                                                                                                                                      |
+| `OMNIROUTE_CODEX_WS_ENABLED`                | boolean | `true`  |         | Allow Codex to use the Responses-over-WebSocket transport. When off, Codex falls back to HTTP Responses.                                                                                                                                                                               |
+| `OMNIROUTE_EMERGENCY_FALLBACK`              | boolean | `true`  |         | Route budget-exhausted requests to the emergency free fallback provider/model. (See [Emergency Budget Fallback](#emergency-budget-fallback) below.)                                                                                                                                    |
+| `MODEL_CATALOG_INCLUDE_NAMES`               | boolean | `true`  |         | Include display-friendly name fields in `/v1/models` responses. Disable for clients that expect model IDs only.                                                                                                                                                                        |
+| `ARENA_ELO_SYNC_ENABLED`                    | boolean | `true`  |         | Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.                                                                                                                                                                                                         |
 
 ### CLI (3)
 

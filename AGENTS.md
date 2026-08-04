@@ -12,23 +12,25 @@
 
 Unified AI service gateway web console managing three categories:
 
-1. **LLM Providers** — route /v1/chat/completions with combo fallback
+1. **LLM Providers** — route /v1/chat/completions with combo fallback (290 in the catalog)
 2. **MCP Servers** — aggregate multiple MCP servers into one /mcp endpoint
 3. **Auxiliary Services** — health monitoring + reverse proxy for Camofox,
    SearXNG, etc.
 
+UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
+
 ## Tech Stack
 
-| Layer          | Choice                                                  |
-| -------------- | ------------------------------------------------------- |
-| Runtime        | Node.js 26 (container, trixie-slim)                     |
-| Database       | SQLite via better-sqlite3                               |
-| API framework  | Fastify (carried from OmniRoute)                        |
-| MCP SDK        | @modelcontextprotocol/sdk (TypeScript)                  |
-| Frontend       | Next.js 16 (App Router) + React 19 + Expo Design System |
-| Auth           | Password + API keys (JWT)                               |
-| Deployment     | Podman multi-stage standalone build                     |
-| Frontend build | Next.js (webpack-only; Turbopack disabled)              |
+| Layer          | Choice                                                    |
+| -------------- | --------------------------------------------------------- |
+| Runtime        | Node.js 26 (container, trixie-slim)                       |
+| Database       | SQLite via better-sqlite3 (default) / PostgreSQL (opt-in) | SQLite = zero-ops default; `DB_DRIVER` switches to PG (Phase 2.8) |
+| API framework  | Fastify (carried from OmniRoute)                          |
+| MCP SDK        | @modelcontextprotocol/sdk (TypeScript)                    |
+| Frontend       | Next.js 16 (App Router) + React 19 + Expo Design System   |
+| Auth           | Password + API keys (JWT)                                 |
+| Deployment     | Podman multi-stage standalone build                       |
+| Frontend build | Next.js (webpack-only; Turbopack disabled)                |
 
 ## Source Code Origins
 
@@ -66,6 +68,11 @@ Unified AI service gateway web console managing three categories:
 5. UI uses Next.js App Router + Carbon Design System (Expo shell superseded in Phase 1)
 6. Podman container deployment; no standalone binary
 7. MIT license
+8. Pluggable database (2.8): SQLite default (zero-ops), PostgreSQL opt-in via
+   `DB_DRIVER=postgres` + `DATABASE_URL`; async `DatabaseAdapter` interface
+   (sync SQLite drivers wrapped), dialect translation centralized in the PG
+   adapter so business modules stay driver-agnostic. SQLite→PG migration:
+   `scripts/migrate-sqlite-to-pg.ts` (idempotent, reconciles row counts)
 
 ## Registry & Config Conventions (Phase 2)
 
@@ -99,6 +106,18 @@ Unified AI service gateway web console managing three categories:
   switches (`OUTBOUND_SSRF_GUARD_ENABLED`, `OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS`,
   `OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS`); local-first default; cloud-metadata
   always blocked.
+- **Quota config = `providers/usageConfigs.ts` single source** (2.7): every
+  quota-capable provider MUST be declared there (`baseUrl?`, `endpoint`,
+  `authMode`, `userHeaderName?`, `quotaPerCny?`, `needsSystemToken`,
+  `displayMode`, `resetWindow?`) — never inline into catalog entries or
+  duplicate in fetcher/UI. Two display modes: `balance` (remaining, pre-paid),
+  `used-limit` (used/total + reset window; `usage-only` is the degraded
+  fallback when no limit is available). `needsSystemToken: true` →
+  `AgentrouterConsoleFields` renders the system admin-token field (reuses the
+  generic `consoleApiKey` + `newApiUserId` fields, same as agentrouter #6850).
+  Dispatch lives in `open-sse/services/usage.ts` (switch on provider id →
+  `open-sse/services/usage/*.ts` fetcher leaves); adding a provider touches
+  exactly: usageConfigs.ts + usage.ts case + `USAGE_SUPPORTED_PROVIDERS`.
 
 ## Rename Strategy (OmniRoute → astra-aigate)
 
@@ -112,6 +131,15 @@ Three tiers, defined in PLAN.md §1.7:
 
 Runtime env vars consumed by `open-sse/` source code (`OMNIROUTE_API_KEY`,
 `OMNIROUTE_BASE_URL`, etc.) are **not renamed** — they're Tier 3 internal.
+
+**Deploy-chain exception (Tier 1-complete as of C7):** env vars that travel the
+deploy chain — compose files, Dockerfile `ARG`/`ENV`, container entry scripts
+(`scripts/docker/*`), and the build/dev scripts that read them — MUST use the
+new `AIGATE_*` names. This set is exactly: `AIGATE_BASE_PATH` /
+`NEXT_PUBLIC_AIGATE_BASE_PATH`, `AIGATE_USE_TURBOPACK`, and
+`NEXT_PUBLIC_AIGATE_E2E_MODE`. Anything a deployer can set in
+`docker-compose.yml`, `.env`, or `docker run -e` that still reads
+`OMNIROUTE_*` is a bug (see `check-env-doc-sync`).
 
 ## CLAUDE.md
 
