@@ -12,14 +12,14 @@ const READ_KV_SQL = "SELECT value FROM key_value WHERE namespace = ? AND key = ?
 // used by serviceModels.ts / jsonMigration.ts.
 const WRITE_KV_SQL = "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)";
 
-function setKeyValue(namespace: string, key: string, value: string): void {
+async function setKeyValue(namespace: string, key: string, value: string): Promise<void> {
   const db = getDbInstance();
-  db.prepare(WRITE_KV_SQL).run(namespace, key, value);
+  await db.prepare(WRITE_KV_SQL).run(namespace, key, value);
 }
 
-function getKeyValue(namespace: string, key: string): string | null {
+async function getKeyValue(namespace: string, key: string): Promise<string | null> {
   const db = getDbInstance();
-  const row = db.prepare(READ_KV_SQL).get(namespace, key) as { value: string } | undefined;
+  const row = (await db.prepare(READ_KV_SQL).get(namespace, key)) as { value: string } | undefined;
   return row?.value ?? null;
 }
 
@@ -91,11 +91,11 @@ function parseJsonSafe(raw: string | null): unknown {
   }
 }
 
-function readNamespace(namespace: string): Record<string, unknown> {
+async function readNamespace(namespace: string): Promise<Record<string, unknown>> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
-    .all(namespace) as Array<{ key: string; value: string | null }>;
+    .all(namespace)) as Array<{ key: string; value: string | null }>;
   const values: Record<string, unknown> = {};
   for (const row of rows) values[row.key] = parseJsonSafe(row.value);
   return values;
@@ -121,20 +121,20 @@ function mergeOptimization(target: VacuumScheduleSettings, value: unknown): Vacu
   };
 }
 
-function readScheduleSettings(): VacuumScheduleSettings {
+async function readScheduleSettings(): Promise<VacuumScheduleSettings> {
   let settings: VacuumScheduleSettings = {
     scheduledVacuum: DEFAULT_DATABASE_SETTINGS.optimization.scheduledVacuum,
     vacuumHour: DEFAULT_DATABASE_SETTINGS.optimization.vacuumHour,
   };
 
-  const mainSettings = readNamespace("settings");
+  const mainSettings = await readNamespace("settings");
   const databaseSettingsValue = mainSettings.databaseSettings;
   if (isRecord(databaseSettingsValue)) {
     settings = mergeOptimization(settings, databaseSettingsValue.optimization);
   }
   settings = mergeOptimization(settings, mainSettings.optimization);
 
-  const databaseSettings = readNamespace("databaseSettings");
+  const databaseSettings = await readNamespace("databaseSettings");
   settings = mergeOptimization(settings, databaseSettings.optimization);
   settings = {
     scheduledVacuum: normalizeSchedule(
@@ -192,8 +192,11 @@ export function resolveNextRunAt(
   return candidate.getTime();
 }
 
-function applySchedule(now: number = Date.now(), anchorLastRunAt = currentState.lastRunAt): void {
-  const settings = readScheduleSettings();
+async function applySchedule(
+  now: number = Date.now(),
+  anchorLastRunAt = currentState.lastRunAt
+): Promise<void> {
+  const settings = await readScheduleSettings();
   currentState.enabled = settings.scheduledVacuum !== "never";
   currentState.intervalMs = NOMINAL_INTERVAL_MS[settings.scheduledVacuum];
   currentState.nextRunAt = resolveNextRunAt(settings, anchorLastRunAt, now);
@@ -226,12 +229,12 @@ function armTimer(): void {
   if (typeof timer.unref === "function") timer.unref();
 }
 
-function persistState(): void {
-  setKeyValue(KEY_VALUE_NAMESPACE, KEY_VALUE_KEY, JSON.stringify(currentState));
+async function persistState(): Promise<void> {
+  await setKeyValue(KEY_VALUE_NAMESPACE, KEY_VALUE_KEY, JSON.stringify(currentState));
 }
 
-function loadPersistedState(): Partial<VacuumSchedulerState> {
-  const raw = getKeyValue(KEY_VALUE_NAMESPACE, KEY_VALUE_KEY);
+async function loadPersistedState(): Promise<Partial<VacuumSchedulerState>> {
+  const raw = await getKeyValue(KEY_VALUE_NAMESPACE, KEY_VALUE_KEY);
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as Partial<VacuumSchedulerState>;
@@ -245,9 +248,9 @@ export function getState(): VacuumSchedulerState {
   return { ...currentState };
 }
 
-export function refresh(): VacuumSchedulerState {
-  applySchedule();
-  persistState();
+export async function refresh(): Promise<VacuumSchedulerState> {
+  await applySchedule();
+  await persistState();
   armTimer();
   return getState();
 }
@@ -257,26 +260,26 @@ export async function runNow(): Promise<{ success: boolean; durationMs: number; 
     return { success: false, durationMs: 0, error: "already_running" };
   }
   currentState.isRunning = true;
-  persistState();
+  await persistState();
 
   const start = Date.now();
   try {
     const db = getDbInstance();
-    db.exec("VACUUM");
+    await db.exec("VACUUM");
     const duration = Date.now() - start;
     currentState.lastRunAt = start;
     currentState.lastError = null;
     currentState.lastDurationMs = duration;
     currentState.isRunning = false;
-    refresh(); // reset the next-run clock from this successful run
+    await refresh(); // reset the next-run clock from this successful run
     return { success: true, durationMs: duration };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     currentState.lastError = message;
     currentState.lastDurationMs = Date.now() - start;
     currentState.isRunning = false;
-    applySchedule(Date.now(), Date.now());
-    persistState();
+    await applySchedule(Date.now(), Date.now());
+    await persistState();
     armTimer();
     return { success: false, durationMs: currentState.lastDurationMs, error: message };
   }
@@ -287,17 +290,17 @@ export async function runNow(): Promise<{ success: boolean; durationMs: number; 
  * `instrumentation-node.ts` register() hook. Safe to call multiple
  * times — the second call is a no-op.
  */
-export function init(): VacuumSchedulerState {
+export async function init(): Promise<VacuumSchedulerState> {
   if (timer) return getState();
 
-  const persisted = loadPersistedState();
+  const persisted = await loadPersistedState();
   currentState = {
     ...STATE_DEFAULTS,
     ...persisted,
     isRunning: false, // never resume a "running" state across restarts
     nextRunAt: null, // recompute below
   };
-  return refresh();
+  return await refresh();
 }
 
 export const initVacuumScheduler = init;
@@ -307,14 +310,14 @@ export const refreshVacuumScheduler = refresh;
  * Stop the scheduler. Called from `closeDbInstance()` so we don't
  * leak a setTimeout handle across DB reconnects. Idempotent.
  */
-export function stop(): void {
+export async function stop(): Promise<void> {
   if (timer) {
     clearTimeout(timer);
     timer = null;
   }
   currentState.nextRunAt = null;
   currentState.isRunning = false;
-  persistState();
+  await persistState();
 }
 
 /**

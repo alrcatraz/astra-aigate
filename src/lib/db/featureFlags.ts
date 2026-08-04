@@ -8,6 +8,7 @@
 
 import { FEATURE_FLAG_DEFINITIONS } from "@/shared/constants/featureFlagDefinitions";
 import { getDbInstance } from "./core";
+import type { RawSyncDb } from "./adapters/types";
 
 const NAMESPACE = "feature_flags";
 
@@ -15,7 +16,7 @@ const NAMESPACE = "feature_flags";
  * Returns all feature flag overrides as a key→value map.
  */
 export function getFeatureFlagOverrides(): Record<string, string> {
-  const db = getDbInstance();
+  const db = getDbInstance() as unknown as RawSyncDb;
   const rows = db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
     .all(NAMESPACE) as Array<{ key: string; value: string }>;
@@ -32,7 +33,7 @@ export function getFeatureFlagOverrides(): Record<string, string> {
  * is stored.
  */
 export function getFeatureFlagOverride(key: string): string | undefined {
-  const db = getDbInstance();
+  const db = getDbInstance() as unknown as RawSyncDb;
   const row = db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(NAMESPACE, key) as { value: string } | undefined;
@@ -56,12 +57,10 @@ export function setFeatureFlagOverride(key: string, value: string): void {
       `Invalid value "${value}" for enum flag ${key}. Allowed: ${definition.enumValues.join(", ")}`
     );
   }
-  const db = getDbInstance();
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    NAMESPACE,
-    key,
-    value
-  );
+  const db = getDbInstance() as unknown as { raw: RawSyncDb };
+  db.raw
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run(NAMESPACE, key, value);
 }
 
 /**
@@ -69,14 +68,14 @@ export function setFeatureFlagOverride(key: string, value: string): void {
  * behaviour.
  */
 export function removeFeatureFlagOverride(key: string): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
+  const db = getDbInstance() as unknown as { raw: RawSyncDb };
+  db.raw.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
 }
 
 /**
  * Removes all stored feature flag overrides.
  */
 export function clearAllFeatureFlagOverrides(): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = ?").run(NAMESPACE);
+  const db = getDbInstance() as unknown as { raw: RawSyncDb };
+  db.raw.prepare("DELETE FROM key_value WHERE namespace = ?").run(NAMESPACE);
 }

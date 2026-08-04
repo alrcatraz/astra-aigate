@@ -27,17 +27,19 @@ function mapRow(row: InspectorCustomHostDbRow): InspectorCustomHostRow {
   };
 }
 
-export function listCustomHosts(opts?: { enabledOnly?: boolean }): InspectorCustomHostRow[] {
+export async function listCustomHosts(opts?: {
+  enabledOnly?: boolean;
+}): Promise<InspectorCustomHostRow[]> {
   const db = getDbInstance();
   const enabledOnly = opts?.enabledOnly === true;
 
   const rows = enabledOnly
-    ? (db
+    ? ((await db
         .prepare("SELECT * FROM inspector_custom_hosts WHERE enabled = 1 ORDER BY host ASC")
-        .all() as InspectorCustomHostDbRow[])
-    : (db
+        .all()) as InspectorCustomHostDbRow[])
+    : ((await db
         .prepare("SELECT * FROM inspector_custom_hosts ORDER BY host ASC")
-        .all() as InspectorCustomHostDbRow[]);
+        .all()) as InspectorCustomHostDbRow[]);
 
   return rows.map(mapRow);
 }
@@ -79,10 +81,10 @@ export function touchLastSeen(host: string): void {
  * Used by agentBridgeHook to distinguish custom-host intercepts from agent-bridge
  * intercepts so that Mode 2 (Custom Hosts) entries appear in the "Custom" profile.
  */
-export function isCustomHost(host: string): boolean {
+export async function isCustomHost(host: string): Promise<boolean> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare("SELECT 1 AS found FROM inspector_custom_hosts WHERE host = ? AND enabled = 1")
-    .get(host) as { found: number } | undefined;
+    .get(host)) as { found: number } | undefined;
   return row !== undefined;
 }

@@ -7,7 +7,7 @@
 // a simple JOIN (m.rowid = v.rowid). We do NOT use a named primary-key column because
 // vec0 rejects numeric (non-BigInt) values for named PKs in this version.
 
-import { createRequire } from "module";
+import { nativeRequire } from "@/lib/module-require";
 import type { EmbeddingResolution } from "./embedding/types";
 import {
   getMemoryVecMeta,
@@ -19,7 +19,7 @@ import { getDbInstance } from "../db/core";
 import { logger } from "../../../open-sse/utils/logger.ts";
 import { sanitizeErrorMessage } from "../../../open-sse/utils/error.ts";
 
-const _require = createRequire(import.meta.url);
+const _require = nativeRequire;
 
 const log = logger("VECTOR_STORE");
 
@@ -54,7 +54,7 @@ export interface VectorStore {
     vector: Float32Array,
     queryText: string,
     topK: number,
-    apiKeyId?: string,
+    apiKeyId?: string
   ): Promise<HybridRrfHit[]>;
   /** Stats for UI Engine status. */
   stats(): Promise<{
@@ -122,8 +122,8 @@ function vecValueExpr(q: VecQuantization): string {
 }
 
 /** Quantization mode of the live table (from the persisted signature). */
-function liveVecQuantization(): VecQuantization {
-  return storedVecQuantization(getMemoryVecMeta().embeddingSignature);
+async function liveVecQuantization(): Promise<VecQuantization> {
+  return storedVecQuantization((await getMemoryVecMeta()).embeddingSignature);
 }
 
 /**
@@ -145,13 +145,13 @@ function isMissingVecTableError(err: unknown): boolean {
  * no recorded dimension to recreate from, in which case the original error
  * should be rethrown by the caller.
  */
-function recreateFromMeta(): boolean {
-  const meta = getMemoryVecMeta();
+async function recreateFromMeta(): Promise<boolean> {
+  const meta = await getMemoryVecMeta();
   if (meta.activeDim == null) return false;
   const db = getDbInstance();
   const q = storedVecQuantization(meta.embeddingSignature);
   db.exec(
-    `CREATE VIRTUAL TABLE IF NOT EXISTS vec_memories USING vec0(embedding ${vecColumnType(meta.activeDim, q)})`,
+    `CREATE VIRTUAL TABLE IF NOT EXISTS vec_memories USING vec0(embedding ${vecColumnType(meta.activeDim, q)})`
   );
   return true;
 }
@@ -161,7 +161,7 @@ function recreateFromMeta(): boolean {
 class VectorStoreImpl implements VectorStore {
   async ensureReady(resolution: EmbeddingResolution): Promise<{ ready: boolean; reason: string }> {
     const db = getDbInstance();
-    const meta = getMemoryVecMeta();
+    const meta = await getMemoryVecMeta();
     const requested = requestedVecQuantization();
 
     // The quantization mode is folded into the signature so flipping it (e.g.
@@ -189,7 +189,7 @@ class VectorStoreImpl implements VectorStore {
       const q = storedVecQuantization(meta.embeddingSignature);
       try {
         db.exec(
-          `CREATE VIRTUAL TABLE IF NOT EXISTS vec_memories USING vec0(embedding ${vecColumnType(dim, q)})`,
+          `CREATE VIRTUAL TABLE IF NOT EXISTS vec_memories USING vec0(embedding ${vecColumnType(dim, q)})`
         );
         setMemoryVecMeta({ vecLoaded: true, activeDim: dim });
         return { ready: true, reason: `vec_memories created with dim=${dim} (${q})` };
@@ -206,9 +206,8 @@ class VectorStoreImpl implements VectorStore {
     const db = getDbInstance();
 
     // Map UUID memoryId → INTEGER rowid (the rowid is used as the FK into vec_memories).
-    const row = db.prepare("SELECT rowid FROM memories WHERE id = ?").get(memoryId) as
-      | { rowid: number }
-      | undefined;
+    const row = (await db.prepare("SELECT rowid FROM memories WHERE id = ?").get(memoryId)) as
+      { rowid: number } | undefined;
 
     if (!row) {
       throw new Error(`memory not found: ${memoryId}`);
@@ -217,50 +216,48 @@ class VectorStoreImpl implements VectorStore {
     // vec0 v0.1.9 requires BigInt for explicit rowid insertion — plain numbers are rejected.
     // INSERT OR REPLACE is not supported by vec0 — use DELETE + INSERT for upsert semantics.
     // int8 tables quantize the float32 blob in SQL (vec_quantize_int8); float32 bind raw.
-    const q = liveVecQuantization();
+    const q = await liveVecQuantization();
     try {
-      db.prepare("DELETE FROM vec_memories WHERE rowid = ?").run(BigInt(row.rowid));
-      db.prepare(`INSERT INTO vec_memories(rowid, embedding) VALUES (?, ${vecValueExpr(q)})`).run(
-        BigInt(row.rowid),
-        encodeVector(vector),
-      );
+      await db.prepare("DELETE FROM vec_memories WHERE rowid = ?").run(BigInt(row.rowid));
+      await db
+        .prepare(`INSERT INTO vec_memories(rowid, embedding) VALUES (?, ${vecValueExpr(q)})`)
+        .run(BigInt(row.rowid), encodeVector(vector));
     } catch (err: unknown) {
       // Self-heal: a concurrent ensureReady()'s reset raced ahead of us and
       // dropped the table after our own ensureReady() already ran. Recreate
       // from the last-known-good meta and retry once before giving up.
-      if (!isMissingVecTableError(err) || !recreateFromMeta()) throw err;
-      db.prepare("DELETE FROM vec_memories WHERE rowid = ?").run(BigInt(row.rowid));
-      db.prepare(`INSERT INTO vec_memories(rowid, embedding) VALUES (?, ${vecValueExpr(q)})`).run(
-        BigInt(row.rowid),
-        encodeVector(vector),
-      );
+      if (!isMissingVecTableError(err) || !(await recreateFromMeta())) throw err;
+      await db.prepare("DELETE FROM vec_memories WHERE rowid = ?").run(BigInt(row.rowid));
+      await db
+        .prepare(`INSERT INTO vec_memories(rowid, embedding) VALUES (?, ${vecValueExpr(q)})`)
+        .run(BigInt(row.rowid), encodeVector(vector));
     }
   }
 
   async deleteVector(memoryId: string): Promise<void> {
     const db = getDbInstance();
     try {
-      db.prepare(
-        "DELETE FROM vec_memories WHERE rowid = (SELECT rowid FROM memories WHERE id = ?)",
-      ).run(memoryId);
+      await db
+        .prepare("DELETE FROM vec_memories WHERE rowid = (SELECT rowid FROM memories WHERE id = ?)")
+        .run(memoryId);
     } catch (err: unknown) {
       if (!isMissingVecTableError(err)) throw err;
       // Table already gone (racing reset, or nothing to delete) — recreating it
       // empty is sufficient; there is nothing left to delete either way.
-      recreateFromMeta();
+      await recreateFromMeta();
     }
   }
 
   async searchVector(
     vector: Float32Array,
     topK: number,
-    apiKeyId?: string,
+    apiKeyId?: string
   ): Promise<VectorSearchHit[]> {
     const db = getDbInstance();
     const k = topK > 0 ? topK : TOP_K_DEFAULT;
 
-    const q = liveVecQuantization();
-    const rows = db
+    const q = await liveVecQuantization();
+    const rows = (await db
       .prepare(
         `SELECT m.id AS memory_id, v.distance
          FROM vec_memories v
@@ -268,12 +265,12 @@ class VectorStoreImpl implements VectorStore {
          WHERE v.embedding MATCH ${vecValueExpr(q)}
            AND ($apiKeyId IS NULL OR m.api_key_id = $apiKeyId)
            AND k = ?
-         ORDER BY v.distance ASC`,
+         ORDER BY v.distance ASC`
       )
-      .all(encodeVector(vector), { apiKeyId: apiKeyId ?? null }, k) as Array<{
-        memory_id: string;
-        distance: number;
-      }>;
+      .all(encodeVector(vector), { apiKeyId: apiKeyId ?? null }, k)) as Array<{
+      memory_id: string;
+      distance: number;
+    }>;
 
     return rows.map((r) => ({
       memoryId: r.memory_id,
@@ -286,16 +283,16 @@ class VectorStoreImpl implements VectorStore {
     vector: Float32Array,
     queryText: string,
     topK: number,
-    apiKeyId?: string,
+    apiKeyId?: string
   ): Promise<HybridRrfHit[]> {
     const db = getDbInstance();
     const k = topK > 0 ? topK : TOP_K_DEFAULT;
     const rrfK = RRF_K;
-    const q = liveVecQuantization();
+    const q = await liveVecQuantization();
 
     // SQLite does not support FULL OUTER JOIN — use UNION ALL + GROUP BY (RRF recipe).
     // Reference: https://alexgarcia.xyz/blog/2024/sqlite-vec-hybrid-search/
-    const rows = db
+    const rows = (await db
       .prepare(
         `WITH vec_results AS (
            SELECT m.id AS memory_id,
@@ -338,23 +335,16 @@ class VectorStoreImpl implements VectorStore {
          SELECT memory_id, vec_rank, fts_rank, vec_distance, fts_score, rrf_score
          FROM fused
          ORDER BY rrf_score DESC
-         LIMIT ?`,
+         LIMIT ?`
       )
-      .all(
-        encodeVector(vector),
-        { apiKeyId: apiKeyId ?? null },
-        k,
-        queryText,
-        k,
-        k,
-      ) as Array<{
-        memory_id: string;
-        vec_rank: number | null;
-        fts_rank: number | null;
-        vec_distance: number | null;
-        fts_score: number | null;
-        rrf_score: number;
-      }>;
+      .all(encodeVector(vector), { apiKeyId: apiKeyId ?? null }, k, queryText, k, k)) as Array<{
+      memory_id: string;
+      vec_rank: number | null;
+      fts_rank: number | null;
+      vec_distance: number | null;
+      fts_score: number | null;
+      rrf_score: number;
+    }>;
 
     return rows.map((r) => ({
       memoryId: r.memory_id,
@@ -375,17 +365,16 @@ class VectorStoreImpl implements VectorStore {
     let rowCount = 0;
     try {
       const db = getDbInstance();
-      const row = db.prepare("SELECT COUNT(*) AS cnt FROM vec_memories").get() as
-        | { cnt: number }
-        | undefined;
+      const row = (await db.prepare("SELECT COUNT(*) AS cnt FROM vec_memories").get()) as
+        { cnt: number } | undefined;
       rowCount = row?.cnt ?? 0;
     } catch {
       // vec_memories may not exist yet — not an error, just 0 rows.
       rowCount = 0;
     }
 
-    const needsReindex = countMemoryReindexPending();
-    const meta = getMemoryVecMeta();
+    const needsReindex = await countMemoryReindexPending();
+    const meta = await getMemoryVecMeta();
 
     return {
       rowCount,
@@ -431,7 +420,7 @@ export function getVectorStore(): VectorStore | null {
   // Test seam: VECTOR_STORE_DISABLE_VEC=true forces null (simulates cloud/WASM environment).
   if (process.env["VECTOR_STORE_DISABLE_VEC"] === "true") {
     log.warn(
-      "VECTOR_STORE_DISABLE_VEC is set — sqlite-vec disabled. Degrading to FTS5 keyword search.",
+      "VECTOR_STORE_DISABLE_VEC is set — sqlite-vec disabled. Degrading to FTS5 keyword search."
     );
     _instance = null;
     return null;
@@ -445,7 +434,7 @@ export function getVectorStore(): VectorStore | null {
   if (!raw || typeof raw.loadExtension !== "function") {
     log.warn(
       "sqlite-vec not loaded: db driver does not support loadExtension (cloud/WASM backend). " +
-        "Degrading to FTS5 keyword search.",
+        "Degrading to FTS5 keyword search."
     );
     _instance = null;
     return null;

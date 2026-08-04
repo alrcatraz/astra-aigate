@@ -127,11 +127,11 @@ export async function getReasoningRoutingRules(
   options: { enabledOnly?: boolean } = {}
 ): Promise<ReasoningRoutingRule[]> {
   if (!cache || cache.version !== version) {
-    const rows = getDbInstance()
+    const rows = (await getDbInstance()
       .prepare(
         "SELECT * FROM reasoning_routing_rules ORDER BY priority DESC, created_at ASC, id ASC"
       )
-      .all() as RuleRow[];
+      .all()) as RuleRow[];
     cache = { version, rules: rows.map(rowToRule) };
   }
   const rules = options.enabledOnly ? cache.rules.filter((rule) => rule.enabled) : cache.rules;
@@ -141,9 +141,9 @@ export async function getReasoningRoutingRules(
 export async function getReasoningRoutingRuleById(
   id: string
 ): Promise<ReasoningRoutingRule | null> {
-  const row = getDbInstance()
+  const row = (await getDbInstance()
     .prepare("SELECT * FROM reasoning_routing_rules WHERE id = ?")
-    .get(id) as RuleRow | undefined;
+    .get(id)) as RuleRow | undefined;
   return row ? rowToRule(row) : null;
 }
 
@@ -229,7 +229,7 @@ export async function updateReasoningRoutingRule(
 }
 
 export async function deleteReasoningRoutingRule(id: string): Promise<boolean> {
-  const result = getDbInstance()
+  const result = await getDbInstance()
     .prepare("DELETE FROM reasoning_routing_rules WHERE id = ?")
     .run(id);
   if ((result.changes ?? 0) > 0) invalidate();

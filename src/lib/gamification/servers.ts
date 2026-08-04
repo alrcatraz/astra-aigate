@@ -59,11 +59,11 @@ export async function syncLeaderboard(
 ): Promise<{ synced: number; errors: string[] }> {
   const db = (await import("../db/core")).getDbInstance();
 
-  const server = db
+  const server = (await db
     .prepare(
       "SELECT url, api_key_hash FROM community_servers WHERE id = ? AND status = 'connected'"
     )
-    .get(serverId) as { url: string; api_key_hash: string } | undefined;
+    .get(serverId)) as { url: string; api_key_hash: string } | undefined;
 
   if (!server) {
     return { synced: 0, errors: ["Server not found or not connected"] };
@@ -122,11 +122,11 @@ export async function pushScore(
 ): Promise<{ success: boolean; error?: string }> {
   const db = (await import("../db/core")).getDbInstance();
 
-  const server = db
+  const server = (await db
     .prepare(
       "SELECT url, api_key_hash FROM community_servers WHERE id = ? AND status = 'connected'"
     )
-    .get(serverId) as { url: string; api_key_hash: string } | undefined;
+    .get(serverId)) as { url: string; api_key_hash: string } | undefined;
 
   if (!server) {
     return { success: false, error: "Server not found or not connected" };
@@ -161,9 +161,9 @@ export async function healthCheck(
 ): Promise<{ healthy: boolean; latencyMs: number }> {
   const db = (await import("../db/core")).getDbInstance();
 
-  const server = db.prepare("SELECT url FROM community_servers WHERE id = ?").get(serverId) as
-    | { url: string }
-    | undefined;
+  const server = (await db
+    .prepare("SELECT url FROM community_servers WHERE id = ?")
+    .get(serverId)) as { url: string } | undefined;
 
   if (!server) return { healthy: false, latencyMs: 0 };
 

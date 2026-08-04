@@ -35,7 +35,10 @@ export {
 } from "./proxies/guards";
 export { extractRelayAuth, redactProxySecrets } from "./proxies/mappers";
 export { addProxiesToScopePool } from "./proxySubscriptions";
-export { bumpProxyRegistryGeneration, getProxyRegistryGeneration } from "./proxies/registryGeneration";
+export {
+  bumpProxyRegistryGeneration,
+  getProxyRegistryGeneration,
+} from "./proxies/registryGeneration";
 import {
   normalizeRotationScopeId,
   clearRotationState,
@@ -55,10 +58,10 @@ export {
 
 // Mutate legacy proxyConfig rows directly so these writes stay inside the same
 // SQLite transaction as the proxy registry row and assignment upsert.
-function clearLegacyProxyForAssignment(
+async function clearLegacyProxyForAssignment(
   db: ReturnType<typeof getDbInstance>,
   assignment: ProxyAssignmentPayload
-): LegacyProxyClearStatus {
+): Promise<LegacyProxyClearStatus> {
   const normalizedScope = normalizeScope(assignment.scope);
   const scopeId = normalizeAssignmentScopeId(normalizedScope, assignment.scopeId);
   const level = toLegacyProxyLevel(normalizedScope);
@@ -68,9 +71,9 @@ function clearLegacyProxyForAssignment(
   );
 
   if (level === "global") {
-    const row = db
+    const row = (await db
       .prepare("SELECT value FROM key_value WHERE namespace = 'proxyConfig' AND key = 'global'")
-      .get() as { value?: string } | undefined;
+      .get()) as { value?: string } | undefined;
     if (!row) return "absent";
 
     try {
@@ -79,16 +82,16 @@ function clearLegacyProxyForAssignment(
       // Malformed global proxy config still needs to be overwritten with null.
     }
 
-    writeProxyConfig.run("global", JSON.stringify(null));
+    await writeProxyConfig.run("global", JSON.stringify(null));
     return "cleared";
   }
 
   if (!scopeId) return "absent";
 
   const mapKey = `${level}s`;
-  const row = db
+  const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'proxyConfig' AND key = ?")
-    .get(mapKey) as { value?: string } | undefined;
+    .get(mapKey)) as { value?: string } | undefined;
   if (!row) return "absent";
 
   let map: JsonRecord = {};
@@ -113,40 +116,42 @@ function clearLegacyProxyForAssignment(
 
   if (!shouldWrite) return "absent";
 
-  writeProxyConfig.run(mapKey, JSON.stringify(map));
+  await writeProxyConfig.run(mapKey, JSON.stringify(map));
   return "cleared";
 }
 
-function insertProxyRow(
+async function insertProxyRow(
   db: ReturnType<typeof getDbInstance>,
   id: string,
   payload: ProxyPayload,
   now: string
 ) {
-  db.prepare(
-    `INSERT INTO proxy_registry
+  await db
+    .prepare(
+      `INSERT INTO proxy_registry
       (id, name, type, host, port, username, password, region, notes, status, source, family, subscription_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    payload.name,
-    payload.type,
-    payload.host,
-    Number(payload.port),
-    payload.username || "",
-    payload.password || "",
-    payload.region || null,
-    payload.notes || null,
-    payload.status || "active",
-    payload.source || "manual",
-    payload.family || "auto",
-    payload.subscriptionId ?? null,
-    now,
-    now
-  );
+    )
+    .run(
+      id,
+      payload.name,
+      payload.type,
+      payload.host,
+      Number(payload.port),
+      payload.username || "",
+      payload.password || "",
+      payload.region || null,
+      payload.notes || null,
+      payload.status || "active",
+      payload.source || "manual",
+      payload.family || "auto",
+      payload.subscriptionId ?? null,
+      now,
+      now
+    );
 }
 
-function updateProxyRow(
+async function updateProxyRow(
   db: ReturnType<typeof getDbInstance>,
   id: string,
   existing: ProxyRegistryRecord,
@@ -171,29 +176,31 @@ function updateProxyRow(
     updatedAt: now,
   };
 
-  db.prepare(
-    `UPDATE proxy_registry
+  await db
+    .prepare(
+      `UPDATE proxy_registry
        SET name = ?, type = ?, host = ?, port = ?, username = ?, password = ?, region = ?, notes = ?, status = ?, source = ?, family = ?, subscription_id = ?, updated_at = ?
      WHERE id = ?`
-  ).run(
-    merged.name,
-    merged.type,
-    merged.host,
-    Number(merged.port),
-    merged.username || "",
-    merged.password || "",
-    merged.region || null,
-    merged.notes || null,
-    merged.status || "active",
-    merged.source || "manual",
-    merged.family || "auto",
-    merged.subscriptionId ?? null,
-    merged.updatedAt,
-    id
-  );
+    )
+    .run(
+      merged.name,
+      merged.type,
+      merged.host,
+      Number(merged.port),
+      merged.username || "",
+      merged.password || "",
+      merged.region || null,
+      merged.notes || null,
+      merged.status || "active",
+      merged.source || "manual",
+      merged.family || "auto",
+      merged.subscriptionId ?? null,
+      merged.updatedAt,
+      id
+    );
 }
 
-function upsertAssignmentRow(
+async function upsertAssignmentRow(
   db: ReturnType<typeof getDbInstance>,
   assignment: ProxyAssignmentPayload,
   proxyId: string,
@@ -205,42 +212,38 @@ function upsertAssignmentRow(
     throw new Error("scopeId is required for non-global proxy assignments");
   }
 
-  // Single-assignment (replace) semantics: since #6365 lifted UNIQUE(scope,
-  // scope_id) to allow proxy POOLS, this path keeps the legacy behavior where a
-  // scope resolves to exactly one proxy — clear any existing pool and set a
-  // 1-element pool at position 0. Pools are built explicitly via
-  // addProxyToScopePool().
-  replaceScopeWithSingleProxy(db, normalizedScope, normalizedScopeId, proxyId, now);
+  await replaceScopeWithSingleProxy(db, normalizedScope, normalizedScopeId, proxyId, now);
 }
 
 // Replace whatever proxies are attached to (scope, scope_id) with a single proxy
 // at position 0. Uses `IS` for the scope_id match so a NULL scope_id compares
 // correctly (global stores '__global__', but non-global combos may be null).
-function replaceScopeWithSingleProxy(
+async function replaceScopeWithSingleProxy(
   db: ReturnType<typeof getDbInstance>,
   normalizedScope: string,
   normalizedScopeId: string | null,
   proxyId: string,
   now: string
 ) {
-  db.prepare("DELETE FROM proxy_assignments WHERE scope = ? AND scope_id IS ?").run(
-    normalizedScope,
-    normalizedScopeId
-  );
-  db.prepare(
-    `INSERT INTO proxy_assignments (proxy_id, scope, scope_id, position, created_at, updated_at)
+  await db
+    .prepare("DELETE FROM proxy_assignments WHERE scope = ? AND scope_id IS ?")
+    .run(normalizedScope, normalizedScopeId);
+  await db
+    .prepare(
+      `INSERT INTO proxy_assignments (proxy_id, scope, scope_id, position, created_at, updated_at)
      VALUES (?, ?, ?, 0, ?, ?)`
-  ).run(proxyId, normalizedScope, normalizedScopeId, now, now);
+    )
+    .run(proxyId, normalizedScope, normalizedScopeId, now, now);
 }
 
-function getAssignmentRow(
+async function getAssignmentRow(
   db: ReturnType<typeof getDbInstance>,
   scope: string,
   scopeId?: string | null
 ) {
   const normalizedScope = normalizeScope(scope);
   const normalizedScopeId = normalizeAssignmentScopeId(normalizedScope, scopeId);
-  const row = db
+  const row = await db
     .prepare(
       "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? AND scope_id IS ?"
     )
@@ -268,9 +271,9 @@ export async function listProxies(options?: {
     sql += " LIMIT ? OFFSET ?";
     params.push(limit, offset);
   }
-  const rows = db.prepare(sql).all(...params) as unknown[];
+  const rows = (await db.prepare(sql).all(...params)) as unknown[];
   const total = (
-    db.prepare("SELECT count(*) as cnt FROM proxy_registry").get() as CountResult
+    (await db.prepare("SELECT count(*) as cnt FROM proxy_registry").get()) as CountResult
   ).cnt;
   const proxies = rows.map(mapProxyRow);
   return { items: includeSecrets ? proxies : proxies.map(redactProxySecrets), total };
@@ -281,13 +284,13 @@ export async function getProxyById(id: string, options?: { includeSecrets?: bool
   return getProxyRowById(db, id, options);
 }
 
-function getProxyRowById(
+async function getProxyRowById(
   db: ReturnType<typeof getDbInstance>,
   id: string,
   options?: { includeSecrets?: boolean }
 ) {
   const includeSecrets = options?.includeSecrets === true;
-  const row = db
+  const row = await db
     .prepare(
       "SELECT id, name, type, host, port, username, password, region, notes, status, source, family, subscription_id, created_at, updated_at FROM proxy_registry WHERE id = ?"
     )
@@ -297,12 +300,12 @@ function getProxyRowById(
   return includeSecrets ? proxy : redactProxySecrets(proxy);
 }
 
-function getProxyRowByIdOrThrow(
+async function getProxyRowByIdOrThrow(
   db: ReturnType<typeof getDbInstance>,
   id: string,
   options?: { includeSecrets?: boolean }
 ) {
-  const proxy = getProxyRowById(db, id, options);
+  const proxy = await getProxyRowById(db, id, options);
   if (!proxy) {
     throw new Error(`Failed to read proxy after mutation: ${id}`);
   }
@@ -314,10 +317,10 @@ export async function createProxy(payload: ProxyPayload) {
   const id = randomUUID();
   const now = new Date().toISOString();
 
-  insertProxyRow(db, id, payload, now);
+  await insertProxyRow(db, id, payload, now);
 
   backupDbFile("pre-write");
-  bumpProxyRegistryGeneration();
+  await bumpProxyRegistryGeneration();
   return getProxyById(id, { includeSecrets: false });
 }
 
@@ -343,9 +346,9 @@ export async function upsertProxy(payload: ProxyPayload): Promise<{
   const port = Number(payload.port);
   const username = (payload.username || "").trim();
 
-  const existing = db
+  const existing = (await db
     .prepare("SELECT id FROM proxy_registry WHERE host = ? AND port = ? AND username = ? LIMIT 1")
-    .get(host, port, username) as { id?: string } | undefined;
+    .get(host, port, username)) as { id?: string } | undefined;
 
   if (existing?.id) {
     const updated = await updateProxy(existing.id, payload);
@@ -361,10 +364,10 @@ export async function updateProxy(id: string, payload: Partial<ProxyPayload>) {
   const existing = await getProxyById(id, { includeSecrets: true });
   if (!existing) return null;
 
-  updateProxyRow(db, id, existing, payload, new Date().toISOString());
+  await updateProxyRow(db, id, existing, payload, new Date().toISOString());
 
   backupDbFile("pre-write");
-  bumpProxyRegistryGeneration();
+  await bumpProxyRegistryGeneration();
   return getProxyById(id, { includeSecrets: false });
 }
 
@@ -376,20 +379,20 @@ export async function createProxyAndAssign(
   const id = randomUUID();
   const now = new Date().toISOString();
 
-  const tx = db.transaction((): ProxyTransactionResult => {
-    insertProxyRow(db, id, payload, now);
-    upsertAssignmentRow(db, assignment, id, now);
-    const legacyClearStatus = clearLegacyProxyForAssignment(db, assignment);
+  const tx = db.transaction(async (): Promise<ProxyTransactionResult> => {
+    await insertProxyRow(db, id, payload, now);
+    await upsertAssignmentRow(db, assignment, id, now);
+    const legacyClearStatus = await clearLegacyProxyForAssignment(db, assignment);
     return {
       legacyClearStatus,
-      proxy: getProxyRowByIdOrThrow(db, id, { includeSecrets: false }),
-      assignment: getAssignmentRow(db, assignment.scope, assignment.scopeId),
+      proxy: await getProxyRowByIdOrThrow(db, id, { includeSecrets: false }),
+      assignment: await getAssignmentRow(db, assignment.scope, assignment.scopeId),
     };
   });
-  const result = tx();
+  const result = await tx();
 
   backupDbFile("pre-write");
-  bumpProxyRegistryGeneration();
+  await bumpProxyRegistryGeneration();
   if (result.legacyClearStatus === "cleared") {
     // Dynamic import avoids a static proxies.ts -> settings.ts cycle; settings.ts
     // imports registry helpers for proxy resolution.
@@ -410,24 +413,24 @@ export async function updateProxyAndAssign(
   const db = getDbInstance();
   const now = new Date().toISOString();
 
-  const tx = db.transaction((): ProxyTransactionResult | null => {
-    const existing = getProxyRowById(db, id, { includeSecrets: true });
+  const tx = db.transaction(async (): Promise<ProxyTransactionResult | null> => {
+    const existing = await getProxyRowById(db, id, { includeSecrets: true });
     if (!existing) return null;
 
-    updateProxyRow(db, id, existing, payload, now);
-    upsertAssignmentRow(db, assignment, id, now);
-    const legacyClearStatus = clearLegacyProxyForAssignment(db, assignment);
+    await updateProxyRow(db, id, existing, payload, now);
+    await upsertAssignmentRow(db, assignment, id, now);
+    const legacyClearStatus = await clearLegacyProxyForAssignment(db, assignment);
     return {
       legacyClearStatus,
-      proxy: getProxyRowByIdOrThrow(db, id, { includeSecrets: false }),
-      assignment: getAssignmentRow(db, assignment.scope, assignment.scopeId),
+      proxy: await getProxyRowByIdOrThrow(db, id, { includeSecrets: false }),
+      assignment: await getAssignmentRow(db, assignment.scope, assignment.scopeId),
     };
   });
-  const result = tx();
+  const result = await tx();
   if (!result) return null;
 
   backupDbFile("pre-write");
-  bumpProxyRegistryGeneration();
+  await bumpProxyRegistryGeneration();
   if (result.legacyClearStatus === "cleared") {
     // Dynamic import avoids a static proxies.ts -> settings.ts cycle; settings.ts
     // imports registry helpers for proxy resolution.
@@ -445,29 +448,32 @@ export async function getProxyAssignments(filters?: { proxyId?: string; scope?: 
     const db = getDbInstance();
 
     if (filters?.proxyId) {
-      return db
-        .prepare(
-          "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE proxy_id = ? ORDER BY scope, scope_id"
-        )
-        .all(filters.proxyId)
-        .map(mapAssignmentRow);
+      return (
+        await db
+          .prepare(
+            "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE proxy_id = ? ORDER BY scope, scope_id"
+          )
+          .all(filters.proxyId)
+      ).map(mapAssignmentRow);
     }
 
     if (filters?.scope) {
-      return db
-        .prepare(
-          "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? ORDER BY scope_id"
-        )
-        .all(normalizeScope(filters.scope))
-        .map(mapAssignmentRow);
+      return (
+        await db
+          .prepare(
+            "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? ORDER BY scope_id"
+          )
+          .all(normalizeScope(filters.scope))
+      ).map(mapAssignmentRow);
     }
 
-    return db
-      .prepare(
-        "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments ORDER BY scope, scope_id"
-      )
-      .all()
-      .map(mapAssignmentRow);
+    return (
+      await db
+        .prepare(
+          "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments ORDER BY scope, scope_id"
+        )
+        .all()
+    ).map(mapAssignmentRow);
   } catch (error: unknown) {
     // Fix #1706: Gracefully handle missing proxy_assignments table on fresh
     // Electron installs where migration 004 hasn't run yet.
@@ -479,18 +485,21 @@ export async function getProxyAssignments(filters?: { proxyId?: string; scope?: 
 
 export async function getProxyWhereUsed(proxyId: string) {
   const db = getDbInstance();
-  const rows = db
-    .prepare(
-      "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE proxy_id = ? ORDER BY scope, scope_id"
-    )
-    .all(proxyId)
-    .map(mapAssignmentRow);
+  const rows = (
+    await db
+      .prepare(
+        "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE proxy_id = ? ORDER BY scope, scope_id"
+      )
+      .all(proxyId)
+  ).map(mapAssignmentRow);
 
   return {
     count: rows.length,
     assignments: rows,
   };
 }
+
+// ── [recovered] Legacy proxy-scope pool & rotation API (restored from HEAD) ──
 
 export async function assignProxyToScope(
   scope: string,
@@ -502,10 +511,9 @@ export async function assignProxyToScope(
   const db = getDbInstance();
 
   if (!proxyId) {
-    db.prepare("DELETE FROM proxy_assignments WHERE scope = ? AND scope_id IS ?").run(
-      normalizedScope,
-      normalizedScopeId
-    );
+    await db
+      .prepare("DELETE FROM proxy_assignments WHERE scope = ? AND scope_id IS ?")
+      .run(normalizedScope, normalizedScopeId);
     clearRotationState(db, normalizedScope, normalizedScopeId);
     backupDbFile("pre-write");
     bumpProxyRegistryGeneration();
@@ -541,6 +549,7 @@ export async function assignProxyToScope(
  * (scope, scope_id, proxy_id): re-adding the same proxy is a no-op. New members
  * are appended after the current highest `position` so round-robin order is stable.
  */
+
 export async function addProxyToScopePool(
   scope: string,
   scopeId: string | null,
@@ -560,7 +569,7 @@ export async function addProxyToScopePool(
     throw err;
   }
 
-  const existing = db
+  const existing = await db
     .prepare(
       "SELECT id FROM proxy_assignments WHERE scope = ? AND scope_id IS ? AND proxy_id = ? LIMIT 1"
     )
@@ -568,22 +577,24 @@ export async function addProxyToScopePool(
 
   if (!existing) {
     const now = new Date().toISOString();
-    const maxRow = db
+    const maxRow = (await db
       .prepare(
         "SELECT MAX(position) AS maxPos FROM proxy_assignments WHERE scope = ? AND scope_id IS ?"
       )
-      .get(normalizedScope, normalizedScopeId) as { maxPos?: number | null } | undefined;
+      .get(normalizedScope, normalizedScopeId)) as { maxPos?: number | null } | undefined;
     const nextPosition = maxRow && typeof maxRow.maxPos === "number" ? maxRow.maxPos + 1 : 0;
-    db.prepare(
-      `INSERT INTO proxy_assignments (proxy_id, scope, scope_id, position, created_at, updated_at)
+    await db
+      .prepare(
+        `INSERT INTO proxy_assignments (proxy_id, scope, scope_id, position, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(proxyId, normalizedScope, normalizedScopeId, nextPosition, now, now);
+      )
+      .run(proxyId, normalizedScope, normalizedScopeId, nextPosition, now, now);
 
     backupDbFile("pre-write");
     bumpProxyRegistryGeneration();
   }
 
-  const row = db
+  const row = await db
     .prepare(
       "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? AND scope_id IS ? AND proxy_id = ? LIMIT 1"
     )
@@ -598,6 +609,7 @@ export async function addProxyToScopePool(
  * Remove one proxy from a scope's pool (#6365). Returns true if a row was deleted.
  * Leaves other pool members (and the rotation cursor) intact.
  */
+
 export async function removeProxyFromScopePool(
   scope: string,
   scopeId: string | null,
@@ -606,7 +618,7 @@ export async function removeProxyFromScopePool(
   const normalizedScope = normalizeScope(scope);
   const normalizedScopeId = normalizeAssignmentScopeId(normalizedScope, scopeId);
   const db = getDbInstance();
-  const result = db
+  const result = await db
     .prepare("DELETE FROM proxy_assignments WHERE scope = ? AND scope_id IS ? AND proxy_id = ?")
     .run(normalizedScope, normalizedScopeId, proxyId);
   if (result.changes > 0) {
@@ -621,6 +633,7 @@ export async function removeProxyFromScopePool(
  * to the default (`round-robin`). Preserves the existing cursor so switching to
  * and back from `random` does not reset round-robin fairness.
  */
+
 export async function setScopeRotationStrategy(
   scope: string,
   scopeId: string | null,
@@ -639,19 +652,23 @@ export async function setScopeRotationStrategy(
       : null;
 
   if (stickyWindow !== null) {
-    db.prepare(
-      `INSERT INTO proxy_scope_rotation (scope, scope_id, strategy, sticky_window_minutes, updated_at)
+    await db
+      .prepare(
+        `INSERT INTO proxy_scope_rotation (scope, scope_id, strategy, sticky_window_minutes, updated_at)
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(scope, scope_id)
        DO UPDATE SET strategy = excluded.strategy, sticky_window_minutes = excluded.sticky_window_minutes, updated_at = excluded.updated_at`
-    ).run(normalizedScope, rotationScopeId, normalizedStrategy, stickyWindow, now);
+      )
+      .run(normalizedScope, rotationScopeId, normalizedStrategy, stickyWindow, now);
   } else {
-    db.prepare(
-      `INSERT INTO proxy_scope_rotation (scope, scope_id, strategy, updated_at)
+    await db
+      .prepare(
+        `INSERT INTO proxy_scope_rotation (scope, scope_id, strategy, updated_at)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(scope, scope_id)
        DO UPDATE SET strategy = excluded.strategy, updated_at = excluded.updated_at`
-    ).run(normalizedScope, rotationScopeId, normalizedStrategy, now);
+      )
+      .run(normalizedScope, rotationScopeId, normalizedStrategy, now);
   }
 
   bumpProxyRegistryGeneration();
@@ -676,30 +693,30 @@ export async function deleteProxyById(id: string, options?: { force?: boolean })
   }
 
   if (force && usage.count > 0) {
-    db.prepare("DELETE FROM proxy_assignments WHERE proxy_id = ?").run(id);
+    await db.prepare("DELETE FROM proxy_assignments WHERE proxy_id = ?").run(id);
   }
 
-  const result = db.prepare("DELETE FROM proxy_registry WHERE id = ?").run(id);
+  const result = await db.prepare("DELETE FROM proxy_registry WHERE id = ?").run(id);
   backupDbFile("pre-write");
   bumpProxyRegistryGeneration();
   return result.changes > 0;
 }
 
-
 export async function migrateLegacyProxyConfigToRegistry(options?: { force?: boolean }) {
   const force = options?.force === true;
   const db = getDbInstance();
 
-  const existingCountRow = db.prepare("SELECT COUNT(*) AS cnt FROM proxy_registry").get() as
-    { cnt?: number } | undefined;
+  const existingCountRow = (await db
+    .prepare("SELECT COUNT(*) AS cnt FROM proxy_registry")
+    .get()) as { cnt?: number } | undefined;
   const existingCount = Number(existingCountRow?.cnt || 0);
   if (!force && existingCount > 0) {
     return { migrated: 0, skipped: true, reason: "registry_not_empty" as const };
   }
 
-  const rows = db
+  const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'proxyConfig'")
-    .all() as Array<{ key?: string; value?: string }>;
+    .all()) as Array<{ key?: string; value?: string }>;
 
   const raw: LegacyProxyConfig = {};
   for (const row of rows) {
@@ -762,7 +779,7 @@ export async function getProxyHealthStats(options?: { hours?: number }) {
   const hours = Math.max(1, Math.min(24 * 30, Number(options?.hours || 24)));
   const sinceIso = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT
          p.id as proxy_id,
@@ -785,7 +802,7 @@ export async function getProxyHealthStats(options?: { hours?: number }) {
        GROUP BY p.id, p.name, p.type, p.host, p.port
        ORDER BY p.name ASC`
     )
-    .all(sinceIso) as Array<Record<string, unknown>>;
+    .all(sinceIso)) as Array<Record<string, unknown>>;
 
   return rows.map((row) => {
     const total = Number(row.total_requests || 0);
@@ -850,6 +867,7 @@ export async function bulkAssignProxyToScope(
  * Used during OAuth flow before connection is created.
  * Priority: provider-level → global → null
  */
+
 export async function resolveProxyForProvider(providerId: string) {
   try {
     const db = getDbInstance();

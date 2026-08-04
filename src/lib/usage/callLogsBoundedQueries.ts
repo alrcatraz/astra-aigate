@@ -12,14 +12,16 @@ const CALL_LOG_QUERY_PAGE = 5000;
  * Collect every non-null `artifact_relpath` referenced by call_logs, paging with
  * LIMIT/OFFSET so a huge table never loads into memory in one `.all()`.
  */
-export function collectReferencedArtifacts(): Set<string> {
+export async function collectReferencedArtifacts(): Promise<Set<string>> {
   const db = getDbInstance();
   const referenced = new Set<string>();
   const stmt = db.prepare(
     "SELECT artifact_relpath FROM call_logs WHERE artifact_relpath IS NOT NULL LIMIT ? OFFSET ?"
   );
   for (let offset = 0; ; offset += CALL_LOG_QUERY_PAGE) {
-    const rows = stmt.all(CALL_LOG_QUERY_PAGE, offset) as Array<{ artifact_relpath: string | null }>;
+    const rows = (await stmt.all(CALL_LOG_QUERY_PAGE, offset)) as Array<{
+      artifact_relpath: string | null;
+    }>;
     for (const row of rows) {
       if (typeof row.artifact_relpath === "string") referenced.add(row.artifact_relpath);
     }
@@ -33,10 +35,13 @@ export function collectReferencedArtifacts(): Set<string> {
  * Callers loop until it returns an empty page, deleting each batch, so the id
  * list never grows to the full retention backlog at once.
  */
-export function selectCallLogIdsBefore(cutoff: string, limit = CALL_LOG_QUERY_PAGE): string[] {
+export async function selectCallLogIdsBefore(
+  cutoff: string,
+  limit = CALL_LOG_QUERY_PAGE
+): Promise<string[]> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT id FROM call_logs WHERE timestamp < ? ORDER BY timestamp ASC LIMIT ?")
-    .all(cutoff, limit) as Array<{ id: string }>;
+    .all(cutoff, limit)) as Array<{ id: string }>;
   return rows.map((row) => String(row.id));
 }

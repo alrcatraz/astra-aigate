@@ -14,7 +14,7 @@
  * Sliced out of #3500 (proxy_logs cluster, slice 4).
  */
 
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -26,10 +26,10 @@ import { getDbInstance } from "./core";
  *
  * @param since - ISO-8601 timestamp lower bound, e.g. "2024-01-01T00:00:00.000Z".
  */
-export function exportProxyLogsSince(since: string): Record<string, unknown>[] {
-  const db = getDbInstance();
+export async function exportProxyLogsSince(since: string): Promise<Record<string, unknown>[]> {
+  const db = getAsyncDb();
   const stmt = db.prepare(
     "SELECT * FROM proxy_logs WHERE timestamp >= @since ORDER BY timestamp DESC"
   );
-  return stmt.all({ since }) as Record<string, unknown>[];
+  return (await stmt.all({ since })) as Record<string, unknown>[];
 }

@@ -1,4 +1,4 @@
-import { getDbInstance, rowToCamel, objToSnake } from "./core";
+import { getAsyncDb, rowToCamel, objToSnake } from "./core";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_BATCH_EXPIRATION_SECONDS } from "@/shared/constants/batch";
 
@@ -18,8 +18,8 @@ export interface FileRecord {
 const FILE_METADATA_COLUMNS =
   "id, bytes, created_at, filename, purpose, mime_type, api_key_id, expires_at, deleted_at";
 
-export function createFile(file: Omit<FileRecord, "id" | "createdAt">): FileRecord {
-  const db = getDbInstance();
+export async function createFile(file: Omit<FileRecord, "id" | "createdAt">): Promise<FileRecord> {
+  const db = await getAsyncDb();
   const id = "file-" + uuidv4().replaceAll("-", "").substring(0, 24);
   const createdAt = Math.floor(Date.now() / 1000);
 
@@ -42,45 +42,47 @@ export function createFile(file: Omit<FileRecord, "id" | "createdAt">): FileReco
     deletedAt: null,
   };
 
-  db.prepare(
-    `
+  await db
+    .prepare(
+      `
     INSERT INTO files (id, bytes, created_at, filename, purpose, content, mime_type, api_key_id, expires_at, deleted_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
-  ).run(
-    record.id,
-    record.bytes,
-    record.createdAt,
-    record.filename,
-    record.purpose,
-    record.content,
-    record.mimeType,
-    record.apiKeyId,
-    record.expiresAt,
-    record.deletedAt
-  );
+    )
+    .run(
+      record.id,
+      record.bytes,
+      record.createdAt,
+      record.filename,
+      record.purpose,
+      record.content,
+      record.mimeType,
+      record.apiKeyId,
+      record.expiresAt,
+      record.deletedAt
+    );
 
   return record;
 }
 
-export function getFile(id: string): FileRecord | null {
-  const db = getDbInstance();
-  const row = db
+export async function getFile(id: string): Promise<FileRecord | null> {
+  const db = await getAsyncDb();
+  const row = await db
     .prepare(`SELECT ${FILE_METADATA_COLUMNS} FROM files WHERE id = ? AND deleted_at IS NULL`)
     .get(id);
   return row ? (rowToCamel(row) as unknown as FileRecord) : null;
 }
 
-export function getFileContent(id: string): Buffer | null {
-  const db = getDbInstance();
-  const row = db
+export async function getFileContent(id: string): Promise<Buffer | null> {
+  const db = await getAsyncDb();
+  const row = (await db
     .prepare("SELECT content FROM files WHERE id = ? AND deleted_at IS NULL")
-    .get(id) as { content: Buffer | Uint8Array | string | null } | undefined;
+    .get(id)) as { content: Buffer | Uint8Array | string | null } | undefined;
   if (!row?.content) return null;
   return Buffer.isBuffer(row.content) ? row.content : Buffer.from(row.content);
 }
 
-export function listFiles(
+export async function listFiles(
   options: {
     apiKeyId?: string;
     purpose?: string;
@@ -88,8 +90,8 @@ export function listFiles(
     after?: string;
     order?: "asc" | "desc";
   } = {}
-): FileRecord[] {
-  const db = getDbInstance();
+): Promise<FileRecord[]> {
+  const db = await getAsyncDb();
   const { apiKeyId, purpose, limit = 20, after, order = "desc" } = options;
 
   let query = `SELECT ${FILE_METADATA_COLUMNS} FROM files WHERE deleted_at IS NULL`;
@@ -107,7 +109,7 @@ export function listFiles(
 
   if (after) {
     // Get the creation time of the 'after' file to use for pagination
-    const afterFile = getFile(after);
+    const afterFile = await getFile(after);
     if (afterFile) {
       if (order === "desc") {
         query += " AND (created_at < ? OR (created_at = ? AND id < ?))";
@@ -122,12 +124,14 @@ export function listFiles(
   query += " LIMIT ?";
   params.push(limit);
 
-  const rows = db.prepare(query).all(...params);
+  const rows = await db.prepare(query).all(...params);
   return rows.map((row) => rowToCamel(row) as unknown as FileRecord);
 }
 
-export function countFiles(options: { apiKeyId?: string; purpose?: string } = {}): number {
-  const db = getDbInstance();
+export async function countFiles(
+  options: { apiKeyId?: string; purpose?: string } = {}
+): Promise<number> {
+  const db = await getAsyncDb();
   const { apiKeyId, purpose } = options;
   let query = "SELECT COUNT(*) as c FROM files WHERE deleted_at IS NULL";
   const params: any[] = [];
@@ -139,7 +143,7 @@ export function countFiles(options: { apiKeyId?: string; purpose?: string } = {}
     query += " AND purpose = ?";
     params.push(purpose);
   }
-  const row = db.prepare(query).get(...params) as { c: number } | undefined;
+  const row = (await db.prepare(query).get(...params)) as { c: number } | undefined;
   return row ? Number(row.c) : 0;
 }
 
@@ -161,9 +165,9 @@ export function formatFileResponse(file: FileRecord) {
   };
 }
 
-export function deleteFile(id: string): boolean {
-  const db = getDbInstance();
-  const result = db
+export async function deleteFile(id: string): Promise<boolean> {
+  const db = await getAsyncDb();
+  const result = await db
     .prepare("UPDATE files SET deleted_at = ?, content = NULL WHERE id = ?")
     .run(Math.floor(Date.now() / 1000), id);
   return result.changes > 0;

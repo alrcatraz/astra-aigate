@@ -3,7 +3,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance, rowToCamel, cleanNulls } from "./core";
+import { getDbInstance, getAsyncDb, rowToCamel, cleanNulls } from "./core";
 import { backupDbFile } from "./backup";
 import {
   encryptConnectionFields,
@@ -119,7 +119,7 @@ export async function getProviderConnections(
   filter: JsonRecord = {},
   limit?: number,
   offset?: number,
-  columns?: string[],
+  columns?: string[]
 ) {
   const useCache = !columns?.length && limit === undefined && offset === undefined;
   const raw = useCache
@@ -145,9 +145,9 @@ export async function getRawProviderConnections(
   filter: JsonRecord = {},
   limit?: number,
   offset?: number,
-  columns?: string[],
+  columns?: string[]
 ) {
-  const db = getDbInstance() as unknown as DbLike;
+  const db = await getAsyncDb();
   let selectCols = "*";
   if (columns?.length) {
     const invalidColumns = columns.filter((col) => !PROVIDER_CONNECTIONS_COLUMNS.has(col));
@@ -177,8 +177,6 @@ export async function getRawProviderConnections(
     params.authType = filter.authType;
   }
 
-
-
   if (conditions.length > 0) {
     sql += " WHERE " + conditions.join(" AND ");
   }
@@ -189,7 +187,7 @@ export async function getRawProviderConnections(
     params.offset = offset ?? 0;
   }
 
-  const rows = db.prepare(sql).all(params);
+  const rows = await db.prepare(sql).all(params);
   return rows.map((r) => {
     const camelRow = rowToCamel(r);
     return withNullableRateLimitOverrides(
@@ -924,10 +922,12 @@ export async function deleteProviderConnections(ids: string[]): Promise<number> 
   if (ids.length === 0) return 0;
   const db = getDbInstance();
 
-  const deletedCount = db.transaction(() => {
+  const deletedCount = await db.transaction(async () => {
     const placeholders = ids.map(() => "?").join(",");
-    db.prepare(`DELETE FROM quota_snapshots WHERE connection_id IN (${placeholders})`).run(...ids);
-    const result = db
+    await db
+      .prepare(`DELETE FROM quota_snapshots WHERE connection_id IN (${placeholders})`)
+      .run(...ids);
+    const result = await db
       .prepare(`DELETE FROM provider_connections WHERE id IN (${placeholders})`)
       .run(...ids);
     return result.changes ?? 0;
@@ -1005,10 +1005,7 @@ export async function getDistinctGroups(): Promise<string[]> {
   return rows.map((r) => String(r.group ?? "")).filter(Boolean);
 }
 
-export {
-  autoMigrateLegacyEncryptedConnections,
-  getGheCopilotHosts,
-} from "./providers/migrations";
+export { autoMigrateLegacyEncryptedConnections, getGheCopilotHosts } from "./providers/migrations";
 
 // ──────────────── Re-exports from leaf modules ────────────────
 

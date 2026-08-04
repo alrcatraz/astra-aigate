@@ -57,7 +57,7 @@ export async function requireManagementAuth(
   // and would otherwise be rejected by isValidApiKey. Same shared evaluation the
   // central managementPolicy uses (no drift). Dashboard JWT, the loopback CLI
   // token, and manage-scope API keys remain full-access above/below.
-  const accessVerdict = evaluateAccessTokenAuth(request);
+  const accessVerdict = await evaluateAccessTokenAuth(request);
   switch (accessVerdict.kind) {
     case "ok":
       return null;

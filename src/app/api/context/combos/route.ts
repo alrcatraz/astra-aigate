@@ -26,7 +26,7 @@ export const compressionComboCreateSchema = z
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
-  return NextResponse.json({ combos: listCompressionCombos() });
+  return NextResponse.json({ combos: await listCompressionCombos() });
 }
 
 export async function POST(request: Request) {
@@ -45,6 +45,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  const combo = createCompressionCombo(validation.data);
+  const combo = await createCompressionCombo(validation.data);
   return NextResponse.json(combo, { status: 201 });
 }

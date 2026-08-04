@@ -8,13 +8,13 @@
  * calls during getDbInstance() bootstrap. Behavior-preserving move.
  */
 
-import type { SqliteAdapter } from "./adapters/types";
+import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
 
 type SqliteDatabase = SqliteAdapter;
 
-export function ensureProviderConnectionsColumns(db: SqliteDatabase) {
+export async function ensureProviderConnectionsColumns(db: SqliteDatabase): Promise<void> {
   try {
-    const columns = db.prepare("PRAGMA table_info(provider_connections)").all() as Array<{
+    const columns = (await db.prepare("PRAGMA table_info(provider_connections)").all()) as Array<{
       name?: string;
     }>;
     const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
@@ -105,9 +105,9 @@ export function ensureUsageHistoryAccountIndex(db: SqliteDatabase) {
   }
 }
 
-export function ensureUsageHistoryColumns(db: SqliteDatabase) {
+export async function ensureUsageHistoryColumns(db: SqliteDatabase): Promise<void> {
   try {
-    const columns = db.prepare("PRAGMA table_info(usage_history)").all() as Array<{
+    const columns = (await db.prepare("PRAGMA table_info(usage_history)").all()) as Array<{
       name?: string;
     }>;
     const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
@@ -170,9 +170,9 @@ export function ensureUsageHistoryColumns(db: SqliteDatabase) {
   }
 }
 
-export function ensureCallLogsColumns(db: SqliteDatabase) {
+export async function ensureCallLogsColumns(db: SqliteDatabase): Promise<void> {
   try {
-    const columns = db.prepare("PRAGMA table_info(call_logs)").all() as Array<{
+    const columns = (await db.prepare("PRAGMA table_info(call_logs)").all()) as Array<{
       name?: string;
     }>;
     const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
@@ -273,14 +273,20 @@ export function ensureCallLogsColumns(db: SqliteDatabase) {
   }
 }
 
-export function hasColumn(db: SqliteDatabase, tableName: string, columnName: string): boolean {
-  const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name?: string }>;
+export async function hasColumn(
+  db: SqliteDatabase,
+  tableName: string,
+  columnName: string
+): Promise<boolean> {
+  const rows = (await db.prepare(`PRAGMA table_info(${tableName})`).all()) as Array<{
+    name?: string;
+  }>;
   return rows.some((row) => row.name === columnName);
 }
 
-export function hasTable(db: SqliteDatabase, tableName: string): boolean {
+export async function hasTable(db: SqliteDatabase, tableName: string): Promise<boolean> {
   return Boolean(
-    db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName)
+    await db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName)
   );
 }
 
@@ -289,8 +295,11 @@ export function quoteIdentifier(identifier: string): string {
 }
 
 export function getTableColumns(db: SqliteDatabase, tableName: string): string[] {
+  const raw = db.raw as RawSyncDb;
   return (
-    db.prepare(`PRAGMA table_info(${quoteIdentifier(tableName)})`).all() as Array<{ name?: string }>
+    raw.prepare(`PRAGMA table_info(${quoteIdentifier(tableName)})`).all() as Array<{
+      name?: string;
+    }>
   )
     .map((column) => String(column.name ?? ""))
     .filter((column) => column.length > 0);

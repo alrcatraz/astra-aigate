@@ -48,12 +48,15 @@ const DB_BACKUP_SETTINGS_NAMESPACE = "dbBackup";
 const DB_BACKUP_MAX_FILES_KEY = "maxFiles";
 const DB_BACKUP_RETENTION_DAYS_KEY = "retentionDays";
 
-function getStoredDbBackupInteger(key: string, options: { min: number }): number | undefined {
+async function getStoredDbBackupInteger(
+  key: string,
+  options: { min: number }
+): Promise<number | undefined> {
   try {
     const db = getDbInstance();
-    const row = db
+    const row = (await db
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-      .get(DB_BACKUP_SETTINGS_NAMESPACE, key) as { value?: string } | undefined;
+      .get(DB_BACKUP_SETTINGS_NAMESPACE, key)) as { value?: string } | undefined;
     if (!row?.value) return undefined;
     const parsed = JSON.parse(row.value);
     return Number.isInteger(parsed) && parsed >= options.min ? parsed : undefined;
@@ -62,35 +65,37 @@ function getStoredDbBackupInteger(key: string, options: { min: number }): number
   }
 }
 
-function setStoredDbBackupInteger(key: string, value: number, options: { min: number }): void {
+async function setStoredDbBackupInteger(
+  key: string,
+  value: number,
+  options: { min: number }
+): Promise<void> {
   if (!Number.isInteger(value) || value < options.min) return;
   const db = getDbInstance();
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    DB_BACKUP_SETTINGS_NAMESPACE,
-    key,
-    JSON.stringify(value)
-  );
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run(DB_BACKUP_SETTINGS_NAMESPACE, key, JSON.stringify(value));
 }
 
 /** Persist the operator-chosen "keep latest backups" retention count (#3834). */
-export function setDbBackupMaxFiles(value: number): void {
-  setStoredDbBackupInteger(DB_BACKUP_MAX_FILES_KEY, value, { min: 1 });
+export async function setDbBackupMaxFiles(value: number): Promise<void> {
+  await setStoredDbBackupInteger(DB_BACKUP_MAX_FILES_KEY, value, { min: 1 });
 }
 
-export function getDbBackupMaxFiles() {
+export async function getDbBackupMaxFiles() {
   // Precedence: DB_BACKUP_MAX_FILES env override (ops) → persisted UI value → default.
   if (process.env.DB_BACKUP_MAX_FILES) {
     return parsePositiveInt(process.env.DB_BACKUP_MAX_FILES, MAX_DB_BACKUPS);
   }
-  return getStoredDbBackupInteger(DB_BACKUP_MAX_FILES_KEY, { min: 1 }) ?? MAX_DB_BACKUPS;
+  return (await getStoredDbBackupInteger(DB_BACKUP_MAX_FILES_KEY, { min: 1 })) ?? MAX_DB_BACKUPS;
 }
 
 /** Persist the operator-chosen age-based backup retention window. */
-export function setDbBackupRetentionDays(value: number): void {
-  setStoredDbBackupInteger(DB_BACKUP_RETENTION_DAYS_KEY, value, { min: 0 });
+export async function setDbBackupRetentionDays(value: number): Promise<void> {
+  await setStoredDbBackupInteger(DB_BACKUP_RETENTION_DAYS_KEY, value, { min: 0 });
 }
 
-export function getDbBackupRetentionDays() {
+export async function getDbBackupRetentionDays() {
   // Precedence: DB_BACKUP_RETENTION_DAYS env override (ops) → persisted UI value → default.
   if (process.env.DB_BACKUP_RETENTION_DAYS) {
     return parseNonNegativeInt(
@@ -99,7 +104,7 @@ export function getDbBackupRetentionDays() {
     );
   }
   return (
-    getStoredDbBackupInteger(DB_BACKUP_RETENTION_DAYS_KEY, { min: 0 }) ??
+    (await getStoredDbBackupInteger(DB_BACKUP_RETENTION_DAYS_KEY, { min: 0 })) ??
     DEFAULT_DB_BACKUP_RETENTION_DAYS
   );
 }
@@ -168,13 +173,13 @@ export function cleanupDbBackups(options?: { maxFiles?: number; retentionDays?: 
       deletedBackupFamilies: 0,
       deletedFiles: 0,
       keptBackupFamilies: 0,
-      maxFiles: options?.maxFiles ?? getDbBackupMaxFiles(),
-      retentionDays: options?.retentionDays ?? getDbBackupRetentionDays(),
+      maxFiles: options?.maxFiles ?? MAX_DB_BACKUPS,
+      retentionDays: options?.retentionDays ?? DEFAULT_DB_BACKUP_RETENTION_DAYS,
     };
   }
 
-  const maxFiles = Math.max(1, options?.maxFiles ?? getDbBackupMaxFiles());
-  const retentionDays = Math.max(0, options?.retentionDays ?? getDbBackupRetentionDays());
+  const maxFiles = Math.max(1, options?.maxFiles ?? MAX_DB_BACKUPS);
+  const retentionDays = Math.max(0, options?.retentionDays ?? DEFAULT_DB_BACKUP_RETENTION_DAYS);
   const cutoffMs = retentionDays > 0 ? Date.now() - retentionDays * 24 * 60 * 60 * 1000 : 0;
   const families = collectBackupFamilies(backupDir);
   const primaryFamilies = families
@@ -241,12 +246,12 @@ function parseStoredJson(value: string | undefined): unknown {
  * (which imports `backupDbFile` at module load). Returns `true` when auto backups
  * are explicitly disabled by the operator, so callers can skip non-manual backups.
  */
-export function isAutoBackupDisabledBySetting(): boolean {
+export async function isAutoBackupDisabledBySetting(): Promise<boolean> {
   try {
     const db = getDbInstance();
-    const rows = db
+    const rows = (await db
       .prepare("SELECT namespace, key, value FROM key_value WHERE namespace IN (?, ?)")
-      .all("settings", "databaseSettings") as Array<{
+      .all("settings", "databaseSettings")) as Array<{
       namespace: string;
       key: string;
       value: string;
@@ -342,7 +347,7 @@ export async function unlinkFileWithRetry(
 
 // ──────────────── Backup ────────────────
 
-export function backupDbFile(reason = "auto") {
+export async function backupDbFile(reason = "auto") {
   try {
     if (isBuildPhase || isCloud) return null;
     if (!SQLITE_FILE || !fs.existsSync(SQLITE_FILE)) return null;
@@ -350,7 +355,7 @@ export function backupDbFile(reason = "auto") {
     // #5871: honor the persisted `backup.autoBackupEnabled` dashboard toggle. Only
     // manual and pre-restore backups bypass this gate; automatic + pre-write safety
     // snapshots must stop firing once the operator disables auto-backup in the UI.
-    if (reason !== "manual" && reason !== "pre-restore" && isAutoBackupDisabledBySetting())
+    if (reason !== "manual" && reason !== "pre-restore" && (await isAutoBackupDisabledBySetting()))
       return null;
 
     const stat = fs.statSync(SQLITE_FILE);
@@ -496,7 +501,7 @@ export async function restoreDbBackup(backupId: string) {
     }
     let result: Array<{ integrity_check?: string }>;
     try {
-      result = testDb.pragma("integrity_check") as Array<{ integrity_check?: string }>;
+      result = (await testDb.pragma("integrity_check")) as Array<{ integrity_check?: string }>;
     } finally {
       testDb.close();
     }
@@ -561,15 +566,19 @@ export async function restoreDbBackup(backupId: string) {
   // Reopen
   const db = getDbInstance();
   const connCount =
-    (db.prepare("SELECT COUNT(*) as cnt FROM provider_connections").get() as CountRow | undefined)
-      ?.cnt || 0;
+    (
+      (await db.prepare("SELECT COUNT(*) as cnt FROM provider_connections").get()) as
+        CountRow | undefined
+    )?.cnt || 0;
   const nodeCount =
-    (db.prepare("SELECT COUNT(*) as cnt FROM provider_nodes").get() as CountRow | undefined)?.cnt ||
-    0;
+    ((await db.prepare("SELECT COUNT(*) as cnt FROM provider_nodes").get()) as CountRow | undefined)
+      ?.cnt || 0;
   const comboCount =
-    (db.prepare("SELECT COUNT(*) as cnt FROM combos").get() as CountRow | undefined)?.cnt || 0;
+    ((await db.prepare("SELECT COUNT(*) as cnt FROM combos").get()) as CountRow | undefined)?.cnt ||
+    0;
   const keyCount =
-    (db.prepare("SELECT COUNT(*) as cnt FROM api_keys").get() as CountRow | undefined)?.cnt || 0;
+    ((await db.prepare("SELECT COUNT(*) as cnt FROM api_keys").get()) as CountRow | undefined)
+      ?.cnt || 0;
 
   console.log(`[DB] Restored backup: ${backupId} (${connCount} connections)`);
 
@@ -606,12 +615,12 @@ export interface ExportAllRows {
  * Each category is wrapped in a try/catch so a missing table never aborts the
  * entire export — consistent with the original inline behaviour.
  */
-export function exportAllSummaryRows(): ExportAllRows {
+export async function exportAllSummaryRows(): Promise<ExportAllRows> {
   const db = getDbInstance();
 
   const settings: Record<string, string> = {};
   try {
-    const rows = db.prepare("SELECT key, value FROM key_value").all() as {
+    const rows = (await db.prepare("SELECT key, value FROM key_value").all()) as {
       key: string;
       value: string;
     }[];
@@ -624,7 +633,7 @@ export function exportAllSummaryRows(): ExportAllRows {
 
   const combos: unknown[] = [];
   try {
-    combos.push(...db.prepare("SELECT * FROM combos").all());
+    combos.push(...(await db.prepare("SELECT * FROM combos").all()));
   } catch {
     // combos table might not exist
   }
@@ -632,11 +641,11 @@ export function exportAllSummaryRows(): ExportAllRows {
   const providers: unknown[] = [];
   try {
     providers.push(
-      ...db
+      ...(await db
         .prepare(
           "SELECT id, provider, name, auth_type, is_active, email, created_at FROM provider_connections"
         )
-        .all()
+        .all())
     );
   } catch {
     // provider_connections table might not exist
@@ -645,11 +654,11 @@ export function exportAllSummaryRows(): ExportAllRows {
   const apiKeys: unknown[] = [];
   try {
     apiKeys.push(
-      ...db
+      ...(await db
         .prepare(
           "SELECT id, name, substr(key, 1, 8) as prefix, machine_id, created_at FROM api_keys"
         )
-        .all()
+        .all())
     );
   } catch {
     // api_keys table might not exist
@@ -657,7 +666,9 @@ export function exportAllSummaryRows(): ExportAllRows {
 
   const reasoningRoutingRules: unknown[] = [];
   try {
-    reasoningRoutingRules.push(...db.prepare("SELECT * FROM reasoning_routing_rules").all());
+    reasoningRoutingRules.push(
+      ...(await db.prepare("SELECT * FROM reasoning_routing_rules").all())
+    );
   } catch {
     // reasoning_routing_rules table might not exist in an older backup
   }
@@ -678,9 +689,11 @@ export function exportAllSummaryRows(): ExportAllRows {
  * not the live one.
  */
 export function getTableNamesFromAdapter(adapter: {
-  prepare: (sql: string) => { all: () => unknown[] };
+  prepare: (sql: string) => { all: () => Promise<unknown[]> };
 }): string[] {
-  const rows = adapter.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{
+  const rows = adapter
+    .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+    .all() as unknown as Array<{
     name: string;
   }>;
   return rows.map((r) => r.name);
@@ -690,18 +703,20 @@ export function getTableNamesFromAdapter(adapter: {
  * Counts rows in a set of tables from the **live** database (post-import).
  * Returns an object keyed by table name with the row count as value.
  */
-export function countImportedRows(): {
+export async function countImportedRows(): Promise<{
   connCount: number;
   nodeCount: number;
   comboCount: number;
   keyCount: number;
-} {
+}> {
   const db = getDbInstance();
   const connCount =
-    (db.prepare("SELECT COUNT(*) as cnt FROM provider_connections").get() as any)?.cnt || 0;
+    ((await db.prepare("SELECT COUNT(*) as cnt FROM provider_connections").get()) as any)?.cnt || 0;
   const nodeCount =
-    (db.prepare("SELECT COUNT(*) as cnt FROM provider_nodes").get() as any)?.cnt || 0;
-  const comboCount = (db.prepare("SELECT COUNT(*) as cnt FROM combos").get() as any)?.cnt || 0;
-  const keyCount = (db.prepare("SELECT COUNT(*) as cnt FROM api_keys").get() as any)?.cnt || 0;
+    ((await db.prepare("SELECT COUNT(*) as cnt FROM provider_nodes").get()) as any)?.cnt || 0;
+  const comboCount =
+    ((await db.prepare("SELECT COUNT(*) as cnt FROM combos").get()) as any)?.cnt || 0;
+  const keyCount =
+    ((await db.prepare("SELECT COUNT(*) as cnt FROM api_keys").get()) as any)?.cnt || 0;
   return { connCount, nodeCount, comboCount, keyCount };
 }

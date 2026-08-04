@@ -92,11 +92,11 @@ function toProviderParamFilter(raw: unknown): ProviderParamFilter | null {
 
 // ── Read ────────────────────────────────────────────────────────────────────
 
-function readNamespace(namespace: string): Record<string, unknown> {
+async function readNamespace(namespace: string): Promise<Record<string, unknown>> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
-    .all(namespace) as Array<{ key: string; value: string }>;
+    .all(namespace)) as Array<{ key: string; value: string }>;
 
   const values: Record<string, unknown> = {};
   for (const row of rows) {
@@ -105,8 +105,8 @@ function readNamespace(namespace: string): Record<string, unknown> {
   return values;
 }
 
-function loadAllConfigs(): Map<string, ProviderParamFilter> {
-  const raw = readNamespace(NAMESPACE);
+async function loadAllConfigs(): Promise<Map<string, ProviderParamFilter>> {
+  const raw = await readNamespace(NAMESPACE);
   const map = new Map<string, ProviderParamFilter>();
   for (const [key, value] of Object.entries(raw)) {
     const parsed = toProviderParamFilter(value);
@@ -123,9 +123,9 @@ function loadAllConfigs(): Map<string, ProviderParamFilter> {
  * Warm the cache on module load so the first call to getParamFilterConfig
  * does not hit the DB. Idempotent — subsequent calls return the cached map.
  */
-export function loadParamFilterConfigs(): Map<string, ProviderParamFilter> {
+export async function loadParamFilterConfigs(): Promise<Map<string, ProviderParamFilter>> {
   if (filterCache === null) {
-    filterCache = loadAllConfigs();
+    filterCache = await loadAllConfigs();
   }
   return filterCache;
 }
@@ -134,8 +134,10 @@ export function loadParamFilterConfigs(): Map<string, ProviderParamFilter> {
  * Get the param filter config for a single provider, or null if not configured.
  * Uses an in-memory cache refreshed on write.
  */
-export function getParamFilterConfig(provider: string): ProviderParamFilter | null {
-  return toNormalizedString(provider) ? (loadParamFilterConfigs().get(provider) ?? null) : null;
+export async function getParamFilterConfig(provider: string): Promise<ProviderParamFilter | null> {
+  return toNormalizedString(provider)
+    ? ((await loadParamFilterConfigs()).get(provider) ?? null)
+    : null;
 }
 
 /**
@@ -185,8 +187,8 @@ const GLOBAL_AUTOLEARN_KEY = "__global__";
  * regardless of their per-provider autoLearn setting.
  * Only fires when this is explicitly configured, else returns false.
  */
-export function isAutoLearnGloballyEnabled(): boolean {
-  const globalCfg = getParamFilterConfig(GLOBAL_AUTOLEARN_KEY);
+export async function isAutoLearnGloballyEnabled(): Promise<boolean> {
+  const globalCfg = await getParamFilterConfig(GLOBAL_AUTOLEARN_KEY);
   return globalCfg?.autoLearn === true;
 }
 
@@ -195,8 +197,8 @@ export function isAutoLearnGloballyEnabled(): boolean {
  * When enabled, the per-provider autoLearn flag is still honored after
  * the global check (either being on is sufficient to trigger auto-learn).
  */
-export function setGlobalAutoLearnEnabled(enabled: boolean): void {
-  const existing = getParamFilterConfig(GLOBAL_AUTOLEARN_KEY);
+export async function setGlobalAutoLearnEnabled(enabled: boolean): Promise<void> {
+  const existing = await getParamFilterConfig(GLOBAL_AUTOLEARN_KEY);
   setParamFilterConfig(GLOBAL_AUTOLEARN_KEY, {
     block: existing?.block ?? [],
     allow: existing?.allow ?? [],
@@ -209,10 +211,14 @@ export function setGlobalAutoLearnEnabled(enabled: boolean): void {
  * If the field is already in the block list (or the config does not exist),
  * this is a no-op. Optionally scoped to a specific model.
  */
-export function addParamToBlocklist(provider: string, paramName: string, model?: string): void {
+export async function addParamToBlocklist(
+  provider: string,
+  paramName: string,
+  model?: string
+): Promise<void> {
   if (!toNormalizedString(provider) || !toNormalizedString(paramName)) return;
 
-  const existing = getParamFilterConfig(provider) ?? {
+  const existing = (await getParamFilterConfig(provider)) ?? {
     block: [],
     allow: [],
     autoLearn: false,

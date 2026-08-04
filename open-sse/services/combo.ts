@@ -301,7 +301,7 @@ export async function buildAutoCandidates(
   resetWindowConfig: ResetWindowConfig = resolveResetWindowConfig(null),
   resilienceSettings: ResilienceSettings | null = null
 ): Promise<AutoProviderCandidate[]> {
-  const hiddenModelsMap = getHiddenModelsByProvider();
+  const hiddenModelsMap = await getHiddenModelsByProvider();
   const metrics = getComboMetrics(comboName);
   // Opt-in hard quota cutoff (default OFF). When disabled, candidates are never
   // dropped for low quota here — the soft quota penalty + connection cooldown still

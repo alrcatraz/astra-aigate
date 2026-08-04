@@ -11,6 +11,7 @@
  */
 
 import { getDbInstance } from "./db/core";
+import type { RawSyncDb, SqliteAdapter } from "./db/adapters/types";
 import { invalidateDbCache } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
 
@@ -236,8 +237,8 @@ function toRecord(value: unknown): Record<string, unknown> {
  * Read synced pricing from `pricing_synced` namespace.
  */
 export function getSyncedPricing(): PricingByProvider {
-  const db = getDbInstance();
-  const rows = db
+  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const rows = raw
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing_synced'")
     .all();
   const synced: PricingByProvider = {};

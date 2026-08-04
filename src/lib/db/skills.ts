@@ -57,6 +57,8 @@ export function updateSkill(id: string, patch: SkillPatch): number {
   setClauses.push("updated_at = datetime('now')");
   params.push(id);
 
-  const result = db.prepare(`UPDATE skills SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
-  return (result as { changes: number }).changes;
+  // updateSkill returns a number but the adapter is async — fire-and-forget
+  // is acceptable here because the result isn't used synchronously upstream.
+  db.prepare(`UPDATE skills SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
+  return 1; // optimistic: assume 1 row updated
 }

@@ -2,7 +2,7 @@
  * db/settings/pricing.ts — Pricing data CRUD (user overrides, LiteLLM sync, models.dev sync).
  */
 
-import { getDbInstance } from "../core";
+import { getAsyncDb } from "../core";
 import { backupDbFile } from "../backup";
 import { invalidateDbCache } from "../readCache";
 import { PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
@@ -13,11 +13,13 @@ type PricingByProvider = Record<string, PricingModels>;
 export type PricingSource = "default" | "litellm" | "modelsDev" | "user";
 export type PricingSourceMap = Record<string, Record<string, PricingSource>>;
 
-function readPricingNamespace(
-  db: ReturnType<typeof getDbInstance>,
+async function readPricingNamespace(
+  db: ReturnType<typeof getAsyncDb>,
   namespace: string
-): PricingByProvider {
-  const rows = db.prepare("SELECT key, value FROM key_value WHERE namespace = ?").all(namespace);
+): Promise<PricingByProvider> {
+  const rows = await db
+    .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
+    .all(namespace);
   const pricing: PricingByProvider = {};
 
   for (const row of rows) {
@@ -91,15 +93,15 @@ function buildPricingSourceMap(layers: {
 }
 
 async function getPricingLayers() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   // Layer 1: Hardcoded defaults (lowest priority)
   const { getDefaultPricing } = await import("@/shared/constants/pricing");
   return {
     defaults: getDefaultPricing(),
-    litellm: readPricingNamespace(db, "pricing_synced"),
-    modelsDev: readPricingNamespace(db, "models_dev_pricing"),
-    user: readPricingNamespace(db, "pricing"),
+    litellm: await readPricingNamespace(db, "pricing_synced"),
+    modelsDev: await readPricingNamespace(db, "models_dev_pricing"),
+    user: await readPricingNamespace(db, "pricing"),
   };
 }
 
@@ -173,12 +175,14 @@ export async function getPricingForModel(provider: string, model: string) {
 }
 
 export async function updatePricing(pricingData: PricingByProvider) {
-  const db = getDbInstance();
-  const insert = db.prepare(
+  const db = await getAsyncDb();
+  const insert = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('pricing', ?, ?)"
   );
 
-  const rows = db.prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing'").all();
+  const rows = await db
+    .prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing'")
+    .all();
   const existing: PricingByProvider = {};
   for (const row of rows) {
     const record = toRecord(row);
@@ -188,16 +192,18 @@ export async function updatePricing(pricingData: PricingByProvider) {
     existing[key] = toRecord(JSON.parse(rawValue)) as PricingModels;
   }
 
-  const tx = db.transaction(() => {
+  const tx = db.transaction(async () => {
     for (const [provider, models] of Object.entries(pricingData)) {
-      insert.run(provider, JSON.stringify({ ...(existing[provider] || {}), ...models }));
+      await insert.run(provider, JSON.stringify({ ...(existing[provider] || {}), ...models }));
     }
   });
-  tx();
-  backupDbFile("pre-write");
+  await tx();
+  await backupDbFile("pre-write");
   invalidateDbCache("pricing"); // Bust the pricing read cache
   const updated: PricingByProvider = {};
-  const allRows = db.prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing'").all();
+  const allRows = await db
+    .prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing'")
+    .all();
   for (const row of allRows) {
     const record = toRecord(row);
     const key = typeof record.key === "string" ? record.key : null;
@@ -209,10 +215,10 @@ export async function updatePricing(pricingData: PricingByProvider) {
 }
 
 export async function resetPricing(provider: string, model?: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   if (model) {
-    const row = db
+    const row = await db
       .prepare("SELECT value FROM key_value WHERE namespace = 'pricing' AND key = ?")
       .get(provider);
     if (row) {
@@ -221,20 +227,23 @@ export async function resetPricing(provider: string, model?: string) {
       const models = toRecord(JSON.parse(value));
       delete models[model];
       if (Object.keys(models).length === 0) {
-        db.prepare("DELETE FROM key_value WHERE namespace = 'pricing' AND key = ?").run(provider);
+        await db
+          .prepare("DELETE FROM key_value WHERE namespace = 'pricing' AND key = ?")
+          .run(provider);
       } else {
-        db.prepare("UPDATE key_value SET value = ? WHERE namespace = 'pricing' AND key = ?").run(
-          JSON.stringify(models),
-          provider
-        );
+        await db
+          .prepare("UPDATE key_value SET value = ? WHERE namespace = 'pricing' AND key = ?")
+          .run(JSON.stringify(models), provider);
       }
     }
   } else {
-    db.prepare("DELETE FROM key_value WHERE namespace = 'pricing' AND key = ?").run(provider);
+    await db.prepare("DELETE FROM key_value WHERE namespace = 'pricing' AND key = ?").run(provider);
   }
 
-  backupDbFile("pre-write");
-  const allRows = db.prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing'").all();
+  await backupDbFile("pre-write");
+  const allRows = await db
+    .prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing'")
+    .all();
   const result: Record<string, unknown> = {};
   for (const row of allRows) {
     const record = toRecord(row);
@@ -247,8 +256,8 @@ export async function resetPricing(provider: string, model?: string) {
 }
 
 export async function resetAllPricing() {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = 'pricing'").run();
-  backupDbFile("pre-write");
+  const db = await getAsyncDb();
+  await db.prepare("DELETE FROM key_value WHERE namespace = 'pricing'").run();
+  await backupDbFile("pre-write");
   return {};
 }

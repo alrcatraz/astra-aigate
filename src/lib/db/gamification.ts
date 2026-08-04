@@ -344,20 +344,20 @@ export function getAllEarnedBadges(): UserBadge[] {
 
 // ──────────────── Token Ledger ────────────────
 
-export function transferTokens(
+export async function transferTokens(
   fromId: string,
   toId: string,
   amount: number,
   reason: string,
   idempotencyKey: string
-): { success: boolean; error?: string } {
+): Promise<{ success: boolean; error?: string }> {
   // Atomic transaction: balance check + insert
   const instance = getDbInstance();
-  const txn = instance.transaction(() => {
+  const txn = instance.transaction(async () => {
     // Check for duplicate
-    const existing = instance
+    const existing = (await instance
       .prepare(`SELECT id FROM token_ledger WHERE idempotency_key = ?`)
-      .get(idempotencyKey) as { id: number } | undefined;
+      .get(idempotencyKey)) as { id: number } | undefined;
     if (existing) return { success: true };
 
     // Balance check (inside transaction to prevent race)
@@ -376,7 +376,7 @@ export function transferTokens(
     return { success: true };
   });
 
-  return txn();
+  return await txn();
 }
 
 export function getBalance(apiKeyId: string): number {

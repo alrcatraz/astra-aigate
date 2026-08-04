@@ -183,7 +183,7 @@ function parseAuditValue(value: unknown): unknown {
   }
 }
 
-function ensureAuditLogSchema(db: SqliteAdapter) {
+async function ensureAuditLogSchema(db: SqliteAdapter) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,7 +202,7 @@ function ensureAuditLogSchema(db: SqliteAdapter) {
 
   let columns: Array<{ name: string }> = [];
   try {
-    columns = db.prepare("PRAGMA table_info(audit_log)").all() as Array<{ name: string }>;
+    columns = (await db.prepare("PRAGMA table_info(audit_log)").all()) as Array<{ name: string }>;
   } catch {
     columns = [];
   }
@@ -310,11 +310,11 @@ export function getAuditRequestContext(request?: {
 /**
  * Initialize the audit_log table.
  */
-export function initAuditLog() {
+export async function initAuditLog() {
   const db = getDb();
   if (!db) return;
 
-  ensureAuditLogSchema(db);
+  await ensureAuditLogSchema(db);
 }
 
 /**
@@ -327,7 +327,7 @@ export function initAuditLog() {
  * @param {Object|string} [entry.details] - Additional details
  * @param {string} [entry.ipAddress] - Client IP
  */
-export function logAuditEvent(entry: {
+export async function logAuditEvent(entry: {
   action: string;
   actor?: string;
   target?: string;
@@ -343,7 +343,7 @@ export function logAuditEvent(entry: {
   if (!db) return;
 
   try {
-    ensureAuditLogSchema(db);
+    await ensureAuditLogSchema(db);
     const createdAt = entry.createdAt || new Date().toISOString();
     const serializedDetails = serializeAuditValue(entry.details ?? entry.metadata);
     const metadataSource =
@@ -352,8 +352,8 @@ export function logAuditEvent(entry: {
         : entry.details && typeof entry.details === "object"
           ? entry.details
           : null;
-    const stmt = db.prepare(`
-      INSERT INTO audit_log (
+    const stmt = db.prepare(
+      `INSERT INTO audit_log (
         timestamp,
         action,
         actor,
@@ -365,9 +365,9 @@ export function logAuditEvent(entry: {
         request_id,
         metadata
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    await stmt.run(
       createdAt,
       entry.action,
       entry.actor || "system",
@@ -394,11 +394,11 @@ export function logAuditEvent(entry: {
  * @param {number} [filter.offset=0] - Pagination offset
  * @returns {Array<{ id: number, timestamp: string, action: string, actor: string, target: string, details: any, ip_address: string }>}
  */
-export function getAuditLog(filter: AuditLogFilter = {}): AuditLogEntry[] {
+export async function getAuditLog(filter: AuditLogFilter = {}): Promise<AuditLogEntry[]> {
   const db = getDb();
   if (!db) return [];
 
-  ensureAuditLogSchema(db);
+  await ensureAuditLogSchema(db);
 
   const { where, params } = buildAuditLogQuery(filter);
   const limit = Number.isFinite(filter.limit)
@@ -406,22 +406,22 @@ export function getAuditLog(filter: AuditLogFilter = {}): AuditLogEntry[] {
     : 100;
   const offset = Number.isFinite(filter.offset) ? Math.max(0, filter.offset || 0) : 0;
 
-  const rows = db
+  const rows = (await db
     .prepare(`SELECT * FROM audit_log ${where} ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?`)
-    .all(...params, limit, offset) as AuditLogRow[];
+    .all(...params, limit, offset)) as AuditLogRow[];
 
   return rows.map((row) => normalizeAuditLogRow(row));
 }
 
-export function countAuditLog(filter: AuditLogFilter = {}) {
+export async function countAuditLog(filter: AuditLogFilter = {}) {
   const db = getDb();
   if (!db) return 0;
 
-  ensureAuditLogSchema(db);
+  await ensureAuditLogSchema(db);
   const { where, params } = buildAuditLogQuery(filter);
-  const row = db.prepare(`SELECT COUNT(*) as count FROM audit_log ${where}`).get(...params) as
-    | { count?: number }
-    | undefined;
+  const row = (await db
+    .prepare(`SELECT COUNT(*) as count FROM audit_log ${where}`)
+    .get(...params)) as { count?: number } | undefined;
   return Number(row?.count || 0);
 }
 
@@ -496,7 +496,7 @@ export async function cleanupExpiredLogs() {
   const appOverride = getAppLogRetentionDaysOverride();
   let dbRetention: { usageHistory: number; callLogs: number; mcpAudit: number } | null = null;
   try {
-    const r = getUserDatabaseSettings().retention;
+    const r = (await getUserDatabaseSettings()).retention;
     dbRetention = { usageHistory: r.usageHistory, callLogs: r.callLogs, mcpAudit: r.mcpAudit };
   } catch {
     /* settings table unavailable (e.g. very early startup) — keep env fallback */
@@ -521,7 +521,7 @@ export async function cleanupExpiredLogs() {
   let trimmedProxyLogs = 0;
 
   try {
-    const r1 = db.prepare("DELETE FROM usage_history WHERE timestamp < ?").run(usageCutoff);
+    const r1 = await db.prepare("DELETE FROM usage_history WHERE timestamp < ?").run(usageCutoff);
     deletedUsage = r1.changes;
   } catch {
     /* table may not exist */
@@ -529,35 +529,37 @@ export async function cleanupExpiredLogs() {
 
   try {
     const { deleteCallLogsBefore } = await import("../usage/callLogs");
-    const r2 = deleteCallLogsBefore(callCutoff);
+    const r2 = await deleteCallLogsBefore(callCutoff);
     deletedCallLogs = r2.deletedRows;
   } catch {
     /* table may not exist */
   }
 
   try {
-    const r3 = db.prepare("DELETE FROM proxy_logs WHERE timestamp < ?").run(callCutoff);
+    const r3 = await db.prepare("DELETE FROM proxy_logs WHERE timestamp < ?").run(callCutoff);
     deletedProxyLogs = r3.changes;
   } catch {
     /* table may not exist */
   }
 
   try {
-    const r4 = db.prepare("DELETE FROM request_detail_logs WHERE timestamp < ?").run(callCutoff);
+    const r4 = await db
+      .prepare("DELETE FROM request_detail_logs WHERE timestamp < ?")
+      .run(callCutoff);
     deletedRequestDetailLogs = r4.changes;
   } catch {
     /* legacy table may not exist */
   }
 
   try {
-    const r5 = db.prepare("DELETE FROM audit_log WHERE timestamp < ?").run(appCutoff);
+    const r5 = await db.prepare("DELETE FROM audit_log WHERE timestamp < ?").run(appCutoff);
     deletedAuditLogs = r5.changes;
   } catch {
     /* table may not exist */
   }
 
   try {
-    const r6 = db.prepare("DELETE FROM mcp_tool_audit WHERE created_at < ?").run(mcpCutoff);
+    const r6 = await db.prepare("DELETE FROM mcp_tool_audit WHERE created_at < ?").run(mcpCutoff);
     deletedMcpAuditLogs = r6.changes;
   } catch {
     /* table may not exist */
@@ -568,7 +570,7 @@ export async function cleanupExpiredLogs() {
   if (callLogsMaxRows > 0) {
     try {
       const { trimCallLogsToMaxRows } = await import("../usage/callLogs");
-      const trimmed = trimCallLogsToMaxRows(callLogsMaxRows);
+      const trimmed = await trimCallLogsToMaxRows(callLogsMaxRows);
       trimmedCallLogs = trimmed.deletedRows;
     } catch {
       /* best effort */
@@ -577,12 +579,14 @@ export async function cleanupExpiredLogs() {
 
   if (proxyLogsMaxRows > 0) {
     try {
-      let currentProxyCount = db.prepare("SELECT COUNT(*) as cnt FROM proxy_logs").get() as {
+      let currentProxyCount = (await db
+        .prepare("SELECT COUNT(*) as cnt FROM proxy_logs")
+        .get()) as {
         cnt: number;
       };
       while (currentProxyCount.cnt > proxyLogsMaxRows) {
         const toDelete = Math.min(currentProxyCount.cnt - proxyLogsMaxRows, BATCH_SIZE);
-        const trimmed = db
+        const trimmed = await db
           .prepare(
             `DELETE FROM proxy_logs WHERE id IN (
               SELECT id FROM proxy_logs ORDER BY timestamp ASC LIMIT ?

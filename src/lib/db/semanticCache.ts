@@ -48,7 +48,9 @@ const VALID_SORT_COLUMNS = ["created_at", "expires_at", "hit_count", "tokens_sav
  * Returns a paginated, filtered, sorted list of semantic cache entries.
  * All dynamic inputs (sortBy/sortOrder) are validated before use.
  */
-export function listSemanticCacheEntries(opts: SemanticCacheListOptions): SemanticCacheListResult {
+export async function listSemanticCacheEntries(
+  opts: SemanticCacheListOptions
+): Promise<SemanticCacheListResult> {
   const db = getDbInstance();
   const { page, limit, search, model, sortBy, sortOrder } = opts;
   const offset = (page - 1) * limit;
@@ -70,18 +72,18 @@ export function listSemanticCacheEntries(opts: SemanticCacheListOptions): Semant
   const orderBy = VALID_SORT_COLUMNS.includes(sortBy) ? sortBy : "created_at";
   const order = sortOrder === "asc" ? "ASC" : "DESC";
 
-  const countRow = db
+  const countRow = (await db
     .prepare(`SELECT COUNT(*) as total FROM semantic_cache ${whereClause}`)
-    .get(...params) as { total: number };
+    .get(...params)) as { total: number };
 
-  const entries = db
+  const entries = (await db
     .prepare(
       `SELECT id, signature, model, hit_count, tokens_saved, created_at, expires_at
        FROM semantic_cache ${whereClause}
        ORDER BY ${orderBy} ${order}
        LIMIT ? OFFSET ?`
     )
-    .all(...params, limit, offset) as SemanticCacheEntry[];
+    .all(...params, limit, offset)) as SemanticCacheEntry[];
 
   return { entries, total: countRow?.total || 0 };
 }
@@ -94,11 +96,11 @@ export interface DeleteSemanticCacheBySignatureResult {
  * Deletes the single semantic cache entry matching the given signature.
  * Returns `{ deleted: 1 }` on success.
  */
-export function deleteSemanticCacheBySignature(
+export async function deleteSemanticCacheBySignature(
   signature: string
-): DeleteSemanticCacheBySignatureResult {
+): Promise<DeleteSemanticCacheBySignatureResult> {
   const db = getDbInstance();
-  db.prepare("DELETE FROM semantic_cache WHERE signature = ?").run(signature);
+  await db.prepare("DELETE FROM semantic_cache WHERE signature = ?").run(signature);
   return { deleted: 1 };
 }
 
@@ -110,8 +112,10 @@ export interface DeleteSemanticCacheByModelResult {
  * Deletes all semantic cache entries for the given model.
  * Returns `{ deleted: N }` where N is the number of rows removed.
  */
-export function deleteSemanticCacheByModel(model: string): DeleteSemanticCacheByModelResult {
+export async function deleteSemanticCacheByModel(
+  model: string
+): Promise<DeleteSemanticCacheByModelResult> {
   const db = getDbInstance();
-  const result = db.prepare("DELETE FROM semantic_cache WHERE model = ?").run(model);
+  const result = await db.prepare("DELETE FROM semantic_cache WHERE model = ?").run(model);
   return { deleted: result.changes };
 }

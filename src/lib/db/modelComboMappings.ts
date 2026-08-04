@@ -83,8 +83,8 @@ export async function getModelComboMappings(options?: {
     sql += " LIMIT ? OFFSET ?";
     params.push(limit, offset);
   }
-  const rows = db.prepare(sql).all(...params) as MappingRow[];
-  const totalRow = db.prepare("SELECT count(*) as cnt FROM model_combo_mappings").get() as {
+  const rows = (await db.prepare(sql).all(...params)) as MappingRow[];
+  const totalRow = (await db.prepare("SELECT count(*) as cnt FROM model_combo_mappings").get()) as {
     cnt: number;
   };
   return { items: rows.map(rowToMapping), total: totalRow.cnt };
@@ -95,7 +95,7 @@ export async function getModelComboMappings(options?: {
  */
 export async function getModelComboMappingById(id: string): Promise<ModelComboMapping | null> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       `SELECT m.id, m.pattern, m.combo_id, c.name AS combo_name,
               m.priority, m.enabled, m.description,
@@ -104,7 +104,7 @@ export async function getModelComboMappingById(id: string): Promise<ModelComboMa
        LEFT JOIN combos c ON c.id = m.combo_id
        WHERE m.id = ?`
     )
-    .get(id) as MappingRow | undefined;
+    .get(id)) as MappingRow | undefined;
   return row ? rowToMapping(row) : null;
 }
 
@@ -122,20 +122,22 @@ export async function createModelComboMapping(data: {
   const now = new Date().toISOString();
   const id = uuidv4();
 
-  db.prepare(
-    `INSERT INTO model_combo_mappings
+  await db
+    .prepare(
+      `INSERT INTO model_combo_mappings
      (id, pattern, combo_id, priority, enabled, description, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    data.pattern,
-    data.comboId,
-    data.priority ?? 0,
-    data.enabled !== false ? 1 : 0,
-    data.description || "",
-    now,
-    now
-  );
+    )
+    .run(
+      id,
+      data.pattern,
+      data.comboId,
+      data.priority ?? 0,
+      data.enabled !== false ? 1 : 0,
+      data.description || "",
+      now,
+      now
+    );
 
   return {
     id,
@@ -175,20 +177,22 @@ export async function updateModelComboMapping(
     description: data.description ?? existing.description,
   };
 
-  db.prepare(
-    `UPDATE model_combo_mappings
+  await db
+    .prepare(
+      `UPDATE model_combo_mappings
      SET pattern = ?, combo_id = ?, priority = ?, enabled = ?,
          description = ?, updated_at = ?
      WHERE id = ?`
-  ).run(
-    updated.pattern,
-    updated.combo_id,
-    updated.priority,
-    updated.enabled,
-    updated.description,
-    now,
-    id
-  );
+    )
+    .run(
+      updated.pattern,
+      updated.combo_id,
+      updated.priority,
+      updated.enabled,
+      updated.description,
+      now,
+      id
+    );
 
   return getModelComboMappingById(id);
 }
@@ -198,7 +202,7 @@ export async function updateModelComboMapping(
  */
 export async function deleteModelComboMapping(id: string): Promise<boolean> {
   const db = getDbInstance();
-  const result = db.prepare("DELETE FROM model_combo_mappings WHERE id = ?").run(id);
+  const result = await db.prepare("DELETE FROM model_combo_mappings WHERE id = ?").run(id);
   return (result.changes ?? 0) > 0;
 }
 
@@ -219,7 +223,7 @@ export async function resolveComboForModel(
   const db = getDbInstance();
 
   // Fetch enabled mappings, ordered by priority (highest first)
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT m.pattern, m.combo_id, c.data AS combo_data
        FROM model_combo_mappings m
@@ -227,7 +231,7 @@ export async function resolveComboForModel(
        WHERE m.enabled = 1
        ORDER BY m.priority DESC, m.created_at ASC`
     )
-    .all() as Array<{ pattern: string; combo_id: string; combo_data: string }>;
+    .all()) as Array<{ pattern: string; combo_id: string; combo_data: string }>;
 
   for (const row of rows) {
     const regex = globToRegex(row.pattern);

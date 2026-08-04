@@ -192,7 +192,7 @@ export async function resolvePlaywrightProxy(
       deps?.resolveProxy ??
       (async (id: string) => {
         const { resolveProxyForProvider } = await import("../../src/lib/db/proxies");
-        return resolveProxyForProvider(id);
+        return await resolveProxyForProvider(id);
       });
     const p = await resolver(providerKey);
     if (!p?.host) return undefined;

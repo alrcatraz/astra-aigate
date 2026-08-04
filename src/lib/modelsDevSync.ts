@@ -18,6 +18,7 @@
  */
 
 import { getDbInstance } from "./db/core";
+import type { RawSyncDb, SqliteAdapter } from "./db/adapters/types";
 import { invalidateDbCache } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
 
@@ -197,8 +198,8 @@ function mapCapabilityRecord(record: Record<string, unknown>): ModelCapabilityEn
  * Read synced pricing from `models_dev_pricing` namespace.
  */
 export function getModelsDevPricing(): PricingByProvider {
-  const db = getDbInstance();
-  const rows = db
+  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const rows = raw
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'models_dev_pricing'")
     .all();
   const synced: PricingByProvider = {};
@@ -298,7 +299,7 @@ export function getSyncedCapabilities(provider?: string, modelId?: string): Capa
     return providerCaps?.[modelId] ? { [provider]: { [modelId]: providerCaps[modelId] } } : {};
   }
 
-  const db = getDbInstance();
+  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
   ensureCapabilitiesTable();
 
   let query = "SELECT * FROM model_capabilities";
@@ -313,7 +314,7 @@ export function getSyncedCapabilities(provider?: string, modelId?: string): Capa
     }
   }
 
-  const rows = db.prepare(query).all(...params);
+  const rows = raw.prepare(query).all(...params);
   const result: CapabilitiesByProvider = {};
 
   for (const row of rows) {

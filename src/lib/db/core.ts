@@ -4,7 +4,15 @@
  * All domain modules import `getDbInstance` and helpers from here.
  */
 
-import type { SqliteAdapter } from "./adapters/types";
+import type {
+  RawSyncDb,
+  RawSyncStatement,
+  RunResult,
+  SqliteAdapter,
+  DatabaseAdapter,
+  DatabaseDriver,
+  PreparedStatement,
+} from "./adapters/types";
 import {
   tryOpenSync,
   getSqlJsAdapter,
@@ -12,11 +20,12 @@ import {
   getSqlJsPreInitError,
   openDatabaseAsync,
 } from "./adapters/driverFactory";
+import { createPostgresAdapter, type PostgresAdapterConfig } from "./adapters/postgresAdapter";
 import path from "path";
 import fs from "fs";
 import { resolveWritableDataDir, getLegacyDotDataDir } from "../dataPaths";
 import { runMigrations } from "./migrationRunner";
-import { runDbHealthCheck } from "./healthCheck";
+import { runDbHealthCheck, type DbHealthCheckResult } from "./healthCheck";
 import { resetAllDbModuleState } from "./stateReset";
 import { parseStoredPayload } from "../logPayloads";
 import { DEFAULT_DATABASE_SETTINGS, type DatabaseSettings } from "@/types/databaseSettings";
@@ -78,6 +87,14 @@ type CriticalTableSpec = {
   readRows?: (db: SqliteDatabase) => JsonRecord[];
 };
 
+/**
+ * Synchronous view of the underlying driver. better-sqlite3 / node:sqlite /
+ * sql.js / bun:sqlite are all synchronous, so getDbInstance() and the
+ * probe-failure capture path can read through `raw` without awaiting — they
+ * must stay synchronous because getDbInstance() itself is. Postgres (async
+ * driver) never takes these paths.
+ */
+
 // ──────────────── Environment Detection ────────────────
 
 export const isCloud = typeof globalThis.caches === "object" && globalThis.caches !== null;
@@ -104,7 +121,9 @@ const CRITICAL_DB_TABLES: CriticalTableSpec[] = [
     maxRows: 10_000,
     readRows(db) {
       return (
-        (db.prepare("SELECT namespace, key, value FROM key_value").all() as JsonRecord[]) ?? []
+        ((db.raw as RawSyncDb)
+          .prepare("SELECT namespace, key, value FROM key_value")
+          .all() as JsonRecord[]) ?? []
       ).filter(
         (row) => typeof row.namespace !== "string" || !SKIP_PRESERVE_NAMESPACES.has(row.namespace)
       );
@@ -588,7 +607,7 @@ function captureCriticalDbState(sqliteFile: string): PreservedCriticalDbState {
 
       const maxRows = tableSpec.maxRows ?? DEFAULT_CRITICAL_TABLE_ROW_LIMIT;
       const rows = (tableSpec.readRows?.(probe) ??
-        (probe
+        ((probe.raw as RawSyncDb)
           .prepare(`SELECT * FROM ${quoteIdentifier(tableSpec.table)}`)
           .all() as JsonRecord[])) as JsonRecord[];
       const rowCount = rows.length;
@@ -688,7 +707,7 @@ function parseLegacyError(value: unknown): unknown {
   }
 }
 
-function offloadLegacyCallLogDetails(db: SqliteDatabase) {
+async function offloadLegacyCallLogDetails(db: SqliteDatabase) {
   if (!hasTable(db, "call_logs_v1_legacy")) return;
 
   type LegacyCallLogRow = {
@@ -722,7 +741,7 @@ function offloadLegacyCallLogDetails(db: SqliteDatabase) {
     error: string | null;
   };
 
-  const pendingRows = db
+  const pendingRows = (await db
     .prepare(
       `
       SELECT legacy.*
@@ -732,10 +751,10 @@ function offloadLegacyCallLogDetails(db: SqliteDatabase) {
       ORDER BY legacy.timestamp ASC
     `
     )
-    .all() as LegacyCallLogRow[];
+    .all()) as LegacyCallLogRow[];
 
   if (pendingRows.length === 0) {
-    db.exec("DROP TABLE IF EXISTS call_logs_v1_legacy");
+    await db.exec("DROP TABLE IF EXISTS call_logs_v1_legacy");
     return;
   }
 
@@ -757,7 +776,7 @@ function offloadLegacyCallLogDetails(db: SqliteDatabase) {
   `);
 
   let failed = 0;
-  const tx = db.transaction(() => {
+  const tx = db.transaction(async () => {
     for (const row of pendingRows) {
       const artifact: CallLogArtifact = {
         schemaVersion: 5,
@@ -801,11 +820,11 @@ function offloadLegacyCallLogDetails(db: SqliteDatabase) {
       );
       if (!artifactResult) {
         failed++;
-        markMissingStmt.run(row.id);
+        await markMissingStmt.run(row.id);
         continue;
       }
 
-      updateStmt.run({
+      await updateStmt.run({
         id: row.id,
         artifactRelPath: artifactResult.relPath,
         artifactSizeBytes: artifactResult.sizeBytes,
@@ -814,7 +833,7 @@ function offloadLegacyCallLogDetails(db: SqliteDatabase) {
     }
   });
 
-  tx();
+  await tx();
 
   if (failed > 0) {
     console.warn(
@@ -823,10 +842,10 @@ function offloadLegacyCallLogDetails(db: SqliteDatabase) {
     return;
   }
 
-  db.exec("DROP TABLE IF EXISTS call_logs_v1_legacy");
+  await db.exec("DROP TABLE IF EXISTS call_logs_v1_legacy");
   try {
-    db.pragma("wal_checkpoint(TRUNCATE)");
-    db.exec("VACUUM");
+    await db.pragma("wal_checkpoint(TRUNCATE)");
+    await db.exec("VACUUM");
     console.log(`[DB] Offloaded ${pendingRows.length} legacy call log detail row(s) to artifacts.`);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -839,7 +858,7 @@ function shouldRunStartupDbHealthCheck(): boolean {
   return !isAutomatedTestProcess();
 }
 
-function createManagedDbBackup(db: SqliteDatabase, reason: string): boolean {
+async function createManagedDbBackup(db: SqliteDatabase, reason: string): Promise<boolean> {
   const isTest = isAutomatedTestProcess();
   if (isTest) return false;
 
@@ -853,7 +872,7 @@ function createManagedDbBackup(db: SqliteDatabase, reason: string): boolean {
     const backupPath = path.join(backupDir, `db_${timestamp}_${reason}.sqlite`);
     const escapedBackupPath = backupPath.replace(/'/g, "''");
 
-    db.exec(`VACUUM INTO '${escapedBackupPath}'`);
+    await db.exec(`VACUUM INTO '${escapedBackupPath}'`);
     console.log(`[DB] Backup created (${reason}): ${backupPath}`);
     return true;
   } catch (error: unknown) {
@@ -863,12 +882,12 @@ function createManagedDbBackup(db: SqliteDatabase, reason: string): boolean {
   }
 }
 
-function createHealthCheckBackup(db: SqliteDatabase): boolean {
+function createHealthCheckBackup(db: SqliteDatabase): Promise<boolean> {
   return createManagedDbBackup(db, "health-check-repair");
 }
 
-function autoMigrateLegacyEncryptedConnections(db: SqliteDatabase): number {
-  const rows = db.prepare("SELECT * FROM provider_connections").all() as JsonRecord[];
+async function autoMigrateLegacyEncryptedConnections(db: SqliteDatabase): Promise<number> {
+  const rows = (await db.prepare("SELECT * FROM provider_connections").all()) as JsonRecord[];
   const updateStmt = db.prepare(
     "UPDATE provider_connections SET api_key = @apiKey, id_token = @idToken, access_token = @accessToken, refresh_token = @refreshToken, updated_at = @updatedAt WHERE id = @id"
   );
@@ -893,11 +912,11 @@ function autoMigrateLegacyEncryptedConnections(db: SqliteDatabase): number {
 
     if (!updatedRow) continue;
     if (!backupCreated) {
-      createManagedDbBackup(db, "legacy-encryption-migration");
+      await createManagedDbBackup(db, "legacy-encryption-migration");
       backupCreated = true;
     }
 
-    updateStmt.run({
+    await updateStmt.run({
       id: camelRow.id,
       apiKey: camelRow.apiKey ?? null,
       idToken: camelRow.idToken ?? null,
@@ -943,10 +962,10 @@ function startDbHealthCheckScheduler(db: SqliteDatabase) {
   const intervalMs = getDbHealthCheckIntervalMs();
   if (intervalMs <= 0) return;
 
-  dbHealthCheckTimer = setInterval(() => {
+  dbHealthCheckTimer = setInterval(async () => {
     try {
       if (!db.open) return;
-      runDbHealthCheck(db, {
+      await runDbHealthCheck(db, {
         autoRepair: true,
         skipIntegrityCheck: process.env.OMNIROUTE_SKIP_DB_HEALTHCHECK === "1",
         expectedSchemaVersion: "1",
@@ -960,18 +979,230 @@ function startDbHealthCheckScheduler(db: SqliteDatabase) {
   dbHealthCheckTimer.unref?.();
 }
 
-export function runManagedDbHealthCheck(options?: { autoRepair?: boolean }) {
+export async function runManagedDbHealthCheck(options?: {
+  autoRepair?: boolean;
+}): Promise<DbHealthCheckResult> {
   const db = getDbInstance();
-  return runDbHealthCheck(db, {
+  return await runDbHealthCheck(db, {
     autoRepair: options?.autoRepair === true,
     expectedSchemaVersion: "1",
     createBackupBeforeRepair: () => createHealthCheckBackup(db),
   });
 }
 
+export type DbDriver = "sqlite" | "postgres";
+
+/**
+ * Which database driver this process should use. Controlled by the
+ * DB_DRIVER environment variable — "sqlite" (default) or "postgres".
+ * The SQLite driver stays the default: PG is an opt-in deployment target.
+ */
+export function getDbDriver(): DbDriver {
+  const driver = process.env.DB_DRIVER?.trim().toLowerCase();
+  return driver === "postgres" ? "postgres" : "sqlite";
+}
+
+/**
+ * Wrap the synchronous SQLite handle in the async DatabaseAdapter interface so
+ * async call sites (usage, quota, settings) work identically in both driver
+ * modes. Statements resolve immediately; transaction callbacks must stay
+ * synchronous in this mode (SQLite holds the JS thread).
+ */
+export function sqliteAsyncAdapter(sync: SqliteDatabase): DatabaseAdapter {
+  const wrapStmt = (stmt: RawSyncStatement) => ({
+    run: (...params: unknown[]) => Promise.resolve(stmt.run(...params) as RunResult),
+    get: (...params: unknown[]) => Promise.resolve(stmt.get(...params)),
+    all: (...params: unknown[]) => Promise.resolve(stmt.all(...params) as unknown[]),
+  });
+  return {
+    driver: "better-sqlite3" as DatabaseDriver,
+    open: true,
+    name: "sqlite (async wrapper)",
+    prepare: (sql: string) => wrapStmt(sync.prepare(sql) as unknown as RawSyncStatement),
+    exec: (sql: string) => Promise.resolve(sync.exec(sql)),
+    pragma: (pragmaStr: string, options?: { simple?: boolean }) =>
+      Promise.resolve(sync.pragma(pragmaStr, options)),
+    transaction: <T>(fn: (...args: unknown[]) => Promise<T> | T) => {
+      const t = sync.transaction(fn as (...args: unknown[]) => T);
+      return (...args: unknown[]) => Promise.resolve(t(...args));
+    },
+    immediate: (fn: () => Promise<void> | void) =>
+      Promise.resolve(sync.immediate(fn as () => void)),
+    backup: (destination: string) => Promise.resolve(sync.backup(destination)),
+    checkpoint: (mode?: string) => Promise.resolve(sync.checkpoint(mode as never)),
+    close: () => Promise.resolve(sync.close()),
+    raw: sync,
+  };
+}
+
+let asyncDb: DatabaseAdapter | null = null;
+
+/**
+ * The async database handle (PostgreSQL in postgres mode, SQLite-backed in
+ * sqlite mode). Async call paths (usage, quota, settings) should prefer this
+ * over the synchronous getDbInstance() when running against PG.
+ */
+export function getAsyncDb(): DatabaseAdapter {
+  if (!asyncDb) {
+    if (getDbDriver() === "postgres") {
+      // PG mode: lazily initialise the real Postgres adapter if the boot hook
+      // (initDatabaseDriver/initAsyncDb) hasn't run yet. NEVER fall back to a
+      // SQLite scratch wrapper here — that silently locks the whole process
+      // into the empty in-memory SQLite database (asyncDb is non-null after
+      // this, so the boot hook can never replace it).
+      asyncDb = createPostgresAdapter(resolvePostgresConfig());
+    } else {
+      // SQLite mode: lazily initialise the async wrapper around the sync
+      // handle so call sites can uniformly use getAsyncDb() in both modes.
+      asyncDb = sqliteAsyncAdapter(getDbInstance());
+    }
+  }
+  return asyncDb;
+}
+
+/** Parse DATABASE_URL (postgres://user:pass@host:port/db) into PG config. */
+export function parseDatabaseUrl(url: string): PostgresAdapterConfig {
+  try {
+    const u = new URL(url);
+    const db = u.pathname.replace(/^\//, "") || "postgres";
+    return {
+      host: u.hostname || "127.0.0.1",
+      port: u.port ? Number(u.port) : 5432,
+      database: db,
+      user: decodeURIComponent(u.username || "postgres"),
+      password: decodeURIComponent(u.password || ""),
+      ssl: u.searchParams.get("ssl") === "true" ? { rejectUnauthorized: false } : undefined,
+    };
+  } catch (err) {
+    throw new Error(`[DB] Invalid DATABASE_URL: ${(err as Error).message}`);
+  }
+}
+
+/** Resolve the PG config from DATABASE_URL, falling back to PG* env vars. */
+export function resolvePostgresConfig(): PostgresAdapterConfig {
+  const url = process.env.DATABASE_URL;
+  if (url) return parseDatabaseUrl(url);
+  return {
+    host: process.env.PGHOST || "127.0.0.1",
+    port: Number(process.env.PGPORT || 5432),
+    database: process.env.PGDATABASE || "postgres",
+    user: process.env.PGUSER || "postgres",
+    password: process.env.PGPASSWORD || "",
+  };
+}
+
+/**
+ * Driver-aware database bootstrap, called once at server startup.
+ * - sqlite (default): no-op — the synchronous getDbInstance() path is used.
+ * - postgres: connects, and when the PG database is empty bootstraps it from
+ *   the local SQLite file (one-shot migration). Idempotent: re-runs skip the
+ *   migration when tables already exist.
+ */
+export async function initDatabaseDriver(): Promise<void> {
+  if (getDbDriver() !== "postgres") return;
+  const pg = await initAsyncDb();
+  // Warm the PK cache so INSERT OR REPLACE upserts can emit a valid PG
+  // `ON CONFLICT (<pk>) DO UPDATE` arbiter (required by PG syntax).
+  await (pg as unknown as { __warmPrimaryKeys?: () => Promise<void> }).__warmPrimaryKeys?.();
+  const probe = await pg
+    .prepare(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'key_value' LIMIT 1"
+    )
+    .get();
+  if (probe) {
+    console.log("[DB] Postgres driver — existing schema found, skipping bootstrap migration");
+    return;
+  }
+  if (SQLITE_FILE && fs.existsSync(SQLITE_FILE)) {
+    const { migrateSqliteToPostgres } = await import("./migrateToPostgres");
+    const report = await migrateSqliteToPostgres({
+      sqlitePath: SQLITE_FILE,
+      pgConfig: resolvePostgresConfig(),
+    });
+    const rows = Object.values(report.rowsMigrated).reduce((a, b) => a + b, 0);
+    console.log(
+      `[DB] Postgres bootstrapped from ${SQLITE_FILE}: ${report.tablesCreated.length} tables, ${rows} rows, ` +
+        `${report.warnings.length} warnings`
+    );
+  } else {
+    throw new Error(
+      "[DB] Postgres driver requires either an existing PG schema or a SQLite file to bootstrap from (SQLITE_FILE missing)"
+    );
+  }
+}
+
+/**
+ * Initialise the async database handle for the configured driver.
+ * - sqlite (default): wraps the shared synchronous SQLite handle in the async
+ *   adapter interface (see sqliteAsyncAdapter), so async call sites work
+ *   unchanged in both modes.
+ * - postgres: connects via DATABASE_URL / PG* env vars. The caller is
+ *   responsible for running schema migration before serving traffic.
+ */
+export async function initAsyncDb(): Promise<DatabaseAdapter> {
+  if (asyncDb) return asyncDb;
+  if (getDbDriver() === "postgres") {
+    const config = resolvePostgresConfig();
+    console.log(
+      `[DB] Postgres driver — connecting to ${config.host}:${config.port}/${config.database}`
+    );
+    asyncDb = createPostgresAdapter(config);
+    return asyncDb;
+  }
+  // SQLite mode: reuse the synchronous singleton through a tiny async wrapper.
+  const sync = getDbInstance();
+  asyncDb = sqliteAsyncAdapter(sync);
+  return asyncDb;
+}
+
+/**
+ * Sync call sites expect the raw synchronous driver handle (better-sqlite3 /
+ * node:sqlite / bun:sqlite all execute synchronously): `prepare().all()` must
+ * return an array, not a Promise. The SqliteAdapter wraps the raw handle in an
+ * async interface, so sync modules must unwrap it. Adapters without a raw
+ * handle (e.g. sql.js) fall back to the adapter itself.
+ */
+function unwrapRawSync(db: SqliteDatabase): SqliteDatabase {
+  const raw = (db as { raw?: unknown }).raw;
+  if (raw && typeof (raw as { prepare?: unknown }).prepare === "function") {
+    // Legacy call sites still reach for `(getDbInstance() as SqliteAdapter).raw`
+    // to get a synchronous handle. On the unwrapped raw handle, `.raw` is
+    // itself — keep that accessor working so those 17+ call sites don't crash
+    // with "reading 'raw' of undefined" after the unwrap.
+    if ((raw as { raw?: unknown }).raw === undefined) {
+      Object.defineProperty(raw, "raw", {
+        get: () => raw,
+        configurable: true,
+      });
+    }
+    return raw as unknown as SqliteDatabase;
+  }
+  return db;
+}
+
 export function getDbInstance(): SqliteDatabase {
+  if (getDbDriver() === "postgres") {
+    // Transition: PG mode routes async call sites through initAsyncDb(); a few
+    // not-yet-migrated synchronous modules still land here. Keep them working
+    // against an in-memory SQLite scratch DB (never the on-disk file — that
+    // stays owned by the SQLite deployment) and make the leak visible.
+    console.warn(
+      "[DB] WARNING: synchronous SQLite path used in PG mode (module not yet async-migrated). " +
+        "Data written here is scratch-only and will NOT persist."
+    );
+    const existing = getDb();
+    if (existing) return unwrapRawSync(existing);
+    const memoryDb = openSqliteDatabase(":memory:");
+    // Build the schema on the RAW synchronous handle so sync modules degrade
+    // gracefully: reads return arrays (not Promises) and empty results instead
+    // of throwing "no such table"; writes stay scratch-only.
+    (memoryDb.raw as unknown as RawSyncDb).exec(SCHEMA_SQL);
+    setDb(memoryDb);
+    return unwrapRawSync(memoryDb);
+  }
+
   const existing = getDb();
-  if (existing) return existing;
+  if (existing) return unwrapRawSync(existing);
 
   if (isCloud || isBuildPhase) {
     if (isBuildPhase) {
@@ -985,7 +1216,7 @@ export function getDbInstance(): SqliteDatabase {
     ensureCallLogsColumns(memoryDb);
     ensureProviderConnectionsColumns(memoryDb);
     setDb(memoryDb);
-    return memoryDb;
+    return unwrapRawSync(memoryDb);
   }
 
   const sqliteFile = SQLITE_FILE;
@@ -1051,15 +1282,16 @@ export function getDbInstance(): SqliteDatabase {
   if (fs.existsSync(sqliteFile)) {
     try {
       const probe = openSqliteDatabase(sqliteFile, { readonly: true });
-      const hasOldSchema = probe
+      const hasOldSchema = (probe.raw as RawSyncDb)
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
         .get();
 
       if (hasOldSchema) {
         let hasData = false;
         try {
-          const count = probe.prepare("SELECT COUNT(*) as c FROM provider_connections").get() as
-            { c: number } | undefined;
+          const count = (probe.raw as RawSyncDb)
+            .prepare("SELECT COUNT(*) as c FROM provider_connections")
+            .get() as { c: number } | undefined;
           hasData = Boolean(count && count.c > 0);
         } catch {
           // Table might not exist at all — truly incompatible
@@ -1203,7 +1435,9 @@ export function getDbInstance(): SqliteDatabase {
     VALUES ('001', 'initial_schema');
   `);
 
-  runMigrations(db, { isNewDb });
+  void runMigrations(db, { isNewDb }).catch((error: unknown) => {
+    console.error("[DB] Migration runner failed:", error);
+  });
   // Fresh installs need the same post-migration index guarantee as upgraded
   // databases, including recovery from an interrupted migration 127 attempt.
   ensureUsageHistoryAccountIndex(db);
@@ -1212,7 +1446,7 @@ export function getDbInstance(): SqliteDatabase {
 
   // Apply mmap_size from stored settings (migration 046), fallback to 256MiB
   try {
-    const mmapRow = db
+    const mmapRow = (db.raw as RawSyncDb)
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get("databaseSettings", "mmapSize") as { value: string } | undefined;
     const mmapSize = mmapRow ? Math.max(0, parseInt(mmapRow.value, 10) || 0) : 268435456;
@@ -1223,11 +1457,15 @@ export function getDbInstance(): SqliteDatabase {
     // mmap_size is best-effort; not available in all runtimes (e.g. web)
   }
 
-  offloadLegacyCallLogDetails(db);
+  void offloadLegacyCallLogDetails(db).catch((error: unknown) => {
+    console.warn("[DB] Legacy call-log offload failed:", error);
+  });
 
   // Auto-migrate from db.json if exists
   if (jsonDbFile && fs.existsSync(jsonDbFile)) {
-    migrateFromJson(db, jsonDbFile);
+    void migrateFromJson(db, jsonDbFile).catch((error: unknown) => {
+      console.warn("[DB] db.json migration failed:", error);
+    });
   }
 
   if (failedProbePath && preservedCriticalState.preservedTables.length > 0) {
@@ -1264,11 +1502,13 @@ export function getDbInstance(): SqliteDatabase {
     if (skipIntegrityCheck) {
       console.log("[DB] Health check skipped (OMNIROUTE_SKIP_DB_HEALTHCHECK=1)");
     }
-    runDbHealthCheck(db, {
+    void runDbHealthCheck(db, {
       autoRepair: true,
       expectedSchemaVersion: "1",
       skipIntegrityCheck,
       createBackupBeforeRepair: () => createHealthCheckBackup(db),
+    }).catch((error: unknown) => {
+      console.warn("[DB] Startup health-check failed:", error);
     });
   }
 
@@ -1276,7 +1516,9 @@ export function getDbInstance(): SqliteDatabase {
 
   // Re-encrypt any tokens using the legacy dynamic salt to canonical static salt
   try {
-    autoMigrateLegacyEncryptedConnections(db);
+    void autoMigrateLegacyEncryptedConnections(db).catch((error: unknown) => {
+      console.warn("[DB] Legacy connection encryption migration failed:", error);
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[DB] Legacy encryption migration failed: ${message}`);
@@ -1291,7 +1533,7 @@ export function getDbInstance(): SqliteDatabase {
     `[DB] SQLite database ready: ${sqliteFile} ` +
       `(DATA_DIR=${path.resolve(DATA_DIR)}, SQLITE_FILE=${path.resolve(sqliteFile)})`
   );
-  return db;
+  return unwrapRawSync(db);
 }
 
 /**
@@ -1299,9 +1541,10 @@ export function getDbInstance(): SqliteDatabase {
  * Returns `true` if the database is reachable, `false` on any error.
  * Intended for use by the `/api/health/ping` route (Hard Rule #5: no raw SQL in routes).
  */
-export function pingDb(): boolean {
+export async function pingDb(): Promise<boolean> {
   try {
-    const result = getDbInstance().prepare("SELECT 1 AS ok").get() as { ok: number } | undefined;
+    const result = (await getDbInstance().prepare("SELECT 1 AS ok").get()) as
+      { ok: number } | undefined;
     return result?.ok === 1;
   } catch {
     return false;
@@ -1378,6 +1621,14 @@ export function getDriverInfo(): DbDriverInfo | null {
  * Idempotent — safe to call multiple times.
  */
 export async function ensureDbInitialized(): Promise<void> {
+  // PG mode: never open SQLite — the async Postgres adapter is the single DB.
+  // Callers on the sync path (getDbInstance) are handled separately (transition
+  // warning), but the boot probe must not create a SQLite file next to PG.
+  if (getDbDriver() === "postgres") {
+    await initAsyncDb();
+    return;
+  }
+
   if (getDb()) return;
 
   // Cloud/build: getDbInstance() cria in-memory, sem necessidade de pré-init
@@ -1404,7 +1655,7 @@ export async function ensureDbInitialized(): Promise<void> {
 
 // ──────────────── JSON → SQLite Migration ────────────────
 
-function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
+async function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
   try {
     const raw = fs.readFileSync(jsonPath, "utf-8");
     const data = JSON.parse(raw);
@@ -1597,25 +1848,33 @@ function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
 
 // ──────────────── Auto-Vacuum Management ────────────────
 
-export function applyDatabaseOptimizationSettings(settings: DatabaseOptimizationSettings): void {
-  applyDatabaseOptimizationSettingsForDb(getDbInstance(), settings, { applyPersistent: true });
+export async function applyDatabaseOptimizationSettings(
+  settings: DatabaseOptimizationSettings
+): Promise<void> {
+  await applyDatabaseOptimizationSettingsForDb(getDbInstance(), settings, {
+    applyPersistent: true,
+  });
 }
 
-export function setAutoVacuum(mode: "NONE" | "FULL" | "INCREMENTAL"): void {
-  setAutoVacuumForDb(getDbInstance(), mode);
+export async function setAutoVacuum(mode: "NONE" | "FULL" | "INCREMENTAL"): Promise<void> {
+  await setAutoVacuumForDb(getDbInstance(), mode);
 }
 
-export function getAutoVacuumMode(): "NONE" | "FULL" | "INCREMENTAL" {
+export async function getAutoVacuumMode(): Promise<"NONE" | "FULL" | "INCREMENTAL"> {
   return getAutoVacuumModeForDb(getDbInstance());
 }
 
-export function runManualVacuum(): { success: boolean; duration: number; error?: string } {
+export async function runManualVacuum(): Promise<{
+  success: boolean;
+  duration: number;
+  error?: string;
+}> {
   const db = getDbInstance();
   const startTime = Date.now();
 
   try {
     console.log("[DB] Starting manual VACUUM...");
-    db.exec("VACUUM");
+    await db.exec("VACUUM");
     const duration = Date.now() - startTime;
     console.log(`[DB] Manual VACUUM completed in ${duration}ms`);
     return { success: true, duration };
@@ -1627,8 +1886,8 @@ export function runManualVacuum(): { success: boolean; duration: number; error?:
   }
 }
 
-export function setPageSize(pageSize: number): void {
-  setPageSizeForDb(getDbInstance(), pageSize);
+export async function setPageSize(pageSize: number): Promise<void> {
+  await setPageSizeForDb(getDbInstance(), pageSize);
 }
 
 export function setCacheSize(cacheSizeKb: number): void {

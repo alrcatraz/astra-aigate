@@ -51,44 +51,48 @@ function ensureCompressionRunTelemetryTable(): void {
  * the `timestamp` is stamped here (never inside the pure resolvers). Mirrors the
  * compression-stats / compressionAnalytics recording discipline — never throws into a request.
  */
-export function insertCompressionRunTelemetryRow(row: CompressionRunTelemetryInput): void {
+export async function insertCompressionRunTelemetryRow(
+  row: CompressionRunTelemetryInput
+): Promise<void> {
   try {
     const db = getDbInstance();
     ensureCompressionRunTelemetryTable();
-    db.prepare(
-      `INSERT INTO compression_run_telemetry (
+    await db
+      .prepare(
+        `INSERT INTO compression_run_telemetry (
         timestamp, request_id, model, provider, source,
         tokens_before, tokens_after, ratio, cost_delta,
         output_styles, output_style_bypass, output_tokens
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      Date.now(),
-      row.requestId ?? null,
-      row.model ?? null,
-      row.provider ?? null,
-      row.source ?? null,
-      row.tokensBefore,
-      row.tokensAfter,
-      row.ratio,
-      row.costDelta ?? null,
-      row.outputStyles && row.outputStyles.length > 0 ? JSON.stringify(row.outputStyles) : null,
-      row.outputStyleBypass ?? null,
-      row.outputTokens ?? null
-    );
+      )
+      .run(
+        Date.now(),
+        row.requestId ?? null,
+        row.model ?? null,
+        row.provider ?? null,
+        row.source ?? null,
+        row.tokensBefore,
+        row.tokensAfter,
+        row.ratio,
+        row.costDelta ?? null,
+        row.outputStyles && row.outputStyles.length > 0 ? JSON.stringify(row.outputStyles) : null,
+        row.outputStyleBypass ?? null,
+        row.outputTokens ?? null
+      );
   } catch {
     // best-effort telemetry — a write failure never affects a request
   }
 }
 
-export function getCompressionRunTelemetrySummary(): CompressionRunTelemetrySummary {
+export async function getCompressionRunTelemetrySummary(): Promise<CompressionRunTelemetrySummary> {
   const db = getDbInstance();
   ensureCompressionRunTelemetryTable();
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT tokens_before, tokens_after, output_styles, output_style_bypass, output_tokens
        FROM compression_run_telemetry`
     )
-    .all() as Array<{
+    .all()) as Array<{
     tokens_before: number;
     tokens_after: number;
     output_styles: string | null;
@@ -114,8 +118,7 @@ export function getCompressionRunTelemetrySummary(): CompressionRunTelemetrySumm
       try {
         const styles = JSON.parse(row.output_styles) as Array<{ id: string }>;
         for (const style of styles) {
-          summary.appliedStyleCounts[style.id] =
-            (summary.appliedStyleCounts[style.id] ?? 0) + 1;
+          summary.appliedStyleCounts[style.id] = (summary.appliedStyleCounts[style.id] ?? 0) + 1;
         }
       } catch {
         // ignore a corrupt JSON cell

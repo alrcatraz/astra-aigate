@@ -83,15 +83,15 @@ export function autoMigrateLegacyEncryptedConnections(): number {
 
 // ──────────────── GHE Copilot ────────────────
 
-export function getGheCopilotHosts(): string[] {
+export async function getGheCopilotHosts(): Promise<string[]> {
   const hosts = new Set<string>();
   try {
     const db = getDbInstance();
-    const rows = db
+    const rows = (await db
       .prepare(
         "SELECT provider_specific_data FROM provider_connections WHERE provider = 'ghe-copilot' AND is_active = 1"
       )
-      .all() as { provider_specific_data: string | null }[];
+      .all()) as { provider_specific_data: string | null }[];
     for (const row of rows) {
       if (!row.provider_specific_data) continue;
       try {

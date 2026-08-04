@@ -24,48 +24,52 @@ export interface DatabaseStats {
   cacheSize: number;
 }
 
-export function getDatabaseStats(db: SqliteAdapter = getDbInstance()): DatabaseStats {
-  const pageSize = db.pragma("page_size", { simple: true }) as number;
-  const pageCount = db.pragma("page_count", { simple: true }) as number;
-  const cacheSize = db.pragma("cache_size", { simple: true }) as number;
+export async function getDatabaseStats(
+  db: SqliteAdapter = getDbInstance()
+): Promise<DatabaseStats> {
+  const pageSize = (await db.pragma("page_size", { simple: true })) as number;
+  const pageCount = (await db.pragma("page_count", { simple: true })) as number;
+  const cacheSize = (await db.pragma("cache_size", { simple: true })) as number;
   const totalSize = pageSize * pageCount;
 
-  const tables = db
+  const tables = (await db
     .prepare(
       `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
     )
-    .all() as Array<{ name: string }>;
+    .all()) as Array<{ name: string }>;
 
-  const tableStats = tables.map((table) => {
-    let rowCount = 0;
-    try {
-      const quotedName = `"${table.name.replaceAll('"', '""')}"`;
-      const row = db.prepare(`SELECT COUNT(*) as count FROM ${quotedName}`).get() as
-        { count: number } | undefined;
-      rowCount = row?.count ?? 0;
-    } catch (error) {
-      if (!(error instanceof Error) || !error.message.startsWith("no such module:")) {
-        throw error;
+  const tableStats = await Promise.all(
+    tables.map(async (table) => {
+      let rowCount = 0;
+      try {
+        const quotedName = `"${table.name.replaceAll('"', '""')}"`;
+        const row = (await db.prepare(`SELECT COUNT(*) as count FROM ${quotedName}`).get()) as
+          { count: number } | undefined;
+        rowCount = row?.count ?? 0;
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.startsWith("no such module:")) {
+          throw error;
+        }
+        // Optional virtual-table modules may be unavailable on this connection.
       }
-      // Optional virtual-table modules may be unavailable on this connection.
-    }
 
-    const tableSize = db
-      .prepare(`SELECT SUM(pgsize) as size FROM dbstat WHERE name = ?`)
-      .get(table.name) as { size: number | null };
+      const tableSize = (await db
+        .prepare(`SELECT SUM(pgsize) as size FROM dbstat WHERE name = ?`)
+        .get(table.name)) as { size: number | null };
 
-    return {
-      name: table.name,
-      rowCount,
-      size: tableSize?.size || 0,
-    };
-  });
+      return {
+        name: table.name,
+        rowCount,
+        size: tableSize?.size || 0,
+      };
+    })
+  );
 
-  const indexes = db
+  const indexes = (await db
     .prepare(
       `SELECT name, tbl_name as tableName FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%' ORDER BY name`
     )
-    .all() as Array<{ name: string; tableName: string }>;
+    .all()) as Array<{ name: string; tableName: string }>;
 
   return {
     totalSize,

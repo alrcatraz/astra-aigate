@@ -43,9 +43,12 @@ export interface UsageSummaryRow {
  * @param unifiedSource - Pre-built subquery string (UNION of raw + aggregated rows).
  * @param params        - Named params referenced inside `unifiedSource`.
  */
-export function getUsageSummary(unifiedSource: string, params: AnalyticsParams): UsageSummaryRow {
+export async function getUsageSummary(
+  unifiedSource: string,
+  params: AnalyticsParams
+): Promise<UsageSummaryRow> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       `
       SELECT
@@ -63,7 +66,7 @@ export function getUsageSummary(unifiedSource: string, params: AnalyticsParams):
       FROM ${unifiedSource} AS _u
     `
     )
-    .get(params) as UsageSummaryRow | undefined;
+    .get(params)) as UsageSummaryRow | undefined;
   return (
     row ?? {
       totalRequests: 0,
@@ -94,9 +97,12 @@ export interface DailyUsageRow {
 /**
  * Daily request + token counts aggregated from the unified source CTE.
  */
-export function getDailyUsage(unifiedSource: string, params: AnalyticsParams): DailyUsageRow[] {
+export async function getDailyUsage(
+  unifiedSource: string,
+  params: AnalyticsParams
+): Promise<DailyUsageRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -110,7 +116,7 @@ export function getDailyUsage(unifiedSource: string, params: AnalyticsParams): D
       ORDER BY date ASC
     `
     )
-    .all(params) as DailyUsageRow[];
+    .all(params)) as DailyUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -130,9 +136,12 @@ export interface DailyCostRow {
 /**
  * Per-day, per-provider, per-model token breakdown for cost calculation.
  */
-export function getDailyCostRows(unifiedSource: string, params: AnalyticsParams): DailyCostRow[] {
+export async function getDailyCostRows(
+  unifiedSource: string,
+  params: AnalyticsParams
+): Promise<DailyCostRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -150,7 +159,7 @@ export function getDailyCostRows(unifiedSource: string, params: AnalyticsParams)
       ORDER BY date ASC
     `
     )
-    .all(params) as DailyCostRow[];
+    .all(params)) as DailyCostRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -168,9 +177,12 @@ export interface HeatmapRow {
  * @param heatmapConditions - Array of SQL condition strings (combined with AND).
  * @param params            - Named params referenced inside the conditions.
  */
-export function getHeatmapRows(heatmapConditions: string[], params: AnalyticsParams): HeatmapRow[] {
+export async function getHeatmapRows(
+  heatmapConditions: string[],
+  params: AnalyticsParams
+): Promise<HeatmapRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -182,7 +194,7 @@ export function getHeatmapRows(heatmapConditions: string[], params: AnalyticsPar
       ORDER BY date ASC
     `
     )
-    .all(params) as HeatmapRow[];
+    .all(params)) as HeatmapRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -206,9 +218,12 @@ export interface ModelUsageRow {
 /**
  * Per-model usage aggregates from the unified source CTE.
  */
-export function getModelUsageRows(unifiedSource: string, params: AnalyticsParams): ModelUsageRow[] {
+export async function getModelUsageRows(
+  unifiedSource: string,
+  params: AnalyticsParams
+): Promise<ModelUsageRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -230,7 +245,7 @@ export function getModelUsageRows(unifiedSource: string, params: AnalyticsParams
       ORDER BY requests DESC
     `
     )
-    .all(params) as ModelUsageRow[];
+    .all(params)) as ModelUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -249,12 +264,12 @@ export interface ProviderCostRow {
 /**
  * Per-provider, per-model token breakdown for provider cost calculation.
  */
-export function getProviderCostRows(
+export async function getProviderCostRows(
   unifiedSource: string,
   params: AnalyticsParams
-): ProviderCostRow[] {
+): Promise<ProviderCostRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -270,7 +285,7 @@ export function getProviderCostRows(
       GROUP BY LOWER(provider), LOWER(model), serviceTier
     `
     )
-    .all(params) as ProviderCostRow[];
+    .all(params)) as ProviderCostRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -288,12 +303,12 @@ export interface ProviderUsageRow {
 /**
  * Per-provider usage aggregates from the unified source CTE.
  */
-export function getProviderUsageRows(
+export async function getProviderUsageRows(
   unifiedSource: string,
   params: AnalyticsParams
-): ProviderUsageRow[] {
+): Promise<ProviderUsageRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -309,7 +324,7 @@ export function getProviderUsageRows(
       ORDER BY requests DESC
     `
     )
-    .all(params) as ProviderUsageRow[];
+    .all(params)) as ProviderUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -333,9 +348,12 @@ export interface AccountCostRow {
  *                      prefixed with `usage_history.` by the caller.
  * @param params      - Named params referenced inside `whereClause`.
  */
-export function getAccountCostRows(whereClause: string, params: AnalyticsParams): AccountCostRow[] {
+export async function getAccountCostRows(
+  whereClause: string,
+  params: AnalyticsParams
+): Promise<AccountCostRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       WITH account_events AS (
@@ -369,7 +387,7 @@ export function getAccountCostRows(whereClause: string, params: AnalyticsParams)
       GROUP BY accountKey, LOWER(account_events.provider), LOWER(account_events.model), serviceTier
     `
     )
-    .all(params) as AccountCostRow[];
+    .all(params)) as AccountCostRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -392,12 +410,12 @@ export interface AccountUsageRow {
  *                      prefixed with `usage_history.` by the caller.
  * @param params      - Named params referenced inside `whereClause`.
  */
-export function getAccountUsageRows(
+export async function getAccountUsageRows(
   whereClause: string,
   params: AnalyticsParams
-): AccountUsageRow[] {
+): Promise<AccountUsageRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       WITH account_events AS (
@@ -467,7 +485,7 @@ export function getAccountUsageRows(
       LIMIT 50
     `
     )
-    .all(params) as AccountUsageRow[];
+    .all(params)) as AccountUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -493,12 +511,12 @@ export interface ApiKeyUsageRow {
  * @param apiKeyWhereClause - Full WHERE clause including api_key presence guard.
  * @param params            - Named params referenced inside `apiKeyWhereClause`.
  */
-export function getApiKeyUsageRows(
+export async function getApiKeyUsageRows(
   apiKeyWhereClause: string,
   params: AnalyticsParams
-): ApiKeyUsageRow[] {
+): Promise<ApiKeyUsageRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -519,7 +537,7 @@ export function getApiKeyUsageRows(
       GROUP BY COALESCE(NULLIF(api_key_id, ''), NULLIF(api_key_name, ''), 'unknown'), NULLIF(api_key_id, ''), LOWER(provider), LOWER(model), serviceTier
     `
     )
-    .all(params) as ApiKeyUsageRow[];
+    .all(params)) as ApiKeyUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -540,12 +558,12 @@ export interface ServiceTierUsageRow {
 /**
  * Per-service-tier, per-provider, per-model usage aggregates.
  */
-export function getServiceTierUsageRows(
+export async function getServiceTierUsageRows(
   unifiedSource: string,
   params: AnalyticsParams
-): ServiceTierUsageRow[] {
+): Promise<ServiceTierUsageRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -564,7 +582,7 @@ export function getServiceTierUsageRows(
       GROUP BY serviceTier, LOWER(provider), LOWER(model)
     `
     )
-    .all(params) as ServiceTierUsageRow[];
+    .all(params)) as ServiceTierUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -582,12 +600,12 @@ export interface ApiKeyMetadataRow {
  * @param apiKeyWhereClause - Full WHERE clause including api_key presence guard.
  * @param params            - Named params referenced inside `apiKeyWhereClause`.
  */
-export function getApiKeyMetadataRows(
+export async function getApiKeyMetadataRows(
   apiKeyWhereClause: string,
   params: AnalyticsParams
-): ApiKeyMetadataRow[] {
+): Promise<ApiKeyMetadataRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -601,7 +619,7 @@ export function getApiKeyMetadataRows(
       ORDER BY lastUsed DESC
     `
     )
-    .all(params) as ApiKeyMetadataRow[];
+    .all(params)) as ApiKeyMetadataRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -616,12 +634,12 @@ export interface WeeklyPatternRow {
 /**
  * Day-of-week aggregates for the weekly activity pattern chart.
  */
-export function getWeeklyPatternRows(
+export async function getWeeklyPatternRows(
   unifiedSource: string,
   params: AnalyticsParams
-): WeeklyPatternRow[] {
+): Promise<WeeklyPatternRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -642,7 +660,7 @@ export function getWeeklyPatternRows(
       ORDER BY dayOfWeek ASC
     `
     )
-    .all(params) as WeeklyPatternRow[];
+    .all(params)) as WeeklyPatternRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -662,12 +680,12 @@ export interface PresetCostModelRow {
  * Per-model token breakdown for preset range cost calculation.
  * Uses a preset-specific unified source (may differ from the main query window).
  */
-export function getPresetCostModelRows(
+export async function getPresetCostModelRows(
   presetUnifiedSource: string,
   params: AnalyticsParams
-): PresetCostModelRow[] {
+): Promise<PresetCostModelRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -683,7 +701,7 @@ export function getPresetCostModelRows(
       GROUP BY LOWER(model), LOWER(provider), serviceTier
     `
     )
-    .all(params) as PresetCostModelRow[];
+    .all(params)) as PresetCostModelRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -720,7 +738,9 @@ export interface EndpointUsageParams {
  * Inspired by decolua/9router#152 (byEndpoint aggregation), reshaped for the
  * OmniRoute SQLite schema + analytics conventions.
  */
-export function getEndpointUsageRows(params: EndpointUsageParams = {}): EndpointUsageRow[] {
+export async function getEndpointUsageRows(
+  params: EndpointUsageParams = {}
+): Promise<EndpointUsageRow[]> {
   const db = getDbInstance();
   const conditions: string[] = [];
   const bind: Record<string, unknown> = {};
@@ -733,7 +753,7 @@ export function getEndpointUsageRows(params: EndpointUsageParams = {}): Endpoint
     bind.until = params.untilIso;
   }
   const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -756,7 +776,7 @@ export function getEndpointUsageRows(params: EndpointUsageParams = {}): Endpoint
       ORDER BY requests DESC
     `
     )
-    .all(bind) as EndpointUsageRow[];
+    .all(bind)) as EndpointUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -779,12 +799,12 @@ export interface ProviderDailyUsageRow {
  * per-provider aggregate (`getProviderUsageRows`) or the per-day aggregate
  * (`getDailyUsage`).
  */
-export function getProviderDailyUsageRows(
+export async function getProviderDailyUsageRows(
   unifiedSource: string,
   params: AnalyticsParams
-): ProviderDailyUsageRow[] {
+): Promise<ProviderDailyUsageRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -799,7 +819,7 @@ export function getProviderDailyUsageRows(
       ORDER BY date DESC, requests DESC
     `
     )
-    .all(params) as ProviderDailyUsageRow[];
+    .all(params)) as ProviderDailyUsageRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -810,23 +830,23 @@ export function getProviderDailyUsageRows(
  * Returns all rows from `usage_history` for backup export.
  * Only called when `?includeHistory=true` is explicitly requested.
  */
-export function getAllUsageHistory(): Record<string, unknown>[] {
+export async function getAllUsageHistory(): Promise<Record<string, unknown>[]> {
   const db = getDbInstance();
-  return db.prepare("SELECT * FROM usage_history").all() as Record<string, unknown>[];
+  return (await db.prepare("SELECT * FROM usage_history").all()) as Record<string, unknown>[];
 }
 
 /**
  * Returns all rows from `domain_cost_history` for backup export.
  */
-export function getAllDomainCostHistory(): Record<string, unknown>[] {
+export async function getAllDomainCostHistory(): Promise<Record<string, unknown>[]> {
   const db = getDbInstance();
-  return db.prepare("SELECT * FROM domain_cost_history").all() as Record<string, unknown>[];
+  return (await db.prepare("SELECT * FROM domain_cost_history").all()) as Record<string, unknown>[];
 }
 
 /**
  * Returns all rows from `domain_budgets` for backup export.
  */
-export function getAllDomainBudgets(): Record<string, unknown>[] {
+export async function getAllDomainBudgets(): Promise<Record<string, unknown>[]> {
   const db = getDbInstance();
-  return db.prepare("SELECT * FROM domain_budgets").all() as Record<string, unknown>[];
+  return (await db.prepare("SELECT * FROM domain_budgets").all()) as Record<string, unknown>[];
 }

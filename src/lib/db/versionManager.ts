@@ -1,6 +1,6 @@
 /** Version manager tool state persistence. */
 
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 
 interface VersionManagerRow {
   id?: unknown;
@@ -162,16 +162,15 @@ function rowToVersionManager(row: VersionManagerRow): VersionManagerTool {
 }
 
 export async function getVersionManagerStatus(): Promise<VersionManagerTool[]> {
-  const db = getDbInstance();
-  const rows = db.prepare("SELECT * FROM version_manager").all() as VersionManagerRow[];
+  const db = getAsyncDb();
+  const rows = (await db.prepare("SELECT * FROM version_manager").all()) as VersionManagerRow[];
   return rows.map(rowToVersionManager);
 }
 
 export async function getVersionManagerTool(tool: string): Promise<VersionManagerTool | null> {
-  const db = getDbInstance();
-  const row = db.prepare("SELECT * FROM version_manager WHERE tool = ?").get(tool) as
-    | VersionManagerRow
-    | undefined;
+  const db = getAsyncDb();
+  const row = (await db.prepare("SELECT * FROM version_manager WHERE tool = ?").get(tool)) as
+    VersionManagerRow | undefined;
   if (!row) return null;
   return rowToVersionManager(row);
 }
@@ -193,9 +192,10 @@ export async function upsertVersionManagerTool(data: {
   configOverrides?: Record<string, unknown> | null;
   errorMessage?: string | null;
 }): Promise<VersionManagerTool> {
-  const db = getDbInstance();
-  db.prepare(
-    `
+  const db = getAsyncDb();
+  await db
+    .prepare(
+      `
     INSERT INTO version_manager (
       tool, current_version, installed_version, pinned_version, binary_path,
       status, pid, port, api_key, management_key, auto_update, auto_start,
@@ -218,23 +218,24 @@ export async function upsertVersionManagerTool(data: {
       error_message = excluded.error_message,
       updated_at = datetime('now')
   `
-  ).run(
-    data.tool,
-    data.currentVersion ?? null,
-    data.installedVersion ?? null,
-    data.pinnedVersion ?? null,
-    data.binaryPath ?? null,
-    data.status ?? "not_installed",
-    data.pid ?? null,
-    data.port ?? 8317,
-    data.apiKey ?? null,
-    data.managementKey ?? null,
-    data.autoUpdate !== undefined ? (data.autoUpdate ? 1 : 0) : 1,
-    data.autoStart !== undefined ? (data.autoStart ? 1 : 0) : 0,
-    data.healthStatus ?? "unknown",
-    stringifyConfigOverrides(data.configOverrides ?? null),
-    data.errorMessage ?? null
-  );
+    )
+    .run(
+      data.tool,
+      data.currentVersion ?? null,
+      data.installedVersion ?? null,
+      data.pinnedVersion ?? null,
+      data.binaryPath ?? null,
+      data.status ?? "not_installed",
+      data.pid ?? null,
+      data.port ?? 8317,
+      data.apiKey ?? null,
+      data.managementKey ?? null,
+      data.autoUpdate !== undefined ? (data.autoUpdate ? 1 : 0) : 1,
+      data.autoStart !== undefined ? (data.autoStart ? 1 : 0) : 0,
+      data.healthStatus ?? "unknown",
+      stringifyConfigOverrides(data.configOverrides ?? null),
+      data.errorMessage ?? null
+    );
   const result = await getVersionManagerTool(data.tool);
   if (!result) throw new Error("Failed to retrieve inserted version manager tool");
   return result;
@@ -244,7 +245,7 @@ export async function updateVersionManagerTool(
   tool: string,
   updates: Record<string, unknown>
 ): Promise<VersionManagerTool | null> {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const existing = await getVersionManagerTool(tool);
   if (!existing) return null;
 
@@ -289,19 +290,19 @@ export async function updateVersionManagerTool(
     }
   }
 
-  db.prepare(`UPDATE version_manager SET ${sets.join(", ")} WHERE tool = @tool`).run(params);
+  await db.prepare(`UPDATE version_manager SET ${sets.join(", ")} WHERE tool = @tool`).run(params);
   return getVersionManagerTool(tool);
 }
 
 export async function deleteVersionManagerTool(tool: string): Promise<boolean> {
-  const db = getDbInstance();
-  const result = db.prepare("DELETE FROM version_manager WHERE tool = ?").run(tool);
+  const db = getAsyncDb();
+  const result = await db.prepare("DELETE FROM version_manager WHERE tool = ?").run(tool);
   return result.changes > 0;
 }
 
 export async function updateToolHealth(tool: string, healthStatus: string): Promise<boolean> {
-  const db = getDbInstance();
-  const result = db
+  const db = getAsyncDb();
+  const result = await db
     .prepare(
       "UPDATE version_manager SET health_status = ?, last_health_check = datetime('now') WHERE tool = ?"
     )
@@ -314,8 +315,8 @@ export async function updateToolVersion(
   field: "current_version" | "installed_version",
   version: string
 ): Promise<boolean> {
-  const db = getDbInstance();
-  const result = db
+  const db = getAsyncDb();
+  const result = await db
     .prepare(`UPDATE version_manager SET ${field} = ?, updated_at = datetime('now') WHERE tool = ?`)
     .run(version, tool);
   return result.changes > 0;
@@ -327,8 +328,8 @@ export async function setToolStatus(
   pid?: number,
   errorMessage?: string
 ): Promise<boolean> {
-  const db = getDbInstance();
-  const result = db
+  const db = getAsyncDb();
+  const result = await db
     .prepare(
       pid !== undefined
         ? "UPDATE version_manager SET status = ?, pid = ?, error_message = ?, updated_at = datetime('now') WHERE tool = ?"

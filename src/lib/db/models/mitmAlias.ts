@@ -13,7 +13,9 @@ export async function getMitmAlias(toolName?: string) {
     const value = getKeyValue(row).value;
     return value ? JSON.parse(value) : {};
   }
-  const rows = db.prepare("SELECT key, value FROM key_value WHERE namespace = 'mitmAlias'").all();
+  const rows = await db
+    .prepare("SELECT key, value FROM key_value WHERE namespace = 'mitmAlias'")
+    .all();
   const result: Record<string, unknown> = {};
   for (const row of rows) {
     const { key, value } = getKeyValue(row);

@@ -51,10 +51,10 @@ interface CountResult {
   cnt: number;
 }
 
-export function getWebhooks(options?: { limit?: number; offset?: number }): {
+export async function getWebhooks(options?: { limit?: number; offset?: number }): Promise<{
   webhooks: Webhook[];
   total: number;
-} {
+}> {
   const db = getDbInstance();
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
@@ -64,53 +64,57 @@ export function getWebhooks(options?: { limit?: number; offset?: number }): {
     sql += " LIMIT ? OFFSET ?";
     params.push(limit, offset);
   }
-  const rows = db.prepare(sql).all(...params) as WebhookRow[];
-  const total = (db.prepare("SELECT count(*) as cnt FROM webhooks").get() as CountResult).cnt;
+  const rows = (await db.prepare(sql).all(...params)) as WebhookRow[];
+  const total = ((await db.prepare("SELECT count(*) as cnt FROM webhooks").get()) as CountResult)
+    .cnt;
   return { webhooks: rows.map(rowToWebhook), total };
 }
 
-export function getWebhook(id: string): Webhook | null {
+export async function getWebhook(id: string): Promise<Webhook | null> {
   const db = getDbInstance();
-  const row = db.prepare("SELECT * FROM webhooks WHERE id = ?").get(id) as WebhookRow | undefined;
+  const row = (await db.prepare("SELECT * FROM webhooks WHERE id = ?").get(id)) as
+    WebhookRow | undefined;
   return row ? rowToWebhook(row) : null;
 }
 
-export function getEnabledWebhooks(): Webhook[] {
+export async function getEnabledWebhooks(): Promise<Webhook[]> {
   const db = getDbInstance();
-  const rows = db.prepare("SELECT * FROM webhooks WHERE enabled = 1").all() as WebhookRow[];
+  const rows = (await db.prepare("SELECT * FROM webhooks WHERE enabled = 1").all()) as WebhookRow[];
   return rows.map(rowToWebhook);
 }
 
-export function createWebhook(data: {
+export async function createWebhook(data: {
   url: string;
   events?: string[];
   secret?: string;
   description?: string;
   kind?: WebhookKind;
   metadataEncrypted?: string | null;
-}): Webhook {
+}): Promise<Webhook> {
   const db = getDbInstance();
   const id = crypto.randomUUID();
   const secret = data.secret || `whsec_${crypto.randomBytes(24).toString("hex")}`;
   const kind = data.kind || "custom";
 
-  db.prepare(
-    `INSERT INTO webhooks (id, url, events, secret, description, kind, metadata_encrypted)
+  await db
+    .prepare(
+      `INSERT INTO webhooks (id, url, events, secret, description, kind, metadata_encrypted)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    data.url,
-    JSON.stringify(data.events || ["*"]),
-    secret,
-    data.description || "",
-    kind,
-    data.metadataEncrypted ?? null
-  );
+    )
+    .run(
+      id,
+      data.url,
+      JSON.stringify(data.events || ["*"]),
+      secret,
+      data.description || "",
+      kind,
+      data.metadataEncrypted ?? null
+    );
 
-  return getWebhook(id)!;
+  return (await getWebhook(id))!;
 }
 
-export function updateWebhook(
+export async function updateWebhook(
   id: string,
   data: Partial<{
     url: string;
@@ -121,9 +125,9 @@ export function updateWebhook(
     kind: WebhookKind;
     metadataEncrypted: string | null;
   }>
-): Webhook | null {
+): Promise<Webhook | null> {
   const db = getDbInstance();
-  const existing = getWebhook(id);
+  const existing = await getWebhook(id);
   if (!existing) return null;
 
   const fields: string[] = [];
@@ -161,33 +165,41 @@ export function updateWebhook(
   if (fields.length === 0) return existing;
 
   values.push(id);
-  db.prepare(`UPDATE webhooks SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+  await db.prepare(`UPDATE webhooks SET ${fields.join(", ")} WHERE id = ?`).run(...values);
 
-  return getWebhook(id);
+  return await getWebhook(id);
 }
 
-export function deleteWebhook(id: string): boolean {
+export async function deleteWebhook(id: string): Promise<boolean> {
   const db = getDbInstance();
-  const result = db.prepare("DELETE FROM webhooks WHERE id = ?").run(id);
+  const result = await db.prepare("DELETE FROM webhooks WHERE id = ?").run(id);
   return (result as any).changes > 0;
 }
 
-export function recordWebhookDelivery(id: string, status: number, success: boolean): void {
+export async function recordWebhookDelivery(
+  id: string,
+  status: number,
+  success: boolean
+): Promise<void> {
   const db = getDbInstance();
   if (success) {
-    db.prepare(
-      `UPDATE webhooks SET last_triggered_at = datetime('now'), last_status = ?, failure_count = 0 WHERE id = ?`
-    ).run(status, id);
+    await db
+      .prepare(
+        `UPDATE webhooks SET last_triggered_at = datetime('now'), last_status = ?, failure_count = 0 WHERE id = ?`
+      )
+      .run(status, id);
   } else {
-    db.prepare(
-      `UPDATE webhooks SET last_triggered_at = datetime('now'), last_status = ?, failure_count = failure_count + 1 WHERE id = ?`
-    ).run(status, id);
+    await db
+      .prepare(
+        `UPDATE webhooks SET last_triggered_at = datetime('now'), last_status = ?, failure_count = failure_count + 1 WHERE id = ?`
+      )
+      .run(status, id);
   }
 }
 
-export function disableWebhooksWithHighFailures(threshold = 10): number {
+export async function disableWebhooksWithHighFailures(threshold = 10): Promise<number> {
   const db = getDbInstance();
-  const result = db
+  const result = await db
     .prepare(`UPDATE webhooks SET enabled = 0 WHERE failure_count >= ? AND enabled = 1`)
     .run(threshold);
   return (result as any).changes;

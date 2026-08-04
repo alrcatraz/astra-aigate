@@ -19,7 +19,7 @@ export type WebhookDeliverySafe = Omit<WebhookDelivery, "payload_snapshot">;
 
 const MAX_DELIVERIES_PER_WEBHOOK = 100;
 
-export function insertDelivery(opts: {
+export async function insertDelivery(opts: {
   webhookId: string;
   eventType: string;
   status: string;
@@ -27,7 +27,7 @@ export function insertDelivery(opts: {
   latencyMs?: number | null;
   error?: string | null;
   payloadSnapshot?: string | null;
-}): void {
+}): Promise<void> {
   const db = getDbInstance();
   const insertStmt = db.prepare(
     `INSERT INTO webhook_deliveries
@@ -48,8 +48,8 @@ export function insertDelivery(opts: {
   // upstream-internal messages never enter the audit log. The audit log is
   // read back via the deliveries API and rendered in the dashboard.
   const sanitizedError = opts.error != null ? sanitizeErrorMessage(opts.error) || null : null;
-  db.transaction(() => {
-    insertStmt.run(
+  await db.transaction(async () => {
+    await insertStmt.run(
       opts.webhookId,
       opts.eventType,
       opts.status,
@@ -58,14 +58,17 @@ export function insertDelivery(opts: {
       sanitizedError,
       opts.payloadSnapshot ?? null
     );
-    rotateStmt.run(opts.webhookId, opts.webhookId, MAX_DELIVERIES_PER_WEBHOOK);
+    await rotateStmt.run(opts.webhookId, opts.webhookId, MAX_DELIVERIES_PER_WEBHOOK);
   })();
 }
 
 /** List recent deliveries excluding `payload_snapshot` (default — used by UI). */
-export function getDeliveries(webhookId: string, limit: number): WebhookDeliverySafe[] {
+export async function getDeliveries(
+  webhookId: string,
+  limit: number
+): Promise<WebhookDeliverySafe[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `SELECT id, webhook_id, event_type, status, http_status, latency_ms, error, created_at
        FROM webhook_deliveries
@@ -73,5 +76,5 @@ export function getDeliveries(webhookId: string, limit: number): WebhookDelivery
        ORDER BY created_at DESC, id DESC
        LIMIT ?`
     )
-    .all(webhookId, limit) as WebhookDeliverySafe[];
+    .all(webhookId, limit)) as WebhookDeliverySafe[];
 }

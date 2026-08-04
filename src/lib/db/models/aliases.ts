@@ -6,7 +6,7 @@ import { getKeyValue } from "./shared";
 
 export async function getModelAliases() {
   const db = getDbInstance();
-  const rows = db
+  const rows = await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'modelAliases'")
     .all();
   const result: Record<string, unknown> = {};

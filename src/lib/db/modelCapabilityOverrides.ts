@@ -1,4 +1,5 @@
 import { getDbInstance } from "./core";
+import type { RawSyncDb } from "./adapters/types";
 
 export type ModelCapabilityOverrideKey = "max_token";
 
@@ -71,7 +72,7 @@ export function getModelCapabilityOverride(
   if (!target || !isSupportedKey(key)) return null;
 
   try {
-    const row = getDbInstance()
+    const row = (getDbInstance() as unknown as RawSyncDb)
       .prepare(
         "SELECT provider, model_id, override_key, override_value, refreshed_at " +
           "FROM model_capability_overrides WHERE provider = ? AND model_id = ? AND override_key = ?"
@@ -109,7 +110,7 @@ export function removeModelCapabilityOverride(
   const parsedTarget = parseModelOverrideTarget(target);
   if (!parsedTarget || !isSupportedKey(key)) return false;
 
-  const info = getDbInstance()
+  const info = (getDbInstance() as unknown as RawSyncDb)
     .prepare(
       "DELETE FROM model_capability_overrides " +
         "WHERE provider = ? AND model_id = ? AND override_key = ?"
@@ -120,7 +121,7 @@ export function removeModelCapabilityOverride(
 
 export function listModelCapabilityOverrides(): ModelCapabilityOverride[] {
   try {
-    const rows = getDbInstance()
+    const rows = (getDbInstance() as unknown as RawSyncDb)
       .prepare(
         "SELECT provider, model_id, override_key, override_value, refreshed_at " +
           "FROM model_capability_overrides ORDER BY refreshed_at DESC"

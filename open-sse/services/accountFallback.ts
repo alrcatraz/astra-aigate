@@ -1006,13 +1006,15 @@ export function clearProviderFailure(provider: string | null | undefined): void 
 /**
  * Get all providers currently blocked by the shared breaker.
  */
-export function getProvidersInCooldown(): Array<{
-  provider: string;
-  failureCount: number;
-  cooldownRemainingMs: number | null;
-  lastFailureAt: number | null;
-}> {
-  return getAllCircuitBreakerStatuses()
+export async function getProvidersInCooldown(): Promise<
+  {
+    provider: string;
+    failureCount: number;
+    cooldownRemainingMs: number | null;
+    lastFailureAt: number | null;
+  }[]
+> {
+  return (await getAllCircuitBreakerStatuses())
     .filter((status) => {
       const breaker = getProviderBreaker(status.name);
       return Boolean(breaker && !breaker.canExecute());
@@ -1625,7 +1627,11 @@ export function checkFallbackError(
       !errorStr.toLowerCase().includes("hour quota") &&
       !errorStr.toLowerCase().includes("quota has been exceeded")
     ) {
-      return resolveApiKeyForbiddenFallback(errorStr, buildRetryableFallback, RateLimitReason.AUTH_ERROR);
+      return resolveApiKeyForbiddenFallback(
+        errorStr,
+        buildRetryableFallback,
+        RateLimitReason.AUTH_ERROR
+      );
     }
   }
 

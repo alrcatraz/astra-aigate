@@ -44,15 +44,15 @@ function safePathname(url: string): string {
  * Pure w.r.t. the request (only side effect is `verifyAccessToken` stamping
  * `last_used_at`). Never throws — DB failures surface as `{ kind: "error" }`.
  */
-export function evaluateAccessTokenAuth(request: Request): AccessTokenVerdict {
+export async function evaluateAccessTokenAuth(request: Request): Promise<AccessTokenVerdict> {
   const bearer = extractBearer(request);
   if (!bearer || !bearer.startsWith(ACCESS_TOKEN_PREFIX)) {
     return { kind: "absent" };
   }
 
-  let verified: ReturnType<typeof verifyAccessToken>;
+  let verified: Awaited<ReturnType<typeof verifyAccessToken>>;
   try {
-    verified = verifyAccessToken(bearer);
+    verified = await verifyAccessToken(bearer);
   } catch {
     return { kind: "error" };
   }

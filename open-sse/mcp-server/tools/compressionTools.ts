@@ -80,9 +80,9 @@ export async function handleCompressionStatus(
   try {
     const settings = await getCompressionSettings();
     await snapshotMcpDescriptionCompressionStats();
-    const analyticsSummary = getCompressionAnalyticsSummary();
-    const mcpDescriptionStats = getMcpDescriptionCompressionStats();
-    const cacheStats = getCacheStatsSummary();
+    const analyticsSummary = await getCompressionAnalyticsSummary();
+    const mcpDescriptionStats = await getMcpDescriptionCompressionStats();
+    const cacheStats = await getCacheStatsSummary();
 
     const result = {
       enabled: settings.enabled,
@@ -479,7 +479,9 @@ export async function handleListCompressionCombos(): Promise<{
 export async function handleCompressionComboStats(
   args: z.infer<typeof compressionComboStatsInput>
 ): Promise<Record<string, unknown>> {
-  const summary = getCompressionAnalyticsSummary(args.since === "all" ? undefined : args.since);
+  const summary = await getCompressionAnalyticsSummary(
+    args.since === "all" ? undefined : args.since
+  );
   if (!args.comboId) return summary as unknown as Record<string, unknown>;
   return {
     comboId: args.comboId,

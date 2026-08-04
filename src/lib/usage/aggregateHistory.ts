@@ -57,7 +57,7 @@ export async function rollupDailyUsage(
     `;
 
     const stmt = db.prepare(aggregateQuery);
-    const runResult = stmt.run(fromDate, toDate);
+    const runResult = await stmt.run(fromDate, toDate);
 
     result.processed = runResult.changes;
     result.inserted = runResult.changes;
@@ -114,7 +114,7 @@ export async function rollupHourlyQuota(
     `;
 
     const stmt = db.prepare(aggregateQuery);
-    const runResult = stmt.run(fromDate, toDate);
+    const runResult = await stmt.run(fromDate, toDate);
 
     result.processed = runResult.changes;
     result.inserted = runResult.changes;
@@ -173,7 +173,7 @@ export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<
     `;
 
     const stmt = db.prepare(aggregateQuery);
-    const runResult = stmt.run(beforeDate);
+    const runResult = await stmt.run(beforeDate);
 
     result.processed = runResult.changes;
     result.inserted = runResult.changes;
@@ -202,7 +202,7 @@ export async function getRawDataCutoffDate(): Promise<string> {
   // Using rawDataRetentionDays (default 7 per migration 046) creates a gap:
   // analytics floors raw data at day-7 while cleanup doesn't roll up until
   // day-30, so the window [day-30, day-7) is excluded from BOTH UNION legs.
-  const rawDataRetentionDays = getUserDatabaseSettings().retention.usageHistory;
+  const rawDataRetentionDays = (await getUserDatabaseSettings()).retention.usageHistory;
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - rawDataRetentionDays);
@@ -214,5 +214,5 @@ export async function getRawDataCutoffDate(): Promise<string> {
  * Check if aggregation is enabled in settings.
  */
 export async function isAggregationEnabled(): Promise<boolean> {
-  return getUserDatabaseSettings().aggregation.enabled;
+  return (await getUserDatabaseSettings()).aggregation.enabled;
 }
