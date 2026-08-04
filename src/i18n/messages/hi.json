@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "पृष्ठ स्वचालित रूप से पुनः लोड हो रहा है...",
-    "providerTopology": "प्रदाता टोपोलॉजी"
+    "providerTopology": "प्रदाता टोपोलॉजी",
+    "step2Media": "मीडिया क्षमताओं (छवि/OCR/एम्बेडिंग) को <mediaProviders>मीडिया प्रदाता</mediaProviders> पृष्ठ पर कॉन्फ़िगर करें।"
   },
   "analytics": {
     "title": "विश्लेषिकी",
@@ -4713,7 +4714,8 @@
       "configure": "प्रदाताओं को कॉन्फ़िगर करें"
     },
     "tierFlowDiagramAlt": "ओम्निरूट 3-स्तरीय फ़ॉलबैक आरेख",
-    "apiKeyMgmt": "एपीआई कुंजी प्रबंधन"
+    "apiKeyMgmt": "एपीआई कुंजी प्रबंधन",
+    "loading": "लोड हो रहा है..."
   },
   "providers": {
     "title": "प्रदाता",

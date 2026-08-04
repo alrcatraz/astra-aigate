@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Доступна новая версия. Нажмите для обновления.",
     "updateStarted": "Обновление начато...",
     "reloadingPageAutomatically": "Автоматическая перезагрузка страницы...",
-    "providerTopology": "Топология провайдера"
+    "providerTopology": "Топология провайдера",
+    "step2Media": "Настройте мультимедийные возможности (изображение/OCR/встраивание) на странице <mediaProviders>медиа-провайдеров</mediaProviders>."
   },
   "analytics": {
     "title": "Аналитика",
@@ -4713,7 +4714,8 @@
       "configure": "Настройка поставщиков"
     },
     "tierFlowDiagramAlt": "Трехуровневая резервная схема OmniRoute",
-    "apiKeyMgmt": "Управление ключами API"
+    "apiKeyMgmt": "Управление ключами API",
+    "loading": "Загрузка..."
   },
   "providers": {
     "title": "Провайдеры",

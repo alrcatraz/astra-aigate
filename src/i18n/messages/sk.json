@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "K dispozícii je nová verzia. Kliknutím aktualizujte.",
     "updateStarted": "Aktualizácia spustená...",
     "reloadingPageAutomatically": "Automaticky sa znova načítava stránka...",
-    "providerTopology": "Topológia poskytovateľa"
+    "providerTopology": "Topológia poskytovateľa",
+    "step2Media": "Nakonfigurujte mediálne schopnosti (obrázok/OCR/embedding) na stránke <mediaProviders>poskytovateľov médií</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Nakonfigurujte poskytovateľov"
     },
     "tierFlowDiagramAlt": "3-vrstvový záložný diagram OmniRoute",
-    "apiKeyMgmt": "API kľúč Mgmt"
+    "apiKeyMgmt": "API kľúč Mgmt",
+    "loading": "Načítava sa..."
   },
   "providers": {
     "title": "Poskytovatelia",

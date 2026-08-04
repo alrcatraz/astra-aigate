@@ -455,6 +455,17 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "xao",
   // Firecrawl team credits (GET /v2/team/credit-usage)
   "firecrawl",
+  // DMXAPI sites (GET /api/user/self; system token + Dmx-Api-User header) — balance mode
+  "dmxapi-cn",
+  "dmxapi-com",
+  "dmxapi-ssvip",
+  // SiliconFlow (GET /v1/user/info) — balance mode
+  "siliconflow",
+  "siliconflow-cn",
+  // Zhipu GLM (GET /api/paas/v4/user/info, region-driven base) — balance mode
+  "zhipu",
+  // Mistral Admin API (GET /v1/admin/usage, x-api-key Admin Key) — used-limit mode
+  "mistral",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──

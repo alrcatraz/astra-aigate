@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Yeni bir sürüm mevcut. Güncellemek için tıklayın.",
     "updateStarted": "Güncelleme başladı...",
     "reloadingPageAutomatically": "Sayfa otomatik olarak yeniden yükleniyor...",
-    "providerTopology": "Sağlayıcı Topolojisi"
+    "providerTopology": "Sağlayıcı Topolojisi",
+    "step2Media": "Medya yeteneklerini (görüntü/OCR/embedding) <mediaProviders>medya sağlayıcıları</mediaProviders> sayfasında yapılandırın."
   },
   "analytics": {
     "title": "Analitik",
@@ -4713,7 +4714,8 @@
       "configure": "Sağlayıcıları yapılandırma"
     },
     "tierFlowDiagramAlt": "OmniRoute 3 katmanlı geri dönüş diyagramı",
-    "apiKeyMgmt": "API Anahtarı Yönetimi"
+    "apiKeyMgmt": "API Anahtarı Yönetimi",
+    "loading": "Yükleniyor..."
   },
   "providers": {
     "title": "Sağlayıcılar",

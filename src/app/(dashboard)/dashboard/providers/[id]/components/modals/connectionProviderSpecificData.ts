@@ -1,4 +1,5 @@
 import { parseExcludedModelsInput, parseRoutingTagsInput } from "../../providerInputParsers";
+import { getUsageConfig } from "@/shared/constants/providers/usageConfigs";
 import {
   assignCcCompatibleRequestDefaults,
   mergeCcCompatibleRequestDefaults,
@@ -38,7 +39,16 @@ type ProviderSpecificData = Record<string, unknown>;
 // bailian-coding-plan reuses consoleApiKey as its console token; agentrouter (#6850)
 // reuses the same generic field for its New-API System Access Token, paired with
 // newApiUserId (the New-Api-User header value). See agentrouterQuotaFetcher.ts.
-const CONSOLE_API_KEY_PROVIDERS = new Set(["bailian-coding-plan", "agentrouter"]);
+// PLAN 2.7 — DMXAPI sites and Mistral are declared needsSystemToken in
+// usageConfigs.ts and reuse consoleApiKey for their system/admin token.
+const CONSOLE_API_KEY_PROVIDERS = new Set([
+  "bailian-coding-plan",
+  "agentrouter",
+  "dmxapi-cn",
+  "dmxapi-com",
+  "dmxapi-ssvip",
+  "mistral",
+]);
 
 export function buildAddProviderSpecificData(options: {
   provider?: string;
@@ -125,7 +135,7 @@ export function assignEditApiKeyProviderSpecificData(options: {
   if (CONSOLE_API_KEY_PROVIDERS.has(o.provider)) {
     o.target.consoleApiKey = o.formData.consoleApiKey.trim() || undefined;
   }
-  if (o.provider === "agentrouter") {
+  if (o.provider === "agentrouter" || o.provider?.startsWith("dmxapi")) {
     o.target.newApiUserId = o.formData.newApiUserId.trim() || undefined;
   }
   assignQuotaScrapingProviderData(o.provider, o.formData, o.target);

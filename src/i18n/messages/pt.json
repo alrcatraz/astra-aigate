@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Uma nova versão está disponível. Clique para atualizar.",
     "updateStarted": "Atualização iniciada...",
     "reloadingPageAutomatically": "Recarregando a página automaticamente...",
-    "providerTopology": "Topologia do provedor"
+    "providerTopology": "Topologia do provedor",
+    "step2Media": "Configure media capabilities (image/OCR/embedding) in <mediaProviders>Media Providers</mediaProviders>."
   },
   "analytics": {
     "title": "Análise",
@@ -4713,7 +4714,8 @@
       "configure": "Configurar provedores"
     },
     "tierFlowDiagramAlt": "Diagrama de fallback de 3 camadas do OmniRoute",
-    "apiKeyMgmt": "Gerenciamento de chave de API"
+    "apiKeyMgmt": "Gerenciamento de chave de API",
+    "loading": "Carregando..."
   },
   "providers": {
     "title": "Provedores",

@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "पृष्ठ स्वयंचलितपणे रीलोड करत आहे...",
-    "providerTopology": "प्रदाता टोपोलॉजी"
+    "providerTopology": "प्रदाता टोपोलॉजी",
+    "step2Media": "Configure media capabilities (image/OCR/embedding) in <mediaProviders>Media Providers</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "प्रदाते कॉन्फिगर करा"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-स्तरीय फॉलबॅक आकृती",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Loading..."
   },
   "providers": {
     "title": "Providers",

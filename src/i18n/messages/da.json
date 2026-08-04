@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "En ny version er tilgængelig. Klik for at opdatere.",
     "updateStarted": "Opdatering startet...",
     "reloadingPageAutomatically": "Genindlæser siden automatisk...",
-    "providerTopology": "Udbydertopologi"
+    "providerTopology": "Udbydertopologi",
+    "step2Media": "Konfigurér mediemuligheder (billede/OCR/embedding) på siden <mediaProviders>medieleverandører</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Konfigurer udbydere"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-tiers fallback diagram",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Indlæser..."
   },
   "providers": {
     "title": "Udbydere",

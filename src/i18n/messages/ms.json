@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Versi baharu tersedia. Klik untuk mengemas kini.",
     "updateStarted": "Kemas kini bermula...",
     "reloadingPageAutomatically": "Memuat semula halaman secara automatik...",
-    "providerTopology": "Topologi Pembekal"
+    "providerTopology": "Topologi Pembekal",
+    "step2Media": "Konfigurasikan keupayaan media (imej/OCR/embedding) di halaman <mediaProviders>pembekal media</mediaProviders>."
   },
   "analytics": {
     "title": "Analitis",
@@ -4713,7 +4714,8 @@
       "configure": "Konfigurasikan pembekal"
     },
     "tierFlowDiagramAlt": "Gambar rajah sandar 3 peringkat OmniRoute",
-    "apiKeyMgmt": "Mgmt Kunci API"
+    "apiKeyMgmt": "Mgmt Kunci API",
+    "loading": "Memuatkan..."
   },
   "providers": {
     "title": "Pembekal",

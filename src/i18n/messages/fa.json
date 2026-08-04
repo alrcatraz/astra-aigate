@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "بارگیری مجدد صفحه به صورت خودکار...",
-    "providerTopology": "توپولوژی ارائه دهنده"
+    "providerTopology": "توپولوژی ارائه دهنده",
+    "step2Media": "قابلیت‌های رسانه (تصویر/OCR/جاسازی) را در صفحه <mediaProviders>ارائه‌دهندگان رسانه</mediaProviders> پیکربندی کنید."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "ارائه دهندگان را پیکربندی کنید"
     },
     "tierFlowDiagramAlt": "نمودار بازگشتی 3 لایه OmniRoute",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Loading..."
   },
   "providers": {
     "title": "Providers",

@@ -46,6 +46,13 @@ const ROUTING_GROUP: SidebarItemGroup = {
       icon: "dns",
     },
     {
+      id: "media-providers",
+      href: "/dashboard/media-providers",
+      i18nKey: "mediaProviders",
+      subtitleKey: "mediaProvidersSubtitle",
+      icon: "perm_media",
+    },
+    {
       id: "embedded-services",
       href: "/dashboard/providers/services",
       i18nKey: "embeddedServices",

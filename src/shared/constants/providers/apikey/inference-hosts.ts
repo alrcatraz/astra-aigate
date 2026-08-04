@@ -101,6 +101,17 @@ export const APIKEY_PROVIDERS_INFERENCE = {
     hasFree: true,
     freeNote: "$1 free credits plus permanently free models after identity verification",
   },
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    alias: "siliconflow-cn",
+    name: "SiliconFlow (China)",
+    icon: "cloud_queue",
+    color: "#5B6EF5",
+    textIcon: "SF",
+    website: "https://cloud.siliconflow.cn",
+    hasFree: true,
+    freeNote: "$1 free credits plus permanently free models after identity verification",
+  },
   hyperbolic: {
     id: "hyperbolic",
     alias: "hyp",

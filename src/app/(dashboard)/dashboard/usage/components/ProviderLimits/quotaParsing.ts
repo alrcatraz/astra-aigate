@@ -213,6 +213,21 @@ function parseDeepseek(data: any) {
   return quotaEntries(data).map(([quotaKey, quota]) => parseDeepseekQuota(quotaKey, quota));
 }
 
+// Providers whose fetcher returns a single `credits` entry carrying a
+// currency-denominated balance (DMXAPI converts raw New-API units via
+// quotaPerUnit; SiliconFlow reports CNY/USD directly). Render as a credits
+// row so QuotaCardExpanded's ¥/$ + 2-dp formatting kicks in.
+function parseCreditsBalance(data: any) {
+  return quotaEntries(data).map(([quotaKey, quota]) => {
+    if (quotaKey === "credits") {
+      const remaining = Number(quota?.remaining ?? 0);
+      const currency = typeof quota?.currency === "string" ? quota.currency : "USD";
+      return buildCreditsQuota("credits", remaining, remaining > 0 ? 100 : 0, { currency });
+    }
+    return normalizeQuotaEntry(quotaKey, quota);
+  });
+}
+
 function parseProviderQuotas(providerId: string, data: any) {
   if (providerId === "github") return parseGithub(data);
   if (["glm", "glm-cn", "glmt", "opencode-go"].includes(providerId)) return parseGlmFamily(data);
@@ -220,6 +235,12 @@ function parseProviderQuotas(providerId: string, data: any) {
   if (providerId === "codex") return parseCodex(data);
   if (providerId === "claude") return parseClaude(data);
   if (providerId === "deepseek") return parseDeepseek(data);
+  if (
+    ["dmxapi-cn", "dmxapi-com", "dmxapi-ssvip", "siliconflow", "siliconflow-cn"].includes(
+      providerId
+    )
+  )
+    return parseCreditsBalance(data);
   return parseGeneric(data);
 }
 

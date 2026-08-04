@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "Səhifə avtomatik yenidən yüklənir...",
-    "providerTopology": "Provayder Topologiyası"
+    "providerTopology": "Provayder Topologiyası",
+    "step2Media": "Configure media capabilities (image/OCR/embedding) in <mediaProviders>Media Providers</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Provayderləri konfiqurasiya edin"
     },
     "tierFlowDiagramAlt": "OmniRoute 3 səviyyəli ehtiyat diaqramı",
-    "apiKeyMgmt": "API Açar İdarəetmə"
+    "apiKeyMgmt": "API Açar İdarəetmə",
+    "loading": "Loading..."
   },
   "providers": {
     "title": "Providers",

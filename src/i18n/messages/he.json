@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "גרסה חדשה זמינה. לחץ לעדכון.",
     "updateStarted": "העדכון התחיל...",
     "reloadingPageAutomatically": "טוען מחדש את הדף באופן אוטומטי...",
-    "providerTopology": "טופולוגיה של ספק"
+    "providerTopology": "טופולוגיה של ספק",
+    "step2Media": "הגדר יכולות מדיה (תמונה/OCR/הטבעה) בדף <mediaProviders>ספקי מדיה</mediaProviders>."
   },
   "analytics": {
     "title": "אנליטיקס",
@@ -4713,7 +4714,8 @@
       "configure": "הגדר ספקים"
     },
     "tierFlowDiagramAlt": "דיאגרמת OmniRoute 3-tier fallback",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "טוען..."
   },
   "providers": {
     "title": "ספקים",

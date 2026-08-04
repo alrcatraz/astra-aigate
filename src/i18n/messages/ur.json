@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "صفحہ خودکار طور پر دوبارہ لوڈ ہو رہا ہے...",
-    "providerTopology": "فراہم کنندہ ٹوپولوجی"
+    "providerTopology": "فراہم کنندہ ٹوپولوجی",
+    "step2Media": "<mediaProviders>میڈیا فراہم کنندگان</mediaProviders> صفحہ پر میڈیا صلاحیتیں (تصویر/OCR/ایمبیڈنگ) ترتیب دیں۔"
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "فراہم کنندگان کو ترتیب دیں۔"
     },
     "tierFlowDiagramAlt": "OmniRoute 3 درجے کا فال بیک ڈایاگرام",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Loading..."
   },
   "providers": {
     "title": "Providers",

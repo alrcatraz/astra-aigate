@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Available ang isang bagong bersyon. I-click para mag-update.",
     "updateStarted": "Nagsimula ang pag-update...",
     "reloadingPageAutomatically": "Awtomatikong nire-reload ang page...",
-    "providerTopology": "Topology ng Provider"
+    "providerTopology": "Topology ng Provider",
+    "step2Media": "Configure media capabilities (image/OCR/embedding) in <mediaProviders>Media Providers</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "I-configure ang mga provider"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-tier fallback diagram",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Naglo-load..."
   },
   "providers": {
     "title": "Mga provider",

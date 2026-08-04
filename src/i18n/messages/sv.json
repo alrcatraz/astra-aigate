@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "En ny version finns tillgänglig. Klicka för att uppdatera.",
     "updateStarted": "Uppdatering startade...",
     "reloadingPageAutomatically": "Laddar om sidan automatiskt...",
-    "providerTopology": "Leverantörstopologi"
+    "providerTopology": "Leverantörstopologi",
+    "step2Media": "Konfigurera mediamöjligheter (bild/OCR/embedding) på sidan <mediaProviders>medieleverantörer</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Konfigurera leverantörer"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-nivå reservdiagram",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Laddar..."
   },
   "providers": {
     "title": "Leverantörer",

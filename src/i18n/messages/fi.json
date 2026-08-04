@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Uusi versio on saatavilla. Päivitä napsauttamalla.",
     "updateStarted": "Päivitys aloitettu...",
     "reloadingPageAutomatically": "Ladataan sivua automaattisesti uudelleen...",
-    "providerTopology": "Palveluntarjoajan topologia"
+    "providerTopology": "Palveluntarjoajan topologia",
+    "step2Media": "Määritä mediaominaisuudet (kuva/OCR/upotus) <mediaProviders>mediatoimittajat</mediaProviders> -sivulla."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Määritä palveluntarjoajat"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-tasoinen varakaavio",
-    "apiKeyMgmt": "API-avainhallinta"
+    "apiKeyMgmt": "API-avainhallinta",
+    "loading": "Ladataan..."
   },
   "providers": {
     "title": "Palveluntarjoajat",

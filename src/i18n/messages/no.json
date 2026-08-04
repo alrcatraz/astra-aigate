@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "En ny versjon er tilgjengelig. Klikk for å oppdatere.",
     "updateStarted": "Oppdatering startet...",
     "reloadingPageAutomatically": "Laster siden automatisk på nytt...",
-    "providerTopology": "Leverandørtopologi"
+    "providerTopology": "Leverandørtopologi",
+    "step2Media": "Konfigurer mediemuligheter (bilde/OCR/embedding) på siden <mediaProviders>medieleverandører</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Konfigurer leverandører"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-lags reservediagram",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Laster inn..."
   },
   "providers": {
     "title": "Leverandører",

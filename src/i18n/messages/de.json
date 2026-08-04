@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Eine neue Version ist verfügbar. Klicken Sie zum Aktualisieren.",
     "updateStarted": "Aktualisierung gestartet...",
     "reloadingPageAutomatically": "Seite wird automatisch neu geladen...",
-    "providerTopology": "Anbietertopologie"
+    "providerTopology": "Anbietertopologie",
+    "step2Media": "Medienfunktionen (Bild/OCR/Embedding) konfigurieren Sie auf der Seite <mediaProviders>Medienanbieter</mediaProviders>."
   },
   "analytics": {
     "title": "Analytik",
@@ -4713,7 +4714,8 @@
       "configure": "Anbieter konfigurieren"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-Stufen-Fallback-Diagramm",
-    "apiKeyMgmt": "API-Schlüsselverwaltung"
+    "apiKeyMgmt": "API-Schlüsselverwaltung",
+    "loading": "Laden..."
   },
   "providers": {
     "title": "Anbieter",

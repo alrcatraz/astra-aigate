@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Új verzió érhető el. Kattintson a frissítéshez.",
     "updateStarted": "Frissítés elindult...",
     "reloadingPageAutomatically": "Oldal automatikus újratöltése...",
-    "providerTopology": "Szolgáltató topológia"
+    "providerTopology": "Szolgáltató topológia",
+    "step2Media": "Konfigurálja a médiafunkciókat (kép/OCR/beágyazás) a <mediaProviders>médiaszolgáltatók</mediaProviders> oldalon."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Konfigurálja a szolgáltatókat"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-szintű tartalék diagram",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Betöltés..."
   },
   "providers": {
     "title": "Szolgáltatók",
