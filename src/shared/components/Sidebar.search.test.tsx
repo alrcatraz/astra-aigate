@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Skip CloudSyncStatus entirely (it polls /api/sync/cloud + uses next/navigation's
 // useRouter, which we don't otherwise need to mock for this component).
-process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE = "1";
+process.env.NEXT_PUBLIC_AIGATE_E2E_MODE = "1";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => {
@@ -88,10 +88,7 @@ describe("Sidebar search/filter (#4013)", () => {
     const input = container.querySelector('input[type="search"]') as HTMLInputElement;
     expect(input).toBeTruthy();
 
-    const nativeSetter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value"
-    )!.set!;
+    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
 
     await act(async () => {
       nativeSetter.call(input, "zzz-no-such-nav-item-zzz");

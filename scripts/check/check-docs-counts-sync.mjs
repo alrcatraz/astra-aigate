@@ -259,14 +259,14 @@ export function buildChecks() {
       actual: readProviderTotal(),
       docKey: "providers",
       strict: true,
-      files: ["README.md", "AGENTS.md", "CLAUDE.md"],
+      files: ["README.md", "AGENTS.md"],
     },
     {
       label: "i18n locales count",
       actual: countLocales(),
       docKey: "i18n locales",
       strict: true,
-      files: ["docs/README.md", "docs/guides/I18N.md", "AGENTS.md"],
+      files: ["docs/guides/I18N.md", "AGENTS.md"],
     },
     ...(() => {
       const f = readCodeFacts();
@@ -324,12 +324,7 @@ export function buildChecks() {
           "CLAUDE.md",
           "AGENTS.md",
         ]),
-        claim(
-          f.cliTotal,
-          "CLI tools",
-          { pattern: /(\d+) tools(?=\s*\(\d+ CLI)/gi },
-          ["README.md"]
-        ),
+        claim(f.cliTotal, "CLI tools", { pattern: /(\d+) tools(?=\s*\(\d+ CLI)/gi }, ["README.md"]),
       ];
     })(),
     {

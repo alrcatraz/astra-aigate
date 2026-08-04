@@ -115,7 +115,7 @@ async function main() {
   }
 
   try {
-    const healthPath = resolveHealthPath(process.env.OMNIROUTE_BASE_PATH);
+    const healthPath = resolveHealthPath(process.env.AIGATE_BASE_PATH);
     await probeHealth({ port, hosts, healthPath });
     process.exit(0);
   } catch (err) {

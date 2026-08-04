@@ -2,7 +2,7 @@
  * Install a same-origin fetch + EventSource rewrite for Next.js basePath deploys.
  *
  * Pattern mirrors `installDashboardCsrfFetch` (ref-counted global wrap).
- * Only activates when `NEXT_PUBLIC_OMNIROUTE_BASE_PATH` / `OMNIROUTE_BASE_PATH` is set.
+ * Only activates when `NEXT_PUBLIC_AIGATE_BASE_PATH` / `AIGATE_BASE_PATH` is set.
  */
 
 import { getDeployBasePath, withBasePath } from "./basePath";
@@ -45,9 +45,7 @@ function rewriteInput(input: RequestInfo | URL, basePath: string): RequestInfo |
  * No-op when basePath is empty (root deploys). Safe to call multiple times;
  * uninstall when the last consumer unmounts.
  */
-export function installBasePathFetch(
-  basePath: string = getDeployBasePath()
-): () => void {
+export function installBasePathFetch(basePath: string = getDeployBasePath()): () => void {
   if (!basePath) return () => {};
   if (typeof globalThis.fetch !== "function") return () => {};
 

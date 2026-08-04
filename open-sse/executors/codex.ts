@@ -38,7 +38,8 @@ import { CORS_HEADERS } from "../utils/cors.ts";
 import { errorResponse } from "../utils/error.ts";
 import { normalizeCodexResponsesInput } from "../utils/responsesInputNormalization.ts";
 import * as prl from "../utils/providerRequestLogging.ts";
-import { createRequire } from "module";
+import { nativeRequire } from "@/lib/module-require";
+import path from "path";
 // Quota parsing/scheduling extracted to a pure leaf; re-exported for external
 // importers (handlers/chatCore/codexQuota.ts + tests).
 export {
@@ -56,7 +57,7 @@ export { isCodexFreePlan, normalizeCodexTools } from "./codex/tools.ts";
 // Loading it eagerly crashes the server when the binary is missing (pnpm, Docker
 // Alpine, unsupported architectures). We lazy-load with try/catch to gracefully
 // fall back to HTTP transport when the WebSocket transport is unavailable.
-const _wreqRequire = createRequire(import.meta.url);
+const _wreqRequire = nativeRequire;
 
 type WreqWebSocket = {
   send: (data: string) => void;

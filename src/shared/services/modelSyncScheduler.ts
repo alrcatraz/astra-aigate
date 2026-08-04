@@ -46,7 +46,7 @@ export function resolveModelSyncInternalBaseUrl(_candidate?: string): string {
   const origin = nativeTls
     ? `https://localhost:${dashboardPort}`
     : `http://127.0.0.1:${dashboardPort}`;
-  return `${origin}${normalizeInternalBasePath(process.env.OMNIROUTE_BASE_PATH)}`;
+  return `${origin}${normalizeInternalBasePath(process.env.AIGATE_BASE_PATH)}`;
 }
 
 export function createPinnedModelSyncTlsConnector(

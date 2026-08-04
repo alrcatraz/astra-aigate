@@ -7,7 +7,8 @@
  * Hard Rule #12: error message is a safe literal — no stack trace exposed.
  */
 import { readFileSync, existsSync } from "node:fs";
-import { createRequire } from "node:module";
+import { nativeRequire } from "@/lib/module-require";
+import path from "node:path";
 
 /**
  * Configure undici's global dispatcher to trust a custom CA certificate.
@@ -28,13 +29,11 @@ export function configureUpstreamCa(pemPath?: string): void {
 
   if (!existsSync(pemPath)) {
     // Safe error: message only contains the user-supplied path (no stack trace).
-    throw new Error(
-      `AGENTBRIDGE_UPSTREAM_CA_CERT path does not exist: ${pemPath}`,
-    );
+    throw new Error(`AGENTBRIDGE_UPSTREAM_CA_CERT path does not exist: ${pemPath}`);
   }
 
   const ca = readFileSync(pemPath, "utf8");
-  const require = createRequire(import.meta.url);
+  const require = nativeRequire;
   const { Agent, setGlobalDispatcher } = require("undici") as typeof import("undici");
   setGlobalDispatcher(new Agent({ connect: { ca } }));
 }

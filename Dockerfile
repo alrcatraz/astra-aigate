@@ -118,7 +118,7 @@ ARG AIGATE_BUILD_MEMORY_MB=4096
 ENV NODE_OPTIONS="--max-old-space-size=${AIGATE_BUILD_MEMORY_MB}"
 # Force webpack — Turbopack (Rust) bypasses V8 --max-old-space-size and can OOM
 # the builder (#6283). Webpack respects the V8 ceiling set above.
-ENV OMNIROUTE_USE_TURBOPACK=0
+ENV AIGATE_USE_TURBOPACK=0
 
 COPY . ./
 RUN --mount=type=cache,id=next-cache,target=/app/.build/next/cache \
