@@ -13,7 +13,8 @@
 Unified AI service gateway web console managing three categories:
 
 1. **LLM Providers** — route /v1/chat/completions with combo fallback (290 in the catalog)
-2. **MCP Servers** — aggregate multiple MCP servers into one /mcp endpoint
+2. **MCP Servers** — MCP gateway host: one server exposing multiple MCP
+   endpoints, registered self-hosted MCPs (local stdio + remote HTTP/SSE)
 3. **Auxiliary Services** — health monitoring + reverse proxy for Camofox,
    SearXNG, etc.
 
@@ -36,7 +37,7 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
 
 - `src/` — OmniRoute's complete source (v3.8.50), fully preserved
 - LLM routing, provider/combo/API key management — from OmniRoute
-- MCP aggregation — new, planned for Phase 3
+- MCP gateway — Phase 3 (completed: registry + multi-endpoint + bridge + admin tools)
 - Service monitoring — new, planned for Phase 4
 - Expo Design System — Phase 1 (completed)
 
@@ -73,6 +74,22 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
    (sync SQLite drivers wrapped), dialect translation centralized in the PG
    adapter so business modules stay driver-agnostic. SQLite→PG migration:
    `scripts/migrate-sqlite-to-pg.ts` (idempotent, reconciles row counts)
+9. MCP gateway (3.x): one server exposing MULTIPLE MCP endpoints (NOT a tool
+   merge pool). Registry `mcp_servers` table; `kind` = pure connection
+   semantics `builtin|stdio|http` (never a brand name). Preset group id
+   `aigate-*` (long IDs avoid confusion): `aigate-omniroute` (Phase 1-2
+   tools, `system=1`, enabled by default), `aigate-mcp` (Phase 3 mgmt
+   tools), `aigate-infra` (Phase 4 placeholder, disabled). Preset entries
+   are disable-able but NOT deletable. External endpoints:
+   `/api/mcp/servers/[id]/{sse,stream}`; legacy `/api/mcp/sse` +
+   `/api/mcp/stream` 301 → `aigate-omniroute`. Auth = OmniRoute API Key +
+   scopes model generalised to AI Gate (no separate DMXAPI-style system
+   token): endpoints accept EITHER admin session (requireManagementAuth)
+   OR API Key Bearer + scope; registry writes need admin session or
+   `write:mcp` scope, reads need `read:mcp`. Third-party service keys
+   (camofox etc.) live encrypted in `auth_secret`, injected on forward —
+   consumers configure only one AI Gate key. Marketplace installs: only a
+   `source` field (`manual|marketplace`), no marketplace implementation.
 
 ## Registry & Config Conventions (Phase 2)
 

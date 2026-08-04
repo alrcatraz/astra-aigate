@@ -1230,7 +1230,10 @@
     "alwaysVisible": "Mindig látható",
     "groupSeparatorLabel": "Elválasztó",
     "discovery": "Felfedezés",
-    "discoverySubtitle": "Szolgáltatók vizsgálata ingyenes hozzáférésért"
+    "discoverySubtitle": "Szolgáltatók vizsgálata ingyenes hozzáférésért",
+    "aiGateSection": "AI Gate",
+    "mcpServers": "MCP Servers",
+    "mcpServersSubtitle": "Registered MCP endpoints"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1689,7 +1692,8 @@
     "tools": "Eszközök",
     "agentBridge": "Ágenshíd",
     "trafficInspector": "Forgalomvizsgáló",
-    "usage": "Használat"
+    "usage": "Használat",
+    "mcpServers": "MCP Servers"
   },
   "home": {
     "quickStart": "Gyors kezdés",
@@ -2233,7 +2237,15 @@
     "bypassProviderQuota": "Szolgáltatói kvótakorlátok megkerülése",
     "bypassProviderQuotaDescription": "Lehetővé teszi, hogy ez a kulcs figyelmen kívül hagyja a felsőbb szintű szolgáltató/fiók korlátozási szabályzatát az útválasztás során. Az API-kulcs USD-kvótái továbbra is érvényesek.",
     "quotaPill": "KVÓTA",
-    "quotaModeOnly": "csak qtSd"
+    "quotaModeOnly": "csak qtSd",
+    "mcpAccess": "MCP Gateway Access",
+    "mcpAccessDesc": "Grant this key access to the MCP gateway registry",
+    "mcpRead": "Read registry",
+    "mcpReadDesc": "Query registered MCP endpoints and their status",
+    "mcpWrite": "Manage registry",
+    "mcpWriteDesc": "Register, update and delete MCP endpoint entries",
+    "mcpAdmin": "Manage MCP gateway (admin:mcp)",
+    "mcpAdminDesc": "Full endpoint-level access to the aigate-mcp management endpoint. Grants the admin:mcp scope required to connect."
   },
   "auditLog": {
     "title": "Ellenőrzési napló",
@@ -12182,5 +12194,34 @@
     "cta": "Kimi Code beszerzése",
     "partnerLinkNote": "Partnerhivatkozás",
     "dismissAriaLabel": "Elvetés"
+  },
+  "mcpServersPage": {
+    "title": "MCP Servers",
+    "subtitle": "Registered MCP endpoints exposed by the AI Gate gateway",
+    "registerButton": "Register server",
+    "formTitle": "Register a new MCP server",
+    "formName": "Name",
+    "formKind": "Connection kind",
+    "formUrl": "Endpoint URL (HTTP)",
+    "formCommand": "Command (stdio)",
+    "formArgs": "Arguments (space-separated)",
+    "formAuthType": "Authentication",
+    "formAuthSecret": "Secret / API key",
+    "formSubmit": "Register",
+    "formCancel": "Cancel",
+    "loading": "Loading MCP servers…",
+    "empty": "No MCP servers registered yet.",
+    "loadError": "Failed to load MCP servers",
+    "systemBadge": "system",
+    "statusReady": "Ready",
+    "statusError": "Error",
+    "statusDisabled": "Disabled",
+    "statusIdle": "Not tested",
+    "toolsCount": "{count, plural, =0 {no tools} one {# tool} other {# tools}}",
+    "builtinDomain": "Domain: {domain}",
+    "test": "Test",
+    "testing": "Testing…",
+    "delete": "Delete",
+    "confirmDelete": "Delete MCP server \"{name}\"?"
   }
 }

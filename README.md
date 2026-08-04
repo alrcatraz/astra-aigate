@@ -20,7 +20,8 @@ One web UI to configure, monitor and route **LLM providers** (290), **MCP server
 astra-aigate is a self-hosted AI gateway console managing three categories of services:
 
 1. **LLM Providers** — provider management, combo routing and fallback (carried from OmniRoute)
-2. **MCP Servers** — MCP server registration, tool aggregation and connectivity checks
+2. **MCP Servers** — MCP gateway host: one server exposing multiple MCP
+   endpoints (registered self-hosted MCPs)
 3. **Auxiliary Services** — health monitoring and reverse proxying for non-MCP tools (Camofox, SearXNG, etc.)
 
 It is an **independent project** (not a GitHub fork), seeded from [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) and evolving its own identity: Expo design language, Next.js 16 + React 19 frontend, British English locale, zh-CN/zh-TW translations.
@@ -81,9 +82,10 @@ curl http://<host>:<port>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"<combo-name>","messages":[{"role":"user","content":"Hello"}]}'
 
-# Aggregate MCP tools across registered servers:
-curl http://<host>:<port>/mcp \
-  -H "Authorization: Bearer <api-key>" \
+# Call a registered MCP endpoint (gateway mode — one server, many endpoints):
+# /api/mcp/servers/<id>/sse (SSE transport) or /stream (streamable HTTP)
+curl http://<host>:<port>/api/mcp/servers/aigate-omniroute/stream \
+  -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
@@ -126,7 +128,8 @@ MIT. Seeded from [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) �
 astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
 
 1. **LLM 提供商** — 提供商管理、组合路由和故障转移（继承自 OmniRoute）
-2. **MCP 服务器** — MCP 服务器注册、工具聚合和连通性检查
+2. **MCP 服务器** — MCP 网关宿主：一个服务端暴露多个 MCP 端点，登记
+   自部署 MCP（本机 stdio + 远端 HTTP/SSE）
 3. **辅助服务** — 非 MCP 工具（Camofox、SearXNG 等）的健康监控和反向代理
 
 本项目是**独立项目**（非 GitHub fork），种子代码来自 [OmniRoute](https://github.com/diegosouzapw/OmniRoute)（MIT），正在形成自己的身份：以 Expo 设计语言，Next.js 16 + React 19 前端，英式英语 locale，zh-CN/zh-TW 翻译。
@@ -186,9 +189,10 @@ curl http://<host>:<port>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"<combo-name>","messages":[{"role":"user","content":"你好"}]}'
 
-# 跨已注册服务器聚合 MCP 工具：
-curl http://<host>:<port>/mcp \
-  -H "Authorization: Bearer <api-key>" \
+# 调用已登记的 MCP 端点（网关模式——一个服务端、多个端点）：
+# /api/mcp/servers/<id>/sse（SSE 传输）或 /stream（Streamable HTTP）
+curl http://<host>:<port>/api/mcp/servers/aigate-omniroute/stream \
+  -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```

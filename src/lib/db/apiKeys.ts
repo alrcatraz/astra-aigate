@@ -1317,7 +1317,12 @@ export async function getApiKeyMetadata(
 
   const db = (await getAsyncDb()) as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.getKeyMetadata.get(key, hashedKey);
+  // NOTE: getAsyncDb() returns the async adapter wrapper (sqliteAsyncAdapter /
+  // PG adapter) whose statement .get() is async — mirror validateApiKey's await.
+  // Without it, `row` is a Promise: toRecord() yields an empty record, meta.id
+  // is "", and resolveMcpCallerAuthInfo (open-sse httpAuthContext) treats the
+  // key as having no per-key authInfo, silently falling back to env scopes.
+  const row = await stmt.getKeyMetadata.get(key, hashedKey);
 
   if (!row) return null;
 

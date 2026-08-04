@@ -293,13 +293,52 @@ export const managementPolicy: RoutePolicy = {
     // Management auth is header-only — a URL-borne token must not authenticate
     // a management route. See #3300 follow-up.
     const apiKey = extractApiKey(ctx.request as unknown as Request, { allowUrl: false });
+
+    // 3.7 / #7895 dual-channel (format-level): the authz middleware cannot load
+    // native better-sqlite3 (standalone worker — the sqlite async wrapper reports
+    // "better-sqlite3 (failed), node:sqlite (unavailable)"), so DB-backed key
+    // validation is unreliable AT THIS LAYER. For /api/mcp/* the 3.6b contract
+    // says the endpoint transport validates the key anyway: let requests carrying
+    // a well-formed API-key credential through on FORMAT alone and let
+    // httpTransport (Node runtime, better-sqlite3 available) perform the real
+    // validation + per-endpoint scope gate. Every other MANAGEMENT route keeps
+    // the strict DB-backed check below (pre-existing behaviour), and the REST CRUD
+    // routes under /api/mcp/ still re-check via requireManagementAuth (Node
+    // runtime) so format-level passage never grants write access on its own.
+    // (Inline format check — mirrors hasMcpApiKeyAuth in src/lib/api/mcpEndpoint
+    // without pulling its DB imports into the middleware bundle.)
+    {
+      const req = ctx.request as unknown as Request;
+      const authHeader = req.headers?.get?.("authorization") ?? "";
+      const apiKeyHeader = req.headers?.get?.("x-api-key") ?? "";
+      const hasKeyFormat =
+        /^bearer\s+\S+$/i.test(authHeader.trim()) || apiKeyHeader.trim().length > 0;
+      if (path.startsWith("/api/mcp/") && hasKeyFormat) {
+        return allow({
+          kind: "management_key",
+          id: "mcp-api-key-format",
+          label: "api-key-format-mcp-endpoint",
+        });
+      }
+    }
+
     if (apiKey) {
       try {
         if (await isValidApiKey(apiKey)) {
           const meta = await getApiKeyMetadata(apiKey);
           // getApiKeyMetadata returns null whenever the row has no id,
           // so when `meta` is truthy `meta.id` is guaranteed non-empty.
-          if (meta && hasManageScope(meta.scopes)) {
+          // #7895 (loopback/LAN path): the /api/mcp/ carve-out accepts the
+          // narrow mcp:connect scope here too — the LOCAL_ONLY bypass branch
+          // above already does (isLocalOnlyBypassableByManageScope), and a
+          // loopback/LAN caller is strictly less privileged than a remote
+          // caller that passed the bypass, so the same scope semantics must
+          // apply. Every other MANAGEMENT route keeps requiring manage/admin.
+          const scopeGranted =
+            path.startsWith("/api/mcp/") && meta
+              ? hasMcpConnectOrManageScope(meta.scopes)
+              : Boolean(meta && hasManageScope(meta.scopes));
+          if (scopeGranted) {
             return allow({
               kind: "management_key",
               id: meta.id,

@@ -18,26 +18,46 @@ const HOME_ITEMS: readonly SidebarItemDefinition[] = [
   },
 ];
 
+// AI Gate — platform-level consumer access (Phase 3): how the gateway
+// listens (endpoints), who is allowed (API manager), what MCPs are
+// registered (mcp-servers), and how external CLIs connect (cli-code).
+const AI_GATE_ITEMS: readonly SidebarItemDefinition[] = [
+  {
+    id: "endpoints",
+    href: "/dashboard/endpoint",
+    i18nKey: "endpoints",
+    subtitleKey: "endpointsSubtitle",
+    icon: "api",
+  },
+  {
+    id: "api-manager",
+    href: "/dashboard/api-manager",
+    i18nKey: "apiManager",
+    subtitleKey: "apiManagerSubtitle",
+    icon: "vpn_key",
+  },
+  {
+    id: "mcp-servers",
+    href: "/dashboard/mcp-servers",
+    i18nKey: "mcpServers",
+    subtitleKey: "mcpServersSubtitle",
+    icon: "hub",
+  },
+  {
+    id: "cli-code",
+    href: "/dashboard/cli-code",
+    i18nKey: "cliCode",
+    subtitleKey: "cliCodeSubtitle",
+    icon: "terminal",
+  },
+];
+
 const ROUTING_GROUP: SidebarItemGroup = {
   type: "group",
   id: "routing",
   titleKey: "routingGroup",
   titleFallback: "Routing & Access",
   items: [
-    {
-      id: "endpoints",
-      href: "/dashboard/endpoint",
-      i18nKey: "endpoints",
-      subtitleKey: "endpointsSubtitle",
-      icon: "api",
-    },
-    {
-      id: "api-manager",
-      href: "/dashboard/api-manager",
-      i18nKey: "apiManager",
-      subtitleKey: "apiManagerSubtitle",
-      icon: "vpn_key",
-    },
     {
       id: "providers",
       href: "/dashboard/providers",
@@ -265,13 +285,6 @@ const TOOLS_GROUP: SidebarItemGroup = {
   titleKey: "toolsGroup",
   titleFallback: "Tools",
   items: [
-    {
-      id: "cli-code",
-      href: "/dashboard/cli-code",
-      i18nKey: "cliCode",
-      subtitleKey: "cliCodeSubtitle",
-      icon: "terminal",
-    },
     {
       id: "cli-agents",
       href: "/dashboard/cli-agents",
@@ -840,6 +853,12 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
     titleFallback: "Home",
     children: HOME_ITEMS,
     showTitle: false,
+  },
+  {
+    id: "ai-gate",
+    titleKey: "aiGateSection",
+    titleFallback: "AI Gate",
+    children: AI_GATE_ITEMS,
   },
   {
     id: "omni-proxy",

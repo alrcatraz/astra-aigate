@@ -1254,7 +1254,10 @@
     "gamificationAdmin": "游戏化管理",
     "gamificationAdminSubtitle": "游戏化管理界面",
     "routingGroup": "路由与访问",
-    "combosGroup": "组合"
+    "combosGroup": "组合",
+    "aiGateSection": "AI 网关",
+    "mcpServers": "MCP 服务器",
+    "mcpServersSubtitle": "已登记的 MCP 端点"
   },
   "webhooks": {
     "title": "Webhook",
@@ -1713,7 +1716,8 @@
     "tools": "工具",
     "agentBridge": "Agent 桥接",
     "trafficInspector": "流量检查器",
-    "usage": "用量"
+    "usage": "用量",
+    "mcpServers": "MCP 服务器"
   },
   "home": {
     "quickStart": "快速入门",
@@ -2257,7 +2261,15 @@
     "bypassProviderQuota": "绕过服务商配额限制",
     "bypassProviderQuotaDescription": "允许此密钥在路由期间忽略上游服务商/账户的截止策略。API 密钥的美元配额仍然适用。",
     "quotaPill": "配额",
-    "quotaModeOnly": "仅配额"
+    "quotaModeOnly": "仅配额",
+    "mcpAccess": "MCP 网关访问",
+    "mcpAccessDesc": "授予此密钥访问 MCP 网关登记表的权限",
+    "mcpRead": "读取登记表",
+    "mcpReadDesc": "查询已登记的 MCP 端点及其状态",
+    "mcpWrite": "管理登记表",
+    "mcpWriteDesc": "登记、更新和删除 MCP 端点条目",
+    "mcpAdmin": "管理 MCP 网关（admin:mcp）",
+    "mcpAdminDesc": "对 aigate-mcp 管理端点的完整端点级访问权限。授予连接所需的 admin:mcp 作用域。"
   },
   "auditLog": {
     "title": "审核日志",
@@ -12242,5 +12254,34 @@
     "cta": "获取 Kimi Code",
     "partnerLinkNote": "合作伙伴链接",
     "dismissAriaLabel": "关闭"
+  },
+  "mcpServersPage": {
+    "title": "MCP 服务器",
+    "subtitle": "AI 网关对外暴露的已登记 MCP 端点",
+    "registerButton": "登记服务器",
+    "formTitle": "登记新的 MCP 服务器",
+    "formName": "名称",
+    "formKind": "连接类型",
+    "formUrl": "端点 URL（HTTP）",
+    "formCommand": "命令（stdio）",
+    "formArgs": "参数（空格分隔）",
+    "formAuthType": "认证方式",
+    "formAuthSecret": "密钥 / API Key",
+    "formSubmit": "登记",
+    "formCancel": "取消",
+    "loading": "正在加载 MCP 服务器…",
+    "empty": "尚未登记任何 MCP 服务器。",
+    "loadError": "加载 MCP 服务器失败",
+    "systemBadge": "系统",
+    "statusReady": "就绪",
+    "statusError": "错误",
+    "statusDisabled": "已禁用",
+    "statusIdle": "未测试",
+    "toolsCount": "{count, plural, =0 {无工具} one {# 个工具} other {# 个工具}}",
+    "builtinDomain": "域：{domain}",
+    "test": "测试",
+    "testing": "测试中…",
+    "delete": "删除",
+    "confirmDelete": "删除 MCP 服务器「{name}」？"
   }
 }

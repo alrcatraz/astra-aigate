@@ -1230,7 +1230,10 @@
     "alwaysVisible": "Luôn hiển thị",
     "groupSeparatorLabel": "Dấu phân cách",
     "discovery": "Khám phá",
-    "discoverySubtitle": "Quét các nhà cung cấp để tìm quyền truy cập miễn phí"
+    "discoverySubtitle": "Quét các nhà cung cấp để tìm quyền truy cập miễn phí",
+    "aiGateSection": "AI Gate",
+    "mcpServers": "MCP Servers",
+    "mcpServersSubtitle": "Registered MCP endpoints"
   },
   "webhooks": {
     "title": "Webhook",
@@ -1689,7 +1692,8 @@
     "tools": "Công cụ",
     "agentBridge": "Agent Bridge",
     "trafficInspector": "Traffic Inspector",
-    "usage": "Mức sử dụng"
+    "usage": "Mức sử dụng",
+    "mcpServers": "MCP Servers"
   },
   "home": {
     "quickStart": "Bắt đầu nhanh",
@@ -2233,7 +2237,15 @@
     "bypassProviderQuota": "Bỏ qua ngưỡng hạn ngạch nhà cung cấp",
     "bypassProviderQuotaDescription": "Cho phép khóa này bỏ qua chính sách ngưỡng của nhà cung cấp/tài khoản thượng nguồn khi định tuyến. Hạn ngạch USD của khóa API vẫn được áp dụng.",
     "quotaPill": "HẠN MỨC",
-    "quotaModeOnly": "qtSd-only"
+    "quotaModeOnly": "qtSd-only",
+    "mcpAccess": "MCP Gateway Access",
+    "mcpAccessDesc": "Grant this key access to the MCP gateway registry",
+    "mcpRead": "Read registry",
+    "mcpReadDesc": "Query registered MCP endpoints and their status",
+    "mcpWrite": "Manage registry",
+    "mcpWriteDesc": "Register, update and delete MCP endpoint entries",
+    "mcpAdmin": "Manage MCP gateway (admin:mcp)",
+    "mcpAdminDesc": "Full endpoint-level access to the aigate-mcp management endpoint. Grants the admin:mcp scope required to connect."
   },
   "auditLog": {
     "title": "Nhật ký kiểm tra",
@@ -12207,5 +12219,34 @@
     "cta": "Get Kimi Code",
     "partnerLinkNote": "Partner link",
     "dismissAriaLabel": "Dismiss"
+  },
+  "mcpServersPage": {
+    "title": "MCP Servers",
+    "subtitle": "Registered MCP endpoints exposed by the AI Gate gateway",
+    "registerButton": "Register server",
+    "formTitle": "Register a new MCP server",
+    "formName": "Name",
+    "formKind": "Connection kind",
+    "formUrl": "Endpoint URL (HTTP)",
+    "formCommand": "Command (stdio)",
+    "formArgs": "Arguments (space-separated)",
+    "formAuthType": "Authentication",
+    "formAuthSecret": "Secret / API key",
+    "formSubmit": "Register",
+    "formCancel": "Cancel",
+    "loading": "Loading MCP servers…",
+    "empty": "No MCP servers registered yet.",
+    "loadError": "Failed to load MCP servers",
+    "systemBadge": "system",
+    "statusReady": "Ready",
+    "statusError": "Error",
+    "statusDisabled": "Disabled",
+    "statusIdle": "Not tested",
+    "toolsCount": "{count, plural, =0 {no tools} one {# tool} other {# tools}}",
+    "builtinDomain": "Domain: {domain}",
+    "test": "Test",
+    "testing": "Testing…",
+    "delete": "Delete",
+    "confirmDelete": "Delete MCP server \"{name}\"?"
   }
 }

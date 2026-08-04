@@ -1,57 +1,29 @@
 /**
- * MCP Streamable HTTP Transport — /api/mcp/stream
+ * Legacy MCP Streamable HTTP Transport — /api/mcp/stream (deprecated)
  *
- * Endpoints:
- *   POST   — send JSON-RPC messages to the MCP server
- *   GET    — open SSE stream for server-initiated messages
- *   DELETE — end session
+ * Permanent redirect to the gateway endpoint
+ * /api/mcp/servers/aigate-omniroute/stream (single source of truth).
+ *
+ * Status code matters: 301 for GET (SSE stream bootstrap), 308 for POST and
+ * DELETE — the fetch spec converts POST→GET on 301/302/303, which would
+ * drop the JSON-RPC message body. 308 preserves the method for both.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCachedSettings } from "@/lib/db/settings";
-import { handleMcpStreamableHTTP } from "../../../../../open-sse/mcp-server/httpTransport";
-import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 
-async function guardEnabled(): Promise<NextResponse | null> {
-  const settings = await getCachedSettings();
-  if (!settings.mcpEnabled) {
-    return NextResponse.json(
-      { error: "MCP server is disabled. Enable it from the Endpoints page." },
-      { status: 503 }
-    );
-  }
-  const transport = (settings.mcpTransport as string) || "stdio";
-  if (transport !== "streamable-http") {
-    return NextResponse.json(
-      {
-        error: `MCP transport is set to "${transport}", not "streamable-http". Change it from Settings.`,
-      },
-      { status: 400 }
-    );
-  }
-  return null;
+const TARGET = "/api/mcp/servers/aigate-omniroute/stream";
+
+export async function GET(request: NextRequest) {
+  const url = new URL(TARGET, request.url);
+  return NextResponse.redirect(url, 301);
 }
 
 export async function POST(request: NextRequest) {
-  const authError = await requireManagementAuth(request);
-  if (authError) return authError;
-  const blocked = await guardEnabled();
-  if (blocked) return blocked;
-  return handleMcpStreamableHTTP(request);
-}
-
-export async function GET(request: NextRequest) {
-  const authError = await requireManagementAuth(request);
-  if (authError) return authError;
-  const blocked = await guardEnabled();
-  if (blocked) return blocked;
-  return handleMcpStreamableHTTP(request);
+  const url = new URL(TARGET, request.url);
+  return NextResponse.redirect(url, 308);
 }
 
 export async function DELETE(request: NextRequest) {
-  const authError = await requireManagementAuth(request);
-  if (authError) return authError;
-  const blocked = await guardEnabled();
-  if (blocked) return blocked;
-  return handleMcpStreamableHTTP(request);
+  const url = new URL(TARGET, request.url);
+  return NextResponse.redirect(url, 308);
 }

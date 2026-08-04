@@ -333,6 +333,25 @@ export type { Webhook, WebhookKind } from "./db/webhooks";
 
 export { insertDelivery, getDeliveries } from "./db/webhookDeliveries";
 
+// MCP Servers (Phase 3 gateway registry)
+export {
+  listMcpServers,
+  getMcpServer,
+  createMcpServer,
+  updateMcpServer,
+  setMcpServerEnabled,
+  deleteMcpServer,
+  slugifyMcpServerId,
+} from "./db/mcpServers";
+
+export type {
+  McpServer,
+  McpServerInput,
+  McpServerKind,
+  McpAuthType,
+  McpSource,
+} from "./db/mcpServers";
+
 export {
   upsertDiscoveryResult,
   getDiscoveryResults,

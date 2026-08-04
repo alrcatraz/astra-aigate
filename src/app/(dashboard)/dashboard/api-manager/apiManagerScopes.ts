@@ -1,5 +1,6 @@
 import { SELF_ACCOUNT_QUOTA_SCOPE, SELF_USAGE_SCOPE } from "@/shared/constants/selfServiceScopes";
 import { API_KEY_BYPASS_PROVIDER_QUOTA_SCOPE } from "@/shared/constants/apiKeyPolicyScopes";
+import { MCP_ADMIN_SCOPE, MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "@/shared/constants/mcpScopes";
 
 const MANAGEMENT_SCOPE = "manage";
 
@@ -8,6 +9,9 @@ export interface CreateScopeOptions {
   selfUsageEnabled?: boolean;
   selfAccountQuotaEnabled?: boolean;
   bypassProviderQuotaPolicyEnabled?: boolean;
+  mcpAdminEnabled?: boolean;
+  mcpReadEnabled?: boolean;
+  mcpWriteEnabled?: boolean;
 }
 
 export interface PermissionScopeOptions {
@@ -15,6 +19,9 @@ export interface PermissionScopeOptions {
   selfUsageEnabled: boolean;
   selfAccountQuotaEnabled: boolean;
   bypassProviderQuotaPolicyEnabled: boolean;
+  mcpAdminEnabled?: boolean;
+  mcpReadEnabled?: boolean;
+  mcpWriteEnabled?: boolean;
 }
 
 export function buildApiKeyCreateScopes(options: CreateScopeOptions): string[] {
@@ -28,6 +35,9 @@ export function buildApiKeyCreateScopes(options: CreateScopeOptions): string[] {
   if (options.bypassProviderQuotaPolicyEnabled === true) {
     scopes.push(API_KEY_BYPASS_PROVIDER_QUOTA_SCOPE);
   }
+  if (options.mcpAdminEnabled === true) scopes.push(MCP_ADMIN_SCOPE);
+  if (options.mcpReadEnabled === true) scopes.push(MCP_READ_SCOPE);
+  if (options.mcpWriteEnabled === true) scopes.push(MCP_WRITE_SCOPE);
   return scopes;
 }
 
@@ -45,6 +55,9 @@ export function mergeApiKeyPermissionScopes(
     options.selfUsageEnabled && options.selfAccountQuotaEnabled
   );
   setScope(scopes, API_KEY_BYPASS_PROVIDER_QUOTA_SCOPE, options.bypassProviderQuotaPolicyEnabled);
+  setScope(scopes, MCP_ADMIN_SCOPE, options.mcpAdminEnabled === true);
+  setScope(scopes, MCP_READ_SCOPE, options.mcpReadEnabled === true);
+  setScope(scopes, MCP_WRITE_SCOPE, options.mcpWriteEnabled === true);
 
   return [...scopes];
 }

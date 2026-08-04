@@ -16,6 +16,7 @@ export const SIDEBAR_ICON_ACCENTS: Partial<Record<SidebarItemId, string>> = {
   home: "#60A5FA",
   "api-manager": "#F59E0B",
   endpoints: "#38BDF8",
+  "mcp-servers": "#8B5CF6",
   providers: "#818CF8",
   combos: "#A855F7",
   quota: "#F472B6",

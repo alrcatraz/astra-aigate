@@ -82,3 +82,17 @@ export const MCP_TOOL_SCOPES: Record<string, readonly McpScope[]> = {
   // Stealth browser pool observability (#3368 PR7)
   omniroute_browser_pool_status: ["read:health"],
 } as const;
+
+// ============ Gateway Management Scopes (Phase 3.5/3.6) ============
+
+/**
+ * MCP gateway registry API-key scopes.
+ * admin:mcp — endpoint-level access to the built-in management endpoint
+ *             (`aigate-mcp`, required_scope='admin:mcp' preset); enforced by
+ *             checkEndpointScopeAccess() in httpTransport.ts
+ * read:mcp  — query the registry and endpoint status (tool-level)
+ * write:mcp — register / update / delete registry entries (tool-level)
+ */
+export const MCP_ADMIN_SCOPE = "admin:mcp";
+export const MCP_READ_SCOPE = "read:mcp";
+export const MCP_WRITE_SCOPE = "write:mcp";

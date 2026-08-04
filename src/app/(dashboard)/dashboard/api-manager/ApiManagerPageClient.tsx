@@ -22,6 +22,7 @@ import type { KeyStatus, KeyType } from "./apiManagerPageUtils";
 import { readActiveOnlyPreference, writeActiveOnlyPreference } from "./apiManagerPageStorage";
 import { buildApiKeyCreateScopes, mergeApiKeyPermissionScopes } from "./apiManagerScopes";
 import { SELF_ACCOUNT_QUOTA_SCOPE, SELF_USAGE_SCOPE } from "@/shared/constants/selfServiceScopes";
+import { MCP_ADMIN_SCOPE, MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "@/shared/constants/mcpScopes";
 import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { hasProviderQuotaBypassScope } from "@/shared/constants/apiKeyPolicyScopes";
 import { UsageLimitSettings } from "./components/UsageLimitSettings";
@@ -214,6 +215,9 @@ export default function ApiManagerPageClient() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyManageEnabled, setNewKeyManageEnabled] = useState(false);
+  const [newKeyMcpAdminEnabled, setNewKeyMcpAdminEnabled] = useState(false);
+  const [newKeyMcpReadEnabled, setNewKeyMcpReadEnabled] = useState(false);
+  const [newKeyMcpWriteEnabled, setNewKeyMcpWriteEnabled] = useState(false);
   const [newKeySelfUsageEnabled, setNewKeySelfUsageEnabled] = useState(true);
   const [newKeyAccountQuotaEnabled, setNewKeyAccountQuotaEnabled] = useState(false);
   const [newKeyAllowUsageCommand, setNewKeyAllowUsageCommand] = useState(false);
@@ -624,6 +628,9 @@ export default function ApiManagerPageClient() {
             manageEnabled: newKeyManageEnabled,
             selfUsageEnabled: newKeySelfUsageEnabled,
             selfAccountQuotaEnabled: newKeyAccountQuotaEnabled,
+            mcpAdminEnabled: newKeyMcpAdminEnabled,
+            mcpReadEnabled: newKeyMcpReadEnabled,
+            mcpWriteEnabled: newKeyMcpWriteEnabled,
           }),
           allowUsageCommand: newKeyAllowUsageCommand,
         }),
@@ -635,6 +642,9 @@ export default function ApiManagerPageClient() {
         await fetchData();
         setNewKeyName("");
         setNewKeyManageEnabled(false);
+        setNewKeyMcpAdminEnabled(false);
+        setNewKeyMcpReadEnabled(false);
+        setNewKeyMcpWriteEnabled(false);
         setNewKeySelfUsageEnabled(true);
         setNewKeyAccountQuotaEnabled(false);
         setNewKeyAllowUsageCommand(false);
@@ -1441,6 +1451,73 @@ export default function ApiManagerPageClient() {
               {newKeyManageEnabled ? tc("enabled") : tc("disabled")}
             </button>
           </div>
+          {/* MCP Gateway Access */}
+          <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium text-text-main">{t("mcpAccess")}</p>
+              <p className="text-xs text-text-muted">{t("mcpAccessDesc")}</p>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-text-main">{t("mcpAdmin")}</p>
+                <p className="text-xs text-text-muted">{t("mcpAdminDesc")}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={newKeyMcpAdminEnabled}
+                onClick={() => setNewKeyMcpAdminEnabled((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                  newKeyMcpAdminEnabled
+                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+                {newKeyMcpAdminEnabled ? tc("enabled") : tc("disabled")}
+              </button>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-text-main">{t("mcpRead")}</p>
+                <p className="text-xs text-text-muted">{t("mcpReadDesc")}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={newKeyMcpReadEnabled}
+                onClick={() => setNewKeyMcpReadEnabled((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                  newKeyMcpReadEnabled
+                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">visibility</span>
+                {newKeyMcpReadEnabled ? tc("enabled") : tc("disabled")}
+              </button>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-text-main">{t("mcpWrite")}</p>
+                <p className="text-xs text-text-muted">{t("mcpWriteDesc")}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={newKeyMcpWriteEnabled}
+                onClick={() => setNewKeyMcpWriteEnabled((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                  newKeyMcpWriteEnabled
+                    ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">edit_square</span>
+                {newKeyMcpWriteEnabled ? tc("enabled") : tc("disabled")}
+              </button>
+            </div>
+          </div>
           <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
             <div className="flex flex-col gap-1">
               <p className="text-sm font-medium text-text-main">{t("selfServiceVisibility")}</p>
@@ -1690,6 +1767,15 @@ const PermissionsModal = memo(function PermissionsModal({
   const [manageEnabled, setManageEnabled] = useState(
     Array.isArray(apiKey?.scopes) && apiKey.scopes.includes("manage")
   );
+  const [mcpAdminEnabled, setMcpAdminEnabled] = useState(
+    Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(MCP_ADMIN_SCOPE)
+  );
+  const [mcpReadEnabled, setMcpReadEnabled] = useState(
+    Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(MCP_READ_SCOPE)
+  );
+  const [mcpWriteEnabled, setMcpWriteEnabled] = useState(
+    Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(MCP_WRITE_SCOPE)
+  );
   const [selfUsageEnabled, setSelfUsageEnabled] = useState(
     Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(SELF_USAGE_SCOPE)
   );
@@ -1935,6 +2021,9 @@ const PermissionsModal = memo(function PermissionsModal({
         selfUsageEnabled,
         selfAccountQuotaEnabled,
         bypassProviderQuotaPolicyEnabled,
+        mcpAdminEnabled,
+        mcpReadEnabled,
+        mcpWriteEnabled,
       }),
       allowAllEndpoints ? [] : selectedEndpoints,
       streamDefaultMode,
@@ -1966,6 +2055,9 @@ const PermissionsModal = memo(function PermissionsModal({
     selfUsageEnabled,
     selfAccountQuotaEnabled,
     bypassProviderQuotaPolicyEnabled,
+    mcpAdminEnabled,
+    mcpReadEnabled,
+    mcpWriteEnabled,
     scheduleEnabled,
     scheduleFrom,
     scheduleUntil,
@@ -2500,6 +2592,73 @@ const PermissionsModal = memo(function PermissionsModal({
             <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
             {manageEnabled ? tc("enabled") : tc("disabled")}
           </button>
+        </div>
+        {/* MCP Gateway Access */}
+        <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium text-text-main">{t("mcpAccess")}</p>
+            <p className="text-xs text-text-muted">{t("mcpAccessDesc")}</p>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-text-main">{t("mcpAdmin")}</p>
+              <p className="text-xs text-text-muted">{t("mcpAdminDesc")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mcpAdminEnabled}
+              onClick={() => setMcpAdminEnabled((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                mcpAdminEnabled
+                  ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+              {mcpAdminEnabled ? tc("enabled") : tc("disabled")}
+            </button>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-text-main">{t("mcpRead")}</p>
+              <p className="text-xs text-text-muted">{t("mcpReadDesc")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mcpReadEnabled}
+              onClick={() => setMcpReadEnabled((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                mcpReadEnabled
+                  ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">visibility</span>
+              {mcpReadEnabled ? tc("enabled") : tc("disabled")}
+            </button>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-text-main">{t("mcpWrite")}</p>
+              <p className="text-xs text-text-muted">{t("mcpWriteDesc")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mcpWriteEnabled}
+              onClick={() => setMcpWriteEnabled((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                mcpWriteEnabled
+                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">edit_square</span>
+              {mcpWriteEnabled ? tc("enabled") : tc("disabled")}
+            </button>
+          </div>
         </div>
         {/* Self-service Visibility */}
         <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">

@@ -6,6 +6,7 @@ import {
   getComboStepTarget,
 } from "../../src/lib/combos/steps.ts";
 import { registerToolSearchTool } from "./toolSearch/register.ts";
+import { registerMcpAdminTools } from "./mcpAdminTools.ts";
 import {
   MCP_TOOLS,
   getHealthInput,
@@ -219,7 +220,8 @@ export async function omniRouteFetch(path: string, options: RequestInit = {}): P
 function withScopeEnforcement(
   toolName: string,
   handler: (args: unknown, extra?: McpToolExtraLike) => Promise<TextToolResult>,
-  toolScopes?: readonly string[]
+  toolScopes?: readonly string[],
+  options?: { audit?: boolean }
 ) {
   return async (args: unknown, extra?: McpToolExtraLike): Promise<TextToolResult> => {
     const scopeContext = resolveCallerScopeContext(extra, Array.from(MCP_ALLOWED_SCOPES));
@@ -253,7 +255,8 @@ function withScopeEnforcement(
         null,
         0,
         false,
-        `scope_denied:${reason}`
+        `scope_denied:${reason}`,
+        scopeContext.callerId
       );
       return {
         content: [{ type: "text" as const, text: `Error: ${msg}` }],
@@ -261,7 +264,40 @@ function withScopeEnforcement(
       };
     }
 
-    return handler(args, extra);
+    // Phase 3.6d: opt-in audit wrapper — management tools (mcp_* registry) get
+    // per-caller audit entries (api_key_id = callerId from authInfo/session).
+    // Ordinary omniroute tools audit themselves inside their handlers, so they
+    // must NOT enable this (would double-log).
+    if (options?.audit !== true) {
+      return handler(args, extra);
+    }
+
+    const start = Date.now();
+    try {
+      const result = await handler(args, extra);
+      await logToolCall(
+        toolName,
+        args ?? {},
+        result,
+        Date.now() - start,
+        true,
+        undefined,
+        scopeContext.callerId
+      );
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await logToolCall(
+        toolName,
+        args ?? {},
+        null,
+        Date.now() - start,
+        false,
+        `handler_error:${message.slice(0, 200)}`,
+        scopeContext.callerId
+      );
+      throw err;
+    }
   };
 }
 
@@ -615,7 +651,24 @@ async function handleWebFetch(args: {
   }
 }
 
-export function createMcpServer(): McpServer {
+/**
+ * Tool domain for a gateway endpoint. Selects which locally-registered
+ * tools are exposed to clients:
+ *   - "all":  everything (aigate-omniroute → the 40-tool OmniRoute set)
+ *   - "mcp":  only mcp_* admin tools (aigate-mcp)
+ *   - "none": empty tool set (aigate-infra, reserved for Phase 4)
+ * stdio/http endpoints register downstream tools dynamically and always
+ * use "all" for the local registry.
+ */
+export type McpToolDomain = "all" | "mcp" | "none";
+
+function matchesToolDomain(name: string, domain: McpToolDomain): boolean {
+  if (domain === "all") return true;
+  if (domain === "none") return false;
+  return name.startsWith("mcp_");
+}
+
+export function createMcpServer(domain: McpToolDomain = "all"): McpServer {
   const server = new McpServer({
     name: "omniroute",
     version: process.env.npm_package_version || "1.8.1",
@@ -646,11 +699,15 @@ export function createMcpServer(): McpServer {
         }
       : handler;
     const registered = registerTool(name, metadata, filteredHandler as never);
-    if (toolProfile && reduceToolManifest([{ name, scopes: [] }], toolProfile).length === 0) {
-      // Denied by the cardinality profile: keep the registration valid but disable it so the tool
-      // is not announced in tools/list (token savings). The default profile never reaches here.
-      const disablable = registered as unknown as { disable?: () => void };
-      if (typeof disablable?.disable === "function") disablable.disable();
+    const disablable = registered as unknown as { disable?: () => void };
+    const hiddenByProfile =
+      toolProfile !== null && reduceToolManifest([{ name, scopes: [] }], toolProfile).length === 0;
+    const hiddenByDomain = !matchesToolDomain(name, domain);
+    if ((hiddenByProfile || hiddenByDomain) && typeof disablable?.disable === "function") {
+      // Hidden by the cardinality profile or the endpoint tool domain: keep the
+      // registration valid but disable it so the tool is not announced in
+      // tools/list (token savings). The default profile never reaches here.
+      disablable.disable();
     }
     return registered;
   }) as typeof server.registerTool;
@@ -676,6 +733,11 @@ export function createMcpServer(): McpServer {
 
   const RESERVED_MCP_NAMES = new Set([
     ...MCP_TOOLS.map((t) => t.name),
+    "mcp_list_servers",
+    "mcp_get_server",
+    "mcp_register_server",
+    "mcp_unregister_server",
+    "mcp_server_health",
     ...Object.keys(memoryTools),
     ...Object.keys(skillTools),
     ...Object.keys(compressionTools),
@@ -1002,6 +1064,7 @@ export function createMcpServer(): McpServer {
   );
 
   registerToolSearchTool(server, withScopeEnforcement);
+  registerMcpAdminTools(server, withScopeEnforcement);
 
   // ── Memory Tools ──────────────────────────────
   Object.values(memoryTools).forEach((toolDef: any) => {

@@ -551,61 +551,61 @@ async function applyCompressionReceiptsMigration(db: SqliteAdapter): Promise<voi
     "actual_prompt_tokens",
     "ALTER TABLE compression_analytics ADD COLUMN actual_prompt_tokens INTEGER"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "actual_completion_tokens",
     "ALTER TABLE compression_analytics ADD COLUMN actual_completion_tokens INTEGER"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "actual_total_tokens",
     "ALTER TABLE compression_analytics ADD COLUMN actual_total_tokens INTEGER"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "actual_cache_read_tokens",
     "ALTER TABLE compression_analytics ADD COLUMN actual_cache_read_tokens INTEGER"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "actual_cache_write_tokens",
     "ALTER TABLE compression_analytics ADD COLUMN actual_cache_write_tokens INTEGER"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "estimated_usd_saved",
     "ALTER TABLE compression_analytics ADD COLUMN estimated_usd_saved REAL"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "mcp_description_tokens_saved",
     "ALTER TABLE compression_analytics ADD COLUMN mcp_description_tokens_saved INTEGER DEFAULT 0"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "multimodal_skip_count",
     "ALTER TABLE compression_analytics ADD COLUMN multimodal_skip_count INTEGER DEFAULT 0"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "receipt_source",
     "ALTER TABLE compression_analytics ADD COLUMN receipt_source TEXT"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "validation_fallback",
     "ALTER TABLE compression_analytics ADD COLUMN validation_fallback INTEGER DEFAULT 0"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "output_mode",
@@ -632,7 +632,7 @@ async function applyCompressionCombosMigration(
     "compression_combo_id",
     "ALTER TABLE compression_analytics ADD COLUMN compression_combo_id TEXT"
   );
-  ensureColumn(
+  await ensureColumn(
     db,
     "compression_analytics",
     "engine",
