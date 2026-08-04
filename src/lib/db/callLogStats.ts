@@ -58,9 +58,9 @@ export interface SearchProviderCountRow {
  * Returns one row per provider with call-level aggregates plus last-status
  * subselects. Excludes rows where provider is NULL or '-'.
  */
-export function getProviderMetrics(): ProviderMetricRow[] {
+export async function getProviderMetrics(): Promise<ProviderMetricRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `SELECT
           c.provider,
@@ -98,7 +98,7 @@ export function getProviderMetrics(): ProviderMetricRow[] {
         WHERE c.provider IS NOT NULL AND c.provider != '-'
         GROUP BY c.provider`
     )
-    .all() as ProviderMetricRow[];
+    .all()) as ProviderMetricRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +108,9 @@ export function getProviderMetrics(): ProviderMetricRow[] {
 /**
  * Per-provider request count and average latency for search requests.
  */
-export function getSearchProviderStats(): SearchProviderStatRow[] {
+export async function getSearchProviderStats(): Promise<SearchProviderStatRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
         SELECT provider, COUNT(*) as requests,
@@ -120,15 +120,15 @@ export function getSearchProviderStats(): SearchProviderStatRow[] {
         GROUP BY provider
       `
     )
-    .all() as SearchProviderStatRow[];
+    .all()) as SearchProviderStatRow[];
 }
 
 /**
  * Most recent 10 search entries (request_summary + provider + timestamp).
  */
-export function getRecentSearchLogs(): SearchRecentRow[] {
+export async function getRecentSearchLogs(): Promise<SearchRecentRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
         SELECT request_summary, provider, timestamp
@@ -138,7 +138,7 @@ export function getRecentSearchLogs(): SearchRecentRow[] {
         LIMIT 10
       `
     )
-    .all() as SearchRecentRow[];
+    .all()) as SearchRecentRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -149,9 +149,9 @@ export function getRecentSearchLogs(): SearchRecentRow[] {
  * Single-pass scalar aggregations for all search entries since `todayIso`.
  * `todayIso` is the ISO-8601 UTC start-of-day string used for the "today" count.
  */
-export function getSearchAggregateStats(todayIso: string): SearchAggregateStats {
+export async function getSearchAggregateStats(todayIso: string): Promise<SearchAggregateStats> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       `SELECT
           COUNT(*) as total,
@@ -162,22 +162,22 @@ export function getSearchAggregateStats(todayIso: string): SearchAggregateStats 
          FROM call_logs
          WHERE request_type = 'search'`
     )
-    .get(todayIso) as SearchAggregateStats | undefined;
+    .get(todayIso)) as SearchAggregateStats | undefined;
   return row ?? { total: 0, today: 0, errors: 0, avg_duration: null, cached: 0 };
 }
 
 /**
  * Per-provider request count for search entries, ordered by count descending.
  */
-export function getSearchProviderCounts(): SearchProviderCountRow[] {
+export async function getSearchProviderCounts(): Promise<SearchProviderCountRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `SELECT provider, COUNT(*) as cnt
          FROM call_logs WHERE request_type = 'search'
          GROUP BY provider ORDER BY cnt DESC`
     )
-    .all() as SearchProviderCountRow[];
+    .all()) as SearchProviderCountRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -198,12 +198,12 @@ export interface FallbackStatsRow {
  *                      named params as the usage_history queries.
  * @param params      - Named params object (string values).
  */
-export function getFallbackStats(
+export async function getFallbackStats(
   whereClause: string,
   params: Record<string, string>
-): FallbackStatsRow {
+): Promise<FallbackStatsRow> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       `
       SELECT
@@ -230,6 +230,6 @@ export function getFallbackStats(
       ${whereClause}
     `
     )
-    .get(params) as FallbackStatsRow | undefined;
+    .get(params)) as FallbackStatsRow | undefined;
   return row ?? { total: 0, with_requested: 0, fallback_eligible: 0, fallbacks: 0 };
 }

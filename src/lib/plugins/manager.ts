@@ -164,8 +164,8 @@ class PluginManager {
     const { name, manifest, pluginDir: srcDir } = discovered;
 
     // If already installed, auto-upgrade when source is strictly newer; reject otherwise.
-    if (pluginExists(name)) {
-      const existing = getPluginByName(name)!;
+    if (await pluginExists(name)) {
+      const existing = (await getPluginByName(name))!;
       if (compareSemver(manifest.version, existing.version) > 0) {
         // Source is newer — delegate to upgrade()
         return this.upgrade(sourceDir);
@@ -282,11 +282,11 @@ class PluginManager {
     const { name, manifest } = discovered;
 
     // Must be already installed
-    if (!pluginExists(name)) {
+    if (!(await pluginExists(name))) {
       throw new Error(`Plugin '${name}' is not installed — use install() instead`);
     }
 
-    const existing = getPluginByName(name)!;
+    const existing = (await getPluginByName(name))!;
 
     // Source must be strictly newer
     if (compareSemver(manifest.version, existing.version) <= 0) {
@@ -371,7 +371,7 @@ class PluginManager {
    * Activate a plugin — load into VM, register hooks, update DB.
    */
   async activate(name: string): Promise<void> {
-    const row = getPluginByName(name);
+    const row = await getPluginByName(name);
     if (!row) throw new Error(`Plugin '${name}' not found`);
     // Guard on in-memory state, not DB status. DB status survives a restart but
     // loadedPlugins/hooks do not, so a DB-only check makes activate() a no-op for
@@ -441,7 +441,7 @@ class PluginManager {
    * cleanup logic. See PR #3473 review finding.
    */
   async deactivate(name: string): Promise<void> {
-    const row = getPluginByName(name);
+    const row = await getPluginByName(name);
     const manifest = row ? (JSON.parse(row.manifest) as PluginManifestWithDefaults) : null;
 
     // Fire onDeactivate lifecycle hook BEFORE unregistering — plugin's handlers
@@ -466,7 +466,7 @@ class PluginManager {
    * Uninstall a plugin — deactivate, delete directory (containment-checked), remove from DB.
    */
   async uninstall(name: string): Promise<void> {
-    const row = getPluginByName(name);
+    const row = await getPluginByName(name);
     if (!row) throw new Error(`Plugin '${name}' not found`);
 
     const manifest = JSON.parse(row.manifest) as PluginManifestWithDefaults;
@@ -547,7 +547,7 @@ class PluginManager {
    * Load all active plugins on startup.
    */
   async loadAll(): Promise<void> {
-    const rows = dbListPlugins("active");
+    const rows = await dbListPlugins("active");
     log.info("manager.loadAll", { count: rows.length });
 
     for (const row of rows) {
@@ -569,15 +569,15 @@ class PluginManager {
   /**
    * List all plugins from DB.
    */
-  listAll(): PluginRow[] {
-    return dbListPlugins();
+  async listAll(): Promise<PluginRow[]> {
+    return await dbListPlugins();
   }
 
   /**
    * Get plugin by name from DB.
    */
-  getPlugin(name: string): PluginRow | null {
-    return getPluginByName(name);
+  async getPlugin(name: string): Promise<PluginRow | null> {
+    return await getPluginByName(name);
   }
 }
 

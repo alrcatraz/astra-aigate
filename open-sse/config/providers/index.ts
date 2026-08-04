@@ -20,6 +20,8 @@ import { llamagateProvider } from "./registry/llamagate/index.ts";
 import { glmProvider } from "./registry/glm/index.ts";
 import { glmtProvider } from "./registry/glm/t/index.ts";
 import { glm_cnProvider } from "./registry/glm/cn/index.ts";
+import { zhipuProvider } from "./registry/zhipu/index.ts";
+import { dmxapiProvider } from "./registry/dmxapi/index.ts";
 import { traeProvider } from "./registry/trae/index.ts";
 import { muse_spark_webProvider } from "./registry/muse-spark-web/index.ts";
 import { lmarenaProvider } from "./registry/lmarena/index.ts";
@@ -142,6 +144,7 @@ import { xaiProvider } from "./registry/xai/index.ts";
 import { xai_oauthProvider } from "./registry/xai-oauth/index.ts";
 import { morphProvider } from "./registry/morph/index.ts";
 import { siliconflowProvider } from "./registry/siliconflow/index.ts";
+import { siliconflow_cnProvider } from "./registry/siliconflow-cn/index.ts";
 import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
 import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
@@ -221,7 +224,7 @@ import { hcnsecProvider } from "./registry/hcnsec/index.ts";
 import { promptqlProvider } from "./registry/promptql/index.ts";
 import { hyperagentProvider } from "./registry/hyperagent/index.ts";
 
-export const REGISTRY: Record<string, RegistryEntry> = {
+export const REGISTRY = {
   aimlapi: aimlapiProvider,
   "ollama-cloud": ollama_cloudProvider,
   synthetic: syntheticProvider,
@@ -240,6 +243,8 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   glm: glmProvider,
   glmt: glmtProvider,
   "glm-cn": glm_cnProvider,
+  zhipu: zhipuProvider,
+  dmxapi: dmxapiProvider,
   trae: traeProvider,
   "muse-spark-web": muse_spark_webProvider,
   lmarena: lmarenaProvider,
@@ -362,6 +367,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "xai-oauth": xai_oauthProvider,
   morph: morphProvider,
   siliconflow: siliconflowProvider,
+  "siliconflow-cn": siliconflow_cnProvider,
   "gitlab-duo": gitlab_duoProvider,
   "command-code": command_codeProvider,
   novita: novitaProvider,
@@ -442,4 +448,4 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   hcnsec: hcnsecProvider,
   promptql: promptqlProvider,
   hyperagent: hyperagentProvider,
-};
+} satisfies Record<string, RegistryEntry>;

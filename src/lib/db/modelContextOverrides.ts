@@ -1,4 +1,5 @@
 import { getDbInstance } from "./core";
+import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
 
 /**
  * Feature 5004 — self-correcting context-window overrides.
@@ -36,7 +37,10 @@ function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
-function normalizeKey(provider: unknown, modelId: unknown): { provider: string; modelId: string } | null {
+function normalizeKey(
+  provider: unknown,
+  modelId: unknown
+): { provider: string; modelId: string } | null {
   const p = typeof provider === "string" ? provider.trim() : "";
   const m = typeof modelId === "string" ? modelId.trim() : "";
   if (!p || !m) return null;
@@ -61,7 +65,7 @@ export function getModelContextOverrideRecord(
   const key = normalizeKey(provider, modelId);
   if (!key) return null;
   try {
-    const row = getDbInstance()
+    const row = ((getDbInstance() as SqliteAdapter).raw as RawSyncDb)
       .prepare(
         "SELECT provider, model_id, real_context, source, refreshed_at " +
           "FROM model_context_overrides WHERE provider = ? AND model_id = ?"
@@ -108,24 +112,27 @@ export function setModelContextOverride(
 }
 
 /** Remove an override. Returns true when a row was deleted. */
-export function removeModelContextOverride(provider: string, modelId: string): boolean {
+export async function removeModelContextOverride(
+  provider: string,
+  modelId: string
+): Promise<boolean> {
   const key = normalizeKey(provider, modelId);
   if (!key) return false;
-  const info = getDbInstance()
+  const info = await getDbInstance()
     .prepare("DELETE FROM model_context_overrides WHERE provider = ? AND model_id = ?")
     .run(key.provider, key.modelId);
   return info.changes > 0;
 }
 
 /** All overrides, newest refresh first. Never throws. */
-export function listModelContextOverrides(): ModelContextOverride[] {
+export async function listModelContextOverrides(): Promise<ModelContextOverride[]> {
   try {
-    const rows = getDbInstance()
+    const rows = (await getDbInstance()
       .prepare(
         "SELECT provider, model_id, real_context, source, refreshed_at " +
           "FROM model_context_overrides ORDER BY refreshed_at DESC"
       )
-      .all() as OverrideRow[];
+      .all()) as OverrideRow[];
     return rows.map(toOverride);
   } catch {
     return [];

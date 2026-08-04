@@ -27,13 +27,13 @@ export interface MemoryVecMeta {
  * Returns defaults if the row is absent (e.g. migration not yet applied on
  * an in-memory test DB that ran without the migration file).
  */
-export function getMemoryVecMeta(): MemoryVecMeta {
+export async function getMemoryVecMeta(): Promise<MemoryVecMeta> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       "SELECT active_dim, embedding_signature, last_reset_at, vec_loaded FROM memory_vec_meta WHERE id = 1"
     )
-    .get() as
+    .get()) as
     | {
         active_dim: number | null;
         embedding_signature: string | null;
@@ -64,27 +64,25 @@ export function getMemoryVecMeta(): MemoryVecMeta {
  * Uses INSERT OR REPLACE to handle the case where the row is missing
  * (e.g. called before or during migration on a test DB).
  */
-export function setMemoryVecMeta(meta: Partial<MemoryVecMeta>): void {
+export async function setMemoryVecMeta(meta: Partial<MemoryVecMeta>): Promise<void> {
   const db = getDbInstance();
 
   // Read current values first so we can merge (partial update pattern).
-  const current = getMemoryVecMeta();
+  const current = await getMemoryVecMeta();
 
-  const activeDim = "activeDim" in meta ? meta.activeDim ?? null : current.activeDim;
+  const activeDim = "activeDim" in meta ? (meta.activeDim ?? null) : current.activeDim;
   const embeddingSignature =
-    "embeddingSignature" in meta
-      ? meta.embeddingSignature ?? null
-      : current.embeddingSignature;
-  const lastResetAt =
-    "lastResetAt" in meta ? meta.lastResetAt ?? null : current.lastResetAt;
-  const vecLoaded =
-    "vecLoaded" in meta ? (meta.vecLoaded ? 1 : 0) : current.vecLoaded ? 1 : 0;
+    "embeddingSignature" in meta ? (meta.embeddingSignature ?? null) : current.embeddingSignature;
+  const lastResetAt = "lastResetAt" in meta ? (meta.lastResetAt ?? null) : current.lastResetAt;
+  const vecLoaded = "vecLoaded" in meta ? (meta.vecLoaded ? 1 : 0) : current.vecLoaded ? 1 : 0;
 
-  db.prepare(
-    `INSERT OR REPLACE INTO memory_vec_meta
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO memory_vec_meta
        (id, active_dim, embedding_signature, last_reset_at, vec_loaded)
      VALUES (1, ?, ?, ?, ?)`
-  ).run(activeDim, embeddingSignature, lastResetAt, vecLoaded);
+    )
+    .run(activeDim, embeddingSignature, lastResetAt, vecLoaded);
 }
 
 // ──────────────── memories.needs_reindex ────────────────
@@ -92,18 +90,18 @@ export function setMemoryVecMeta(meta: Partial<MemoryVecMeta>): void {
 /**
  * Mark a single memory as needing reindex (or clear the flag).
  */
-export function markMemoryNeedsReindex(id: string, needs: boolean): void {
+export async function markMemoryNeedsReindex(id: string, needs: boolean): Promise<void> {
   const db = getDbInstance();
-  db.prepare("UPDATE memories SET needs_reindex = ? WHERE id = ?").run(needs ? 1 : 0, id);
+  await db.prepare("UPDATE memories SET needs_reindex = ? WHERE id = ?").run(needs ? 1 : 0, id);
 }
 
 /**
  * Mark ALL memories as needing reindex.
  * Returns the number of rows affected.
  */
-export function markAllMemoriesNeedReindex(): number {
+export async function markAllMemoriesNeedReindex(): Promise<number> {
   const db = getDbInstance();
-  const result = db.prepare("UPDATE memories SET needs_reindex = 1").run();
+  const result = await db.prepare("UPDATE memories SET needs_reindex = 1").run();
   return result.changes;
 }
 
@@ -111,11 +109,11 @@ export function markAllMemoriesNeedReindex(): number {
  * Get a batch of memories that need reindex, ordered by creation date ascending.
  * Returns id, content, and key for each memory so the vector can be regenerated.
  */
-export function getMemoryReindexQueue(
+export async function getMemoryReindexQueue(
   limit: number
-): Array<{ id: string; content: string; key: string }> {
+): Promise<Array<{ id: string; content: string; key: string }>> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `SELECT id, content, COALESCE(key, '') AS key
        FROM memories
@@ -123,16 +121,16 @@ export function getMemoryReindexQueue(
        ORDER BY created_at ASC
        LIMIT ?`
     )
-    .all(limit) as Array<{ id: string; content: string; key: string }>;
+    .all(limit)) as Array<{ id: string; content: string; key: string }>;
 }
 
 /**
  * Count how many memories currently have needs_reindex = 1.
  */
-export function countMemoryReindexPending(): number {
+export async function countMemoryReindexPending(): Promise<number> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare("SELECT COUNT(*) AS cnt FROM memories WHERE needs_reindex = 1")
-    .get() as { cnt: number };
+    .get()) as { cnt: number };
   return row.cnt;
 }

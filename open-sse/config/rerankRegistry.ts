@@ -8,7 +8,25 @@
  * keyed by provider ID (e.g. "cohere", "together").
  */
 
-export const RERANK_PROVIDERS = {
+import { ProviderLinked } from "./providerLink.ts";
+import { SILICONFLOW_BASE } from "./providers/shared.ts";
+import { siliconflowProvider } from "./providers/registry/siliconflow/index.ts";
+import { siliconflow_cnProvider } from "./providers/registry/siliconflow-cn/index.ts";
+import { REGISTRY } from "./providers/index.ts";
+
+export interface RerankProvider {
+  id: string;
+  /** Option-B link to the chat provider this media entry serves (PLAN §2.4).
+   *  When present, satisfies ProviderLinked<P> forces auth fields to match. */
+  providerId?: keyof typeof REGISTRY;
+  baseUrl: string;
+  authType: string;
+  authHeader: string;
+  format?: string;
+  models: { id: string; name: string }[];
+}
+
+export const RERANK_PROVIDERS: Record<string, RerankProvider> = {
   cohere: {
     id: "cohere",
     baseUrl: "https://api.cohere.com/v2/rerank",
@@ -82,16 +100,37 @@ export const RERANK_PROVIDERS = {
   // (e.g. "Qwen/Qwen3-Reranker-8B") — parseRerankModel splits on the FIRST slash, so it's safe.
   siliconflow: {
     id: "siliconflow",
-    baseUrl: "https://api.siliconflow.com/v1/rerank",
-    authType: "apikey",
-    authHeader: "bearer",
+    providerId: "siliconflow",
+    baseUrl: SILICONFLOW_BASE.intl + "/v1/rerank",
+    authType: siliconflowProvider.authType,
+    authHeader: siliconflowProvider.authHeader,
     models: [
       { id: "Qwen/Qwen3-Reranker-8B", name: "Qwen3 Reranker 8B" },
       { id: "Qwen/Qwen3-Reranker-4B", name: "Qwen3 Reranker 4B" },
       { id: "Qwen/Qwen3-Reranker-0.6B", name: "Qwen3 Reranker 0.6B" },
       { id: "BAAI/bge-reranker-v2-m3", name: "BGE Reranker v2 m3" },
     ],
-  },
+  } satisfies RerankProvider & ProviderLinked<"siliconflow">,
+
+  // SiliconFlow CN — mainland-China RMB site. Same Qwen3-Reranker family as
+  // the international site above, plus the VL reranker. Verified against the
+  // CN model directory on 2026-07-31 (5 models). Shares the provider's
+  // key pool (multi-key round-robin, see registered-keys + auth.ts) with
+  // chat/image/embedding/tts/stt.
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    providerId: "siliconflow-cn",
+    baseUrl: SILICONFLOW_BASE.cn + "/v1/rerank",
+    authType: siliconflow_cnProvider.authType,
+    authHeader: siliconflow_cnProvider.authHeader,
+    models: [
+      { id: "Qwen/Qwen3-Reranker-8B", name: "Qwen3 Reranker 8B" },
+      { id: "Qwen/Qwen3-Reranker-4B", name: "Qwen3 Reranker 4B" },
+      { id: "Qwen/Qwen3-Reranker-0.6B", name: "Qwen3 Reranker 0.6B" },
+      { id: "Qwen/Qwen3-VL-Reranker-8B", name: "Qwen3-VL Reranker 8B" },
+      { id: "BAAI/bge-reranker-v2-m3", name: "BGE Reranker v2 m3" },
+    ],
+  } satisfies RerankProvider & ProviderLinked<"siliconflow-cn">,
 
   // OpenRouter exposes a separate, Cohere-compatible POST /api/v1/rerank endpoint
   // (not surfaced by its live /v1/models feed, which contains 0 rerank ids — confirmed

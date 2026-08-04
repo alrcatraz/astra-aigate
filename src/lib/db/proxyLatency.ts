@@ -14,17 +14,17 @@ type LatencyLogRow = {
 
 // Builds a `"host:port" -> avg_latency_ms` map from proxy_logs rows recorded
 // within the trailing PROXY_LATENCY_WINDOW_HOURS window.
-function buildLatencyMap(db: ReturnType<typeof getDbInstance>): Map<string, number> {
+async function buildLatencyMap(db: ReturnType<typeof getDbInstance>): Promise<Map<string, number>> {
   const sinceIso = new Date(Date.now() - PROXY_LATENCY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
-  const latencyRows = db
+  const latencyRows = (await db
     .prepare(
       `SELECT proxy_host, proxy_port, AVG(latency_ms) as avg_latency
        FROM proxy_logs
        WHERE timestamp >= ?
        GROUP BY proxy_host, proxy_port`
     )
-    .all(sinceIso) as LatencyLogRow[];
+    .all(sinceIso)) as LatencyLogRow[];
 
   const latencyMap = new Map<string, number>();
   for (const r of latencyRows) {
@@ -38,8 +38,11 @@ function buildLatencyMap(db: ReturnType<typeof getDbInstance>): Map<string, numb
 // Picks the candidate with the lowest recorded average latency; candidates
 // with no logged latency are treated as -1 (best/first) so untested proxies
 // still get a chance to be selected and gather data.
-export function pickByLatency<T>(db: ReturnType<typeof getDbInstance>, candidates: T[]): T {
-  const latencyMap = buildLatencyMap(db);
+export async function pickByLatency<T>(
+  db: ReturnType<typeof getDbInstance>,
+  candidates: T[]
+): Promise<T> {
+  const latencyMap = await buildLatencyMap(db);
 
   const sorted = [...candidates].sort((a, b) => {
     const pA = a as { host: string; port: number };

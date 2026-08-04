@@ -1,4 +1,4 @@
-import type { SqliteAdapter } from "@/lib/db/adapters/types";
+import type { RawSyncDb, SqliteAdapter } from "@/lib/db/adapters/types";
 import { getDbInstance } from "../db/core";
 
 // #2650: extracted from compliance/index.ts to break the
@@ -42,7 +42,9 @@ function ensureNoLogColumn(db: SqliteAdapter): boolean {
   }
 
   try {
-    const columns = db.prepare("PRAGMA table_info(api_keys)").all() as Array<{ name: string }>;
+    const columns = ((db as SqliteAdapter).raw as RawSyncDb)
+      .prepare("PRAGMA table_info(api_keys)")
+      .all() as Array<{ name: string }>;
     hasNoLogColumn = columns.some((column) => column.name === "no_log");
   } catch {
     hasNoLogColumn = false;
@@ -64,8 +66,7 @@ function readNoLogFromDb(apiKeyId: string): boolean {
 
   try {
     const row = db.prepare("SELECT no_log FROM api_keys WHERE id = ?").get(apiKeyId) as
-      | { no_log?: number }
-      | undefined;
+      { no_log?: number } | undefined;
     const value = Boolean(row && Number(row.no_log) === 1);
     noLogDbCache.set(apiKeyId, { value, timestamp: Date.now() });
     return value;

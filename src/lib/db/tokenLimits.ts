@@ -136,7 +136,7 @@ function rowToTokenLimit(row: unknown): TokenLimit {
  * Insert or update a token limit. Upsert key is (api_key_id, scope_type, scope_value).
  * Returns the persisted row.
  */
-export function upsertTokenLimit(input: UpsertTokenLimitInput): TokenLimit {
+export async function upsertTokenLimit(input: UpsertTokenLimitInput): Promise<TokenLimit> {
   ensureSchema();
   const db = getDbInstance();
   const scopeType = normalizeScopeType(input.scopeType);
@@ -148,8 +148,9 @@ export function upsertTokenLimit(input: UpsertTokenLimitInput): TokenLimit {
   const tokenLimit = Math.floor(toNumber(input.tokenLimit));
   const id = input.id && input.id.trim() ? input.id.trim() : randomUUID();
 
-  db.prepare(
-    `INSERT INTO api_key_token_limits
+  await db
+    .prepare(
+      `INSERT INTO api_key_token_limits
        (id, api_key_id, scope_type, scope_value, token_limit, reset_interval, reset_time, enabled, created_at, updated_at)
      VALUES (@id, @apiKeyId, @scopeType, @scopeValue, @tokenLimit, @resetInterval, @resetTime, @enabled, datetime('now'), datetime('now'))
      ON CONFLICT(api_key_id, scope_type, scope_value)
@@ -158,9 +159,19 @@ export function upsertTokenLimit(input: UpsertTokenLimitInput): TokenLimit {
                    reset_time     = excluded.reset_time,
                    enabled        = excluded.enabled,
                    updated_at     = datetime('now')`
-  ).run({ id, apiKeyId: input.apiKeyId, scopeType, scopeValue, tokenLimit, resetInterval, resetTime, enabled });
+    )
+    .run({
+      id,
+      apiKeyId: input.apiKeyId,
+      scopeType,
+      scopeValue,
+      tokenLimit,
+      resetInterval,
+      resetTime,
+      enabled,
+    });
 
-  const row = db
+  const row = await db
     .prepare(
       "SELECT * FROM api_key_token_limits WHERE api_key_id = ? AND scope_type = ? AND scope_value = ?"
     )
@@ -169,17 +180,18 @@ export function upsertTokenLimit(input: UpsertTokenLimitInput): TokenLimit {
 }
 
 /** List all token limits for an API key (ordered most-specific first: model, provider, global). */
-export function listTokenLimits(apiKeyId: string): TokenLimit[] {
+export async function listTokenLimits(apiKeyId: string): Promise<TokenLimit[]> {
   ensureSchema();
   const db = getDbInstance();
-  return db
-    .prepare(
-      `SELECT * FROM api_key_token_limits
+  return (
+    await db
+      .prepare(
+        `SELECT * FROM api_key_token_limits
        WHERE api_key_id = ?
        ORDER BY CASE scope_type WHEN 'model' THEN 0 WHEN 'provider' THEN 1 ELSE 2 END, scope_value`
-    )
-    .all(apiKeyId)
-    .map(rowToTokenLimit);
+      )
+      .all(apiKeyId)
+  ).map(rowToTokenLimit);
 }
 
 /**
@@ -187,16 +199,17 @@ export function listTokenLimits(apiKeyId: string): TokenLimit[] {
  * (scope_value === model), the provider-scoped row (scope_value === provider),
  * and the global row. Used by the enforcement read.
  */
-export function getTokenLimitsForRequest(
+export async function getTokenLimitsForRequest(
   apiKeyId: string,
   provider: string,
   model: string
-): TokenLimit[] {
+): Promise<TokenLimit[]> {
   ensureSchema();
   const db = getDbInstance();
-  return db
-    .prepare(
-      `SELECT * FROM api_key_token_limits
+  return (
+    await db
+      .prepare(
+        `SELECT * FROM api_key_token_limits
        WHERE api_key_id = @apiKeyId
          AND enabled = 1
          AND (
@@ -204,19 +217,19 @@ export function getTokenLimitsForRequest(
            OR (scope_type = 'model' AND scope_value = @model)
            OR (scope_type = 'provider' AND scope_value = @provider)
          )`
-    )
-    .all({ apiKeyId, model: model || "", provider: provider || "" } as JsonRecord)
-    .map(rowToTokenLimit);
+      )
+      .all({ apiKeyId, model: model || "", provider: provider || "" } as JsonRecord)
+  ).map(rowToTokenLimit);
 }
 
 /** Delete a token limit by id (counters + reset logs cascade in app code below). */
-export function deleteTokenLimit(id: string): boolean {
+export async function deleteTokenLimit(id: string): Promise<boolean> {
   ensureSchema();
   const db = getDbInstance();
   // FK pragma is OFF in this build; delete dependents explicitly.
-  db.prepare("DELETE FROM api_key_token_counters WHERE limit_id = ?").run(id);
-  db.prepare("DELETE FROM api_key_token_limit_reset_logs WHERE limit_id = ?").run(id);
-  const info = db.prepare("DELETE FROM api_key_token_limits WHERE id = ?").run(id);
+  await db.prepare("DELETE FROM api_key_token_counters WHERE limit_id = ?").run(id);
+  await db.prepare("DELETE FROM api_key_token_limit_reset_logs WHERE limit_id = ?").run(id);
+  const info = await db.prepare("DELETE FROM api_key_token_limits WHERE id = ?").run(id);
   return info.changes > 0;
 }
 
@@ -281,11 +294,7 @@ export function incrementWindowTokens(
 }
 
 /** Append a window-reset audit log row. */
-export function logTokenLimitReset(
-  limitId: string,
-  prevTokens: number,
-  windowStart: string
-): void {
+export function logTokenLimitReset(limitId: string, prevTokens: number, windowStart: string): void {
   ensureSchema();
   const db = getDbInstance();
   db.prepare(

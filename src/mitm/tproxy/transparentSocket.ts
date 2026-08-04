@@ -16,7 +16,7 @@
  * a different Node version (N-API ABI-stable) and, as root, created the
  * IP_TRANSPARENT socket which Node adopted.
  */
-import { createRequire } from "node:module";
+import { nativeRequire } from "@/lib/module-require";
 import { platform } from "node:os";
 import path from "node:path";
 
@@ -52,12 +52,17 @@ function addonCandidates(cwd: string): string[] {
   ];
 }
 
+/** Top-level require for native addons. cwd-anchored: in the Next.js standalone
+ * bundle webpack replaces `createRequire(import.meta.url)` with `createRequire("/")`,
+ * which can never resolve node_modules (MODULE_NOT_FOUND). */
+// 见 src/lib/module-require.ts —— webpack 打包坑说明。
+
 /**
  * Attempt to load the native addon. Returns null (never throws) when the host is
  * non-Linux or the addon hasn't been built. `req`/`os`/`cwd` are injectable for tests.
  */
 export function loadTransparentAddon(
-  req: (path: string) => unknown = createRequire(import.meta.url),
+  req: (path: string) => unknown = nativeRequire,
   os: () => string = platform,
   cwd: () => string = () => process.cwd()
 ): TransparentAddon | null {

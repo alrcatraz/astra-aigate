@@ -26,6 +26,15 @@ function getErrorMessage(error: unknown) {
 }
 
 async function startServer() {
+  // Driver-aware database bootstrap (DB_DRIVER=postgres → connect + migrate).
+  try {
+    const { initDatabaseDriver } = await import("./lib/db/core");
+    await initDatabaseDriver();
+  } catch (err) {
+    startupLog.error({ err }, "Database driver initialisation failed");
+    process.exit(1);
+  }
+
   // Trigger request-log layout migration during startup, before serving requests.
   await import("./lib/usage/migrations");
 

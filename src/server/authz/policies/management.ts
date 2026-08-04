@@ -7,7 +7,10 @@ import { allow, reject } from "../context";
 import { extractApiKey, isValidApiKey } from "../../../sse/services/auth";
 import { getApiKeyMetadata } from "../../../lib/db/apiKeys";
 import { hasManageScope } from "../../../lib/api/requireManagementAuth";
-import { hasMcpConnectOrManageScope, MCP_CONNECT_SCOPE } from "../../../shared/constants/managementScopes";
+import {
+  hasMcpConnectOrManageScope,
+  MCP_CONNECT_SCOPE,
+} from "../../../shared/constants/managementScopes";
 import { evaluateAccessTokenAuth } from "../accessTokenAuth";
 import { CLI_TOKEN_HEADER, PEER_IP_HEADER, VIA_PROXY_HEADER } from "../headers";
 import { resolveStampedPeer, resolveStampedViaProxy } from "../peerStamp";
@@ -145,7 +148,11 @@ export const managementPolicy: RoutePolicy = {
     //
     // Anonymous (no Bearer / invalid key / wrong scope / no session) requests
     // still hit the same 403 LOCAL_ONLY they did before.
-    if (isLocalOnlyPath(path, ctx.request?.method) && !isLoopbackRequest(ctx) && !isPrivateLanRequest(ctx)) {
+    if (
+      isLocalOnlyPath(path, ctx.request?.method) &&
+      !isLoopbackRequest(ctx) &&
+      !isPrivateLanRequest(ctx)
+    ) {
       if (isLocalOnlyBypassableByManageScope(path)) {
         // Management auth is header-only — a URL-borne token must never satisfy a
         // manage-scope bypass of a LOCAL_ONLY route. See #3300 follow-up.
@@ -261,7 +268,7 @@ export const managementPolicy: RoutePolicy = {
     // because `oma_` tokens are management credentials, not inference API keys.
     // Shared with `requireManagementAuth` (no drift). Scope enforced per the
     // method+admin-allowlist policy (inferRequiredScope).
-    const accessVerdict = evaluateAccessTokenAuth(ctx.request as unknown as Request);
+    const accessVerdict = await evaluateAccessTokenAuth(ctx.request as unknown as Request);
     switch (accessVerdict.kind) {
       case "ok":
         return allow({

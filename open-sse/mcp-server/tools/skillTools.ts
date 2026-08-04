@@ -101,7 +101,7 @@ export const skillTools = {
       limit: z.number().int().positive().max(100).optional(),
     }),
     handler: async (args: { apiKeyId?: string; limit?: number }) => {
-      const executions = skillExecutor.listExecutions(args.apiKeyId, args.limit || 50);
+      const executions = await skillExecutor.listExecutions(args.apiKeyId, args.limit || 50);
 
       return {
         executions: executions.map((e) => ({

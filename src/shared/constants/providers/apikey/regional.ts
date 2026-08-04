@@ -136,6 +136,19 @@ export const APIKEY_PROVIDERS_REGIONAL = {
     textIcon: "ZA",
     website: "https://open.bigmodel.cn",
     apiHint: "API key from https://open.bigmodel.cn/usercenter/apikeys",
+    // 合并入口：国际普通端点统一走「智谱 GLM」(zhipu) 选国际区域
+    hiddenFromDashboard: true,
+  },
+  zhipu: {
+    id: "zhipu",
+    alias: "zhipu",
+    name: "智谱 GLM",
+    icon: "psychology",
+    color: "#2563EB",
+    textIcon: "ZG",
+    website: "https://open.bigmodel.cn",
+    apiHint:
+      "API key from https://open.bigmodel.cn/usercenter/apikeys（国内/国际端点通用，添加连接时选择区域）",
   },
   alibaba: {
     id: "alibaba",

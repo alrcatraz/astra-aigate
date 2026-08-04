@@ -44,7 +44,7 @@ export const pluginTools = [
         .describe("Filter by plugin status"),
     }),
     handler: async (args: { status?: string }) => {
-      const plugins = listPlugins(args.status as any);
+      const plugins = await listPlugins(args.status as any);
       return {
         plugins: plugins.map((p) => ({
           name: p.name,
@@ -148,7 +148,7 @@ export const pluginTools = [
         .describe("New config values to merge (omit to just read current config)"),
     }),
     handler: async (args: { name: string; config?: Record<string, unknown> }) => {
-      const plugin = getPluginByName(args.name);
+      const plugin = await getPluginByName(args.name);
       if (!plugin) return { success: false, error: `Plugin '${args.name}' not found` };
 
       if (args.config) {
@@ -161,11 +161,14 @@ export const pluginTools = [
           const validation = validatePluginConfig(merged, rawSchema);
           if (!validation.valid) {
             // Return a generic message — do NOT leak raw field-level detail externally
-            return { success: false, error: "Config validation failed: one or more values are invalid" };
+            return {
+              success: false,
+              error: "Config validation failed: one or more values are invalid",
+            };
           }
         }
 
-        updatePluginConfig(args.name, merged);
+        await updatePluginConfig(args.name, merged);
         return { success: true, config: merged };
       }
 
@@ -185,17 +188,18 @@ export const pluginTools = [
       limit: z.number().min(1).max(100).default(20).describe("Max results to return"),
     }),
     handler: async (args: { name?: string; limit?: number }) => {
-      const { getPluginAnalytics, getPluginAnalyticsSummary } = await import(
-        "../../../src/lib/db/plugins"
-      );
+      const { getPluginAnalytics, getPluginAnalyticsSummary } =
+        await import("../../../src/lib/db/plugins");
       const limit = args.limit || 20;
       if (args.name) {
-        const rows = getPluginAnalytics(args.name).slice(0, limit);
+        const rows = (await getPluginAnalytics(args.name)).slice(0, limit);
         return { metrics: rows };
       }
       // No name filter: return all plugins' summaries
-      const allPlugins = listPlugins();
-      const metrics = allPlugins.slice(0, limit).map((p) => getPluginAnalyticsSummary(p.name));
+      const allPlugins = await listPlugins();
+      const metrics = await Promise.all(
+        allPlugins.slice(0, limit).map((p) => getPluginAnalyticsSummary(p.name))
+      );
       return { metrics };
     },
   },

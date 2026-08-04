@@ -29,30 +29,30 @@ function rowToSource(row: ContextSourceRow): ApiKeyContextSource {
   };
 }
 
-export function getApiKeyContextSource(
+export async function getApiKeyContextSource(
   apiKeyId: string | null | undefined,
   sourceType: string
-): (ApiKeyContextSource & { enabled: true }) | null {
+): Promise<(ApiKeyContextSource & { enabled: true }) | null> {
   if (!apiKeyId) return null;
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       "SELECT * FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ? AND enabled = 1"
     )
-    .get(apiKeyId, sourceType) as ContextSourceRow | undefined;
+    .get(apiKeyId, sourceType)) as ContextSourceRow | undefined;
   if (!row) return null;
   return rowToSource(row) as ApiKeyContextSource & { enabled: true };
 }
 
-export function setApiKeyContextSource(
+export async function setApiKeyContextSource(
   apiKeyId: string,
   sourceType: string,
   config: { token?: string; baseUrl?: string; vaultPath?: string; enabled?: boolean }
-): void {
+): Promise<void> {
   const db = getDbInstance();
-  const existing = db
+  const existing = (await db
     .prepare("SELECT * FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ?")
-    .get(apiKeyId, sourceType) as ContextSourceRow | undefined;
+    .get(apiKeyId, sourceType)) as ContextSourceRow | undefined;
 
   const now = new Date().toISOString();
   if (existing) {
@@ -93,15 +93,16 @@ export function setApiKeyContextSource(
 
 export function deleteApiKeyContextSource(apiKeyId: string, sourceType: string): void {
   const db = getDbInstance();
-  db.prepare(
-    "DELETE FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ?"
-  ).run(apiKeyId, sourceType);
+  db.prepare("DELETE FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ?").run(
+    apiKeyId,
+    sourceType
+  );
 }
 
-export function listApiKeyContextSources(apiKeyId: string): ApiKeyContextSource[] {
+export async function listApiKeyContextSources(apiKeyId: string): Promise<ApiKeyContextSource[]> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT * FROM api_key_context_sources WHERE api_key_id = ?")
-    .all(apiKeyId) as ContextSourceRow[];
+    .all(apiKeyId)) as ContextSourceRow[];
   return rows.map(rowToSource);
 }

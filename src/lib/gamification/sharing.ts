@@ -28,7 +28,7 @@ export async function transferTokens(
 
   try {
     const { transferTokens: dbTransfer } = await import("../db/gamification");
-    const result = dbTransfer(fromApiKeyId, toApiKeyId, amount, reason || "transfer", key);
+    const result = await dbTransfer(fromApiKeyId, toApiKeyId, amount, reason || "transfer", key);
     if (!result.success) {
       return { success: false, idempotencyKey: key, error: result.error };
     }

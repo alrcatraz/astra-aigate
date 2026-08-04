@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "نسخة جديدة متاحة. انقر للتحديث.",
     "updateStarted": "بدأ التحديث...",
     "reloadingPageAutomatically": "جارٍ إعادة تحميل الصفحة تلقائيًا...",
-    "providerTopology": "طوبولوجيا الموفر"
+    "providerTopology": "طوبولوجيا الموفر",
+    "step2Media": "قم بتكوين قدرات الوسائط (صورة/OCR/تضمين) في صفحة <mediaProviders>موفري الوسائط</mediaProviders>."
   },
   "analytics": {
     "title": "التحليلات",
@@ -4713,7 +4714,8 @@
       "configure": "تكوين مقدمي الخدمات"
     },
     "tierFlowDiagramAlt": "OmniRoute مخطط احتياطي ثلاثي الطبقات",
-    "apiKeyMgmt": "إدارة مفتاح واجهة برمجة التطبيقات (API)"
+    "apiKeyMgmt": "إدارة مفتاح واجهة برمجة التطبيقات (API)",
+    "loading": "جار التحميل..."
   },
   "providers": {
     "title": "المزودون",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "يتطلب OmniRoute الإصدار Node.js 22.22.2+ (ضمن 22.x LTS) أو 24.0.0+ (ضمن 24.x LTS). يُوصى بـ Node 24 LTS."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "انتقل إلى المنزل",
     "toggleMenu": "تبديل القائمة",
     "featuresLink": "الميزات",

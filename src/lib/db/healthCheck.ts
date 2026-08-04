@@ -5,10 +5,7 @@ type SqliteDatabase = SqliteAdapter;
 type JsonRecord = Record<string, unknown>;
 
 export type DbHealthIssueType =
-  | "integrity_check_failed"
-  | "broken_reference"
-  | "stale_snapshot"
-  | "invalid_state";
+  "integrity_check_failed" | "broken_reference" | "stale_snapshot" | "invalid_state";
 
 export interface DbHealthIssue {
   type: DbHealthIssueType;
@@ -28,7 +25,7 @@ export interface DbHealthCheckResult {
 
 interface RunDbHealthCheckOptions {
   autoRepair?: boolean;
-  createBackupBeforeRepair?: () => boolean;
+  createBackupBeforeRepair?: () => boolean | Promise<boolean>;
   expectedSchemaVersion?: string;
   /**
    * Skip `PRAGMA quick_check` during this run.
@@ -87,17 +84,17 @@ function isFiniteNumber(value: unknown): boolean {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function hasRows(db: SqliteDatabase, table: string): boolean {
-  const row = db
+async function hasRows(db: SqliteDatabase, table: string): Promise<boolean> {
+  const row = (await db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .get(table) as { name?: string } | undefined;
+    .get(table)) as { name?: string } | undefined;
   return row?.name === table;
 }
 
-function hasProviderConnection(db: SqliteDatabase, connectionId: string): boolean {
-  const row = db
+async function hasProviderConnection(db: SqliteDatabase, connectionId: string): Promise<boolean> {
+  const row = (await db
     .prepare("SELECT 1 AS ok FROM provider_connections WHERE id = ? LIMIT 1")
-    .get(connectionId) as { ok?: number } | undefined;
+    .get(connectionId)) as { ok?: number } | undefined;
   return row?.ok === 1;
 }
 
@@ -132,12 +129,12 @@ function normalizeComboModels(models: unknown): unknown[] {
   return Array.isArray(models) ? models : [];
 }
 
-function repairComboRows(
+async function repairComboRows(
   db: SqliteDatabase,
   rows: ComboRow[],
   checkedAt: string,
   options: { autoRepair: boolean }
-): ComboRepairResult {
+): Promise<ComboRepairResult> {
   if (rows.length === 0) return { issueCount: 0, repairedCount: 0 };
 
   const existingComboNames = new Set(rows.map((row) => row.name));
@@ -202,7 +199,7 @@ function repairComboRows(
       }
 
       const connectionId = toTrimmedString(rawStep.connectionId);
-      if (connectionId && !hasProviderConnection(db, connectionId)) {
+      if (connectionId && !(await hasProviderConnection(db, connectionId))) {
         const repairedStep = { ...rawStep };
         delete repairedStep.connectionId;
         nextModels.push(repairedStep);
@@ -241,20 +238,20 @@ function repairComboRows(
       ...(nextModels.length === 0 ? { isActive: false } : {}),
     };
 
-    updateComboStmt.run(JSON.stringify(nextCombo), checkedAt, row.id);
+    await updateComboStmt.run(JSON.stringify(nextCombo), checkedAt, row.id);
     repairedCount += removedSteps + clearedConnectionPins + normalizedLegacyComboRefs;
   }
 
   return { issueCount, repairedCount };
 }
 
-function getBrokenQuotaSnapshotRowIds(db: SqliteDatabase): number[] {
-  if (!hasRows(db, "quota_snapshots")) return [];
+async function getBrokenQuotaSnapshotRowIds(db: SqliteDatabase): Promise<number[]> {
+  if (!(await hasRows(db, "quota_snapshots"))) return [];
 
   const brokenRowIds = new Set<number>();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT id, provider, connection_id, created_at FROM quota_snapshots")
-    .all() as QuotaSnapshotRow[];
+    .all()) as QuotaSnapshotRow[];
 
   for (const row of rows) {
     const connectionId = toTrimmedString(row.connection_id);
@@ -268,54 +265,57 @@ function getBrokenQuotaSnapshotRowIds(db: SqliteDatabase): number[] {
   return Array.from(brokenRowIds);
 }
 
-function countOrphanQuotaSnapshots(db: SqliteDatabase): number {
-  return getBrokenQuotaSnapshotRowIds(db).length;
+async function countOrphanQuotaSnapshots(db: SqliteDatabase): Promise<number> {
+  return (await getBrokenQuotaSnapshotRowIds(db)).length;
 }
 
-function repairQuotaSnapshots(db: SqliteDatabase): number {
-  if (!hasRows(db, "quota_snapshots")) return 0;
-  const brokenRowIds = getBrokenQuotaSnapshotRowIds(db);
+async function repairQuotaSnapshots(db: SqliteDatabase): Promise<number> {
+  if (!(await hasRows(db, "quota_snapshots"))) return 0;
+  const brokenRowIds = await getBrokenQuotaSnapshotRowIds(db);
   if (brokenRowIds.length === 0) return 0;
 
   const deleteByRowId = db.prepare("DELETE FROM quota_snapshots WHERE id = ?");
   let repaired = 0;
   for (const rowId of brokenRowIds) {
-    repaired += deleteByRowId.run(rowId).changes;
+    repaired += (await deleteByRowId.run(rowId)).changes;
   }
   return repaired;
 }
 
-function countOrphanDomainRows(
+async function countOrphanDomainRows(
   db: SqliteDatabase,
   table: "domain_budgets" | "domain_cost_history"
 ) {
-  if (!hasRows(db, table)) return 0;
-  const row = db
+  if (!(await hasRows(db, table))) return 0;
+  const row = (await db
     .prepare(
       `SELECT COUNT(*) AS count
        FROM ${table}
        WHERE api_key_id NOT IN (SELECT id FROM api_keys)`
     )
-    .get() as { count?: number } | undefined;
+    .get()) as { count?: number } | undefined;
   return row?.count || 0;
 }
 
-function repairOrphanDomainRows(
+async function repairOrphanDomainRows(
   db: SqliteDatabase,
   table: "domain_budgets" | "domain_cost_history"
-): number {
-  if (!hasRows(db, table)) return 0;
-  return db.prepare(`DELETE FROM ${table} WHERE api_key_id NOT IN (SELECT id FROM api_keys)`).run()
-    .changes;
+): Promise<number> {
+  if (!(await hasRows(db, table))) return 0;
+  return (
+    await db.prepare(`DELETE FROM ${table} WHERE api_key_id NOT IN (SELECT id FROM api_keys)`).run()
+  ).changes;
 }
 
-function countInvalidJsonRows(
+async function countInvalidJsonRows(
   db: SqliteDatabase,
   table: "domain_fallback_chains" | "domain_lockout_state" | "domain_circuit_breakers",
   column: "chain" | "attempts" | "options"
-): number {
-  if (!hasRows(db, table)) return 0;
-  const rows = db.prepare(`SELECT ${column} FROM ${table}`).all() as Array<Record<string, unknown>>;
+): Promise<number> {
+  if (!(await hasRows(db, table))) return 0;
+  const rows = (await db.prepare(`SELECT ${column} FROM ${table}`).all()) as Array<
+    Record<string, unknown>
+  >;
   let invalid = 0;
   for (const row of rows) {
     const raw = row[column];
@@ -333,14 +333,14 @@ function countInvalidJsonRows(
   return invalid;
 }
 
-function repairInvalidJsonRows(
+async function repairInvalidJsonRows(
   db: SqliteDatabase,
   table: "domain_fallback_chains" | "domain_lockout_state" | "domain_circuit_breakers",
   column: "chain" | "attempts" | "options"
-): number {
-  if (!hasRows(db, table)) return 0;
+): Promise<number> {
+  if (!(await hasRows(db, table))) return 0;
 
-  const rows = db.prepare(`SELECT rowid, ${column} FROM ${table}`).all() as Array<{
+  const rows = (await db.prepare(`SELECT rowid, ${column} FROM ${table}`).all()) as Array<{
     rowid: number;
     [key: string]: unknown;
   }>;
@@ -358,10 +358,10 @@ function repairInvalidJsonRows(
     }
     if (typeof raw !== "string") {
       if (table === "domain_circuit_breakers") {
-        repaired += clearOptionsByRowId.run(row.rowid).changes;
+        repaired += (await clearOptionsByRowId.run(row.rowid)).changes;
         continue;
       }
-      deleteByRowId.run(row.rowid);
+      await deleteByRowId.run(row.rowid);
       repaired += 1;
       continue;
     }
@@ -369,10 +369,10 @@ function repairInvalidJsonRows(
       JSON.parse(raw);
     } catch {
       if (table === "domain_circuit_breakers") {
-        repaired += clearOptionsByRowId.run(row.rowid).changes;
+        repaired += (await clearOptionsByRowId.run(row.rowid)).changes;
         continue;
       }
-      deleteByRowId.run(row.rowid);
+      await deleteByRowId.run(row.rowid);
       repaired += 1;
     }
   }
@@ -380,26 +380,33 @@ function repairInvalidJsonRows(
   return repaired;
 }
 
-function getSchemaVersionIssueCount(db: SqliteDatabase, expectedSchemaVersion: string): number {
-  if (!hasRows(db, "db_meta")) return 0;
-  const row = db.prepare("SELECT value FROM db_meta WHERE key = 'schema_version'").get() as
-    | { value?: string | null }
-    | undefined;
+async function getSchemaVersionIssueCount(
+  db: SqliteDatabase,
+  expectedSchemaVersion: string
+): Promise<number> {
+  if (!(await hasRows(db, "db_meta"))) return 0;
+  const row = (await db.prepare("SELECT value FROM db_meta WHERE key = 'schema_version'").get()) as
+    { value?: string | null } | undefined;
   const current = typeof row?.value === "string" ? row.value : null;
   return current === expectedSchemaVersion ? 0 : 1;
 }
 
-function repairSchemaVersion(db: SqliteDatabase, expectedSchemaVersion: string): number {
-  if (!hasRows(db, "db_meta")) return 0;
-  return db
-    .prepare("INSERT OR REPLACE INTO db_meta (key, value) VALUES ('schema_version', ?)")
-    .run(expectedSchemaVersion).changes;
+async function repairSchemaVersion(
+  db: SqliteDatabase,
+  expectedSchemaVersion: string
+): Promise<number> {
+  if (!(await hasRows(db, "db_meta"))) return 0;
+  return (
+    await db
+      .prepare("INSERT OR REPLACE INTO db_meta (key, value) VALUES ('schema_version', ?)")
+      .run(expectedSchemaVersion)
+  ).changes;
 }
 
-export function runDbHealthCheck(
+export async function runDbHealthCheck(
   db: SqliteDatabase,
   options: RunDbHealthCheckOptions = {}
-): DbHealthCheckResult {
+): Promise<DbHealthCheckResult> {
   const autoRepair = options.autoRepair === true;
   const expectedSchemaVersion = options.expectedSchemaVersion || "1";
   const checkedAt = new Date().toISOString();
@@ -408,12 +415,12 @@ export function runDbHealthCheck(
   let backupCreated = false;
   let backupAttempted = false;
 
-  const ensureBackupBeforeRepair = () => {
+  const ensureBackupBeforeRepair = async () => {
     if (!autoRepair || backupAttempted || typeof options.createBackupBeforeRepair !== "function") {
       return;
     }
     backupAttempted = true;
-    backupCreated = options.createBackupBeforeRepair();
+    backupCreated = await options.createBackupBeforeRepair();
   };
 
   // Use quick_check instead of integrity_check on startup — integrity_check
@@ -422,7 +429,7 @@ export function runDbHealthCheck(
   // skips deep index verification, reducing I/O to seconds.
   // Skip entirely when skipIntegrityCheck is set (env OMNIROUTE_SKIP_DB_HEALTHCHECK=1).
   if (!options.skipIntegrityCheck) {
-    const integrityCheck = db.pragma("quick_check") as Array<{ quick_check?: string }>;
+    const integrityCheck = (await db.pragma("quick_check")) as Array<{ quick_check?: string }>;
     if (integrityCheck[0]?.quick_check !== "ok") {
       issues.push({
         type: "integrity_check_failed",
@@ -433,13 +440,13 @@ export function runDbHealthCheck(
     }
   }
 
-  if (hasRows(db, "combos")) {
-    const comboRows = db
+  if (await hasRows(db, "combos")) {
+    const comboRows = (await db
       .prepare(
         "SELECT id, name, data, sort_order, created_at, updated_at FROM combos ORDER BY name COLLATE NOCASE ASC"
       )
-      .all() as ComboRow[];
-    const comboRepair = repairComboRows(db, comboRows, checkedAt, { autoRepair });
+      .all()) as ComboRow[];
+    const comboRepair = await repairComboRows(db, comboRows, checkedAt, { autoRepair });
     if (comboRepair.issueCount > 0) {
       issues.push({
         type: "broken_reference",
@@ -449,13 +456,13 @@ export function runDbHealthCheck(
         count: comboRepair.issueCount,
       });
       if (autoRepair) {
-        ensureBackupBeforeRepair();
+        await ensureBackupBeforeRepair();
         repairedCount += comboRepair.repairedCount;
       }
     }
   }
 
-  const orphanQuotaCount = countOrphanQuotaSnapshots(db);
+  const orphanQuotaCount = await countOrphanQuotaSnapshots(db);
   if (orphanQuotaCount > 0) {
     issues.push({
       type: "stale_snapshot",
@@ -465,12 +472,12 @@ export function runDbHealthCheck(
       count: orphanQuotaCount,
     });
     if (autoRepair) {
-      ensureBackupBeforeRepair();
-      repairedCount += repairQuotaSnapshots(db);
+      await ensureBackupBeforeRepair();
+      repairedCount += await repairQuotaSnapshots(db);
     }
   }
 
-  const orphanBudgets = countOrphanDomainRows(db, "domain_budgets");
+  const orphanBudgets = await countOrphanDomainRows(db, "domain_budgets");
   if (orphanBudgets > 0) {
     issues.push({
       type: "broken_reference",
@@ -479,12 +486,12 @@ export function runDbHealthCheck(
       count: orphanBudgets,
     });
     if (autoRepair) {
-      ensureBackupBeforeRepair();
-      repairedCount += repairOrphanDomainRows(db, "domain_budgets");
+      await ensureBackupBeforeRepair();
+      repairedCount += await repairOrphanDomainRows(db, "domain_budgets");
     }
   }
 
-  const orphanCostHistory = countOrphanDomainRows(db, "domain_cost_history");
+  const orphanCostHistory = await countOrphanDomainRows(db, "domain_cost_history");
   if (orphanCostHistory > 0) {
     issues.push({
       type: "broken_reference",
@@ -493,12 +500,12 @@ export function runDbHealthCheck(
       count: orphanCostHistory,
     });
     if (autoRepair) {
-      ensureBackupBeforeRepair();
-      repairedCount += repairOrphanDomainRows(db, "domain_cost_history");
+      await ensureBackupBeforeRepair();
+      repairedCount += await repairOrphanDomainRows(db, "domain_cost_history");
     }
   }
 
-  const invalidFallbackChains = countInvalidJsonRows(db, "domain_fallback_chains", "chain");
+  const invalidFallbackChains = await countInvalidJsonRows(db, "domain_fallback_chains", "chain");
   if (invalidFallbackChains > 0) {
     issues.push({
       type: "invalid_state",
@@ -507,12 +514,12 @@ export function runDbHealthCheck(
       count: invalidFallbackChains,
     });
     if (autoRepair) {
-      ensureBackupBeforeRepair();
-      repairedCount += repairInvalidJsonRows(db, "domain_fallback_chains", "chain");
+      await ensureBackupBeforeRepair();
+      repairedCount += await repairInvalidJsonRows(db, "domain_fallback_chains", "chain");
     }
   }
 
-  const invalidLockoutState = countInvalidJsonRows(db, "domain_lockout_state", "attempts");
+  const invalidLockoutState = await countInvalidJsonRows(db, "domain_lockout_state", "attempts");
   if (invalidLockoutState > 0) {
     issues.push({
       type: "invalid_state",
@@ -521,12 +528,16 @@ export function runDbHealthCheck(
       count: invalidLockoutState,
     });
     if (autoRepair) {
-      ensureBackupBeforeRepair();
-      repairedCount += repairInvalidJsonRows(db, "domain_lockout_state", "attempts");
+      await ensureBackupBeforeRepair();
+      repairedCount += await repairInvalidJsonRows(db, "domain_lockout_state", "attempts");
     }
   }
 
-  const invalidBreakerOptions = countInvalidJsonRows(db, "domain_circuit_breakers", "options");
+  const invalidBreakerOptions = await countInvalidJsonRows(
+    db,
+    "domain_circuit_breakers",
+    "options"
+  );
   if (invalidBreakerOptions > 0) {
     issues.push({
       type: "invalid_state",
@@ -535,12 +546,12 @@ export function runDbHealthCheck(
       count: invalidBreakerOptions,
     });
     if (autoRepair) {
-      ensureBackupBeforeRepair();
-      repairedCount += repairInvalidJsonRows(db, "domain_circuit_breakers", "options");
+      await ensureBackupBeforeRepair();
+      repairedCount += await repairInvalidJsonRows(db, "domain_circuit_breakers", "options");
     }
   }
 
-  const schemaVersionIssues = getSchemaVersionIssueCount(db, expectedSchemaVersion);
+  const schemaVersionIssues = await getSchemaVersionIssueCount(db, expectedSchemaVersion);
   if (schemaVersionIssues > 0) {
     issues.push({
       type: "invalid_state",
@@ -549,8 +560,8 @@ export function runDbHealthCheck(
       count: schemaVersionIssues,
     });
     if (autoRepair) {
-      ensureBackupBeforeRepair();
-      repairedCount += repairSchemaVersion(db, expectedSchemaVersion);
+      await ensureBackupBeforeRepair();
+      repairedCount += await repairSchemaVersion(db, expectedSchemaVersion);
     }
   }
 

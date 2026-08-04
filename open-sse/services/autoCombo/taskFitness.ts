@@ -15,6 +15,7 @@
 // ─── Static fitness table (unchanged, fallback layer 4) ─────────────────
 
 import { getDbInstance } from "../../../src/lib/db/core.ts";
+import type { RawSyncDb, SqliteAdapter } from "../../../src/lib/db/adapters/types.ts";
 import {
   getModelIntelligenceBySource,
   setUserFitnessOverrideEntry,
@@ -238,13 +239,13 @@ function loadModelCapabilities(): Record<string, ModelCapRow> | null {
   if (_capabilitiesCache) return _capabilitiesCache;
 
   try {
-    const db = getDbInstance();
-    const tableExists = db
+    const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+    const tableExists = raw
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='model_capabilities'")
       .get();
     if (!tableExists) return null;
 
-    const rows = db.prepare("SELECT * FROM model_capabilities").all() as Record<string, unknown>[];
+    const rows = raw.prepare("SELECT * FROM model_capabilities").all() as Record<string, unknown>[];
     const cache: Record<string, ModelCapRow> = {};
 
     for (const row of rows) {

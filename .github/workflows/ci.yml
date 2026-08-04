@@ -545,13 +545,13 @@ jobs:
       # Rolling back to webpack = revert this commit (cache step comes back with it).
       #
       # Webpack production build (Next 16) — matches the deployment contract:
-      # the Dockerfile forces OMNIROUTE_USE_TURBOPACK=0 (memory-constrained hosts),
+      # the Dockerfile forces AIGATE_USE_TURBOPACK=0 (memory-constrained hosts),
       # so CI validates the exact build path that ships. Standalone output is
       # smoke-validated (server boots, /api/monitoring/health 200). Downstream
       # jobs (e2e ×9, package-artifact) consume this artifact.
       - run: npm run build
         env:
-          OMNIROUTE_USE_TURBOPACK: "0"
+          AIGATE_USE_TURBOPACK: "0"
       - name: Archive Next.js build for downstream jobs
         # Use tar so the archive preserves paths relative to CWD (.build/next/...).
         # upload-artifact path-stripping is ambiguous when exclude patterns are used;

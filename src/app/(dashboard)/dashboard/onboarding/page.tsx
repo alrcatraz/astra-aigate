@@ -70,7 +70,10 @@ export default function OnboardingWizard() {
     fetch("/api/settings/require-login")
       .then((r) => r.json())
       .then((data) => {
-        if (data.requireLogin === true) {
+        // Bounce only configured instances. Fresh installs (bootstrap window,
+        // no password yet) must be allowed through to run the wizard — the
+        // old guard (requireLogin===true) looped login -> onboarding -> login.
+        if (data.requireLogin === true && data.setupComplete === true) {
           router.replace("/login");
         } else {
           setLoading(false);
@@ -84,6 +87,19 @@ export default function OnboardingWizard() {
 
   // Error state (shared across steps)
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Normalise API error payloads to a displayable string. The authz pipeline
+  // returns error objects ({ code, message }) — rendering those raw would
+  // crash React with "Objects are not valid as a React child" (ISE).
+  const errorText = (e: unknown): string => {
+    if (typeof e === "string") return e;
+    if (e && typeof e === "object") {
+      const m = (e as { message?: unknown }).message;
+      if (typeof m === "string") return m;
+      return JSON.stringify(e);
+    }
+    return "Request failed";
+  };
 
   const handleNext = () => {
     if (step < STEPS.length - 1) setStep(step + 1);
@@ -116,7 +132,7 @@ export default function OnboardingWizard() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setErrorMessage(data.error || "Failed to set password");
+        setErrorMessage(errorText(data.error) || "Failed to set password");
         return;
       }
       handleNext();
@@ -142,7 +158,7 @@ export default function OnboardingWizard() {
       });
       if (!res.ok) {
         const err = await res.json();
-        setErrorMessage(err.error || "Failed to add provider");
+        setErrorMessage(errorText(err.error) || "Failed to add provider");
         return;
       }
       handleNext();

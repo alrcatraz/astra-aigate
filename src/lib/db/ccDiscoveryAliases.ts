@@ -58,11 +58,11 @@ export function resolveCcAliasEnabled(opts: {
   return opts.global;
 }
 
-export function getCcAliasProviderSetting(providerId: string): CcAliasSetting {
+export async function getCcAliasProviderSetting(providerId: string): Promise<CcAliasSetting> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(NAMESPACE, providerKey(providerId)) as { value: string } | undefined;
+    .get(NAMESPACE, providerKey(providerId))) as { value: string } | undefined;
   return parseSetting(row?.value);
 }
 
@@ -80,11 +80,14 @@ export function setCcAliasProviderSetting(providerId: string, v: CcAliasSetting)
   );
 }
 
-export function getCcAliasModelSetting(providerId: string, modelId: string): CcAliasSetting {
+export async function getCcAliasModelSetting(
+  providerId: string,
+  modelId: string
+): Promise<CcAliasSetting> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(NAMESPACE, modelKey(providerId, modelId)) as { value: string } | undefined;
+    .get(NAMESPACE, modelKey(providerId, modelId))) as { value: string } | undefined;
   return parseSetting(row?.value);
 }
 
@@ -110,14 +113,14 @@ export function setCcAliasModelSetting(
  * Loads every provider/model override in a single query — intended for the
  * catalog builder, which needs the full set rather than per-row lookups.
  */
-export function getCcAliasSettingsBulk(): {
+export async function getCcAliasSettingsBulk(): Promise<{
   providers: Map<string, "on" | "off">;
   models: Map<string, "on" | "off">;
-} {
+}> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
-    .all(NAMESPACE) as Array<{ key: string; value: string }>;
+    .all(NAMESPACE)) as Array<{ key: string; value: string }>;
 
   const providers = new Map<string, "on" | "off">();
   const models = new Map<string, "on" | "off">();
@@ -144,12 +147,15 @@ function envForcesGlobalOn(): boolean {
  * Resolves the effective global state, and where it came from.
  * Precedence: env forces on > DB override > definition default.
  */
-export function getCcAliasGlobalState(): { enabled: boolean; source: "env" | "db" | "default" } {
+export async function getCcAliasGlobalState(): Promise<{
+  enabled: boolean;
+  source: "env" | "db" | "default";
+}> {
   if (envForcesGlobalOn()) {
     return { enabled: true, source: "env" };
   }
 
-  const dbOverride = getFeatureFlagOverride(FLAG_KEY);
+  const dbOverride = await getFeatureFlagOverride(FLAG_KEY);
   if (dbOverride !== undefined) {
     return { enabled: dbOverride === "true" || dbOverride === "1", source: "db" };
   }
@@ -157,6 +163,6 @@ export function getCcAliasGlobalState(): { enabled: boolean; source: "env" | "db
   return { enabled: false, source: "default" };
 }
 
-export function isCcAliasGlobalEnabled(): boolean {
-  return getCcAliasGlobalState().enabled;
+export async function isCcAliasGlobalEnabled(): Promise<boolean> {
+  return (await getCcAliasGlobalState()).enabled;
 }

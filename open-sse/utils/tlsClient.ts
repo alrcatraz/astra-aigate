@@ -1,7 +1,7 @@
-import { createRequire } from "module";
+import { nativeRequire } from "@/lib/module-require";
 import { getTlsClientTimeoutConfig } from "@/shared/utils/runtimeTimeouts";
 
-const require = createRequire(import.meta.url);
+const require = nativeRequire;
 
 type WreqSession = {
   fetch: (url: string, options?: Record<string, unknown>) => Promise<Response>;

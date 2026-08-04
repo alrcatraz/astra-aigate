@@ -961,6 +961,18 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       ),
                     })}
                   </p>
+                  <p className="text-text-muted mt-1.5">
+                    {t.rich("step2Media", {
+                      mediaProviders: (chunks) => (
+                        <Link
+                          href="/dashboard/media-providers"
+                          className="text-primary hover:underline"
+                        >
+                          {chunks}
+                        </Link>
+                      ),
+                    })}
+                  </p>
                 </div>
               </li>
               <li className="rounded-lg border border-border bg-bg-subtle p-4 flex gap-3">

@@ -101,7 +101,9 @@ function hashToken(token: string): string {
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
-export function createRelayToken(input: CreateRelayTokenInput): RelayTokenWithSecret {
+export async function createRelayToken(
+  input: CreateRelayTokenInput
+): Promise<RelayTokenWithSecret> {
   const db = getDbInstance();
   const id = generateId();
   const rawToken = generateToken();
@@ -110,69 +112,73 @@ export function createRelayToken(input: CreateRelayTokenInput): RelayTokenWithSe
 
   const prefix = "rl_" + rawToken.slice(6, 14);
 
-  db.prepare(
-    `
+  await db
+    .prepare(
+      `
     INSERT INTO relay_tokens (id, name, token_hash, token_prefix, description, combo_id, allowed_models,
       max_tokens_per_request, max_requests_per_minute, max_requests_per_day, max_cost_per_day,
       enabled, created_at, updated_at, expires_at, metadata)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
   `
-  ).run(
-    id,
-    input.name,
-    tokenHash,
-    prefix,
-    input.description || "",
-    input.comboId || null,
-    JSON.stringify(input.allowedModels || ["*"]),
-    input.maxTokensPerRequest || 128000,
-    input.maxRequestsPerMinute || 60,
-    input.maxRequestsPerDay || 10000,
-    input.maxCostPerDay || 0,
-    now,
-    now,
-    input.expiresAt || null,
-    JSON.stringify(input.metadata || {})
-  );
+    )
+    .run(
+      id,
+      input.name,
+      tokenHash,
+      prefix,
+      input.description || "",
+      input.comboId || null,
+      JSON.stringify(input.allowedModels || ["*"]),
+      input.maxTokensPerRequest || 128000,
+      input.maxRequestsPerMinute || 60,
+      input.maxRequestsPerDay || 10000,
+      input.maxCostPerDay || 0,
+      now,
+      now,
+      input.expiresAt || null,
+      JSON.stringify(input.metadata || {})
+    );
 
-  const token = db.prepare("SELECT * FROM relay_tokens WHERE id = ?").get(id) as RelayTokenRow;
+  const token = (await db
+    .prepare("SELECT * FROM relay_tokens WHERE id = ?")
+    .get(id)) as RelayTokenRow;
   return { ...(rowToCamel(token) as unknown as RelayToken), rawToken };
 }
 
-export function getRelayTokens(): RelayToken[] {
+export async function getRelayTokens(): Promise<RelayToken[]> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT * FROM relay_tokens ORDER BY created_at DESC")
-    .all() as RelayTokenRow[];
+    .all()) as RelayTokenRow[];
   return rows.map((r) => ({
     ...(rowToCamel(r) as unknown as RelayToken),
     enabled: r.enabled === 1,
   }));
 }
 
-export function getRelayToken(id: string): RelayToken | null {
+export async function getRelayToken(id: string): Promise<RelayToken | null> {
   const db = getDbInstance();
-  const row = db.prepare("SELECT * FROM relay_tokens WHERE id = ?").get(id) as
+  const row = (await db.prepare("SELECT * FROM relay_tokens WHERE id = ?").get(id)) as
     RelayTokenRow | undefined;
   if (!row) return null;
   return { ...(rowToCamel(row) as unknown as RelayToken), enabled: row.enabled === 1 };
 }
 
-export function getRelayTokenByHash(
+export async function getRelayTokenByHash(
   tokenHash: string
-): (RelayToken & { rawToken?: string }) | null {
+): Promise<(RelayToken & { rawToken?: string }) | null> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare("SELECT * FROM relay_tokens WHERE token_hash = ? AND enabled = 1")
-    .get(tokenHash) as RelayTokenRow | undefined;
+    .get(tokenHash)) as RelayTokenRow | undefined;
   if (!row) return null;
   return { ...(rowToCamel(row) as unknown as RelayToken), enabled: row.enabled === 1 };
 }
 
-export function updateRelayToken(
+export async function updateRelayToken(
   id: string,
   updates: Partial<CreateRelayTokenInput>
-): RelayToken | null {
+): Promise<RelayToken | null> {
   const db = getDbInstance();
   const now = Math.floor(Date.now() / 1000);
   const sets: string[] = ["updated_at = ?"];
@@ -212,40 +218,38 @@ export function updateRelayToken(
   }
 
   params.push(id);
-  db.prepare(`UPDATE relay_tokens SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+  await db.prepare(`UPDATE relay_tokens SET ${sets.join(", ")} WHERE id = ?`).run(...params);
   return getRelayToken(id);
 }
 
-export function deleteRelayToken(id: string): void {
+export async function deleteRelayToken(id: string): Promise<void> {
   const db = getDbInstance();
-  db.prepare("DELETE FROM relay_tokens WHERE id = ?").run(id);
+  await db.prepare("DELETE FROM relay_tokens WHERE id = ?").run(id);
 }
 
-export function toggleRelayToken(id: string, enabled: boolean): RelayToken | null {
+export async function toggleRelayToken(id: string, enabled: boolean): Promise<RelayToken | null> {
   const db = getDbInstance();
   const now = Math.floor(Date.now() / 1000);
-  db.prepare("UPDATE relay_tokens SET enabled = ?, updated_at = ? WHERE id = ?").run(
-    enabled ? 1 : 0,
-    now,
-    id
-  );
+  await db
+    .prepare("UPDATE relay_tokens SET enabled = ?, updated_at = ? WHERE id = ?")
+    .run(enabled ? 1 : 0, now, id);
   return getRelayToken(id);
 }
 
 // ── Usage / Rate Limit ───────────────────────────────────────────────────────
 
-export function checkRateLimit(
+export async function checkRateLimit(
   tokenId: string,
   existingToken?: RelayToken
-): {
+): Promise<{
   allowed: boolean;
   remaining: number;
   resetIn: number;
-} {
+}> {
   const db = getDbInstance();
   let token = existingToken;
   if (!token) {
-    const row = db.prepare("SELECT * FROM relay_tokens WHERE id = ?").get(tokenId) as
+    const row = (await db.prepare("SELECT * FROM relay_tokens WHERE id = ?").get(tokenId)) as
       RelayTokenRow | undefined;
     if (!row) return { allowed: false, remaining: 0, resetIn: 0 };
     token = rowToCamel(row) as unknown as RelayToken;
@@ -256,11 +260,11 @@ export function checkRateLimit(
   const dayWindow = Math.floor(now / 86400) * 86400;
 
   // Check minute rate
-  const minuteRow = db
+  const minuteRow = (await db
     .prepare(
       "SELECT request_count, cost FROM relay_rate_limits WHERE token_id = ? AND window_start = ?"
     )
-    .get(tokenId, minuteWindow) as { request_count: number; cost: number } | undefined;
+    .get(tokenId, minuteWindow)) as { request_count: number; cost: number } | undefined;
 
   const minuteCount = minuteRow?.request_count || 0;
   if (minuteCount >= token.maxRequestsPerMinute) {
@@ -268,11 +272,11 @@ export function checkRateLimit(
   }
 
   // Check daily rate
-  const dayRow = db
+  const dayRow = (await db
     .prepare(
       "SELECT SUM(request_count) as total FROM relay_rate_limits WHERE token_id = ? AND window_start >= ?"
     )
-    .get(tokenId, dayWindow) as { total: number } | undefined;
+    .get(tokenId, dayWindow)) as { total: number } | undefined;
 
   const dayCount = dayRow?.total || 0;
   if (dayCount >= token.maxRequestsPerDay) {
@@ -287,7 +291,7 @@ export function checkRateLimit(
   return { allowed: true, remaining, resetIn: 60 - (now % 60) };
 }
 
-export function recordRelayUsage(
+export async function recordRelayUsage(
   tokenId: string,
   params: {
     requestId?: string;
@@ -301,69 +305,73 @@ export function recordRelayUsage(
     clientIp?: string;
     userAgent?: string;
   }
-): void {
+): Promise<void> {
   const db = getDbInstance();
   const now = Math.floor(Date.now() / 1000);
   const minuteWindow = Math.floor(now / 60) * 60;
 
   // Update rate limit window
-  db.prepare(
-    `
+  await db
+    .prepare(
+      `
     INSERT INTO relay_rate_limits (token_id, window_start, request_count, cost)
     VALUES (?, ?, 1, ?)
     ON CONFLICT(token_id, window_start) DO UPDATE SET
       request_count = request_count + 1,
       cost = cost + ?
   `
-  ).run(tokenId, minuteWindow, params.cost || 0, params.cost || 0);
+    )
+    .run(tokenId, minuteWindow, params.cost || 0, params.cost || 0);
 
   // Update last_used_at
-  db.prepare("UPDATE relay_tokens SET last_used_at = ? WHERE id = ?").run(now, tokenId);
+  await db.prepare("UPDATE relay_tokens SET last_used_at = ? WHERE id = ?").run(now, tokenId);
 
   // Insert log
-  db.prepare(
-    `
+  await db
+    .prepare(
+      `
     INSERT INTO relay_logs (token_id, request_id, model, prompt_tokens, completion_tokens, cost,
       status, status_code, latency_ms, client_ip, user_agent, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
-  ).run(
-    tokenId,
-    params.requestId || null,
-    params.model || null,
-    params.promptTokens || 0,
-    params.completionTokens || 0,
-    params.cost || 0,
-    params.status || "success",
-    params.statusCode || 200,
-    params.latencyMs || 0,
-    params.clientIp || null,
-    params.userAgent || null,
-    now
-  );
+    )
+    .run(
+      tokenId,
+      params.requestId || null,
+      params.model || null,
+      params.promptTokens || 0,
+      params.completionTokens || 0,
+      params.cost || 0,
+      params.status || "success",
+      params.statusCode || 200,
+      params.latencyMs || 0,
+      params.clientIp || null,
+      params.userAgent || null,
+      now
+    );
 }
 
-export function getRelayUsage(
+export async function getRelayUsage(
   tokenId: string,
   since: number
-): { requestCount: number; totalCost: number } {
+): Promise<{ requestCount: number; totalCost: number }> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       "SELECT COUNT(*) as request_count, COALESCE(SUM(cost), 0) as total_cost FROM relay_logs WHERE token_id = ? AND created_at >= ?"
     )
-    .get(tokenId, since) as { request_count: number; total_cost: number };
+    .get(tokenId, since)) as { request_count: number; total_cost: number };
   return { requestCount: row.request_count, totalCost: row.total_cost };
 }
 
-export function getRelayLogs(tokenId?: string, limit = 50): RelayLogRow[] {
+export async function getRelayLogs(tokenId?: string, limit = 50): Promise<RelayLogRow[]> {
   const db = getDbInstance();
   if (tokenId) {
-    return db
+    return (await db
       .prepare("SELECT * FROM relay_logs WHERE token_id = ? ORDER BY created_at DESC LIMIT ?")
-      .all(tokenId, limit) as RelayLogRow[];
+      .all(tokenId, limit)) as RelayLogRow[];
   }
-  return db
+  return (await db
     .prepare("SELECT * FROM relay_logs ORDER BY created_at DESC LIMIT ?")
-    .all(limit) as RelayLogRow[];
+    .all(limit)) as RelayLogRow[];
 }

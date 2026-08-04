@@ -4,7 +4,7 @@
 
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance, rowToCamel } from "./core";
+import { getAsyncDb, rowToCamel } from "./core";
 import { backupDbFile } from "./backup";
 import { registerDbStateResetter } from "./stateReset";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
@@ -144,14 +144,14 @@ interface ApiKeyRow extends JsonRecord {
 }
 
 interface StatementLike<TRow = unknown> {
-  all: (...params: unknown[]) => TRow[];
-  get: (...params: unknown[]) => TRow | undefined;
-  run: (...params: unknown[]) => { changes?: number };
+  all: (...params: unknown[]) => Promise<TRow[]>;
+  get: (...params: unknown[]) => Promise<TRow | undefined>;
+  run: (...params: unknown[]) => Promise<{ changes?: number }>;
 }
 
 interface ApiKeysDbLike {
   prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
-  exec: (sql: string) => void;
+  exec: (sql: string) => void | Promise<void>;
 }
 
 interface ApiKeysStatements {
@@ -259,19 +259,19 @@ async function deleteRedisAuthCacheEntries(...keyHashes: unknown[]): Promise<voi
 async function deleteRedisAuthCacheForKeyId(db: ApiKeysDbLike, id: string): Promise<void> {
   if (!isRedisAuthCacheEnabled()) return;
 
-  const row = db
+  const row = await db
     .prepare<{ key_hash: string | null }>("SELECT key_hash FROM api_keys WHERE id = ?")
     .get(id);
   await deleteRedisAuthCacheEntry(row?.key_hash);
 }
 
-function markApiKeyUsed(db: ApiKeysDbLike, id: unknown, now: number): void {
+async function markApiKeyUsed(db: ApiKeysDbLike, id: unknown, now: number): Promise<void> {
   if (typeof id !== "string" || id.trim() === "") return;
 
   const lastUpdate = _lastUsedUpdateCache.get(id);
   if (lastUpdate && now - lastUpdate < LAST_USED_UPDATE_TTL) return;
 
-  db.prepare("UPDATE api_keys SET last_used_at = @lastUsedAt WHERE id = @id").run({
+  await db.prepare("UPDATE api_keys SET last_used_at = @lastUsedAt WHERE id = @id").run({
     id,
     lastUsedAt: new Date(now).toISOString(),
   });
@@ -370,11 +370,11 @@ function ensureApiKeyColumn(
 }
 
 // Ensure api_keys extension columns exist (memoized)
-function ensureApiKeysColumns(db: ApiKeysDbLike) {
+async function ensureApiKeysColumns(db: ApiKeysDbLike): Promise<void> {
   if (_schemaChecked) return;
 
   try {
-    const columns = db.prepare<ApiKeyRow>("PRAGMA table_info(api_keys)").all();
+    const columns = await db.prepare<ApiKeyRow>("PRAGMA table_info(api_keys)").all();
     const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
     for (const column of API_KEY_COLUMN_FALLBACKS) {
       ensureApiKeyColumn(db, columnNames, column);
@@ -440,14 +440,14 @@ function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
 }
 
 export async function getApiKeys(limit?: number, offset?: number) {
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   let rows: ApiKeyRow[];
   if (limit !== undefined) {
     const sql = "SELECT * FROM api_keys ORDER BY created_at LIMIT ? OFFSET ?";
-    rows = db.prepare(sql).all(limit, offset ?? 0) as ApiKeyRow[];
+    rows = (await db.prepare(sql).all(limit, offset ?? 0)) as ApiKeyRow[];
   } else {
     const stmt = getPreparedStatements(db);
-    rows = stmt.getAllKeys.all();
+    rows = await stmt.getAllKeys.all();
   }
   return rows.map((row) => {
     const camelRow = toRecord(rowToCamel(row)) as ApiKeyView;
@@ -478,9 +478,9 @@ export async function getApiKeys(limit?: number, offset?: number) {
   });
 }
 
-export function getApiKeysCount(): number {
-  const db = getDbInstance() as ApiKeysDbLike;
-  const row = db.prepare("SELECT count(*) as cnt FROM api_keys").get() as { cnt: number };
+export async function getApiKeysCount(): Promise<number> {
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
+  const row = (await db.prepare("SELECT count(*) as cnt FROM api_keys").get()) as { cnt: number };
   return row.cnt;
 }
 
@@ -556,9 +556,9 @@ export async function pickApiKeyForInternalUse(
 }
 
 export async function getApiKeyById(id: string) {
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.getKeyById.get(id);
+  const row = await stmt.getKeyById.get(id);
   if (!row) return null;
   const camelRow = toRecord(rowToCamel(row)) as ApiKeyView;
   camelRow.allowedModels = parseAllowedModels(camelRow.allowedModels);
@@ -602,7 +602,7 @@ export async function createApiKey(name: string, machineId: string, scopes: stri
     throw new Error("machineId is required");
   }
 
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   const now = new Date().toISOString();
 
   const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
@@ -642,9 +642,9 @@ export async function createApiKey(name: string, machineId: string, scopes: stri
 }
 
 export async function regenerateApiKey(id: string) {
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.getKeyById.get(id) as ApiKeyRow | undefined;
+  const row = (await stmt.getKeyById.get(id)) as ApiKeyRow | undefined;
   if (!row) return null;
 
   const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
@@ -709,7 +709,7 @@ export async function updateApiKeyPermissions(
         chaosModeEnabled?: boolean;
       }
 ) {
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   getPreparedStatements(db);
 
   const normalized =
@@ -972,30 +972,32 @@ export async function updateApiKeyPermissions(
     // driver backends (better-sqlite3 / node:sqlite / sql.js) wired by the
     // v3.8.1 db driver cascade — none of them expose `db.transaction()` via
     // ApiKeysDbLike, which is intentionally minimal.
-    db.exec("BEGIN IMMEDIATE");
+    await db.exec("BEGIN IMMEDIATE");
     try {
-      const prevRow = db
+      const prevRow = await db
         .prepare<{ scopes: string | null }>("SELECT scopes FROM api_keys WHERE id = ?")
         .get(id);
       previousScopes = parseStringList(prevRow?.scopes ?? null);
-      const upd = db
+      const upd = await db
         .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)
         .run(params);
       changedRows = upd.changes ?? 0;
-      db.exec("COMMIT");
+      await db.exec("COMMIT");
     } catch (err) {
       // Guard the ROLLBACK: if it throws (e.g. transaction already ended
       // due to an implicit commit, or backend in a bad state), the original
       // error from the try block is the actionable one — don't shadow it.
       try {
-        db.exec("ROLLBACK");
+        await db.exec("ROLLBACK");
       } catch {
         // swallow: original error is more important
       }
       throw err;
     }
   } else {
-    const upd = db.prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`).run(params);
+    const upd = await db
+      .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)
+      .run(params);
     changedRows = upd.changes ?? 0;
   }
 
@@ -1063,15 +1065,15 @@ export async function updateApiKeyPermissions(
 }
 
 export async function deleteApiKey(id: string) {
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.getKeyById.get(id) as ApiKeyRow | undefined;
-  const result = stmt.deleteKey.run(id);
+  const row = (await stmt.getKeyById.get(id)) as ApiKeyRow | undefined;
+  const result = await stmt.deleteKey.run(id);
 
   if (result.changes === 0) return false;
 
-  db.prepare("DELETE FROM domain_budgets WHERE api_key_id = ?").run(id);
-  db.prepare("DELETE FROM domain_cost_history WHERE api_key_id = ?").run(id);
+  await db.prepare("DELETE FROM domain_budgets WHERE api_key_id = ?").run(id);
+  await db.prepare("DELETE FROM domain_cost_history WHERE api_key_id = ?").run(id);
   setNoLog(id, false);
 
   // Invalidate caches since a key was removed
@@ -1089,10 +1091,10 @@ export async function deleteApiKey(id: string) {
  * (or sooner because invalidateCaches() runs here).
  */
 export async function revokeApiKey(id: string): Promise<boolean> {
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   getPreparedStatements(db);
 
-  const result = db
+  const result = await db
     .prepare(
       "UPDATE api_keys SET revoked_at = COALESCE(revoked_at, @ts), is_active = 0 WHERE id = @id"
     )
@@ -1110,10 +1112,10 @@ export async function revokeApiKey(id: string): Promise<boolean> {
  * Set or clear the expiry of an API key. Pass null to remove the expiry.
  */
 export async function setApiKeyExpiry(id: string, expiresAt: string | null): Promise<boolean> {
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   getPreparedStatements(db);
 
-  const result = db
+  const result = await db
     .prepare("UPDATE api_keys SET expires_at = @expiresAt WHERE id = @id")
     .run({ id, expiresAt });
 
@@ -1182,9 +1184,9 @@ export async function validateApiKey(key: string | null | undefined) {
     }
   }
 
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.validateKey.get(key, hashedKey) as JsonRecord | undefined;
+  const row = (await stmt.validateKey.get(key, hashedKey)) as JsonRecord | undefined;
 
   if (!row) return false;
 
@@ -1231,7 +1233,7 @@ export async function validateApiKey(key: string | null | undefined) {
     }
   }
 
-  markApiKeyUsed(db, row.id, now);
+  await markApiKeyUsed(db, row.id, now);
 
   return true;
 }
@@ -1313,7 +1315,7 @@ export async function getApiKeyMetadata(
     return cached.value;
   }
 
-  const db = getDbInstance() as ApiKeysDbLike;
+  const db = (await getAsyncDb()) as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
   const row = stmt.getKeyMetadata.get(key, hashedKey);
 

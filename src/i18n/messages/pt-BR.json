@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Uma nova versão está disponível. Clique para atualizar.",
     "updateStarted": "Atualização iniciada...",
     "reloadingPageAutomatically": "Recarregando a página automaticamente...",
-    "providerTopology": "Topologia do provedor"
+    "providerTopology": "Topologia do provedor",
+    "step2Media": "Configure os recursos de mídia (imagem/OCR/embedding) na página de <mediaProviders>provedores de mídia</mediaProviders>."
   },
   "analytics": {
     "title": "Análises",
@@ -4735,7 +4736,8 @@
       "configure": "Configurar provedores"
     },
     "tierFlowDiagramAlt": "Diagrama de fallback de 3 camadas do OmniRoute",
-    "apiKeyMgmt": "Ger. de Chaves API"
+    "apiKeyMgmt": "Ger. de Chaves API",
+    "loading": "Carregando..."
   },
   "providers": {
     "title": "Provedores",
@@ -9010,7 +9012,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Navegar para a página inicial",
     "toggleMenu": "Alternar menu",
     "featuresLink": "Recursos",

@@ -156,15 +156,19 @@ class SkillExecutor {
     };
   }
 
-  listExecutions(apiKeyId?: string, limit: number = 50, offset: number = 0): SkillExecution[] {
+  async listExecutions(
+    apiKeyId?: string,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<SkillExecution[]> {
     const db = getDbInstance();
     const rows = apiKeyId
-      ? db
+      ? await db
           .prepare(
             "SELECT * FROM skill_executions WHERE api_key_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
           )
           .all(apiKeyId, limit, offset)
-      : db
+      : await db
           .prepare("SELECT * FROM skill_executions ORDER BY created_at DESC LIMIT ? OFFSET ?")
           .all(limit, offset);
 

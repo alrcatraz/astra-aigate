@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "En ny versjon er tilgjengelig. Klikk for å oppdatere.",
     "updateStarted": "Oppdatering startet...",
     "reloadingPageAutomatically": "Laster siden automatisk på nytt...",
-    "providerTopology": "Leverandørtopologi"
+    "providerTopology": "Leverandørtopologi",
+    "step2Media": "Konfigurer mediemuligheter (bilde/OCR/embedding) på siden <mediaProviders>medieleverandører</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Konfigurer leverandører"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-lags reservediagram",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Laster inn..."
   },
   "providers": {
     "title": "Leverandører",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Naviger til hjem",
     "toggleMenu": "Bytt meny",
     "featuresLink": "Funksjoner",

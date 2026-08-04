@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Este disponibilă o nouă versiune. Faceți clic pentru a actualiza.",
     "updateStarted": "Actualizarea a început...",
     "reloadingPageAutomatically": "Se reîncarcă pagina automat...",
-    "providerTopology": "Topologia furnizorului"
+    "providerTopology": "Topologia furnizorului",
+    "step2Media": "Configurați capacitățile media (imagine/OCR/încorporare) în pagina <mediaProviders>furnizori de media</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Configurați furnizorii"
     },
     "tierFlowDiagramAlt": "Diagrama de rezervă pe 3 niveluri OmniRoute",
-    "apiKeyMgmt": "Gestiunea cheii API"
+    "apiKeyMgmt": "Gestiunea cheii API",
+    "loading": "Se încarcă..."
   },
   "providers": {
     "title": "Furnizorii",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Navigați la acasă",
     "toggleMenu": "Comutați meniul",
     "featuresLink": "Caracteristici",

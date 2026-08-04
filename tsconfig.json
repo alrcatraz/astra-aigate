@@ -19,7 +19,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "@astra-aigate/open-sse": ["./open-sse"],
-      "@astra-aigate/open-sse/*": ["./open-sse/*"]
+      "@astra-aigate/open-sse/*": ["./open-sse/*"],
+      "@omniroute/open-sse": ["./open-sse/index.ts"],
+      "@omniroute/open-sse/*": ["./open-sse/*"]
     },
     "plugins": [
       {

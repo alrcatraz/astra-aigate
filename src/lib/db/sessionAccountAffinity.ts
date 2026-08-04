@@ -161,28 +161,30 @@ export function evictSessionAccountAffinityForConnection(
   return true;
 }
 
-export function cleanupStaleSessionAccountAffinities(
+export async function cleanupStaleSessionAccountAffinities(
   _ttlMs: number = 30 * 60 * 1000,
   now: number = Date.now()
-): number {
+): Promise<number> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
-    .all(NAMESPACE) as Array<{ key?: unknown; value?: unknown }>;
+    .all(NAMESPACE)) as Array<{ key?: unknown; value?: unknown }>;
   let deleted = 0;
 
-  const tx = db.transaction(() => {
+  const tx = db.transaction(async () => {
     for (const row of rows) {
       if (typeof row.key !== "string") continue;
       const record = parseRecord(row.value);
       if (!record || Date.parse(record.expiresAt) <= now) {
-        db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, row.key);
+        await db
+          .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
+          .run(NAMESPACE, row.key);
         deleted++;
       }
     }
   });
 
-  tx();
+  await tx();
   return deleted;
 }
 

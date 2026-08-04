@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Uusi versio on saatavilla. Päivitä napsauttamalla.",
     "updateStarted": "Päivitys aloitettu...",
     "reloadingPageAutomatically": "Ladataan sivua automaattisesti uudelleen...",
-    "providerTopology": "Palveluntarjoajan topologia"
+    "providerTopology": "Palveluntarjoajan topologia",
+    "step2Media": "Määritä mediaominaisuudet (kuva/OCR/upotus) <mediaProviders>mediatoimittajat</mediaProviders> -sivulla."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Määritä palveluntarjoajat"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-tasoinen varakaavio",
-    "apiKeyMgmt": "API-avainhallinta"
+    "apiKeyMgmt": "API-avainhallinta",
+    "loading": "Ladataan..."
   },
   "providers": {
     "title": "Palveluntarjoajat",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Navigoi kotiin",
     "toggleMenu": "Vaihda valikkoa",
     "featuresLink": "Ominaisuudet",

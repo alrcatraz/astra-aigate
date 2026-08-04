@@ -200,8 +200,8 @@ src/
 | `skills/`                                | Skills framework (built-in + marketplace + SkillsSH) — see `docs/frameworks/SKILLS.md`                                                                                                                                                                                                                                  |
 | `playground/`                            | Playground Studio shared helpers: `codeExport.ts` (curl/Python/TS generator), `promptImprover.ts` (meta-prompt builder), `streamMetrics.ts` (pure TTFT/TPS), `types.ts` (pricing table) — see `docs/frameworks/PLAYGROUND_STUDIO.md`                                                                                    |
 | `webhookDispatcher.ts`                   | HMAC webhook delivery — see `docs/frameworks/WEBHOOKS.md`                                                                                                                                                                                                                                                               |
-| `cloudflaredTunnel.ts`, `ngrokTunnel.ts` | Tunnel managers — see `docs/ops/TUNNELS_GUIDE.md`                                                                                                                                                                                                                                                                       |
-| `oneproxySync.ts`, `oneproxyRotator.ts`  | 1proxy free proxy marketplace — see `docs/ops/PROXY_GUIDE.md`                                                                                                                                                                                                                                                           |
+| `cloudflaredTunnel.ts`, `ngrokTunnel.ts` | Tunnel managers (cloudflared/ngrok)                                                                                                                                                                                                                                                                                     |
+| `oneproxySync.ts`, `oneproxyRotator.ts`  | 1proxy free proxy marketplace                                                                                                                                                                                                                                                                                           |
 | `cloudSync.ts`, `initCloudSync.ts`       | Optional cloud sync of state                                                                                                                                                                                                                                                                                            |
 | `localDb.ts`                             | Re-export barrel for db modules (no logic — re-exports only)                                                                                                                                                                                                                                                            |
 | `cacheLayer.ts`, `idempotencyLayer.ts`   | Request caching + idempotency                                                                                                                                                                                                                                                                                           |
@@ -358,28 +358,21 @@ open-sse/
 
 ---
 
-## `docs/` — Public Documentation (44 files + 4 subdirs)
+## `docs/` — Public Documentation (91 files + 12 subdirs)
 
 ### Top-level guides
 
-| Doc                         | Purpose                                                                               |
-| --------------------------- | ------------------------------------------------------------------------------------- |
-| `ARCHITECTURE.md`           | High-level architecture, subsystem map, dashboard surface                             |
-| `CODEBASE_DOCUMENTATION.md` | Engineering reference: directories, modules, conventions                              |
-| `FEATURES.md`               | Feature matrix with v3.8 highlights                                                   |
-| `USER_GUIDE.md`             | End-user manual (setup, models, combos, CLIs, audio, etc.)                            |
-| `API_REFERENCE.md`          | API endpoint reference with auth model                                                |
-| `openapi.yaml`              | OpenAPI 3.0 spec (121 paths)                                                          |
-| `SETUP_GUIDE.md`            | Install methods (npm, npx, Docker, Termux, source)                                    |
-| `ENVIRONMENT.md`            | All env vars (~219 used in code, ~810 lines `.env.example`)                           |
-| `TROUBLESHOOTING.md`        | Common errors + v3.8.0 known issues                                                   |
-| `RELEASE_CHECKLIST.md`      | Full release flow (skills, husky, conventional commits, deploy)                       |
-| `COVERAGE_PLAN.md`          | Coverage goals and current state                                                      |
-| `FREE_TIERS.md`             | Curated free-tier providers (48+ free + 11 OAuth)                                     |
-| `CLI-TOOLS.md`              | External CLI integrations + Internal OmniRoute CLI                                    |
-| `I18N.md`                   | i18n architecture, adding a language, 30 locales                                      |
-| `UNINSTALL.md`              | Clean uninstall steps                                                                 |
-| `PROVIDER_REFERENCE.md`     | **Auto-generated** catalog of 236 providers (regen: `npm run gen:provider-reference`) |
+| Doc                         | Purpose                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `ARCHITECTURE.md`           | High-level architecture, subsystem map, dashboard surface                         |
+| `CODEBASE_DOCUMENTATION.md` | Engineering reference: directories, modules, conventions                          |
+| `API_REFERENCE.md`          | API endpoint reference with auth model                                            |
+| `openapi.yaml`              | OpenAPI 3.0 spec (121 paths)                                                      |
+| `ENVIRONMENT.md`            | All env vars (~219 used in code, ~810 lines `.env.example`)                       |
+| `FREE_TIERS.md`             | Curated free-tier providers (48+ free + 11 OAuth)                                 |
+| `CLI-TOOLS.md`              | External CLI integrations + Internal OmniRoute CLI                                |
+| `I18N.md`                   | i18n architecture, adding a language, 43 locales                                  |
+| `PROVIDER_REFERENCE.md`     | **Auto-generated** catalog of providers (regen: `npm run gen:provider-reference`) |
 
 ### Subsystem deep-dives
 
@@ -411,25 +404,16 @@ open-sse/
 | `COMPRESSION_LANGUAGE_PACKS.md` | Per-language rule pack inventory         |
 | `RTK_COMPRESSION.md`            | RTK declarative pipeline (49 filters)    |
 
-### Deployment
-
-| Doc                          | Purpose                                                           |
-| ---------------------------- | ----------------------------------------------------------------- |
-| `DOCKER_GUIDE.md`            | Docker build, profiles (base/cli/host/cliproxyapi), Redis sidecar |
-| `VM_DEPLOYMENT_GUIDE.md`     | Generic VM/VPS deployment (Ubuntu/Debian + nginx + systemd)       |
-| `FLY_IO_DEPLOYMENT_GUIDE.md` | Fly.io deployment (currently Chinese-only)                        |
-| `TERMUX_GUIDE.md`            | Android headless via Termux                                       |
-| `PWA_GUIDE.md`               | Progressive Web App install + service worker                      |
-| `TUNNELS_GUIDE.md`           | Cloudflared + ngrok + Tailscale Funnel                            |
-| `PROXY_GUIDE.md`             | 4-level outbound proxy + 1proxy marketplace                       |
-
 ### Subdirectories
 
-| Subdir                | Purpose                                                                                                                                                                                        |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/archive/`       | Archived/historical docs (e.g., `RFC-AUTO-ASSESSMENT-DRAFT.md` — superseded by EVALS)                                                                                                          |
-| `docs/screenshots/`   | Image assets for guides                                                                                                                                                                        |
-| `_tasks/superpowers/` | Plans/specs from superpowers (`writing-plans`/`brainstorming`) + research — isolated, separately-versioned repo, gitignored by the main tree. See CLAUDE.md → "Planning & Research Artifacts". |
+| Subdir               | Purpose                                         |
+| -------------------- | ----------------------------------------------- |
+| `docs/architecture/` | Architecture, authz, resilience, repository map |
+| `docs/compression/`  | Compression engine docs (Caveman/RTK)           |
+| `docs/frameworks/`   | Framework deep-dives (MCP, A2A, skills, memory) |
+| `docs/routing/`      | Routing docs (auto-combo, reasoning replay)     |
+| `docs/security/`     | Security docs (guardrails, compliance, stealth) |
+| `docs/screenshots/`  | Image assets for guides                         |
 
 ---
 
@@ -551,11 +535,9 @@ Not included in `npm pack` output. See `.npmignore`.
 
 ## Navigation tips
 
-- **New contributor?** Read `CONTRIBUTING.md` → `CLAUDE.md` → `docs/architecture/ARCHITECTURE.md` → `docs/architecture/CODEBASE_DOCUMENTATION.md`.
+- **New contributor?** Read `CONTRIBUTING.md` → `AGENTS.md` → `docs/architecture/ARCHITECTURE.md` → `docs/architecture/CODEBASE_DOCUMENTATION.md`.
 - **Adding a provider?** Follow `docs/architecture/ARCHITECTURE.md § Adding a New Provider` + cross-check `docs/reference/PROVIDER_REFERENCE.md`.
 - **Adding a route?** `docs/architecture/ARCHITECTURE.md § Adding a New API Route` + `src/shared/validation/schemas.ts`.
 - **Adding an MCP tool?** `docs/frameworks/MCP-SERVER.md § Adding a Tool`.
 - **Adding an A2A skill?** `docs/frameworks/A2A-SERVER.md § Adding a New Skill`.
-- **Running locally?** `docs/guides/SETUP_GUIDE.md`.
-- **Deploying?** `docs/guides/DOCKER_GUIDE.md` / `docs/ops/VM_DEPLOYMENT_GUIDE.md` / `docs/ops/FLY_IO_DEPLOYMENT_GUIDE.md`.
-- **Releasing?** `docs/ops/RELEASE_CHECKLIST.md` (and `/generate-release-cc` Claude Code skill).
+- **Running locally?** `README.md`.

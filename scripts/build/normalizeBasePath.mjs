@@ -1,5 +1,5 @@
 /**
- * Normalize OMNIROUTE_BASE_PATH for Next.js `basePath` and Docker sentinels.
+ * Normalize AIGATE_BASE_PATH for Next.js `basePath` and Docker sentinels.
  *
  * Rules mirror src/shared/services/modelSyncScheduler.ts::normalizeInternalBasePath
  * so runtime self-fetches and the compiled bundle agree on the subpath shape.

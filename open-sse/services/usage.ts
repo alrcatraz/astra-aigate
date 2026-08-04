@@ -67,6 +67,10 @@ import { getXiaomiMimoUsage } from "./usage/xiaomi-mimo.ts";
 import { getXaiUsage } from "./usage/xai.ts";
 import { getXaiOauthUsage } from "./usage/xaiOauth.ts";
 import { getFirecrawlUsage } from "./usage/firecrawl.ts";
+import { getDmxapiUsage } from "./usage/dmxapi.ts";
+import { getSiliconflowUsage } from "./usage/siliconflow.ts";
+import { getZhipuUsage } from "./usage/zhipu.ts";
+import { getMistralUsage } from "./usage/mistral.ts";
 
 type JsonRecord = Record<string, unknown>;
 type UsageProviderConnection = JsonRecord & {
@@ -225,6 +229,19 @@ export async function getUsageForProvider(
       return await getHyperAgentUsage(apiKey || accessToken, providerSpecificData);
     case "firecrawl":
       return await getFirecrawlUsage(id || "", apiKey);
+    case "dmxapi-cn":
+    case "dmxapi-com":
+    case "dmxapi-ssvip":
+      return await getDmxapiUsage(provider, accessToken, providerSpecificData);
+    case "siliconflow":
+    case "siliconflow-cn":
+      // API-key auth: the key lives in connection.apiKey (accessToken is
+      // oauth-only) — mirror the promptql/hyperagent fallback pattern.
+      return await getSiliconflowUsage(provider, apiKey || accessToken);
+    case "zhipu":
+      return await getZhipuUsage(accessToken, providerSpecificData);
+    case "mistral":
+      return await getMistralUsage(accessToken, providerSpecificData);
     default:
       return { message: `Usage API not implemented for ${provider}` };
   }
@@ -258,6 +275,10 @@ export const __testing = {
   getVertexUsage,
   getMiniMaxAuthErrorMessage,
   getMiniMaxErrorSummary,
+  getDmxapiUsage,
+  getSiliconflowUsage,
+  getZhipuUsage,
+  getMistralUsage,
   mapCodeAssistSubscriptionToPlanLabel,
   mapCodeAssistTierIdToLabel,
   mapSubscriptionTierStringToPlanLabel,

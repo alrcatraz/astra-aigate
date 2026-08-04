@@ -243,7 +243,6 @@ Common changes and where to make them:
 
 ## See Also
 
-- [USER_GUIDE.md](../guides/USER_GUIDE.md) — overall product walkthrough
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — request pipeline reference
 - [AUTO-COMBO.md](../routing/AUTO-COMBO.md) — Auto Combo scoring engine (live runtime)
 - Source: `src/lib/evals/`, `src/lib/db/evals.ts`, `src/app/api/evals/`

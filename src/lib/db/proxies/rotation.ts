@@ -24,25 +24,26 @@ export function normalizeRotationScopeId(scope: ProxyScope, scopeId?: string | n
   return normalizeAssignmentScopeId(scope, scopeId) ?? "";
 }
 
-export function clearRotationState(
+export async function clearRotationState(
   db: ReturnType<typeof getDbInstance>,
   scope: string,
   normalizedScopeId: string | null
 ) {
-  db.prepare("DELETE FROM proxy_scope_rotation WHERE scope = ? AND scope_id IS ?").run(
-    scope,
-    normalizedScopeId ?? ""
-  );
+  await db
+    .prepare("DELETE FROM proxy_scope_rotation WHERE scope = ? AND scope_id IS ?")
+    .run(scope, normalizedScopeId ?? "");
 }
 
-export function resetRotationCursor(
+export async function resetRotationCursor(
   db: ReturnType<typeof getDbInstance>,
   scope: string,
   normalizedScopeId: string | null
 ) {
-  db.prepare(
-    "UPDATE proxy_scope_rotation SET cursor = 0, rotated_at = NULL, updated_at = ? WHERE scope = ? AND scope_id IS ?"
-  ).run(new Date().toISOString(), scope, normalizedScopeId ?? "");
+  await db
+    .prepare(
+      "UPDATE proxy_scope_rotation SET cursor = 0, rotated_at = NULL, updated_at = ? WHERE scope = ? AND scope_id IS ?"
+    )
+    .run(new Date().toISOString(), scope, normalizedScopeId ?? "");
 }
 
 export function normalizeRotationStrategy(strategy: unknown): ProxyRotationStrategy {
@@ -60,12 +61,13 @@ export async function getScopeProxyPool(scope: string, scopeId?: string | null) 
   const normalizedScope = normalizeScope(scope);
   const normalizedScopeId = normalizeAssignmentScopeId(normalizedScope, scopeId);
   const db = getDbInstance();
-  return db
-    .prepare(
-      "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? AND scope_id IS ? ORDER BY position ASC, datetime(created_at) ASC, id ASC"
-    )
-    .all(normalizedScope, normalizedScopeId)
-    .map(mapAssignmentRow);
+  return (
+    await db
+      .prepare(
+        "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? AND scope_id IS ? ORDER BY position ASC, datetime(created_at) ASC, id ASC"
+      )
+      .all(normalizedScope, normalizedScopeId)
+  ).map(mapAssignmentRow);
 }
 
 /** Read a scope's rotation strategy (#6365). Defaults to `round-robin`. */
@@ -76,30 +78,30 @@ export async function getScopeRotationStrategy(
   const normalizedScope = normalizeScope(scope);
   const rotationScopeId = normalizeRotationScopeId(normalizedScope, scopeId);
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare("SELECT strategy FROM proxy_scope_rotation WHERE scope = ? AND scope_id IS ?")
-    .get(normalizedScope, rotationScopeId) as { strategy?: string } | undefined;
+    .get(normalizedScope, rotationScopeId)) as { strategy?: string } | undefined;
   return normalizeRotationStrategy(row?.strategy);
 }
 
 // Read the rotation row for a scope, creating a default one lazily so the
 // round-robin cursor has somewhere to live. Best-effort: any write failure leaves
 // the caller on the default strategy with an ephemeral cursor.
-function getOrCreateRotationRow(
+async function getOrCreateRotationRow(
   db: ReturnType<typeof getDbInstance>,
   normalizedScope: string,
   rotationScopeId: string
-): {
+): Promise<{
   strategy: ProxyRotationStrategy;
   cursor: number;
   stickyWindowMinutes: number;
   rotatedAt: string | null;
-} {
-  const row = db
+}> {
+  const row = (await db
     .prepare(
       "SELECT strategy, cursor, sticky_window_minutes, rotated_at FROM proxy_scope_rotation WHERE scope = ? AND scope_id IS ?"
     )
-    .get(normalizedScope, rotationScopeId) as
+    .get(normalizedScope, rotationScopeId)) as
     | {
         strategy?: string;
         cursor?: number;
@@ -118,9 +120,11 @@ function getOrCreateRotationRow(
   }
 
   const now = new Date().toISOString();
-  db.prepare(
-    "INSERT OR IGNORE INTO proxy_scope_rotation (scope, scope_id, strategy, cursor, updated_at) VALUES (?, ?, ?, 0, ?)"
-  ).run(normalizedScope, rotationScopeId, DEFAULT_PROXY_ROTATION_STRATEGY, now);
+  await db
+    .prepare(
+      "INSERT OR IGNORE INTO proxy_scope_rotation (scope, scope_id, strategy, cursor, updated_at) VALUES (?, ?, ?, 0, ?)"
+    )
+    .run(normalizedScope, rotationScopeId, DEFAULT_PROXY_ROTATION_STRATEGY, now);
   return {
     strategy: DEFAULT_PROXY_ROTATION_STRATEGY,
     cursor: 0,
@@ -135,21 +139,17 @@ function getOrCreateRotationRow(
  * Round-robin uses (and persists) a monotonic cursor; random uses crypto.randomInt;
  * sticky holds the current member until its window elapses, then advances.
  */
-function pickFromCandidates<T>(
+async function pickFromCandidates<T>(
   db: ReturnType<typeof getDbInstance>,
   normalizedScope: string,
   rotationScopeId: string,
   candidates: T[]
-): T {
+): Promise<T> {
   if (candidates.length === 1) return candidates[0];
 
-  const state = getOrCreateRotationRow(db, normalizedScope, rotationScopeId);
+  const state = await getOrCreateRotationRow(db, normalizedScope, rotationScopeId);
 
   if (state.strategy === "random") {
-    // crypto.randomInt (unbiased, uniform in [0, length)) instead of Math.random —
-    // CodeQL js/insecure-randomness flags Math.random flowing into the selected proxy's
-    // credentials (a "security context"). Load-balancing selection is not a secret, but
-    // crypto.randomInt silences the alert at the source and is unbiased (#6365 follow-up).
     return candidates[randomInt(candidates.length)];
   }
 
@@ -162,15 +162,17 @@ function pickFromCandidates<T>(
     let cursor = state.cursor;
     if (expired) {
       cursor = state.cursor + 1;
-      db.prepare(
-        "UPDATE proxy_scope_rotation SET cursor = ?, rotated_at = ?, updated_at = ? WHERE scope = ? AND scope_id IS ?"
-      ).run(
-        cursor,
-        new Date().toISOString(),
-        new Date().toISOString(),
-        normalizedScope,
-        rotationScopeId
-      );
+      await db
+        .prepare(
+          "UPDATE proxy_scope_rotation SET cursor = ?, rotated_at = ?, updated_at = ? WHERE scope = ? AND scope_id IS ?"
+        )
+        .run(
+          cursor,
+          new Date().toISOString(),
+          new Date().toISOString(),
+          normalizedScope,
+          rotationScopeId
+        );
     }
     const idx = ((cursor % candidates.length) + candidates.length) % candidates.length;
     return candidates[idx];
@@ -178,34 +180,12 @@ function pickFromCandidates<T>(
 
   // round-robin (default): pick at the current cursor, then advance it monotonically.
   const idx = ((state.cursor % candidates.length) + candidates.length) % candidates.length;
-  db.prepare(
-    "UPDATE proxy_scope_rotation SET cursor = ?, updated_at = ? WHERE scope = ? AND scope_id IS ?"
-  ).run(state.cursor + 1, new Date().toISOString(), normalizedScope, rotationScopeId);
+  await db
+    .prepare(
+      "UPDATE proxy_scope_rotation SET cursor = ?, updated_at = ? WHERE scope = ? AND scope_id IS ?"
+    )
+    .run(state.cursor + 1, new Date().toISOString(), normalizedScope, rotationScopeId);
   return candidates[idx];
-}
-
-// Fetch the alive, position-ordered candidate rows for a (scope, scope_id) pool.
-// `scope_id` is matched with `IS` (NULL-safe); pass the query-level scope_id
-// (connection id / provider / '__global__' / combo id) — global callers pass null
-// to match the historical "any global row" behavior.
-function fetchAlivePoolRows(
-  db: ReturnType<typeof getDbInstance>,
-  scope: string,
-  scopeIdFilter: string | null,
-  matchAnyScopeId: boolean
-): JsonRecord[] {
-  const baseSelect =
-    "SELECT p.id, p.type, p.host, p.port, p.username, p.password, p.notes, p.family, a.position AS __pos, a.id AS __aid " +
-    "FROM proxy_assignments a JOIN proxy_registry p ON p.id = a.proxy_id WHERE a.scope = ? ";
-  const order = " ORDER BY a.position ASC, a.id ASC";
-  if (matchAnyScopeId) {
-    return db
-      .prepare(`${baseSelect}AND ${PROXY_ALIVE_PREDICATE}${order}`)
-      .all(scope) as JsonRecord[];
-  }
-  return db
-    .prepare(`${baseSelect}AND a.scope_id IS ? AND ${PROXY_ALIVE_PREDICATE}${order}`)
-    .all(scope, scopeIdFilter) as JsonRecord[];
 }
 
 // A proxy is "alive" for resolution unless it has been explicitly marked dead
@@ -216,24 +196,48 @@ function fetchAlivePoolRows(
 export const PROXY_ALIVE_PREDICATE =
   "(p.status IS NULL OR LOWER(p.status) NOT IN ('inactive','error','disabled','dead','down'))";
 
+// Fetch the alive, position-ordered candidate rows for a (scope, scope_id) pool.
+// `scope_id` is matched with `IS` (NULL-safe); pass the query-level scope_id
+// (connection id / provider / '__global__' / combo id) — global callers pass null
+// to match the historical "any global row" behavior.
+async function fetchAlivePoolRows(
+  db: ReturnType<typeof getDbInstance>,
+  scope: string,
+  scopeIdFilter: string | null,
+  matchAnyScopeId: boolean
+): Promise<JsonRecord[]> {
+  const baseSelect =
+    "SELECT p.id, p.type, p.host, p.port, p.username, p.password, p.notes, p.family, a.position AS __pos, a.id AS __aid " +
+    "FROM proxy_assignments a JOIN proxy_registry p ON p.id = a.proxy_id WHERE a.scope = ? ";
+  const order = " ORDER BY a.position ASC, a.id ASC";
+  if (matchAnyScopeId) {
+    return (await db
+      .prepare(`${baseSelect}AND ${PROXY_ALIVE_PREDICATE}${order}`)
+      .all(scope)) as JsonRecord[];
+  }
+  return (await db
+    .prepare(`${baseSelect}AND a.scope_id IS ? AND ${PROXY_ALIVE_PREDICATE}${order}`)
+    .all(scope, scopeIdFilter)) as JsonRecord[];
+}
+
 // Resolve one scope's alive pool to a single proxy via its rotation strategy.
 // Returns the standard registry resolution shape, or null when the pool is empty
 // or every member is dead (preserving the #6246 fail-closed contract — a dead
 // pool never falls through to direct egress; the caller's guard blocks it).
-function resolveScopePoolInternal(
+async function resolveScopePoolInternal(
   db: ReturnType<typeof getDbInstance>,
   scope: ProxyScope,
   levelId: string | null,
   options: { rotationScopeId: string; matchAnyScopeId?: boolean; scopeIdFilter?: string | null }
-): ReturnType<typeof toRegistryProxyResolution> | null {
-  const rows = fetchAlivePoolRows(
+): Promise<ReturnType<typeof toRegistryProxyResolution> | null> {
+  const rows = await fetchAlivePoolRows(
     db,
     scope,
     options.scopeIdFilter ?? null,
     options.matchAnyScopeId === true
   );
   if (rows.length === 0) return null;
-  const picked = pickFromCandidates(db, scope, options.rotationScopeId, rows);
+  const picked = await pickFromCandidates(db, scope, options.rotationScopeId, rows);
   return toRegistryProxyResolution(picked, scope, levelId);
 }
 
@@ -241,25 +245,25 @@ export async function resolveProxyForConnectionFromRegistry(connectionId: string
   try {
     const db = getDbInstance();
 
-    const account = resolveScopePoolInternal(db, "account", connectionId, {
+    const account = await resolveScopePoolInternal(db, "account", connectionId, {
       rotationScopeId: connectionId,
       scopeIdFilter: connectionId,
     });
     if (account) return account;
 
-    const connection = db
+    const connection = (await db
       .prepare("SELECT provider FROM provider_connections WHERE id = ?")
-      .get(connectionId) as { provider?: string } | undefined;
+      .get(connectionId)) as { provider?: string } | undefined;
 
     if (connection?.provider) {
-      const provider = resolveScopePoolInternal(db, "provider", connection.provider, {
+      const provider = await resolveScopePoolInternal(db, "provider", connection.provider, {
         rotationScopeId: connection.provider,
         scopeIdFilter: connection.provider,
       });
       if (provider) return provider;
     }
 
-    const global = resolveScopePoolInternal(db, "global", null, {
+    const global = await resolveScopePoolInternal(db, "global", null, {
       rotationScopeId: normalizeRotationScopeId("global", null),
       matchAnyScopeId: true,
     });

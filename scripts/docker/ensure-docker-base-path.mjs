@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Compares OMNIROUTE_BASE_PATH at container start against BUILD_OMNIROUTE_BASE_PATH
+ * Compares AIGATE_BASE_PATH at container start against BUILD_OMNIROUTE_BASE_PATH
  * recorded during the image build. When they differ and the image was built for the
  * domain root, rewrites the standalone bundle before Next.js starts.
  *
@@ -35,7 +35,7 @@ function writeBakedBasePath(appRoot, basePath) {
  */
 export function ensureDockerBasePath(opts = {}) {
   const appRoot = opts.appRoot || process.cwd();
-  const runtime = normalizeBasePath(opts.env?.OMNIROUTE_BASE_PATH ?? process.env.OMNIROUTE_BASE_PATH);
+  const runtime = normalizeBasePath(opts.env?.AIGATE_BASE_PATH ?? process.env.AIGATE_BASE_PATH);
   const baked = readBakedBasePath(appRoot);
 
   if (runtime === baked) {
@@ -44,8 +44,8 @@ export function ensureDockerBasePath(opts = {}) {
 
   if (!runtime && baked) {
     throw new Error(
-      `This OmniRoute image was built for subpath ${baked}, but OMNIROUTE_BASE_PATH is unset. ` +
-        `Set OMNIROUTE_BASE_PATH=${baked} or rebuild without the build-arg.`
+      `This OmniRoute image was built for subpath ${baked}, but AIGATE_BASE_PATH is unset. ` +
+        `Set AIGATE_BASE_PATH=${baked} or rebuild without the build-arg.`
     );
   }
 
@@ -73,7 +73,7 @@ function main() {
     console.error(`[ensure-docker-base-path] ${message}`);
     console.error(
       "[ensure-docker-base-path] Rebuild the image with the same subpath, e.g.\n" +
-        "  docker compose build --build-arg OMNIROUTE_BASE_PATH=/omniroute"
+        "  docker compose build --build-arg AIGATE_BASE_PATH=/omniroute"
     );
     process.exit(1);
   }

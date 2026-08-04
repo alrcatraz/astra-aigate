@@ -1,4 +1,4 @@
-import { createRequire } from "node:module";
+import { nativeRequire } from "@/lib/module-require";
 // Type-only import: erased at build time, so it never forces the `typescript`
 // package to be present at runtime. The value handle is resolved lazily below.
 import type * as TypeScriptApi from "typescript";
@@ -16,7 +16,7 @@ let loadTypeScriptModule: () => TypeScriptModule | null = defaultLoadTypeScriptM
 
 function defaultLoadTypeScriptModule(): TypeScriptModule | null {
   try {
-    const requireFromHere = createRequire(import.meta.url);
+    const requireFromHere = nativeRequire;
     return requireFromHere("typescript") as TypeScriptModule;
   } catch {
     return null;
@@ -54,14 +54,7 @@ export function __setTypeScriptModuleLoaderForTests(
 }
 
 export type CodeLanguage =
-  | "javascript"
-  | "typescript"
-  | "python"
-  | "rust"
-  | "go"
-  | "ruby"
-  | "java"
-  | "unknown";
+  "javascript" | "typescript" | "python" | "rust" | "go" | "ruby" | "java" | "unknown";
 
 export interface CodeStripperOptions {
   removeComments?: boolean;

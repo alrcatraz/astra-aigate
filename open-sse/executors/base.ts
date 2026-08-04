@@ -249,7 +249,10 @@ function collectThinkingConfigs(body: unknown): Array<Record<string, unknown>> {
   if (!body || typeof body !== "object") return [];
   const root = body as Record<string, unknown>;
   const configs: Array<Record<string, unknown>> = [];
-  const envelopes: unknown[] = [root.generationConfig, (root.request as Record<string, unknown> | undefined)?.generationConfig];
+  const envelopes: unknown[] = [
+    root.generationConfig,
+    (root.request as Record<string, unknown> | undefined)?.generationConfig,
+  ];
   for (const env of envelopes) {
     if (!env || typeof env !== "object") continue;
     const tc = (env as Record<string, unknown>).thinkingConfig;
@@ -1484,8 +1487,9 @@ export class BaseExecutor {
               (transformedBody as Record<string, unknown>)[autoLearned] !== undefined
             ) {
               try {
-                const config = getParamFilterConfig(this.provider);
-                const shouldAutoLearn = isAutoLearnGloballyEnabled() || config?.autoLearn === true;
+                const config = await getParamFilterConfig(this.provider);
+                const shouldAutoLearn =
+                  (await isAutoLearnGloballyEnabled()) || config?.autoLearn === true;
                 if (shouldAutoLearn) {
                   strippedFields.add(autoLearned);
                   addParamToBlocklist(this.provider, autoLearned, model);

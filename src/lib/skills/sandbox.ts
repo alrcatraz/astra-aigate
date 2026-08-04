@@ -1,4 +1,4 @@
-import { createRequire } from "module";
+import { nativeRequire } from "@/lib/module-require";
 import type { ChildProcess } from "child_process";
 import { randomUUID } from "crypto";
 import {
@@ -9,7 +9,7 @@ import {
   type SandboxRuntimeId,
 } from "./containerProvider.ts";
 
-const require = createRequire(import.meta.url);
+const require = nativeRequire;
 const childProcess = require("child_process") as typeof import("child_process");
 
 interface SandboxResult {

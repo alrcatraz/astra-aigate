@@ -10,16 +10,23 @@
  * `LIVE_WS_ALLOWED_HOSTS` opt-in for LAN/Tailscale deployments.
  */
 
+import { DEFAULT_OMNIROUTE_BASE_URL } from "@/shared/utils/resolveOmniRouteBaseUrl";
+
 const DEFAULT_HOST = "127.0.0.1";
+
+// Derived from the router default so the loopback origins never drift from
+// the actual listener port (127.0.0.1 / localhost / [::1] are distinct host
+// strings, so all three stay listed on purpose).
+const OMNIROUTE_DEFAULT_PORT = new URL(DEFAULT_OMNIROUTE_BASE_URL).port;
 
 /**
  * Default origins allowed to open a WebSocket against the local dashboard.
  * These match the loopback HTTP listener at port 20128.
  */
 export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = Object.freeze([
-  "http://127.0.0.1:20128",
-  "http://localhost:20128",
-  "http://[::1]:20128",
+  `http://${DEFAULT_HOST}:${OMNIROUTE_DEFAULT_PORT}`,
+  `http://localhost:${OMNIROUTE_DEFAULT_PORT}`,
+  `http://[::1]:${OMNIROUTE_DEFAULT_PORT}`,
 ]);
 
 /**

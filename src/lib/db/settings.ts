@@ -2,7 +2,8 @@
  * db/settings.js — Settings, pricing, and proxy config.
  */
 
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 import { backupDbFile } from "./backup";
 import { PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
 import { invalidateDbCache } from "./readCache";
@@ -102,10 +103,10 @@ export class SettingsRevisionConflictError extends Error {
   }
 }
 
-function readSettingsRevision(db: ReturnType<typeof getDbInstance>): number {
-  const row = db
+async function readSettingsRevision(db: DatabaseAdapter): Promise<number> {
+  const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'settings' AND key = ?")
-    .get(SETTINGS_REVISION_KEY) as { value?: string } | undefined;
+    .get(SETTINGS_REVISION_KEY)) as { value?: string } | undefined;
   if (!row?.value) return 0;
   try {
     const parsed = JSON.parse(row.value) as unknown;
@@ -116,7 +117,7 @@ function readSettingsRevision(db: ReturnType<typeof getDbInstance>): number {
 }
 
 export async function getSettingsRevision(): Promise<number> {
-  return readSettingsRevision(getDbInstance());
+  return readSettingsRevision(getAsyncDb());
 }
 
 /**
@@ -139,8 +140,10 @@ function applySessionAffinityLegacyFallback(settings: Record<string, unknown>): 
 }
 
 export async function getSettings() {
-  const db = getDbInstance();
-  const rows = db.prepare("SELECT key, value FROM key_value WHERE namespace = 'settings'").all();
+  const db = getAsyncDb();
+  const rows = await db
+    .prepare("SELECT key, value FROM key_value WHERE namespace = 'settings'")
+    .all();
   const settings: Record<string, unknown> = {
     cloudEnabled: true,
     tailscaleEnabled: false,
@@ -264,12 +267,16 @@ export async function getSettings() {
   if (!settings.setupComplete && process.env.INITIAL_PASSWORD) {
     settings.setupComplete = true;
     settings.requireLogin = true;
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'setupComplete', 'true')"
-    ).run();
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'requireLogin', 'true')"
-    ).run();
+    await db
+      .prepare(
+        "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'setupComplete', 'true')"
+      )
+      .run();
+    await db
+      .prepare(
+        "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'requireLogin', 'true')"
+      )
+      .run();
   }
 
   return settings;
@@ -290,25 +297,22 @@ export async function updateSettings(
     }
   }
 
-  const db = getDbInstance();
-  const insert = db.prepare(
+  const db = getAsyncDb();
+  const insert = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', ?, ?)"
   );
-  const tx = db.transaction(() => {
-    const currentRevision = readSettingsRevision(db);
-    if (
-      options?.expectedRevision !== undefined &&
-      options.expectedRevision !== currentRevision
-    ) {
+  const tx = await db.transaction(async () => {
+    const currentRevision = await readSettingsRevision(db);
+    if (options?.expectedRevision !== undefined && options.expectedRevision !== currentRevision) {
       throw new SettingsRevisionConflictError(currentRevision);
     }
     for (const [key, value] of Object.entries(updates)) {
       const toStore = key === "oidcClientSecret" ? encrypt(value as string) : value;
-      insert.run(key, JSON.stringify(toStore));
+      await insert.run(key, JSON.stringify(toStore));
     }
-    insert.run(SETTINGS_REVISION_KEY, JSON.stringify(currentRevision + 1));
+    await insert.run(SETTINGS_REVISION_KEY, JSON.stringify(currentRevision + 1));
   });
-  tx();
+  await tx();
   backupDbFile("pre-write");
   invalidateDbCache("settings"); // Bust the read cache immediately
 
@@ -403,8 +407,10 @@ function migrateProxyEntry(value: unknown): JsonRecord | null {
 }
 
 export async function getProxyConfig() {
-  const db = getDbInstance();
-  const rows = db.prepare("SELECT key, value FROM key_value WHERE namespace = 'proxyConfig'").all();
+  const db = getAsyncDb();
+  const rows = await db
+    .prepare("SELECT key, value FROM key_value WHERE namespace = 'proxyConfig'")
+    .all();
 
   const raw: ProxyConfig = { ...DEFAULT_PROXY_CONFIG };
   for (const row of rows) {
@@ -430,7 +436,7 @@ export async function getProxyConfig() {
   }
 
   if (migrated) {
-    const insert = db.prepare(
+    const insert = await db.prepare(
       "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('proxyConfig', ?, ?)"
     );
     if (raw.global !== undefined) insert.run("global", JSON.stringify(raw.global));
@@ -448,14 +454,16 @@ export async function getProxyForLevel(level: string, id?: string | null) {
 }
 
 export async function setProxyForLevel(level: string, id: string | null, proxy: ProxyValue) {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const config = await getProxyConfig();
 
   if (level === "global") {
     config.global = proxy || null;
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('proxyConfig', 'global', ?)"
-    ).run(JSON.stringify(config.global));
+    await db
+      .prepare(
+        "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('proxyConfig', 'global', ?)"
+      )
+      .run(JSON.stringify(config.global));
   } else {
     const mapKey = level + "s";
     const map = toProxyMap(config[mapKey] || {});
@@ -465,9 +473,11 @@ export async function setProxyForLevel(level: string, id: string | null, proxy: 
       if (id) delete map[id];
     }
     config[mapKey] = map;
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('proxyConfig', ?, ?)"
-    ).run(mapKey, JSON.stringify(map));
+    await db
+      .prepare(
+        "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('proxyConfig', ?, ?)"
+      )
+      .run(mapKey, JSON.stringify(map));
   }
 
   backupDbFile("pre-write");
@@ -500,15 +510,15 @@ export async function resolveProxyForConnection(
     return cached.result;
   }
 
-  const db = getDbInstance();
+  const db = getAsyncDb();
 
   // Step 1: Check global proxyEnabled setting
   // Read only the proxyEnabled key for performance instead of loading all settings.
   let globalProxyEnabled = true;
   try {
-    const proxyEnabledRow = db
+    const proxyEnabledRow = (await db
       .prepare("SELECT value FROM key_value WHERE namespace = 'settings' AND key = 'proxyEnabled'")
-      .get() as { value?: string } | undefined;
+      .get()) as { value?: string } | undefined;
     if (proxyEnabledRow?.value) {
       globalProxyEnabled = JSON.parse(proxyEnabledRow.value) !== false;
     }
@@ -528,7 +538,7 @@ export async function resolveProxyForConnection(
   let connectionProxyEnabled = true;
   let connectionPerKeyProxyEnabled = false;
 
-  const row = db
+  const row = await db
     .prepare(
       "SELECT provider, proxy_enabled, per_key_proxy_enabled FROM provider_connections WHERE id = ?"
     )
@@ -553,11 +563,11 @@ export async function resolveProxyForConnection(
   // Step 1.5: Check global perKeyProxyEnabled setting
   let globalPerKeyProxyEnabled = false;
   try {
-    const perKeyRow = db
+    const perKeyRow = (await db
       .prepare(
         "SELECT value FROM key_value WHERE namespace = 'settings' AND key = 'perKeyProxyEnabled'"
       )
-      .get() as { value?: string } | undefined;
+      .get()) as { value?: string } | undefined;
     if (perKeyRow?.value) {
       globalPerKeyProxyEnabled = JSON.parse(perKeyRow.value) !== false;
     }
@@ -576,14 +586,15 @@ export async function resolveProxyForConnection(
 
     if (perKeyEnabled) {
       try {
-        const apiKeyRow = db.prepare("SELECT proxy_id FROM api_keys WHERE id = ?").get(apiKeyId) as
-          { proxy_id?: string | null } | undefined;
+        const apiKeyRow = (await db
+          .prepare("SELECT proxy_id FROM api_keys WHERE id = ?")
+          .get(apiKeyId)) as { proxy_id?: string | null } | undefined;
         if (apiKeyRow?.proxy_id) {
-          const proxyRow = db
+          const proxyRow = (await db
             .prepare(
               "SELECT p.type, p.host, p.port, p.username, p.password, p.family FROM proxy_registry p WHERE p.id = ?"
             )
-            .get(apiKeyRow.proxy_id) as
+            .get(apiKeyRow.proxy_id)) as
             | {
                 type: string;
                 host: string;
@@ -657,7 +668,7 @@ export async function resolveProxyForConnection(
     // proxy assignment completely inert). Fall back to the legacy in-memory
     // combos map for any pre-existing legacy data.
     if (connectionProvider && connectionProxyEnabled) {
-      const combos = db.prepare("SELECT id, data FROM combos").all();
+      const combos = await db.prepare("SELECT id, data FROM combos").all();
       for (const comboRow of combos) {
         const comboRecord = toRecord(comboRow);
         const comboId = typeof comboRecord.id === "string" ? comboRecord.id : null;
@@ -768,13 +779,13 @@ export async function setProxyConfig(config: Record<string, unknown>) {
     return setProxyForLevel(level, id, proxy);
   }
 
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const current = await getProxyConfig();
-  const insert = db.prepare(
+  const insert = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('proxyConfig', ?, ?)"
   );
 
-  const tx = db.transaction(() => {
+  const tx = await db.transaction(() => {
     if (config.global !== undefined) {
       current.global = toProxyValue(config.global);
       insert.run("global", JSON.stringify(current.global));

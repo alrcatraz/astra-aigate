@@ -8,10 +8,11 @@
  * from package.json and skills based on available combos.
  */
 
+import { resolveOmniRouteBaseUrl } from "@/shared/utils/resolveOmniRouteBaseUrl";
 import { NextResponse } from "next/server";
 
 const PACKAGE_VERSION = process.env.npm_package_version || "1.8.1";
-const BASE_URL = process.env.OMNIROUTE_BASE_URL || "http://localhost:20128";
+const BASE_URL = resolveOmniRouteBaseUrl();
 
 /**
  * GET /.well-known/agent.json

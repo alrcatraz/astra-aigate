@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "새 버전을 사용할 수 있습니다. 클릭하여 업데이트하세요.",
     "updateStarted": "업데이트 시작됨...",
     "reloadingPageAutomatically": "페이지를 자동으로 새로고침하는 중...",
-    "providerTopology": "공급자 토폴로지"
+    "providerTopology": "공급자 토폴로지",
+    "step2Media": "미디어 기능(이미지/OCR/임베딩)은 <mediaProviders>미디어 제공자</mediaProviders> 페이지에서 구성합니다."
   },
   "analytics": {
     "title": "분석",
@@ -4713,7 +4714,8 @@
       "configure": "공급자 구성"
     },
     "tierFlowDiagramAlt": "OmniRoute 3계층 대체 다이어그램",
-    "apiKeyMgmt": "API 키 관리"
+    "apiKeyMgmt": "API 키 관리",
+    "loading": "로드 중..."
   },
   "providers": {
     "title": "공급자",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "홈으로 이동",
     "toggleMenu": "토글 메뉴",
     "featuresLink": "특징",

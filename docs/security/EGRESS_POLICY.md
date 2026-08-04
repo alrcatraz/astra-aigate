@@ -118,7 +118,7 @@ curl -X PATCH http://localhost:20128/api/v1/management/proxies \
 
 The same field is also accepted by the inline proxy config object used for upstream-proxy entries (`upstream_proxy_config.family`, see [Data Model](#data-model)).
 
-For the rest of the proxy CRUD/assignment API, see [PROXY_GUIDE.md](../ops/PROXY_GUIDE.md).
+For the rest of the proxy CRUD/assignment API, see [API_REFERENCE.md](../reference/API_REFERENCE.md).
 
 ---
 
@@ -195,7 +195,7 @@ export function buildSocksFamilySocketOptions(family: 4 | 6 | null): Record<stri
 - `family === null` (i.e. `auto` over a hostname) → stock `socksDispatcher` from `fetch-socks`.
 - `family === 4 | 6` → `createSocksDispatcherWithFamily`, which threads `socket_options` into `SocksClient.createConnection` so Happy Eyeballs cannot pick IPv4 for an IPv6-only egress policy.
 
-SOCKS5 support itself is on by default (opt-out via `ENABLE_SOCKS5_PROXY=false`); see [PROXY_GUIDE.md → Environment Variables](../ops/PROXY_GUIDE.md#environment-variables).
+SOCKS5 support itself is on by default (opt-out via `ENABLE_SOCKS5_PROXY=false`); see [ENVIRONMENT.md → Proxy Variables](../reference/ENVIRONMENT.md).
 
 ---
 
@@ -245,6 +245,7 @@ When a resolved proxy object carries a non-`auto` `family`, `proxyConfigToUrl` a
 
 > 📖 **Related documentation:**
 >
-> - [Proxy Guide](../ops/PROXY_GUIDE.md) — full proxy system: registry CRUD, 4-level resolution, rotation, health checking, API reference
+> - [API Reference](../reference/API_REFERENCE.md) — proxy CRUD/assignment endpoints, 4-level resolution, rotation, health checking
 > - [Stealth Guide](./STEALTH_GUIDE.md) — TLS fingerprint and CLI fingerprint layers that ride on top of the proxy
 > - [Route Guard Tiers](./ROUTE_GUARD_TIERS.md) — loopback enforcement for local-only routes
+> - [Outbound SSRF Guard](./SSRF_GUARD.md) — blocking provider-validation requests to private/metadata targets

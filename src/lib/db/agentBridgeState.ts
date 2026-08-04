@@ -27,19 +27,19 @@ function mapRow(row: AgentBridgeStateDbRow): AgentBridgeStateRow {
   };
 }
 
-export function getAllAgentBridgeStates(): AgentBridgeStateRow[] {
+export async function getAllAgentBridgeStates(): Promise<AgentBridgeStateRow[]> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT * FROM agent_bridge_state ORDER BY agent_id ASC")
-    .all() as AgentBridgeStateDbRow[];
+    .all()) as AgentBridgeStateDbRow[];
   return rows.map(mapRow);
 }
 
-export function getAgentBridgeState(agentId: string): AgentBridgeStateRow | null {
+export async function getAgentBridgeState(agentId: string): Promise<AgentBridgeStateRow | null> {
   const db = getDbInstance();
-  const row = db.prepare("SELECT * FROM agent_bridge_state WHERE agent_id = ?").get(agentId) as
-    | AgentBridgeStateDbRow
-    | undefined;
+  const row = (await db
+    .prepare("SELECT * FROM agent_bridge_state WHERE agent_id = ?")
+    .get(agentId)) as AgentBridgeStateDbRow | undefined;
   return row ? mapRow(row) : null;
 }
 

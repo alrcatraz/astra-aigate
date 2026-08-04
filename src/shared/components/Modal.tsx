@@ -159,32 +159,6 @@ export default function Modal({
             )}
           >
             <div className="flex items-center min-w-0">
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 mr-3 shrink-0",
-                  compactHeader ? "" : "gap-2 mr-4"
-                )}
-                aria-hidden="true"
-              >
-                <div
-                  className={cn(
-                    "rounded-full bg-[#FF5F56]",
-                    compactHeader ? "w-2.5 h-2.5" : "w-3 h-3"
-                  )}
-                />
-                <div
-                  className={cn(
-                    "rounded-full bg-[#FFBD2E]",
-                    compactHeader ? "w-2.5 h-2.5" : "w-3 h-3"
-                  )}
-                />
-                <div
-                  className={cn(
-                    "rounded-full bg-[#27C93F]",
-                    compactHeader ? "w-2.5 h-2.5" : "w-3 h-3"
-                  )}
-                />
-              </div>
               {title && (
                 <h2
                   id={titleId}

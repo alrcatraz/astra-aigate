@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "มีเวอร์ชันใหม่ให้ใช้งานแล้ว คลิกเพื่ออัปเดต",
     "updateStarted": "เริ่มการอัพเดต...",
     "reloadingPageAutomatically": "กำลังโหลดหน้าซ้ำโดยอัตโนมัติ...",
-    "providerTopology": "โทโพโลยีของผู้ให้บริการ"
+    "providerTopology": "โทโพโลยีของผู้ให้บริการ",
+    "step2Media": "กำหนดค่าความสามารถด้านสื่อ (ภาพ/OCR/embedding) ในหน้า <mediaProviders>ผู้ให้บริการสื่อ</mediaProviders>"
   },
   "analytics": {
     "title": "การวิเคราะห์",
@@ -4713,7 +4714,8 @@
       "configure": "กำหนดค่าผู้ให้บริการ"
     },
     "tierFlowDiagramAlt": "แผนภาพทางเลือก OmniRoute 3 ระดับ",
-    "apiKeyMgmt": "การจัดการคีย์ API"
+    "apiKeyMgmt": "การจัดการคีย์ API",
+    "loading": "กำลังโหลด..."
   },
   "providers": {
     "title": "ผู้ให้บริการ",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "นำทางไปที่บ้าน",
     "toggleMenu": "สลับเมนู",
     "featuresLink": "คุณสมบัติ",

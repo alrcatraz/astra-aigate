@@ -1754,7 +1754,8 @@
     "updateAvailableDesc": "有新版本可用。点击更新。",
     "updateStarted": "更新已开始...",
     "reloadingPageAutomatically": "自动重新加载页面...",
-    "providerTopology": "提供者拓扑"
+    "providerTopology": "提供者拓扑",
+    "step2Media": "媒体能力（图像/OCR/嵌入）在 <mediaProviders>媒体提供商</mediaProviders> 页面配置。"
   },
   "analytics": {
     "title": "分析",
@@ -4759,7 +4760,8 @@
       "configure": "配置提供者"
     },
     "tierFlowDiagramAlt": "OmniRoute 3 层回退图",
-    "apiKeyMgmt": "API密钥管理"
+    "apiKeyMgmt": "API密钥管理",
+    "loading": "正在加载..."
   },
   "providers": {
     "title": "提供者",
@@ -5495,6 +5497,12 @@
     "newApiUserIdLabel": "New-API 用户 ID",
     "newApiUserIdPlaceholder": "例如 12345",
     "newApiUserIdHint": "AgentRouter 的 New-Api-User 请求头值，与控制台 API key 一起用于获取配额余额。",
+    "systemAdminTokenLabel": "系统管理令牌",
+    "systemAdminTokenPlaceholder": "粘贴系统管理令牌",
+    "systemAdminTokenHint": "查询该 Provider 配额所需的管理令牌，请勿在此填写路由 API key。",
+    "dmxapiUserIdLabel": "DMXAPI 用户 ID",
+    "dmxapiUserIdPlaceholder": "例如 1001",
+    "dmxapiUserIdHint": "Dmx-Api-User 请求头值——要查询额度的目标账户 ID。",
     "cpaModeDisabledTitle": "CLIProxyAPI 兼容模式已关闭",
     "cpaModeEnabledTitle": "CLIProxyAPI 兼容模式已开启",
     "customUserAgentHint": "发送给上游 Provider 的自定义 User-Agent。",
@@ -9039,7 +9047,7 @@
     "signingIn": "登录中…"
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "导航至主页",
     "toggleMenu": "切换菜单",
     "featuresLink": "特点",

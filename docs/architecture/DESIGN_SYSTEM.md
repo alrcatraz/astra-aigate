@@ -223,7 +223,7 @@ Each phase: `npm run lint` + `npm run typecheck:core` + a visual pass.
 | Dashboard tokens                  | `src/app/globals.css` (`:root`, `.dark`, `@theme inline`, `body`, `body::before`)                                    |
 | Theme store                       | `src/store/themeStore.ts`, `src/shared/components/ThemeProvider.tsx`, `src/shared/constants/appConfig.ts:9-11`       |
 | Panel shell (grid unblocked here) | `src/shared/components/layouts/DashboardLayout.tsx`                                                                  |
-| Chrome                            | `src/shared/components/Header.tsx:207`, `src/shared/components/Sidebar.tsx:430`                                      |
+| Chrome                            | `src/shared/components/layouts/DashboardLayout.tsx:64` (header), `src/shared/components/Sidebar.tsx:430`             |
 | Grid precedent                    | `src/app/landing/page.tsx:16-26`                                                                                     |
 | Primitives                        | `src/shared/components/{Button,Card,Input,Select,Badge,Modal,Toggle,SegmentedControl,Loading,Tooltip,DataTable}.tsx` |
 | Status-color sources              | `flow/edgeStyles.ts`, `TokenHealthBadge.tsx`, `DegradationBadge.tsx`, `logTableStyles.ts`                            |

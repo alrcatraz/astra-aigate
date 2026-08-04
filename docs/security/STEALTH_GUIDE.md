@@ -270,6 +270,5 @@ OmniRoute scrubs inbound client headers before forwarding so a request that arri
 ## See Also
 
 - [RESILIENCE_GUIDE.md](../architecture/RESILIENCE_GUIDE.md) — what happens when a stealth path gets a `403`
-- [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md)
 - [ENVIRONMENT.md](../reference/ENVIRONMENT.md) — full env reference
 - [CLI-TOOLS.md](../reference/CLI-TOOLS.md) — operator view of the MITM workflow

@@ -180,9 +180,9 @@ export class CircuitBreaker {
     this._restoreFromDb();
   }
 
-  _restoreFromDb() {
+  async _restoreFromDb() {
     try {
-      const saved = loadCircuitBreakerState(this.name);
+      const saved = await loadCircuitBreakerState(this.name);
       if (saved) {
         if (
           saved.state === STATE.CLOSED ||
@@ -602,9 +602,9 @@ export function getCircuitBreaker(name: string, options?: CircuitBreakerOptions)
   return breaker;
 }
 
-export function getAllCircuitBreakerStatuses() {
+export async function getAllCircuitBreakerStatuses() {
   try {
-    const persisted = loadAllCircuitBreakerStates();
+    const persisted = await loadAllCircuitBreakerStates();
     for (const cb of persisted) {
       if (!registry.has(cb.name)) {
         getCircuitBreaker(cb.name);

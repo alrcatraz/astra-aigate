@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Versi baru tersedia. Klik untuk memperbarui.",
     "updateStarted": "Pembaruan dimulai...",
     "reloadingPageAutomatically": "Memuat ulang halaman secara otomatis...",
-    "providerTopology": "Topologi Penyedia"
+    "providerTopology": "Topologi Penyedia",
+    "step2Media": "Konfigurasikan kemampuan media (gambar/OCR/embedding) di halaman <mediaProviders>penyedia media</mediaProviders>."
   },
   "analytics": {
     "title": "Analisis",
@@ -4713,7 +4714,8 @@
       "configure": "Konfigurasikan penyedia"
     },
     "tierFlowDiagramAlt": "Diagram cadangan 3 tingkat OmniRoute",
-    "apiKeyMgmt": "Manajemen Kunci API"
+    "apiKeyMgmt": "Manajemen Kunci API",
+    "loading": "Memuat..."
   },
   "providers": {
     "title": "Penyedia",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Arahkan ke rumah",
     "toggleMenu": "Alihkan menu",
     "featuresLink": "Fitur",

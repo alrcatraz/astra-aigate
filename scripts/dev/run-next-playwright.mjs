@@ -163,7 +163,7 @@ const testServerEnv = {
   ...sanitizeColorEnv(process.env),
   NODE_ENV: mode === "start" ? "production" : "development",
   DATA_DIR: playwrightDataDir,
-  NEXT_PUBLIC_OMNIROUTE_E2E_MODE: process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE || "1",
+  NEXT_PUBLIC_AIGATE_E2E_MODE: process.env.NEXT_PUBLIC_AIGATE_E2E_MODE || "1",
   OMNIROUTE_DISABLE_BACKGROUND_SERVICES:
     process.env.OMNIROUTE_DISABLE_BACKGROUND_SERVICES || "true",
   OMNIROUTE_DISABLE_TOKEN_HEALTHCHECK: process.env.OMNIROUTE_DISABLE_TOKEN_HEALTHCHECK || "true",
@@ -179,16 +179,16 @@ const testServerEnv = {
         INITIAL_PASSWORD: playwrightPassword,
         OMNIROUTE_E2E_PASSWORD: playwrightPassword,
       }),
-  ...(process.env.OMNIROUTE_USE_TURBOPACK
+  ...(process.env.AIGATE_USE_TURBOPACK
     ? {
-        OMNIROUTE_USE_TURBOPACK: process.env.OMNIROUTE_USE_TURBOPACK,
+        AIGATE_USE_TURBOPACK: process.env.AIGATE_USE_TURBOPACK,
       }
     : {}),
 };
 
 export function shouldUseWebpackForPlaywrightDev({ mode, env }) {
   // Webpack only on the explicit escape hatch (=0) — turbopack is the default.
-  return mode === "dev" && env.OMNIROUTE_USE_TURBOPACK === "0";
+  return mode === "dev" && env.AIGATE_USE_TURBOPACK === "0";
 }
 
 function runChild(command, args, env) {

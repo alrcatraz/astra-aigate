@@ -107,7 +107,11 @@ function shouldSuggestGlmTeamQuota(
   upstreamMsg: string
 ): boolean {
   if (teamConfig.state !== "none") return false;
-  return /coding\s*plan|不存在.*plan|没有.*coding|团队|编码套餐/i.test(upstreamMsg);
+  // 按量账户（无 Coding Plan）：quota 端点返回「不存在/没有/未开通 coding plan」等——
+  // 这是「没有 team 配额可查」，不是「缺 Org/Project 配置」，不应提示用户配置。
+  if (/(不存在|没有|未开通|未购买).{0,12}(coding\s*plan|编码套餐|套餐)/i.test(upstreamMsg))
+    return false;
+  return /coding\s*plan|团队|编码套餐/i.test(upstreamMsg);
 }
 
 export async function getGlmUsage(apiKey: string, providerSpecificData?: Record<string, unknown>) {

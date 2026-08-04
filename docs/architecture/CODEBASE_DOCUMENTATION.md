@@ -582,7 +582,7 @@ Streaming primitives and provider helpers: `stream.ts`, `streamHandler.ts`,
 
 ```
 bin/
-├── omniroute.mjs           Main CLI entry (Node ESM)
+├── astra-aigate.mjs       Main CLI entry (Node ESM)
 ├── reset-password.mjs      Reset the management password from CLI
 ├── mcp-server.mjs          MCP server launcher (stdio)
 ├── nodeRuntimeSupport.mjs  Node version guard
@@ -605,7 +605,7 @@ bin/
 
 Two binaries are exposed in `package.json` → `bin`:
 
-- `omniroute` → `bin/omniroute.mjs`
+- `astra-aigate` → `bin/astra-aigate.mjs`
 - `omniroute-reset-password` → `bin/reset-password.mjs`
 
 ---
@@ -704,7 +704,7 @@ Client request
 | Model lockout            | Provider + connection + model | `open-sse/services/accountFallback.ts`, persisted in `domain_lockout_state`                                  |
 
 See [RESILIENCE_GUIDE.md](./RESILIENCE_GUIDE.md) and the dedicated section in
-[CLAUDE.md](../../CLAUDE.md).
+[AGENTS.md](../../AGENTS.md).
 
 ---
 
@@ -819,7 +819,6 @@ See [A2A-SERVER.md § Adding a New Skill](../frameworks/A2A-SERVER.md). Skills l
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — high-level architecture and module
   responsibilities.
 - [API_REFERENCE.md](../reference/API_REFERENCE.md) — public + management API reference.
-- [FEATURES.md](../guides/FEATURES.md) — feature matrix and version highlights.
 - [RESILIENCE_GUIDE.md](./RESILIENCE_GUIDE.md) — circuit breaker, cooldown,
   lockout deep dive.
 - [AUTO-COMBO.md](../routing/AUTO-COMBO.md) — Auto Combo scoring and strategies.
@@ -827,9 +826,5 @@ See [A2A-SERVER.md § Adding a New Skill](../frameworks/A2A-SERVER.md). Skills l
 - [A2A-SERVER.md](../frameworks/A2A-SERVER.md) — A2A protocol skills and discovery.
 - [COMPRESSION_GUIDE.md](../compression/COMPRESSION_GUIDE.md) — RTK + Caveman compression.
 - [CLI-TOOLS.md](../reference/CLI-TOOLS.md) — CLI integrations.
-- [DOCKER_GUIDE.md](../guides/DOCKER_GUIDE.md), [FLY_IO_DEPLOYMENT_GUIDE.md](../ops/FLY_IO_DEPLOYMENT_GUIDE.md), [VM_DEPLOYMENT_GUIDE.md](../ops/VM_DEPLOYMENT_GUIDE.md), [TERMUX_GUIDE.md](../guides/TERMUX_GUIDE.md), [PWA_GUIDE.md](../guides/PWA_GUIDE.md) — deployment targets.
-- [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) — common operational issues.
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) — contributor workflow.
-- [CLAUDE.md](../../CLAUDE.md) — repo rules for Claude Code (the source of truth
-  for many of the conventions above).
 - [AGENTS.md](../../AGENTS.md) — deeper architecture reference used by agents.

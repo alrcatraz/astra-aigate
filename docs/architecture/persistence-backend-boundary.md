@@ -1,12 +1,12 @@
 ---
 title: "ADR: Pluggable persistence boundary"
-status: proposed
-lastUpdated: 2026-07-23
+status: accepted
+lastUpdated: 2026-08-04
 ---
 
 # ADR: Pluggable persistence boundary
 
-- **Status:** Proposed — requires maintainer approval before runtime work begins
+- **Status:** Accepted — implemented in Phase 2.8 (2026-08-04); see "Implementation status" below
 - **Tracking issue:** [#8075](https://github.com/diegosouzapw/OmniRoute/issues/8075)
 - **Scope:** Persistence architecture only; this decision does not add or select an external database
 
@@ -220,6 +220,39 @@ This ADR does not:
 - define active-active readiness before shared-state and coordination tests exist;
 - approve a one-shot rewrite of `src/lib/db/`.
 
+## Implementation status
+
+Implemented in Phase 2.8 (2026-08-04). The boundary took the **`DatabaseAdapter`
+route** rather than the repository-contracts route sketched above — a pragmatic
+narrowing approved during development:
+
+- **`DatabaseAdapter` async interface** (`src/lib/db/adapters/types.ts`) unifies
+  the five drivers: better-sqlite3, bun:sqlite, node:sqlite, sql.js (all
+  synchronously wrapped, behaviour unchanged) and the new `PostgresAdapter`.
+- **`DB_DRIVER=sqlite|postgres`** (`src/lib/db/core.ts` `getDbDriver()` /
+  `initAsyncDb()` / `initDatabaseDriver()`) selects the driver at startup;
+  server-init mounts it. `DATABASE_URL` carries the PG connection.
+- **Dialect translation is centralised in the PG adapter**: `?`→`$n`,
+  `INSERT OR REPLACE`→`ON CONFLICT (pk) DO UPDATE` (arbiter injected from
+  `information_schema`), `INSERT OR IGNORE`→`ON CONFLICT DO NOTHING`,
+  `COLLATE NOCASE`→`LOWER()`, `strftime`→`to_char`, `sqlite_master`→
+  `information_schema.tables`, `last_insert_rowid()`→`RETURNING id`,
+  `AUTOINCREMENT`→`GENERATED ALWAYS AS IDENTITY`. Business modules stay
+  driver-agnostic.
+- **Schema**: SQLite's 110 migrations remain untouched; PG uses a final-state
+  schema snapshot on a fresh database. `scripts/migrate-sqlite-to-pg.ts`
+  migrates an existing SQLite deployment (idempotent, row-count reconciled).
+- **Verification**: dialect unit tests 26/26; PG smoke 16/16; container-level
+  regression (pg-8) — login, settings, models, combos, providers all 200,
+  zero runtime errors. Known limits: 94 modules still use the raw synchronous
+  `getDbInstance()` fallback (reads degrade to scratch-only in PG mode),
+  127 fire-and-forget `.run()` calls not yet awaited.
+
+The repository-contracts layering remains a future option; the adapter boundary
+delivered the ADR's core promise — SQLite stays the zero-ops default, an
+external backend is optional, and business code depends on an interface rather
+than SQLite's synchronous surface.
+
 ## Open questions for maintainer approval
 
 1. Is the repository plus internal async backend boundary the preferred direction, or should
@@ -229,4 +262,6 @@ This ADR does not:
 4. Which state must be shared for the first multi-replica milestone, and which remains node-local?
 5. What compatibility window is required for an interrupted or rolled-back repository migration?
 
-Until these questions are resolved, this document is a proposal and no runtime refactor is implied.
+The open questions above remain relevant for the repository-contracts
+direction and multi-replica milestones; the adapter-boundary implementation
+(Phase 2.8) is complete and no longer pending approval.

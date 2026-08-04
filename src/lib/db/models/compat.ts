@@ -120,9 +120,9 @@ export type ModelCompatOverride = {
   isDeleted?: boolean;
 };
 
-export function readCompatList(providerId: string): ModelCompatOverride[] {
+export async function readCompatList(providerId: string): Promise<ModelCompatOverride[]> {
   const db = getDbInstance();
-  const row = db
+  const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(MODEL_COMPAT_NAMESPACE, providerId);
   const value = getKeyValue(row).value;
@@ -135,24 +135,24 @@ export function readCompatList(providerId: string): ModelCompatOverride[] {
   }
 }
 
-export function writeCompatList(providerId: string, list: ModelCompatOverride[]) {
+export async function writeCompatList(
+  providerId: string,
+  list: ModelCompatOverride[]
+): Promise<void> {
   const db = getDbInstance();
   if (list.length === 0) {
-    db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(
-      MODEL_COMPAT_NAMESPACE,
-      providerId
-    );
+    await db
+      .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
+      .run(MODEL_COMPAT_NAMESPACE, providerId);
   } else {
-    db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-      MODEL_COMPAT_NAMESPACE,
-      providerId,
-      JSON.stringify(list)
-    );
+    await db
+      .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+      .run(MODEL_COMPAT_NAMESPACE, providerId, JSON.stringify(list));
   }
   backupDbFile("pre-write");
 }
 
-export function getModelCompatOverrides(providerId: string): ModelCompatOverride[] {
+export async function getModelCompatOverrides(providerId: string): Promise<ModelCompatOverride[]> {
   return readCompatList(providerId);
 }
 
@@ -175,12 +175,12 @@ export function compatByProtocolHasEntries(map: CompatByProtocolMap | undefined)
   });
 }
 
-export function mergeModelCompatOverride(
+export async function mergeModelCompatOverride(
   providerId: string,
   modelId: string,
   patch: ModelCompatPatch
-) {
-  const list = readCompatList(providerId);
+): Promise<void> {
+  const list = await readCompatList(providerId);
   const idx = list.findIndex((e) => e.id === modelId);
   const prev = idx >= 0 ? { ...list[idx] } : { id: modelId };
   const next: ModelCompatOverride = { ...prev, id: modelId };
@@ -238,12 +238,15 @@ export function mergeModelCompatOverride(
   ) {
     filtered.push(next);
   }
-  writeCompatList(providerId, filtered);
+  await writeCompatList(providerId, filtered);
 }
 
-export function removeModelCompatOverride(providerId: string, modelId: string) {
-  const list = readCompatList(providerId);
+export async function removeModelCompatOverride(
+  providerId: string,
+  modelId: string
+): Promise<void> {
+  const list = await readCompatList(providerId);
   const filtered = list.filter((e) => e.id !== modelId);
   if (filtered.length === list.length) return;
-  writeCompatList(providerId, filtered);
+  await writeCompatList(providerId, filtered);
 }

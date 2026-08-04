@@ -38,7 +38,7 @@ import {
   type SidebarItemOrder,
 } from "@/shared/constants/sidebarVisibility";
 
-const isE2EMode = process.env.NEXT_PUBLIC_OMNIROUTE_E2E_MODE === "1";
+const isE2EMode = process.env.NEXT_PUBLIC_AIGATE_E2E_MODE === "1";
 const DEFAULT_EXPANDED: SidebarSectionId = "omni-proxy";
 const EXPANDED_SECTIONS_KEY = "sidebar-expanded-sections";
 const PINNED_SECTIONS_KEY = "sidebar-pinned-sections";
@@ -475,22 +475,14 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
           {t("skipToContent")}
         </a>
 
-        {(onToggleCollapse || !isMacElectron) && (
+        {onToggleCollapse && (
           <div
             className={cn(
-              "flex items-center gap-2 pb-2",
-              isMacElectron ? "pt-3" : "pt-5",
+              "flex items-center gap-2 pb-2 pt-5",
               collapsed ? "px-3 justify-center" : "px-4"
             )}
             aria-hidden="true"
           >
-            {!isMacElectron && (
-              <>
-                <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-                <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-                <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-              </>
-            )}
             {!collapsed && <div className="flex-1" />}
             {onToggleCollapse && (
               <button
@@ -500,8 +492,7 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
                 aria-label={collapsed ? t("expandSidebar") : t("collapseSidebar")}
                 className={cn(
                   "rounded-md p-1 text-text-muted/50 transition-colors hover:bg-black/5 hover:text-text-muted dark:hover:bg-white/5",
-                  collapsed && !isMacElectron && "mt-2",
-                  isMacElectron && "ms-auto"
+                  collapsed && "mt-2"
                 )}
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
@@ -701,9 +692,6 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
             "shrink-0 border-t border-black/5 dark:border-white/5",
             collapsed ? "p-2 flex flex-col gap-1" : "p-2 flex gap-2"
           )}
-          style={{
-            paddingBottom: isMacElectron ? "calc(0.5rem + var(--desktop-safe-bottom))" : undefined,
-          }}
         >
           <button
             onClick={() => setShowRestartModal(true)}

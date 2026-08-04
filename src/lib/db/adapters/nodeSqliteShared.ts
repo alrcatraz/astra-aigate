@@ -53,13 +53,22 @@ export function createNodeSqliteAdapterFromDatabase(
     return entry.stmt;
   }
 
-  function runSavepoint<T>(fn: (...args: unknown[]) => T, ...args: unknown[]): T {
+  /**
+   * SAVEPOINT-based transaction. Async-capable (Phase 2.8): the fn may await
+   * adapter calls, which is impossible with the old synchronous wrapper.
+   * Nested transactions work because SQLite SAVEPOINTs stack and must be
+   * released in reverse order.
+   */
+  async function runSavepoint<T>(
+    fn: (...args: unknown[]) => Promise<T> | T,
+    ...args: unknown[]
+  ): Promise<T> {
     const sp = `sp_${Math.random().toString(36).slice(2)}`;
     db.exec(`SAVEPOINT "${sp}"`);
     try {
-      const result = fn(...args);
+      const result = await fn(...args);
       db.exec(`RELEASE "${sp}"`);
-      return result;
+      return result as T;
     } catch (err) {
       try {
         db.exec(`ROLLBACK TO "${sp}"`);
@@ -96,25 +105,25 @@ export function createNodeSqliteAdapterFromDatabase(
     prepare(sql: string): PreparedStatement {
       const stmt = getCached(sql);
       return {
-        run(...params: unknown[]): RunResult {
+        async run(...params: unknown[]): Promise<RunResult> {
           const r = stmt.run(...params);
           return {
             changes: Number(r.changes ?? 0),
             lastInsertRowid: Number(r.lastInsertRowid ?? 0),
           };
         },
-        get(...params: unknown[]): unknown {
+        async get(...params: unknown[]): Promise<unknown> {
           return stmt.get(...params);
         },
-        all(...params: unknown[]): unknown[] {
+        async all(...params: unknown[]): Promise<unknown[]> {
           return stmt.all(...params);
         },
       };
     },
-    exec(sql: string): void {
+    async exec(sql: string): Promise<void> {
       db.exec(sql);
     },
-    pragma(pragmaStr: string, options?: { simple?: boolean }): unknown {
+    async pragma(pragmaStr: string, options?: { simple?: boolean }): Promise<unknown> {
       const sql = `PRAGMA ${pragmaStr}`;
       if (options?.simple) {
         const row = db.prepare(sql).get() as Record<string, unknown> | undefined;
@@ -123,11 +132,11 @@ export function createNodeSqliteAdapterFromDatabase(
       }
       return db.prepare(sql).all();
     },
-    transaction<T>(fn: (...args: unknown[]) => T): (...args: unknown[]) => T {
+    transaction<T>(fn: (...args: unknown[]) => Promise<T> | T): (...args: unknown[]) => Promise<T> {
       return (...args: unknown[]) => runSavepoint(fn, ...args);
     },
-    immediate(fn: () => void): void {
-      runSavepoint(() => fn());
+    async immediate(fn: () => Promise<void> | void): Promise<void> {
+      await runSavepoint(() => fn());
     },
     async backup(destination: string): Promise<void> {
       try {
@@ -135,12 +144,12 @@ export function createNodeSqliteAdapterFromDatabase(
       } catch {}
       fs.copyFileSync(filePath, destination);
     },
-    checkpoint(mode = "TRUNCATE"): void {
+    async checkpoint(mode = "TRUNCATE"): Promise<void> {
       try {
         db.exec(`PRAGMA wal_checkpoint(${mode})`);
       } catch {}
     },
-    close,
+    close: async () => close(),
     get raw() {
       return db;
     },

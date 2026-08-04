@@ -9,7 +9,7 @@ export async function getCacheMetrics() {
 
   try {
     // Aggregate totals from usage_history
-    const totalsRow = db
+    const totalsRow = (await db
       .prepare(
         `
       SELECT
@@ -21,7 +21,7 @@ export async function getCacheMetrics() {
       WHERE tokens_cache_read > 0 OR tokens_cache_creation > 0
     `
       )
-      .get() as
+      .get()) as
       | {
           totalRequests: number;
           totalInputTokens: number | null;
@@ -31,17 +31,17 @@ export async function getCacheMetrics() {
       | undefined;
 
     // Get all requests count (including those without cache activity)
-    const allRequestsRow = db
+    const allRequestsRow = (await db
       .prepare(
         `
       SELECT COUNT(*) as totalRequests
       FROM usage_history
     `
       )
-      .get() as { totalRequests: number } | undefined;
+      .get()) as { totalRequests: number } | undefined;
 
     // Aggregate by provider
-    const byProviderRows = db
+    const byProviderRows = (await db
       .prepare(
         `
       SELECT
@@ -57,7 +57,7 @@ export async function getCacheMetrics() {
       HAVING cachedRequests > 0
     `
       )
-      .all() as Array<{
+      .all()) as Array<{
       provider: string;
       totalRequests: number;
       cachedRequests: number;
@@ -67,7 +67,7 @@ export async function getCacheMetrics() {
     }>;
 
     // Aggregate by combo strategy (direct requests stored as 'direct')
-    const byStrategyRows = db
+    const byStrategyRows = (await db
       .prepare(
         `
       SELECT
@@ -81,7 +81,7 @@ export async function getCacheMetrics() {
       GROUP BY combo_strategy
     `
       )
-      .all() as Array<{
+      .all()) as Array<{
       strategy: string;
       requests: number;
       inputTokens: number | null;
@@ -187,7 +187,7 @@ export async function getCacheTrend(hours = 24): Promise<CacheTrendPoint[]> {
   const db = getDbInstance();
 
   try {
-    const rows = db
+    const rows = (await db
       .prepare(
         `
         SELECT
@@ -203,7 +203,7 @@ export async function getCacheTrend(hours = 24): Promise<CacheTrendPoint[]> {
         ORDER BY hour ASC
       `
       )
-      .all(`-${hours} hours`) as Array<{
+      .all(`-${hours} hours`)) as Array<{
       hour: string;
       requests: number;
       cachedRequests: number;

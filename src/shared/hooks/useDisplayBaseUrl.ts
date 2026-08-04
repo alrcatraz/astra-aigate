@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DEFAULT_OMNIROUTE_BASE_URL } from "@/shared/utils/resolveOmniRouteBaseUrl";
 
-export const DEFAULT_DISPLAY_BASE_URL = "http://localhost:20128";
+export const DEFAULT_DISPLAY_BASE_URL = DEFAULT_OMNIROUTE_BASE_URL;
 
 function normalizeUrl(value?: string): string | null {
   const trimmed = value?.trim();
@@ -25,7 +26,7 @@ export function normalizeBasePath(value?: string | null): string {
  * Resolve the deploy basePath for display URLs (e.g. `/omniroute`).
  *
  * Priority:
- * 1. Explicit `envBasePath` argument / `NEXT_PUBLIC_OMNIROUTE_BASE_PATH`
+ * 1. Explicit `envBasePath` argument / `NEXT_PUBLIC_AIGATE_BASE_PATH`
  * 2. Non-root path of `configuredBaseUrl` (`NEXT_PUBLIC_BASE_URL`)
  */
 export function resolveDeployBasePath(
@@ -36,7 +37,7 @@ export function resolveDeployBasePath(
   const fromEnv = normalizeBasePath(
     envBasePath ??
       (typeof process !== "undefined"
-        ? process.env.NEXT_PUBLIC_OMNIROUTE_BASE_PATH || process.env.OMNIROUTE_BASE_PATH
+        ? process.env.NEXT_PUBLIC_AIGATE_BASE_PATH || process.env.AIGATE_BASE_PATH
         : undefined)
   );
   if (fromEnv) return fromEnv;
@@ -177,7 +178,7 @@ function joinOriginAndBasePath(origin: string, basePath: string): string {
  * @param envValue          `NEXT_PUBLIC_BASE_URL` (may include a path for subpath deploys)
  * @param browserOrigin     `window.location.origin`
  * @param browserPathname   `window.location.pathname` (still includes Next basePath)
- * @param envBasePath       `NEXT_PUBLIC_OMNIROUTE_BASE_PATH` / `OMNIROUTE_BASE_PATH`
+ * @param envBasePath       `NEXT_PUBLIC_AIGATE_BASE_PATH` / `AIGATE_BASE_PATH`
  */
 export function resolveDisplayBaseUrl(
   envValue?: string,
@@ -199,7 +200,7 @@ export function resolveDisplayBaseUrl(
   // Reachable public browser origin, with basePath re-applied when configured.
   // Existing behavior: prefer the live origin over a different configured *host*
   // (tunnels / alternate domains). basePath keeps /v1 examples correct under
-  // reverse-proxy subpaths (OMNIROUTE_BASE_PATH).
+  // reverse-proxy subpaths (AIGATE_BASE_PATH).
   if (currentOrigin && isPublicDisplayBaseUrl(currentOrigin)) {
     return joinOriginAndBasePath(currentOrigin, basePath);
   }
@@ -217,7 +218,7 @@ export function resolveDisplayBaseUrl(
  * Returns the public base URL to display in the dashboard.
  *
  * Resolution chain after client mount:
- *   1. Public browser origin (+ OMNIROUTE_BASE_PATH when set) — proves the
+ *   1. Public browser origin (+ AIGATE_BASE_PATH when set) — proves the
  *      current tunnel/domain is reachable.
  *   2. Public NEXT_PUBLIC_BASE_URL (path-preserving when it includes a subpath).
  *   3. Local fallbacks (current origin / configured URL / localhost).
@@ -230,7 +231,7 @@ export function resolveDisplayBaseUrl(
 export function useDisplayBaseUrl(): string {
   const envValue = normalizeUrl(process.env.NEXT_PUBLIC_BASE_URL);
   const envBasePath = normalizeBasePath(
-    process.env.NEXT_PUBLIC_OMNIROUTE_BASE_PATH || process.env.OMNIROUTE_BASE_PATH
+    process.env.NEXT_PUBLIC_AIGATE_BASE_PATH || process.env.AIGATE_BASE_PATH
   );
 
   const [url, setUrl] = useState<string>(() =>

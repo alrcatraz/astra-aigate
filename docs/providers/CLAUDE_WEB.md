@@ -16,7 +16,7 @@ strictly translates the upstream SSE response. The orchestration is in
 
 > **New to Web Cookie providers?**
 >
-> Read **`docs/getting-started/WEB-COOKIE-GUIDE.md`** for the general setup process, authentication guidance, limitations, and troubleshooting before following this provider-specific guide.
+> Read this provider-specific guide alongside the general setup and troubleshooting notes in `docs/security/` before following it.
 
 ### Model catalog
 

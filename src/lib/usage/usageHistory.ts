@@ -622,8 +622,9 @@ export async function saveRequestUsage(entry: UsageEntry) {
     const tokensInput = getLoggedInputTokens(entry.tokens);
     const tokensOutput = getLoggedOutputTokens(entry.tokens);
     const connection = entry.connectionId
-      ? (db.prepare("SELECT * FROM provider_connections WHERE id = ?").get(entry.connectionId) as
-          Record<string, unknown> | undefined)
+      ? ((await db
+          .prepare("SELECT * FROM provider_connections WHERE id = ?")
+          .get(entry.connectionId)) as Record<string, unknown> | undefined)
       : undefined;
     const accountIdentity = connection
       ? resolveUsageAccountIdentity(connection)
@@ -638,8 +639,8 @@ export async function saveRequestUsage(entry: UsageEntry) {
     // on the existing row, fill it in rather than inserting a duplicate.
     let inserted = false;
 
-    db.transaction(() => {
-      const existing = db
+    db.transaction(async () => {
+      const existing = (await db
         .prepare(
           `SELECT id, endpoint FROM usage_history
            WHERE timestamp = ?
@@ -659,55 +660,56 @@ export async function saveRequestUsage(entry: UsageEntry) {
           entry.apiKeyId || null,
           tokensInput,
           tokensOutput
-        ) as { id: number; endpoint: string | null } | undefined;
+        )) as { id: number; endpoint: string | null } | undefined;
 
       if (existing) {
         // Back-fill endpoint if the original row missed it.
         if (!existing.endpoint && entry.endpoint) {
-          db.prepare(`UPDATE usage_history SET endpoint = ? WHERE id = ?`).run(
-            entry.endpoint,
-            existing.id
-          );
+          await db
+            .prepare(`UPDATE usage_history SET endpoint = ? WHERE id = ?`)
+            .run(entry.endpoint, existing.id);
         }
         return; // duplicate — do not insert
       }
 
-      db.prepare(
-        `
+      await db
+        .prepare(
+          `
         INSERT INTO usage_history (provider, model, connection_id, account_key, account_label,
           account_label_priority, api_key_id, api_key_name, tokens_input, tokens_output,
           tokens_cache_read, tokens_cache_creation, tokens_reasoning, service_tier, status, success,
           latency_ms, ttft_ms, error_code, combo_strategy, endpoint, timestamp)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
-      ).run(
-        entry.provider || null,
-        entry.model || null,
-        entry.connectionId || null,
-        accountIdentity.accountKey,
-        accountIdentity.accountLabel,
-        accountIdentity.accountLabelPriority,
-        entry.apiKeyId || null,
-        entry.apiKeyName || null,
-        tokensInput,
-        tokensOutput,
-        getPromptCacheReadTokens(entry.tokens),
-        getPromptCacheCreationTokens(entry.tokens),
-        getReasoningTokens(entry.tokens),
-        serviceTier,
-        entry.status || null,
-        entry.success === false ? 0 : 1,
-        Number.isFinite(Number(entry.latencyMs)) ? Number(entry.latencyMs) : 0,
-        Number.isFinite(Number(entry.timeToFirstTokenMs))
-          ? Number(entry.timeToFirstTokenMs)
-          : Number.isFinite(Number(entry.latencyMs))
-            ? Number(entry.latencyMs)
-            : 0,
-        entry.errorCode || null,
-        entry.comboStrategy || entry.combo_strategy || null,
-        entry.endpoint || null,
-        timestamp
-      );
+        )
+        .run(
+          entry.provider || null,
+          entry.model || null,
+          entry.connectionId || null,
+          accountIdentity.accountKey,
+          accountIdentity.accountLabel,
+          accountIdentity.accountLabelPriority,
+          entry.apiKeyId || null,
+          entry.apiKeyName || null,
+          tokensInput,
+          tokensOutput,
+          getPromptCacheReadTokens(entry.tokens),
+          getPromptCacheCreationTokens(entry.tokens),
+          getReasoningTokens(entry.tokens),
+          serviceTier,
+          entry.status || null,
+          entry.success === false ? 0 : 1,
+          Number.isFinite(Number(entry.latencyMs)) ? Number(entry.latencyMs) : 0,
+          Number.isFinite(Number(entry.timeToFirstTokenMs))
+            ? Number(entry.timeToFirstTokenMs)
+            : Number.isFinite(Number(entry.latencyMs))
+              ? Number(entry.latencyMs)
+              : 0,
+          entry.errorCode || null,
+          entry.comboStrategy || entry.combo_strategy || null,
+          entry.endpoint || null,
+          timestamp
+        );
 
       inserted = true;
     })();
@@ -763,7 +765,7 @@ export async function getUsageHistory(filter: UsageHistoryFilter = {}) {
   }
   sql += " ORDER BY timestamp ASC";
 
-  const rows = db.prepare(sql).all(params);
+  const rows = await db.prepare(sql).all(params);
   return rows.map((row) => {
     const r = asRecord(row);
     return {
@@ -834,7 +836,7 @@ export async function getModelLatencyStats(
     queryParams.model = options.model;
   }
 
-  const rows = db
+  const rows = (await db
     .prepare(
       `
       SELECT provider, model, success, latency_ms, ttft_ms, tokens_output
@@ -844,7 +846,7 @@ export async function getModelLatencyStats(
       LIMIT @maxRows
     `
     )
-    .all(queryParams) as LatencyRow[];
+    .all(queryParams)) as LatencyRow[];
 
   const grouped = new Map<string, ReturnType<typeof createLatencyBucket>>();
 
@@ -908,7 +910,7 @@ export async function appendRequestLog({
 export async function getRecentLogs(limit = 200) {
   try {
     const db = getDbInstance();
-    const rows = db
+    const rows = (await db
       .prepare(
         `
         SELECT timestamp, model, provider, account, tokens_in, tokens_out, status
@@ -917,7 +919,7 @@ export async function getRecentLogs(limit = 200) {
         LIMIT ?
       `
       )
-      .all(limit) as Array<Record<string, unknown>>;
+      .all(limit)) as Array<Record<string, unknown>>;
 
     return rows.map((row) => {
       const timestamp =

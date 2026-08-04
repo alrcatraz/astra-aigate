@@ -59,17 +59,44 @@ export async function upsertFreeProxy(
   const db = getDbInstance();
   const now = new Date().toISOString();
 
-  const existing = db
+  const existing = (await db
     .prepare("SELECT id FROM free_proxies WHERE source = ? AND host = ? AND port = ?")
-    .get(item.source, item.host, item.port) as { id?: string } | undefined;
+    .get(item.source, item.host, item.port)) as { id?: string } | undefined;
 
   if (existing?.id) {
-    db.prepare(
-      `UPDATE free_proxies
+    await db
+      .prepare(
+        `UPDATE free_proxies
        SET type = ?, country_code = ?, quality_score = ?, latency_ms = ?,
            anonymity = ?, last_validated = ?, updated_at = ?
        WHERE id = ?`
-    ).run(
+      )
+      .run(
+        item.type,
+        item.countryCode ?? null,
+        item.qualityScore ?? null,
+        item.latencyMs ?? null,
+        item.anonymity ?? null,
+        item.lastValidated ?? now,
+        now,
+        existing.id
+      );
+    return { id: existing.id, action: "updated" };
+  }
+
+  const id = randomUUID();
+  await db
+    .prepare(
+      `INSERT INTO free_proxies
+     (id, source, host, port, type, country_code, quality_score, latency_ms,
+      anonymity, last_validated, in_pool, pool_proxy_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)`
+    )
+    .run(
+      id,
+      item.source,
+      item.host,
+      item.port,
       item.type,
       item.countryCode ?? null,
       item.qualityScore ?? null,
@@ -77,31 +104,8 @@ export async function upsertFreeProxy(
       item.anonymity ?? null,
       item.lastValidated ?? now,
       now,
-      existing.id
+      now
     );
-    return { id: existing.id, action: "updated" };
-  }
-
-  const id = randomUUID();
-  db.prepare(
-    `INSERT INTO free_proxies
-     (id, source, host, port, type, country_code, quality_score, latency_ms,
-      anonymity, last_validated, in_pool, pool_proxy_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)`
-  ).run(
-    id,
-    item.source,
-    item.host,
-    item.port,
-    item.type,
-    item.countryCode ?? null,
-    item.qualityScore ?? null,
-    item.latencyMs ?? null,
-    item.anonymity ?? null,
-    item.lastValidated ?? now,
-    now,
-    now
-  );
   return { id, action: "created" };
 }
 
@@ -165,7 +169,7 @@ export async function listFreeProxies(options?: {
     }
   }
 
-  const rows = db.prepare(sql).all(...params);
+  const rows = await db.prepare(sql).all(...params);
   return rows.map(mapRow);
 }
 
@@ -209,7 +213,7 @@ export async function countFreeProxies(options?: {
     params.push(`%${options.search}%`);
   }
 
-  const row = db.prepare(sql).get(...params) as DbRow | undefined;
+  const row = (await db.prepare(sql).get(...params)) as DbRow | undefined;
   const count = row?.count;
   return typeof count === "number" ? count : Number(count ?? 0);
 }
@@ -245,16 +249,16 @@ export async function listFreeProxiesBySource(
 
 export async function getFreeProxyById(id: string): Promise<FreeProxyRecord | null> {
   const db = getDbInstance();
-  const row = db.prepare("SELECT * FROM free_proxies WHERE id = ?").get(id);
+  const row = await db.prepare("SELECT * FROM free_proxies WHERE id = ?").get(id);
   return row ? mapRow(row) : null;
 }
 
 export async function markFreeProxyInPool(id: string, poolProxyId: string): Promise<void> {
   const db = getDbInstance();
   const now = new Date().toISOString();
-  db.prepare(
-    "UPDATE free_proxies SET in_pool = 1, pool_proxy_id = ?, updated_at = ? WHERE id = ?"
-  ).run(poolProxyId, now, id);
+  await db
+    .prepare("UPDATE free_proxies SET in_pool = 1, pool_proxy_id = ?, updated_at = ? WHERE id = ?")
+    .run(poolProxyId, now, id);
   backupDbFile("pre-write");
 }
 
@@ -282,30 +286,34 @@ export async function promoteFreeProxyToPool(
   const now = new Date().toISOString();
   const newRegistryId = randomUUID();
 
-  const result = db.transaction(() => {
-    const exists = db
+  const result = await db.transaction(async () => {
+    const exists = (await db
       .prepare("SELECT id, in_pool FROM free_proxies WHERE id = ? LIMIT 1")
-      .get(freeProxyId) as { id?: string; in_pool?: number } | undefined;
+      .get(freeProxyId)) as { id?: string; in_pool?: number } | undefined;
     if (!exists?.id) return null;
 
-    db.prepare(
-      `INSERT INTO proxy_registry
+    await db
+      .prepare(
+        `INSERT INTO proxy_registry
         (id, name, type, host, port, username, password, region, notes, status, source, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, '', '', NULL, NULL, 'active', ?, ?, ?)`
-    ).run(
-      newRegistryId,
-      registryPayload.name,
-      registryPayload.type,
-      registryPayload.host,
-      Number(registryPayload.port),
-      registryPayload.source,
-      now,
-      now
-    );
+      )
+      .run(
+        newRegistryId,
+        registryPayload.name,
+        registryPayload.type,
+        registryPayload.host,
+        Number(registryPayload.port),
+        registryPayload.source,
+        now,
+        now
+      );
 
-    db.prepare(
-      "UPDATE free_proxies SET in_pool = 1, pool_proxy_id = ?, updated_at = ? WHERE id = ?"
-    ).run(newRegistryId, now, freeProxyId);
+    await db
+      .prepare(
+        "UPDATE free_proxies SET in_pool = 1, pool_proxy_id = ?, updated_at = ? WHERE id = ?"
+      )
+      .run(newRegistryId, now, freeProxyId);
 
     return newRegistryId;
   })();
@@ -316,14 +324,14 @@ export async function promoteFreeProxyToPool(
 
 export async function deleteFreeProxy(id: string): Promise<boolean> {
   const db = getDbInstance();
-  const result = db.prepare("DELETE FROM free_proxies WHERE id = ?").run(id);
+  const result = await db.prepare("DELETE FROM free_proxies WHERE id = ?").run(id);
   backupDbFile("pre-write");
   return result.changes > 0;
 }
 
 export async function clearFreeProxiesBySource(source: FreeProxySourceId): Promise<number> {
   const db = getDbInstance();
-  const result = db
+  const result = await db
     .prepare("DELETE FROM free_proxies WHERE source = ? AND in_pool = 0")
     .run(source);
   backupDbFile("pre-write");
@@ -342,16 +350,16 @@ export async function pruneStaleFreeProxies(
   activeKeys: ReadonlySet<string>
 ): Promise<number> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT id, host, port FROM free_proxies WHERE source = ? AND in_pool = 0")
-    .all(source) as Array<{ id: string; host: string; port: number }>;
+    .all(source)) as Array<{ id: string; host: string; port: number }>;
 
   const staleIds = rows.filter((r) => !activeKeys.has(`${r.host}:${r.port}`)).map((r) => r.id);
 
   if (staleIds.length === 0) return 0;
 
   const placeholders = staleIds.map(() => "?").join(",");
-  const result = db
+  const result = await db
     .prepare(`DELETE FROM free_proxies WHERE id IN (${placeholders})`)
     .run(...staleIds);
   backupDbFile("pre-write");
@@ -373,25 +381,25 @@ const FREE_PROXY_SYNC_KEY = "last_sync_at";
 export async function recordFreeProxySync(at?: string): Promise<string> {
   const db = getDbInstance();
   const ts = at ?? new Date().toISOString();
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    FREE_PROXY_SYNC_NAMESPACE,
-    FREE_PROXY_SYNC_KEY,
-    ts
-  );
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run(FREE_PROXY_SYNC_NAMESPACE, FREE_PROXY_SYNC_KEY, ts);
   backupDbFile("pre-write");
   return ts;
 }
 
-function getRecordedFreeProxySync(db: ReturnType<typeof getDbInstance>): string | null {
-  const row = db
+async function getRecordedFreeProxySync(
+  db: ReturnType<typeof getDbInstance>
+): Promise<string | null> {
+  const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(FREE_PROXY_SYNC_NAMESPACE, FREE_PROXY_SYNC_KEY) as { value?: string } | undefined;
+    .get(FREE_PROXY_SYNC_NAMESPACE, FREE_PROXY_SYNC_KEY)) as { value?: string } | undefined;
   return row?.value != null ? String(row.value) : null;
 }
 
 export async function getFreeProxyStats(): Promise<FreeProxyStats> {
   const db = getDbInstance();
-  const totals = db
+  const totals = (await db
     .prepare(
       `SELECT COUNT(*) as total,
               SUM(CASE WHEN in_pool = 1 THEN 1 ELSE 0 END) as in_pool_count,
@@ -399,17 +407,17 @@ export async function getFreeProxyStats(): Promise<FreeProxyStats> {
               MAX(last_validated) as last_sync_at
        FROM free_proxies`
     )
-    .get() as DbRow;
+    .get()) as DbRow;
 
-  const bySource = db
+  const bySource = (await db
     .prepare(
       "SELECT source, COUNT(*) as count FROM free_proxies GROUP BY source ORDER BY count DESC"
     )
-    .all() as DbRow[];
+    .all()) as DbRow[];
 
   // Prefer the explicitly recorded sync timestamp (#4878); fall back to the
   // newest last_validated only when no sync has ever been recorded.
-  const recordedSyncAt = getRecordedFreeProxySync(db);
+  const recordedSyncAt = await getRecordedFreeProxySync(db);
   const derivedSyncAt = totals.last_sync_at != null ? String(totals.last_sync_at) : null;
 
   return {
@@ -431,16 +439,18 @@ export async function recordFreeProxySyncErrors(
 ): Promise<void> {
   const db = getDbInstance();
   const at = new Date().toISOString();
-  db.prepare(
-    "INSERT OR REPLACE INTO free_proxy_sync_errors (source, errors, updated_at) VALUES (?, ?, ?)"
-  ).run(source, JSON.stringify(errors), at);
+  await db
+    .prepare(
+      "INSERT OR REPLACE INTO free_proxy_sync_errors (source, errors, updated_at) VALUES (?, ?, ?)"
+    )
+    .run(source, JSON.stringify(errors), at);
   backupDbFile("pre-write");
 }
 
 /** Clear a source's stored sync error (called on a successful sync). */
 export async function clearFreeProxySyncErrors(source: FreeProxySourceId): Promise<void> {
   const db = getDbInstance();
-  db.prepare("DELETE FROM free_proxy_sync_errors WHERE source = ?").run(source);
+  await db.prepare("DELETE FROM free_proxy_sync_errors WHERE source = ?").run(source);
   backupDbFile("pre-write");
 }
 
@@ -451,7 +461,9 @@ export async function clearFreeProxySyncErrors(source: FreeProxySourceId): Promi
  */
 export async function getFreeProxySyncErrors(): Promise<FreeProxySyncErrors> {
   const db = getDbInstance();
-  const rows = db.prepare("SELECT source, errors FROM free_proxy_sync_errors").all() as Array<{
+  const rows = (await db
+    .prepare("SELECT source, errors FROM free_proxy_sync_errors")
+    .all()) as Array<{
     source: string;
     errors: string;
   }>;

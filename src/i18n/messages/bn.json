@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "স্বয়ংক্রিয়ভাবে পৃষ্ঠা পুনরায় লোড হচ্ছে...",
-    "providerTopology": "প্রদানকারী টপোলজি"
+    "providerTopology": "প্রদানকারী টপোলজি",
+    "step2Media": "<mediaProviders>মিডিয়া প্রদানকারী</mediaProviders> পৃষ্ঠায় মিডিয়া ক্ষমতা (ছবি/OCR/এমবেডিং) কনফিগার করুন।"
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "প্রদানকারী কনফিগার করুন"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-স্তরের ফলব্যাক ডায়াগ্রাম",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Loading..."
   },
   "providers": {
     "title": "Providers",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Navigate to home",
     "toggleMenu": "Toggle menu",
     "featuresLink": "Features",

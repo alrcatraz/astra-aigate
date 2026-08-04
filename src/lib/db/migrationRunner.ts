@@ -168,8 +168,8 @@ const fts5SupportCache = new WeakMap<SqliteAdapter, boolean>();
 /**
  * Ensure the schema_migrations tracking table exists.
  */
-function ensureMigrationsTable(db: SqliteAdapter): void {
-  db.exec(`
+async function ensureMigrationsTable(db: SqliteAdapter): Promise<void> {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS _omniroute_migrations (
       version TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -182,7 +182,7 @@ function isOptionalFts5Migration(migration: { version: string; name: string }): 
   return OPTIONAL_FTS5_MIGRATION_VERSIONS.has(migration.version);
 }
 
-function supportsFts5(db: SqliteAdapter): boolean {
+async function supportsFts5(db: SqliteAdapter): Promise<boolean> {
   const cached = fts5SupportCache.get(db);
   if (cached !== undefined) {
     return cached;
@@ -190,9 +190,9 @@ function supportsFts5(db: SqliteAdapter): boolean {
 
   try {
     const probeTable = `__omniroute_fts5_probe_${crypto.randomUUID().replace(/-/g, "_")}`;
-    db.transaction(() => {
-      db.exec(`CREATE VIRTUAL TABLE "${probeTable}" USING fts5(content);`);
-      db.exec(`DROP TABLE "${probeTable}";`);
+    await db.transaction(async () => {
+      await db.exec(`CREATE VIRTUAL TABLE "${probeTable}" USING fts5(content);`);
+      await db.exec(`DROP TABLE "${probeTable}";`);
     })();
     fts5SupportCache.set(db, true);
     return true;
@@ -206,11 +206,11 @@ function supportsFts5(db: SqliteAdapter): boolean {
   }
 }
 
-function isDeferredUnsupportedMigration(
+async function isDeferredUnsupportedMigration(
   db: SqliteAdapter,
   migration: { version: string; name: string }
-): boolean {
-  return isOptionalFts5Migration(migration) && !supportsFts5(db);
+): Promise<boolean> {
+  return isOptionalFts5Migration(migration) && !(await supportsFts5(db));
 }
 
 /**
@@ -308,8 +308,8 @@ function filterSupersededDuplicateMigrations(
 /**
  * Get list of already-applied migration versions.
  */
-function getAppliedVersions(db: SqliteAdapter): Set<string> {
-  const rows = db.prepare("SELECT version FROM _omniroute_migrations").all() as Array<{
+async function getAppliedVersions(db: SqliteAdapter): Promise<Set<string>> {
+  const rows = (await db.prepare("SELECT version FROM _omniroute_migrations").all()) as Array<{
     version: string;
   }>;
   return new Set(rows.map((r) => r.version));
@@ -318,167 +318,211 @@ function getAppliedVersions(db: SqliteAdapter): Set<string> {
 /**
  * Get applied migration records (version + name) for mismatch detection.
  */
-function getAppliedRecords(db: SqliteAdapter): Array<{ version: string; name: string }> {
-  return db
+async function getAppliedRecords(
+  db: SqliteAdapter
+): Promise<Array<{ version: string; name: string }>> {
+  return (await db
     .prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version")
-    .all() as Array<{
+    .all()) as Array<{
     version: string;
     name: string;
   }>;
 }
 
-function hasTable(db: SqliteAdapter, tableName: string): boolean {
-  const row = db
+async function hasTable(db: SqliteAdapter, tableName: string): Promise<boolean> {
+  const row = (await db
     .prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name = ?")
-    .get(tableName) as { name?: string } | undefined;
+    .get(tableName)) as { name?: string } | undefined;
   return Boolean(row?.name);
 }
 
-function hasColumn(db: SqliteAdapter, tableName: string, columnName: string): boolean {
-  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name?: string }>;
+async function hasColumn(
+  db: SqliteAdapter,
+  tableName: string,
+  columnName: string
+): Promise<boolean> {
+  const columns = (await db.prepare(`PRAGMA table_info(${tableName})`).all()) as Array<{
+    name?: string;
+  }>;
   return columns.some((column) => column.name === columnName);
 }
 
-function ensureColumn(db: SqliteAdapter, tableName: string, columnName: string, ddl: string): void {
-  if (!hasColumn(db, tableName, columnName)) {
-    db.exec(ddl);
+async function ensureColumn(
+  db: SqliteAdapter,
+  tableName: string,
+  columnName: string,
+  ddl: string
+): Promise<void> {
+  if (!(await hasColumn(db, tableName, columnName))) {
+    await db.exec(ddl);
   }
 }
 
-function isSchemaAlreadyApplied(
+async function isSchemaAlreadyApplied(
   db: SqliteAdapter,
   migration: { version: string; name: string }
-): boolean {
+): Promise<boolean> {
   switch (migration.version) {
     case "003":
-      return hasColumn(db, "provider_nodes", "chat_path");
+      return await hasColumn(db, "provider_nodes", "chat_path");
     case "095":
-      return hasColumn(db, "provider_nodes", "custom_headers_json");
+      return await hasColumn(db, "provider_nodes", "custom_headers_json");
     case "005":
-      return hasColumn(db, "combos", "system_message");
+      return await hasColumn(db, "combos", "system_message");
     case "007":
-      return hasColumn(db, "call_logs", "request_type");
+      return await hasColumn(db, "call_logs", "request_type");
     case "009":
-      return hasColumn(db, "call_logs", "requested_model");
+      return await hasColumn(db, "call_logs", "requested_model");
     case "018":
       return (
-        hasColumn(db, "call_logs", "tokens_cache_read") &&
-        hasColumn(db, "call_logs", "tokens_cache_creation") &&
-        hasColumn(db, "call_logs", "tokens_reasoning")
+        (await hasColumn(db, "call_logs", "tokens_cache_read")) &&
+        (await hasColumn(db, "call_logs", "tokens_cache_creation")) &&
+        (await hasColumn(db, "call_logs", "tokens_reasoning"))
       );
     case "020":
-      return hasColumn(db, "combos", "sort_order");
+      return await hasColumn(db, "combos", "sort_order");
     case "021":
       return (
-        hasColumn(db, "call_logs", "combo_step_id") &&
-        hasColumn(db, "call_logs", "combo_execution_key")
+        (await hasColumn(db, "call_logs", "combo_step_id")) &&
+        (await hasColumn(db, "call_logs", "combo_execution_key"))
       );
     case "023":
-      return hasColumn(db, "memories", "memory_id");
+      return await hasColumn(db, "memories", "memory_id");
     case "025":
       return (
-        hasColumn(db, "call_logs", "detail_state") && hasColumn(db, "call_logs", "request_summary")
+        (await hasColumn(db, "call_logs", "detail_state")) &&
+        (await hasColumn(db, "call_logs", "request_summary"))
       );
     case "026":
-      return hasColumn(db, "call_logs", "cache_source");
+      return await hasColumn(db, "call_logs", "cache_source");
     case "027":
-      return hasColumn(db, "skills", "mode");
+      return await hasColumn(db, "skills", "mode");
     case "028":
-      return hasTable(db, "batches") && hasTable(db, "files");
+      return (await hasTable(db, "batches")) && (await hasTable(db, "files"));
     case "029":
-      return hasColumn(db, "provider_connections", "max_concurrent");
+      return await hasColumn(db, "provider_connections", "max_concurrent");
     case "040":
-      return hasColumn(db, "proxy_registry", "source");
+      return await hasColumn(db, "proxy_registry", "source");
     case "041":
       if (migration.name === "session_account_affinity") {
-        return hasTable(db, "session_account_affinity");
+        return await hasTable(db, "session_account_affinity");
       }
       return (
-        hasColumn(db, "compression_analytics", "actual_prompt_tokens") &&
-        hasColumn(db, "compression_analytics", "actual_completion_tokens") &&
-        hasColumn(db, "compression_analytics", "actual_total_tokens") &&
-        hasColumn(db, "compression_analytics", "receipt_source") &&
-        hasColumn(db, "compression_analytics", "validation_fallback") &&
-        hasColumn(db, "compression_analytics", "output_mode")
+        (await hasColumn(db, "compression_analytics", "actual_prompt_tokens")) &&
+        (await hasColumn(db, "compression_analytics", "actual_completion_tokens")) &&
+        (await hasColumn(db, "compression_analytics", "actual_total_tokens")) &&
+        (await hasColumn(db, "compression_analytics", "receipt_source")) &&
+        (await hasColumn(db, "compression_analytics", "validation_fallback")) &&
+        (await hasColumn(db, "compression_analytics", "output_mode"))
       );
     case "042":
       return (
-        hasTable(db, "compression_combos") &&
-        hasTable(db, "compression_combo_assignments") &&
-        hasColumn(db, "compression_analytics", "compression_combo_id") &&
-        hasColumn(db, "compression_analytics", "engine")
+        (await hasTable(db, "compression_combos")) &&
+        (await hasTable(db, "compression_combo_assignments")) &&
+        (await hasColumn(db, "compression_analytics", "compression_combo_id")) &&
+        (await hasColumn(db, "compression_analytics", "engine"))
       );
     case "045":
-      return hasColumn(db, "call_logs", "tokens_compressed");
+      return await hasColumn(db, "call_logs", "tokens_compressed");
     case "053":
-      return !hasColumn(db, "files", "status");
+      return !(await hasColumn(db, "files", "status"));
     case "054":
-      return hasColumn(db, "usage_history", "service_tier");
+      return await hasColumn(db, "usage_history", "service_tier");
     case "062":
-      return hasColumn(db, "usage_history", "combo_strategy");
+      return await hasColumn(db, "usage_history", "combo_strategy");
     case "070":
       // Retroactive guard for webhooks-kind-metadata migration renumbered from 068
       // (collided with 068_free_proxies + 068_services). DBs that already applied
       // 068_webhooks_kind_metadata should not re-run as 070.
-      return hasColumn(db, "webhooks", "kind") && hasColumn(db, "webhooks", "metadata_encrypted");
+      return (
+        (await hasColumn(db, "webhooks", "kind")) &&
+        (await hasColumn(db, "webhooks", "metadata_encrypted"))
+      );
     case "071":
       // Retroactive guard for embedded-services migration renumbered from 068
       // (originally collided with 068_free_proxies and 068_webhooks_kind_metadata).
       // DBs that already applied 068_services should not re-run as 071.
       return (
-        hasColumn(db, "version_manager", "logs_buffer_path") &&
-        hasColumn(db, "version_manager", "provider_expose") &&
-        hasColumn(db, "version_manager", "last_sync_at")
+        (await hasColumn(db, "version_manager", "logs_buffer_path")) &&
+        (await hasColumn(db, "version_manager", "provider_expose")) &&
+        (await hasColumn(db, "version_manager", "last_sync_at"))
       );
     case "073":
       // Plan 21 D27 fix: guard memory_vec migration. Without this case, an
       // unmarked re-run of 073_memory_vec.sql would have its ALTER TABLE fail
       // mid-file and skip the CREATE INDEX that follows, leaving the index
       // missing on DBs that re-execute the script after a partial first run.
-      return hasColumn(db, "memories", "needs_reindex");
+      return await hasColumn(db, "memories", "needs_reindex");
     case "085":
       // Retroactive guard for quota_pools migration renumbered from 077 → 085
       // (077 collided with 077_api_key_stream_default_mode). DBs that already
       // applied quota_pools under the old 077 number should not re-run as 085.
-      return hasTable(db, "quota_pools") && hasTable(db, "quota_allocations");
+      return (await hasTable(db, "quota_pools")) && (await hasTable(db, "quota_allocations"));
     case "088":
       // Quota groups migration (renumbered 087 → 088 on merge into v3.8.8).
       // The table + column are already present when group_id exists on
       // quota_pools (ensures the backfill UPDATE also ran).
-      return hasTable(db, "quota_groups") && hasColumn(db, "quota_pools", "group_id");
+      return (
+        (await hasTable(db, "quota_groups")) && (await hasColumn(db, "quota_pools", "group_id"))
+      );
     case "089":
       // disable_non_public_models column (PR #3017, renumbered 077 → 089 to avoid
       // collision with 077_api_key_stream_default_mode on merge into v3.8.8).
-      return hasColumn(db, "api_keys", "disable_non_public_models");
+      return await hasColumn(db, "api_keys", "disable_non_public_models");
     case "090":
       // plugin_metrics table (PR #2913, renumbered 077 → 090 to avoid
       // collision with 077_api_key_stream_default_mode on merge into v3.8.8).
-      return hasTable(db, "plugin_metrics");
+      return await hasTable(db, "plugin_metrics");
     case "091":
       // plugin_analytics table (PR #2913). The PR's stray db/migrations version
       // was dropped on integration; this canonical migration creates the table
       // that recordPluginExecution()/getPluginAnalytics() rely on.
-      return hasTable(db, "plugin_analytics");
+      return await hasTable(db, "plugin_analytics");
     case "117":
       // Proxy-pool rotation (#6365): the assignments table was rebuilt to add a
       // `position` column and drop UNIQUE(scope, scope_id). If `position` already
       // exists the rebuild ran — skip re-executing the rename/copy/drop, which
       // would fail on the missing proxy_assignments_pre117 table.
-      return hasColumn(db, "proxy_assignments", "position");
+      return await hasColumn(db, "proxy_assignments", "position");
     default:
       return false;
   }
 }
 
-function applyApiKeyLifecycleMigration(db: SqliteAdapter): void {
-  ensureColumn(db, "api_keys", "revoked_at", "ALTER TABLE api_keys ADD COLUMN revoked_at TEXT");
-  ensureColumn(db, "api_keys", "expires_at", "ALTER TABLE api_keys ADD COLUMN expires_at TEXT");
-  ensureColumn(db, "api_keys", "last_used_at", "ALTER TABLE api_keys ADD COLUMN last_used_at TEXT");
-  ensureColumn(db, "api_keys", "key_prefix", "ALTER TABLE api_keys ADD COLUMN key_prefix TEXT");
-  ensureColumn(db, "api_keys", "ip_allowlist", "ALTER TABLE api_keys ADD COLUMN ip_allowlist TEXT");
-  ensureColumn(db, "api_keys", "scopes", "ALTER TABLE api_keys ADD COLUMN scopes TEXT");
+async function applyApiKeyLifecycleMigration(db: SqliteAdapter): Promise<void> {
+  await ensureColumn(
+    db,
+    "api_keys",
+    "revoked_at",
+    "ALTER TABLE api_keys ADD COLUMN revoked_at TEXT"
+  );
+  await ensureColumn(
+    db,
+    "api_keys",
+    "expires_at",
+    "ALTER TABLE api_keys ADD COLUMN expires_at TEXT"
+  );
+  await ensureColumn(
+    db,
+    "api_keys",
+    "last_used_at",
+    "ALTER TABLE api_keys ADD COLUMN last_used_at TEXT"
+  );
+  await ensureColumn(
+    db,
+    "api_keys",
+    "key_prefix",
+    "ALTER TABLE api_keys ADD COLUMN key_prefix TEXT"
+  );
+  await ensureColumn(
+    db,
+    "api_keys",
+    "ip_allowlist",
+    "ALTER TABLE api_keys ADD COLUMN ip_allowlist TEXT"
+  );
+  await ensureColumn(db, "api_keys", "scopes", "ALTER TABLE api_keys ADD COLUMN scopes TEXT");
 
-  db.exec(`
+  await db.exec(`
     CREATE INDEX IF NOT EXISTS idx_api_keys_revoked_at ON api_keys(revoked_at);
     CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON api_keys(expires_at);
   `);
@@ -488,18 +532,20 @@ function isSearchRequestTypeMigration(migration: { version: string; name: string
   return migration.version === "007";
 }
 
-function applySearchRequestTypeMigration(db: SqliteAdapter): void {
-  ensureColumn(
+async function applySearchRequestTypeMigration(db: SqliteAdapter): Promise<void> {
+  await ensureColumn(
     db,
     "call_logs",
     "request_type",
     "ALTER TABLE call_logs ADD COLUMN request_type TEXT DEFAULT NULL"
   );
-  db.exec("CREATE INDEX IF NOT EXISTS idx_call_logs_request_type ON call_logs(request_type);");
+  await db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_call_logs_request_type ON call_logs(request_type);"
+  );
 }
 
-function applyCompressionReceiptsMigration(db: SqliteAdapter): void {
-  ensureColumn(
+async function applyCompressionReceiptsMigration(db: SqliteAdapter): Promise<void> {
+  await ensureColumn(
     db,
     "compression_analytics",
     "actual_prompt_tokens",
@@ -566,7 +612,7 @@ function applyCompressionReceiptsMigration(db: SqliteAdapter): void {
     "ALTER TABLE compression_analytics ADD COLUMN output_mode TEXT"
   );
 
-  db.exec(`
+  await db.exec(`
     CREATE INDEX IF NOT EXISTS idx_compression_analytics_request_id
       ON compression_analytics(request_id);
     CREATE INDEX IF NOT EXISTS idx_compression_analytics_receipt_source
@@ -574,10 +620,13 @@ function applyCompressionReceiptsMigration(db: SqliteAdapter): void {
   `);
 }
 
-function applyCompressionCombosMigration(db: SqliteAdapter, migrationPath: string): void {
+async function applyCompressionCombosMigration(
+  db: SqliteAdapter,
+  migrationPath: string
+): Promise<void> {
   const sql = fs.readFileSync(migrationPath, "utf-8");
-  db.exec(sql);
-  ensureColumn(
+  await db.exec(sql);
+  await ensureColumn(
     db,
     "compression_analytics",
     "compression_combo_id",
@@ -589,18 +638,18 @@ function applyCompressionCombosMigration(db: SqliteAdapter, migrationPath: strin
     "engine",
     "ALTER TABLE compression_analytics ADD COLUMN engine TEXT"
   );
-  db.exec(`
+  await db.exec(`
     CREATE INDEX IF NOT EXISTS idx_compression_analytics_combo_engine
       ON compression_analytics(compression_combo_id, engine);
   `);
 }
 
-function inferPhysicalSchemaBaseline(db: SqliteAdapter): {
+async function inferPhysicalSchemaBaseline(db: SqliteAdapter): Promise<{
   version: string;
   description: string;
-} | null {
+} | null> {
   for (const sentinel of PHYSICAL_SCHEMA_SENTINELS) {
-    if (hasTable(db, sentinel.tableName)) {
+    if (await hasTable(db, sentinel.tableName)) {
       return {
         version: sentinel.version,
         description: sentinel.description,
@@ -608,7 +657,9 @@ function inferPhysicalSchemaBaseline(db: SqliteAdapter): {
     }
   }
 
-  const hasInitialSchema = INITIAL_SCHEMA_SENTINELS.every((tableName) => hasTable(db, tableName));
+  const hasInitialSchema = (
+    await Promise.all(INITIAL_SCHEMA_SENTINELS.map((tableName) => hasTable(db, tableName)))
+  ).every(Boolean);
   if (hasInitialSchema) {
     return {
       version: "001",
@@ -653,10 +704,10 @@ function detectNameMismatches(
   return mismatches;
 }
 
-function reconcileRenumberedMigrations(
+async function reconcileRenumberedMigrations(
   db: SqliteAdapter,
   files: Array<{ version: string; name: string; path: string }>
-): boolean {
+): Promise<boolean> {
   let repaired = false;
 
   for (const compatibility of RENAMED_MIGRATION_COMPATIBILITY) {
@@ -671,37 +722,38 @@ function reconcileRenumberedMigrations(
       continue;
     }
 
-    const legacyRow = db
+    const legacyRow = (await db
       .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ? AND name = ?")
-      .get(compatibility.fromVersion, compatibility.fromName) as
+      .get(compatibility.fromVersion, compatibility.fromName)) as
       { version: string; name: string } | undefined;
     if (!legacyRow) {
       continue;
     }
 
-    const targetRow = db
+    const targetRow = (await db
       .prepare("SELECT version FROM _omniroute_migrations WHERE version = ?")
-      .get(compatibility.toVersion) as { version: string } | undefined;
+      .get(compatibility.toVersion)) as { version: string } | undefined;
 
-    const applyRepair = db.transaction(() => {
+    const applyRepair = db.transaction(async () => {
       if (targetRow) {
-        db.prepare("DELETE FROM _omniroute_migrations WHERE version = ? AND name = ?").run(
-          compatibility.fromVersion,
-          compatibility.fromName
-        );
+        await db
+          .prepare("DELETE FROM _omniroute_migrations WHERE version = ? AND name = ?")
+          .run(compatibility.fromVersion, compatibility.fromName);
       } else {
-        db.prepare(
-          "UPDATE _omniroute_migrations SET version = ?, name = ? WHERE version = ? AND name = ?"
-        ).run(
-          compatibility.toVersion,
-          compatibility.toName,
-          compatibility.fromVersion,
-          compatibility.fromName
-        );
+        await db
+          .prepare(
+            "UPDATE _omniroute_migrations SET version = ?, name = ? WHERE version = ? AND name = ?"
+          )
+          .run(
+            compatibility.toVersion,
+            compatibility.toName,
+            compatibility.fromVersion,
+            compatibility.fromName
+          );
       }
     });
 
-    applyRepair();
+    await applyRepair();
     repaired = true;
     console.warn(
       `[Migration] Reconciled renamed migration ${compatibility.fromVersion}_${compatibility.fromName} ` +
@@ -713,28 +765,28 @@ function reconcileRenumberedMigrations(
     // UPDATE conflict) at the old version would shadow a NEW migration file
     // placed at that version number — e.g. 028_create_files_and_batches.sql
     // would be skipped because getAppliedVersions() still sees version "028".
-    const residualRow = db
+    const residualRow = (await db
       .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?")
-      .get(compatibility.fromVersion) as { version: string; name: string } | undefined;
+      .get(compatibility.fromVersion)) as { version: string; name: string } | undefined;
     if (residualRow) {
       console.warn(
         `[Migration] ⚠️  Residual row at version ${compatibility.fromVersion} ` +
           `(name: "${residualRow.name}") still present after compat rewrite — ` +
           `removing to unblock new migration at this version slot.`
       );
-      db.prepare("DELETE FROM _omniroute_migrations WHERE version = ?").run(
-        compatibility.fromVersion
-      );
+      await db
+        .prepare("DELETE FROM _omniroute_migrations WHERE version = ?")
+        .run(compatibility.fromVersion);
     }
   }
 
   return repaired;
 }
 
-function rehomeLegacyVersionSlotMigrations(
+async function rehomeLegacyVersionSlotMigrations(
   db: SqliteAdapter,
   files: Array<{ version: string; name: string; path: string }>
-): boolean {
+): Promise<boolean> {
   let repaired = false;
   const diskNamesByVersion = new Map(files.map((file) => [file.version, file.name]));
 
@@ -744,35 +796,32 @@ function rehomeLegacyVersionSlotMigrations(
       continue;
     }
 
-    const legacyRow = db
+    const legacyRow = (await db
       .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ? AND name = ?")
-      .get(legacy.version, legacy.name) as { version: string; name: string } | undefined;
+      .get(legacy.version, legacy.name)) as { version: string; name: string } | undefined;
     if (!legacyRow) {
       continue;
     }
 
     const legacyVersion = `legacy-${legacy.version}-${legacy.name}`;
-    const applyRepair = db.transaction(() => {
-      const existingLegacyRow = db
+    const applyRepair = db.transaction(async () => {
+      const existingLegacyRow = (await db
         .prepare("SELECT version FROM _omniroute_migrations WHERE version = ?")
-        .get(legacyVersion) as { version: string } | undefined;
+        .get(legacyVersion)) as { version: string } | undefined;
 
       if (existingLegacyRow) {
-        db.prepare("DELETE FROM _omniroute_migrations WHERE version = ? AND name = ?").run(
-          legacy.version,
-          legacy.name
-        );
+        await db
+          .prepare("DELETE FROM _omniroute_migrations WHERE version = ? AND name = ?")
+          .run(legacy.version, legacy.name);
         return;
       }
 
-      db.prepare("UPDATE _omniroute_migrations SET version = ? WHERE version = ? AND name = ?").run(
-        legacyVersion,
-        legacy.version,
-        legacy.name
-      );
+      await db
+        .prepare("UPDATE _omniroute_migrations SET version = ? WHERE version = ? AND name = ?")
+        .run(legacyVersion, legacy.version, legacy.name);
     });
 
-    applyRepair();
+    await applyRepair();
     repaired = true;
     console.warn(
       `[Migration] Rehomed legacy migration ${legacy.version}_${legacy.name} ` +
@@ -787,7 +836,7 @@ function rehomeLegacyVersionSlotMigrations(
  * Create a pre-migration backup of the SQLite database using VACUUM INTO.
  * Returns the backup path on success, null on failure.
  */
-function createPreMigrationBackup(db: SqliteAdapter): string | null {
+async function createPreMigrationBackup(db: SqliteAdapter): Promise<string | null> {
   try {
     const sqliteFile = db.name;
     if (!sqliteFile || sqliteFile === ":memory:") return null;
@@ -801,7 +850,7 @@ function createPreMigrationBackup(db: SqliteAdapter): string | null {
     const backupPath = path.join(backupDir, `db_${timestamp}_pre-migration.sqlite`);
     const escapedBackupPath = backupPath.replace(/'/g, "''");
 
-    db.exec(`VACUUM INTO '${escapedBackupPath}'`);
+    await db.exec(`VACUUM INTO '${escapedBackupPath}'`);
     console.log(`[Migration] Pre-migration backup created: ${backupPath}`);
     return backupPath;
   } catch (err: unknown) {
@@ -820,15 +869,18 @@ function createPreMigrationBackup(db: SqliteAdapter): string | null {
  * 2. Aborts if too many pending migrations on an existing DB (likely wipe)
  * 3. Creates automatic backup before running any migrations
  */
-export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }): number {
+export async function runMigrations(
+  db: SqliteAdapter,
+  options?: { isNewDb?: boolean }
+): Promise<number> {
   const isNewDb = options?.isNewDb === true;
-  ensureMigrationsTable(db);
+  await ensureMigrationsTable(db);
 
   const files = filterSupersededDuplicateMigrations(getMigrationFiles());
-  rehomeLegacyVersionSlotMigrations(db, files);
-  reconcileRenumberedMigrations(db, files);
-  const applied = getAppliedVersions(db);
-  const appliedRecords = getAppliedRecords(db);
+  await rehomeLegacyVersionSlotMigrations(db, files);
+  await reconcileRenumberedMigrations(db, files);
+  const applied = await getAppliedVersions(db);
+  const appliedRecords = await getAppliedRecords(db);
 
   // ── Safety Check 1: Detect migration name mismatches (renumbering) ──
   const mismatches = detectNameMismatches(appliedRecords, files);
@@ -870,9 +922,12 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
     }
     return isMissing;
   });
-  const deferredUnsupported = pending.filter((migration) =>
-    isDeferredUnsupportedMigration(db, migration)
-  );
+  const deferredUnsupported: Array<{ version: string; name: string }> = [];
+  for (const migration of pending) {
+    if (await isDeferredUnsupportedMigration(db, migration)) {
+      deferredUnsupported.push(migration);
+    }
+  }
   const actionablePending = pending.filter(
     (migration) => !deferredUnsupported.some((deferred) => deferred.version === migration.version)
   );
@@ -908,7 +963,7 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
     applied.size > 0 &&
     actionablePending.length > maxPendingMigrations
   ) {
-    const physicalBaseline = inferPhysicalSchemaBaseline(db);
+    const physicalBaseline = await inferPhysicalSchemaBaseline(db);
     const plausiblePendingCount = physicalBaseline
       ? getPlausiblePendingCount(files, physicalBaseline.version)
       : null;
@@ -958,51 +1013,50 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
   // Skip backup if it's a completely fresh database (0 applied and all pending)
   // or if running in tests (where AUTO_BACKUP might be disabled)
   if (applied.size > 0 && process.env.DISABLE_SQLITE_AUTO_BACKUP !== "true") {
-    createPreMigrationBackup(db);
+    await createPreMigrationBackup(db);
   }
 
   let count = 0;
 
   for (const migration of pending) {
-    if (isDeferredUnsupportedMigration(db, migration)) {
+    if (await isDeferredUnsupportedMigration(db, migration)) {
       continue;
     }
 
-    const applyMigration = db.transaction(() => {
-      if (isSchemaAlreadyApplied(db, migration)) {
+    const applyMigration = db.transaction(async () => {
+      if (await isSchemaAlreadyApplied(db, migration)) {
         console.warn(
           `[Migration] Skipped executing ${migration.version}_${migration.name} as schema changes are already present (Idempotency check).`
         );
       } else if (migration.version === "032") {
-        applyApiKeyLifecycleMigration(db);
+        await applyApiKeyLifecycleMigration(db);
       } else if (migration.version === "041" && migration.name === "compression_receipts") {
-        applyCompressionReceiptsMigration(db);
+        await applyCompressionReceiptsMigration(db);
       } else if (migration.version === "042") {
-        applyCompressionCombosMigration(db, migration.path);
+        await applyCompressionCombosMigration(db, migration.path);
       } else {
         const sql = fs.readFileSync(migration.path, "utf-8");
-        db.exec(sql);
+        await db.exec(sql);
       }
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        migration.version,
-        migration.name
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run(migration.version, migration.name);
     });
 
     try {
-      applyMigration();
+      await applyMigration();
       count++;
       console.log(`[Migration] Applied: ${migration.version}_${migration.name}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       // "duplicate column name" means the column already exists — end state achieved, mark applied.
       if (message.includes("duplicate column name")) {
-        const applyMarkerOnly = db.transaction(() => {
-          db.prepare(
-            "INSERT OR IGNORE INTO _omniroute_migrations (version, name) VALUES (?, ?)"
-          ).run(migration.version, migration.name);
+        const applyMarkerOnly = db.transaction(async () => {
+          await db
+            .prepare("INSERT OR IGNORE INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+            .run(migration.version, migration.name);
         });
-        applyMarkerOnly();
+        await applyMarkerOnly();
         count++;
         console.log(
           `[Migration] Applied (column pre-exists): ${migration.version}_${migration.name}`
@@ -1021,7 +1075,7 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
   // After applying all migrations, insert default settings if we just ran migration 46
   try {
     if (appliedRecords.some((m) => m.name.startsWith("051_"))) {
-      insertDefaultDatabaseSettings(db);
+      await insertDefaultDatabaseSettings(db);
     }
   } catch (error) {
     console.error("Error inserting default database settings:", error);
@@ -1030,24 +1084,22 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
   return count;
 }
 
-function insertDefaultDatabaseSettings(db: SqliteAdapter) {
-  const tx = db.transaction(() => {
+async function insertDefaultDatabaseSettings(db: SqliteAdapter) {
+  const tx = db.transaction(async () => {
     // Insert all default settings
     for (const [section, values] of Object.entries(DEFAULT_DATABASE_SETTINGS)) {
       for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
-        db.prepare("INSERT OR IGNORE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-          "databaseSettings",
-          `${section}.${key}`,
-          JSON.stringify(value)
-        );
+        await db
+          .prepare("INSERT OR IGNORE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+          .run("databaseSettings", `${section}.${key}`, JSON.stringify(value));
       }
     }
   });
 
   // Run in an immediate transaction to avoid nested transactions
   try {
-    db.immediate(() => {
-      tx();
+    await db.immediate(async () => {
+      await tx();
     });
   } catch (error) {
     console.error("Transaction error inserting default settings:", error);
@@ -1058,15 +1110,15 @@ function insertDefaultDatabaseSettings(db: SqliteAdapter) {
 /**
  * Get migration status for diagnostics.
  */
-export function getMigrationStatus(db: SqliteAdapter): {
+export async function getMigrationStatus(db: SqliteAdapter): Promise<{
   applied: Array<{ version: string; name: string; applied_at: string }>;
   pending: Array<{ version: string; name: string }>;
-} {
-  ensureMigrationsTable(db);
+}> {
+  await ensureMigrationsTable(db);
 
-  const appliedRows = db
+  const appliedRows = (await db
     .prepare("SELECT version, name, applied_at FROM _omniroute_migrations ORDER BY version")
-    .all() as Array<{ version: string; name: string; applied_at: string }>;
+    .all()) as Array<{ version: string; name: string; applied_at: string }>;
 
   const appliedVersions = new Set(appliedRows.map((r) => r.version));
   const allFiles = getMigrationFiles();

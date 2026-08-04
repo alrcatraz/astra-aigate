@@ -81,12 +81,12 @@ export function incrementCcDiscoveryHitCount(): void {
  * Read the aggregated cc-discovery metrics. Never throws — returns the
  * zero-value shape on any DB failure so a monitoring read never 500s.
  */
-export function getCcDiscoveryMetrics(): CcDiscoveryMetrics {
+export async function getCcDiscoveryMetrics(): Promise<CcDiscoveryMetrics> {
   try {
     const db = getDbInstance();
-    const rows = db
+    const rows = (await db
       .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
-      .all(NAMESPACE) as Array<{ key?: unknown; value?: unknown }>;
+      .all(NAMESPACE)) as Array<{ key?: unknown; value?: unknown }>;
 
     let aliasRequests = 0;
     let discoveryHits = 0;

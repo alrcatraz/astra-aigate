@@ -70,7 +70,7 @@ export function stopBatchProcessor(): void {
 }
 
 export async function processPendingBatches(): Promise<void> {
-  const pending = getPendingBatches();
+  const pending = await getPendingBatches();
 
   // Phase 1: Stale recovery — in_progress/finalizing batches not in activeBatches
   // are from a previous session; reset checkpointed batches to validating so they
@@ -78,13 +78,13 @@ export async function processPendingBatches(): Promise<void> {
   for (const batch of pending) {
     if (batch.status === "in_progress" || batch.status === "finalizing") {
       if (!activeBatches.has(batch.id)) {
-        recoverStaleBatch(batch);
+        await recoverStaleBatch(batch);
       }
     }
   }
 
   // Phase 2: Process actions respecting concurrency limit
-  const remaining = getPendingBatches(); // re-fetch after recovery updates
+  const remaining = await getPendingBatches(); // re-fetch after recovery updates
   let activeCount = activeBatches.size;
 
   for (const batch of remaining) {
@@ -106,8 +106,8 @@ export async function processPendingBatches(): Promise<void> {
   await cleanupExpiredBatches();
 }
 
-function recoverStaleBatch(batch: BatchRecord): void {
-  const checkpointCount = countBatchItemCheckpoints(batch.id);
+async function recoverStaleBatch(batch: BatchRecord): Promise<void> {
+  const checkpointCount = await countBatchItemCheckpoints(batch.id);
   const hasPotentialExternalEffects =
     batch.requestCountsTotal > 0 ||
     batch.requestCountsCompleted > 0 ||
@@ -242,7 +242,7 @@ export function parseBatchItems(
 async function cleanupExpiredBatches(): Promise<void> {
   try {
     const now = Math.floor(Date.now() / 1_000);
-    const batches = getTerminalBatches();
+    const batches = await getTerminalBatches();
 
     // Delete files for terminal batches that have exceeded their completion window
     for (const batch of batches) {
@@ -267,7 +267,7 @@ async function cleanupExpiredBatches(): Promise<void> {
     }
 
     // Expire validating batches that have exceeded their completion window
-    for (const batch of getPendingBatches()) {
+    for (const batch of await getPendingBatches()) {
       if (batch.status === "validating") {
         const windowSeconds = parseBatchWindowSeconds(batch.completionWindow);
         if (now - batch.createdAt > windowSeconds) {
@@ -278,7 +278,7 @@ async function cleanupExpiredBatches(): Promise<void> {
 
     // Cleanup orphan files (batch-purpose files stuck in validating after 48h)
     // Use asc order so oldest files are processed first; use a high limit to avoid missing old orphans.
-    const allFiles = listFiles({ order: "asc", limit: 100 });
+    const allFiles = await listFiles({ order: "asc", limit: 100 });
     for (const file of allFiles) {
       if (file.purpose === "batch" && now - file.createdAt > DEFAULT_BATCH_EXPIRATION_SECONDS) {
         deleteFile(file.id);
@@ -292,7 +292,7 @@ async function cleanupExpiredBatches(): Promise<void> {
 async function startBatch(batch: any): Promise<void> {
   console.log(`[BATCH] Starting batch ${batch.id}`);
 
-  const content = getFileContent(batch.inputFileId);
+  const content = await getFileContent(batch.inputFileId);
   if (!content) {
     failBatch(batch.id, "Input file content not found");
     return;
@@ -352,16 +352,19 @@ const HEADERS_CACHE_TTL_MS = 60_000;
 async function processBatchItems(batch: BatchRecord, items: BatchRequestItem[]): Promise<void> {
   const state = createBatchState(batch);
   const checkpoints = new Map<number, BatchItemCheckpoint>(
-    listBatchItemCheckpoints(batch.id).map((checkpoint) => [checkpoint.lineNumber, checkpoint])
+    (await listBatchItemCheckpoints(batch.id)).map((checkpoint) => [
+      checkpoint.lineNumber,
+      checkpoint,
+    ])
   );
 
   const apiKey = await resolveApiKey(batch);
 
   for (const item of items) {
-    if (isBatchCancelled(batch.id)) break;
+    if (await isBatchCancelled(batch.id)) break;
 
     const checkpoint = checkpoints.get(item.lineNumber);
-    if (checkpoint && applyRecoveredCheckpoint(batch.id, item, checkpoint, state)) {
+    if (checkpoint && (await applyRecoveredCheckpoint(batch.id, item, checkpoint, state))) {
       maybePersistProgress(batch.id, state);
       continue;
     }
@@ -375,7 +378,7 @@ async function processBatchItems(batch: BatchRecord, items: BatchRequestItem[]):
       }
     }
 
-    markBatchItemProcessing(batch.id, item);
+    await markBatchItemProcessing(batch.id, item);
 
     try {
       const response = await processSingleItemWithRetry(item, apiKey);
@@ -398,7 +401,7 @@ async function processBatchItems(batch: BatchRecord, items: BatchRequestItem[]):
         },
       };
 
-      markBatchItemResult(batch.id, item, wrapped);
+      await markBatchItemResult(batch.id, item, wrapped);
       state.results.push(wrapped);
       applyItemResult(state, response.status, responseBody);
       prevHeaders = response.headers;
@@ -406,7 +409,7 @@ async function processBatchItems(batch: BatchRecord, items: BatchRequestItem[]):
     } catch (exception) {
       // Track processing-level errors separately (items that failed to be processed)
       const error = { custom_id: item.customId ?? null, error: String(exception) };
-      markBatchItemError(batch.id, item, error);
+      await markBatchItemError(batch.id, item, error);
       state.errors.push(error);
       state.failed++;
       prevHeaders = null;
@@ -419,12 +422,12 @@ async function processBatchItems(batch: BatchRecord, items: BatchRequestItem[]):
   return finalizeBatch(batch.id, state.results, state.errors);
 }
 
-function applyRecoveredCheckpoint(
+async function applyRecoveredCheckpoint(
   batchId: string,
   item: BatchRequestItem,
   checkpoint: BatchItemCheckpoint,
   state: ReturnType<typeof createBatchState>
-): boolean {
+): Promise<boolean> {
   if (checkpoint.status === "completed" && checkpoint.result) {
     state.results.push(checkpoint.result);
     applyItemResult(
@@ -447,7 +450,7 @@ function applyRecoveredCheckpoint(
       error:
         "Batch item was interrupted before its provider response was recorded; it was not replayed to avoid duplicate provider work.",
     };
-    markBatchItemError(batchId, item, error);
+    await markBatchItemError(batchId, item, error);
     state.errors.push(error);
     state.failed++;
     return true;
@@ -456,8 +459,8 @@ function applyRecoveredCheckpoint(
   return false;
 }
 
-function isBatchCancelled(batchId: string): boolean {
-  const current = getBatch(batchId);
+async function isBatchCancelled(batchId: string): Promise<boolean> {
+  const current = await getBatch(batchId);
 
   return !current || current.status === "cancelling" || current.status === "cancelled";
 }
@@ -700,12 +703,12 @@ async function finalizeBatch(
   results: any[],
   itemsWithErrors: any[]
 ): Promise<void> {
-  const current = getBatch(batchId);
+  const current = await getBatch(batchId);
 
   if (handleCancellation(batchId, current)) return;
 
   // Mark as finalizing first
-  markFinalizing(batchId);
+  await markFinalizing(batchId);
 
   // Compute counts from results
   const successes = results.filter(
@@ -770,12 +773,12 @@ async function finalizeBatch(
   }
 
   // Re-read the batch (with completedAt set) so file creation sees a completion timestamp
-  const batchForFiles = getBatch(batchId);
+  const batchForFiles = await getBatch(batchId);
 
-  const outputFileId = createSuccessFile(batchId, batchForFiles, results);
-  const errorFileId = createErrorFile(batchId, batchForFiles, results, itemsWithErrors);
+  const outputFileId = await createSuccessFile(batchId, batchForFiles, results);
+  const errorFileId = await createErrorFile(batchId, batchForFiles, results, itemsWithErrors);
 
-  completeBatch(batchId, outputFileId, errorFileId);
+  await completeBatch(batchId, outputFileId, errorFileId);
 }
 
 function handleCancellation(batchId: string, current: any): boolean {
@@ -792,26 +795,26 @@ function handleCancellation(batchId: string, current: any): boolean {
   return current.status === "cancelled";
 }
 
-function markFinalizing(batchId: string): void {
-  updateBatch(batchId, {
+async function markFinalizing(batchId: string): Promise<void> {
+  await updateBatch(batchId, {
     status: "finalizing",
     finalizingAt: now(),
   });
 }
 
-function completeBatch(
+async function completeBatch(
   batchId: string,
   outputFileId: string | null,
   errorFileId: string | null
-): void {
-  updateBatch(batchId, {
+): Promise<void> {
+  await updateBatch(batchId, {
     status: "completed",
     completedAt: now(),
     outputFileId,
     errorFileId,
   });
 
-  const b = getBatch(batchId);
+  const b = await getBatch(batchId);
   const total = b?.requestCountsTotal ?? "?";
   console.log(`[BATCH] Completed batch ${batchId} (${total} items)`);
 }
@@ -820,14 +823,18 @@ function now(): number {
   return Math.floor(Date.now() / 1_000);
 }
 
-function createSuccessFile(batchId: string, current: any, results: any[]): string | null {
+async function createSuccessFile(
+  batchId: string,
+  current: any,
+  results: any[]
+): Promise<string | null> {
   const successes = results.filter((r) => r.response.status_code < 400 && !r.response.body?.error);
 
   if (successes.length === 0) return null;
 
   const content = toJsonl(successes);
 
-  const file = createFile({
+  const file = await createFile({
     bytes: Buffer.byteLength(content),
     filename: `batch_${batchId}_output.jsonl`,
     purpose: "batch_output",
@@ -839,12 +846,12 @@ function createSuccessFile(batchId: string, current: any, results: any[]): strin
   return file.id;
 }
 
-function createErrorFile(
+async function createErrorFile(
   batchId: string,
   current: any,
   results: any[],
   itemsWithErrors: any[]
-): string | null {
+): Promise<string | null> {
   const failures = results.filter((r) => r.response.status_code >= 400 || r.response.body?.error);
 
   const processErrors = itemsWithErrors.map((e) => ({
@@ -860,7 +867,7 @@ function createErrorFile(
 
   const content = toJsonl(allFailures);
 
-  const file = createFile({
+  const file = await createFile({
     bytes: Buffer.byteLength(content),
     filename: `batch_${batchId}_error.jsonl`,
     purpose: "batch_output",

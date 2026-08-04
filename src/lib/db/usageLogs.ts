@@ -22,9 +22,9 @@ export interface AutoRoutingTotalResult {
  * Returns the total number of requests routed through auto/ prefix models.
  * Matches model = 'auto' OR model LIKE 'auto/%'.
  */
-export function getAutoRoutingTotalCount(): AutoRoutingTotalResult {
+export async function getAutoRoutingTotalCount(): Promise<AutoRoutingTotalResult> {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare(
       `
       SELECT COUNT(*) as count
@@ -32,7 +32,7 @@ export function getAutoRoutingTotalCount(): AutoRoutingTotalResult {
       WHERE model = 'auto' OR model LIKE 'auto/%'
     `
     )
-    .get() as AutoRoutingTotalResult | undefined;
+    .get()) as AutoRoutingTotalResult | undefined;
   return row ?? { count: 0 };
 }
 
@@ -48,9 +48,9 @@ export interface AutoRoutingVariantRow {
  *   'auto/X'    → 'X'
  *   other       → 'other' (should not occur given the WHERE clause)
  */
-export function getAutoRoutingVariantBreakdown(): AutoRoutingVariantRow[] {
+export async function getAutoRoutingVariantBreakdown(): Promise<AutoRoutingVariantRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT
@@ -66,7 +66,7 @@ export function getAutoRoutingVariantBreakdown(): AutoRoutingVariantRow[] {
       ORDER BY count DESC
     `
     )
-    .all() as AutoRoutingVariantRow[];
+    .all()) as AutoRoutingVariantRow[];
 }
 
 export interface AutoRoutingTopProviderRow {
@@ -77,9 +77,9 @@ export interface AutoRoutingTopProviderRow {
 /**
  * Returns the top 10 providers used for auto/ prefix model requests.
  */
-export function getAutoRoutingTopProviders(): AutoRoutingTopProviderRow[] {
+export async function getAutoRoutingTopProviders(): Promise<AutoRoutingTopProviderRow[]> {
   const db = getDbInstance();
-  return db
+  return (await db
     .prepare(
       `
       SELECT provider, COUNT(*) as count
@@ -90,5 +90,5 @@ export function getAutoRoutingTopProviders(): AutoRoutingTopProviderRow[] {
       LIMIT 10
       `
     )
-    .all() as AutoRoutingTopProviderRow[];
+    .all()) as AutoRoutingTopProviderRow[];
 }

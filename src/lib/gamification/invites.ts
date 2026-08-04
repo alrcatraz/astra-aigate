@@ -89,12 +89,12 @@ export async function redeemInvite(
 export async function listInvites(apiKeyId: string) {
   const db = (await import("../db/core")).getDbInstance();
 
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, code, server_url, max_uses, use_count, expires_at, revoked_at, created_at
        FROM invite_tokens WHERE created_by = ? ORDER BY created_at DESC`
     )
-    .all(apiKeyId) as Array<{
+    .all(apiKeyId)) as Array<{
     id: string;
     code: string;
     server_url: string | null;

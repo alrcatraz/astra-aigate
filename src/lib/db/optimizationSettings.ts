@@ -89,13 +89,15 @@ function mergeOptimizationSettings(
   };
 }
 
-function readDatabaseOptimizationSettings(db: SqliteDatabase): DatabaseOptimizationSettings {
+async function readDatabaseOptimizationSettings(
+  db: SqliteDatabase
+): Promise<DatabaseOptimizationSettings> {
   let settings: DatabaseOptimizationSettings = { ...DEFAULT_DATABASE_SETTINGS.optimization };
 
   try {
-    const rows = db
+    const rows = (await db
       .prepare("SELECT namespace, key, value FROM key_value WHERE namespace IN (?, ?)")
-      .all("settings", "databaseSettings") as Array<{
+      .all("settings", "databaseSettings")) as Array<{
       namespace: string;
       key: string;
       value: string | null;
@@ -145,9 +147,9 @@ function readDatabaseOptimizationSettings(db: SqliteDatabase): DatabaseOptimizat
   return settings;
 }
 
-export function setCacheSizeForDb(db: SqliteDatabase, cacheSizeKb: number): void {
+export async function setCacheSizeForDb(db: SqliteDatabase, cacheSizeKb: number): Promise<void> {
   const normalizedCacheSizeKb = requireCacheSizeKb(cacheSizeKb);
-  const currentCacheSize = db.pragma("cache_size", { simple: true }) as number;
+  const currentCacheSize = (await db.pragma("cache_size", { simple: true })) as number;
   const targetCacheSize = -normalizedCacheSizeKb;
 
   if (currentCacheSize === targetCacheSize) {
@@ -158,9 +160,9 @@ export function setCacheSizeForDb(db: SqliteDatabase, cacheSizeKb: number): void
   console.log(
     `[DB] Changing cache_size from ${Math.abs(currentCacheSize)}KB to ${normalizedCacheSizeKb}KB`
   );
-  db.pragma(`cache_size = ${targetCacheSize}`);
+  await db.pragma(`cache_size = ${targetCacheSize}`);
 
-  const newCacheSize = db.pragma("cache_size", { simple: true }) as number;
+  const newCacheSize = (await db.pragma("cache_size", { simple: true })) as number;
   if (newCacheSize !== targetCacheSize) {
     throw new Error(
       `cache_size change did not take effect (expected ${targetCacheSize}, got ${newCacheSize})`
@@ -169,22 +171,22 @@ export function setCacheSizeForDb(db: SqliteDatabase, cacheSizeKb: number): void
   console.log(`[DB] cache_size changed to ${Math.abs(newCacheSize)}KB`);
 }
 
-function applyPersistentOptimizationPragmas(
+async function applyPersistentOptimizationPragmas(
   db: SqliteDatabase,
   settings: DatabaseOptimizationSettings
-): void {
+): Promise<void> {
   const targetAutoVacuum = AUTO_VACUUM_MODE_TO_PRAGMA[settings.autoVacuumMode];
   const targetPageSize = normalizePageSizeBytes(
     settings.pageSize,
     DEFAULT_DATABASE_SETTINGS.optimization.pageSize
   );
-  const currentAutoVacuum = db.pragma("auto_vacuum", { simple: true }) as number;
-  const currentPageSize = db.pragma("page_size", { simple: true }) as number;
+  const currentAutoVacuum = (await db.pragma("auto_vacuum", { simple: true })) as number;
+  const currentPageSize = (await db.pragma("page_size", { simple: true })) as number;
 
   if (currentAutoVacuum === targetAutoVacuum && currentPageSize === targetPageSize) return;
 
   const originalJournalMode = String(
-    db.pragma("journal_mode", { simple: true }) ?? ""
+    (await db.pragma("journal_mode", { simple: true })) ?? ""
   ).toUpperCase();
   const shouldRestoreWal = originalJournalMode === "WAL";
 
@@ -195,14 +197,14 @@ function applyPersistentOptimizationPragmas(
   );
 
   try {
-    if (shouldRestoreWal) db.pragma("journal_mode = DELETE");
-    db.pragma(`auto_vacuum = ${targetAutoVacuum}`);
-    db.pragma(`page_size = ${targetPageSize}`);
-    db.exec("VACUUM");
+    if (shouldRestoreWal) await db.pragma("journal_mode = DELETE");
+    await db.pragma(`auto_vacuum = ${targetAutoVacuum}`);
+    await db.pragma(`page_size = ${targetPageSize}`);
+    await db.exec("VACUUM");
   } finally {
     if (shouldRestoreWal) {
       try {
-        db.pragma("journal_mode = WAL");
+        await db.pragma("journal_mode = WAL");
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`[DB] Failed to restore WAL mode after optimization settings: ${message}`);
@@ -210,8 +212,8 @@ function applyPersistentOptimizationPragmas(
     }
   }
 
-  const newAutoVacuum = db.pragma("auto_vacuum", { simple: true }) as number;
-  const newPageSize = db.pragma("page_size", { simple: true }) as number;
+  const newAutoVacuum = (await db.pragma("auto_vacuum", { simple: true })) as number;
+  const newPageSize = (await db.pragma("page_size", { simple: true })) as number;
   if (newAutoVacuum !== targetAutoVacuum || newPageSize !== targetPageSize) {
     throw new Error(
       `database optimization settings did not take effect ` +
@@ -221,30 +223,30 @@ function applyPersistentOptimizationPragmas(
   }
 }
 
-export function applyDatabaseOptimizationSettingsForDb(
+export async function applyDatabaseOptimizationSettingsForDb(
   db: SqliteDatabase,
   settings: DatabaseOptimizationSettings,
   options: { applyPersistent: boolean }
-): void {
-  if (options.applyPersistent) applyPersistentOptimizationPragmas(db, settings);
-  setCacheSizeForDb(
+): Promise<void> {
+  if (options.applyPersistent) await applyPersistentOptimizationPragmas(db, settings);
+  await setCacheSizeForDb(
     db,
     normalizeStoredCacheSizeKb(settings.cacheSize, DEFAULT_DATABASE_SETTINGS.optimization.cacheSize)
   );
 }
 
-export function applyStoredDatabaseOptimizationSettings(db: SqliteDatabase): void {
-  const settings = readDatabaseOptimizationSettings(db);
+export async function applyStoredDatabaseOptimizationSettings(db: SqliteDatabase): Promise<void> {
+  const settings = await readDatabaseOptimizationSettings(db);
   // Startup can happen concurrently in test workers and clustered hosts. Only
   // restore connection-local settings here; page_size/auto_vacuum require VACUUM
   // and are applied synchronously when the Storage settings are saved.
-  applyDatabaseOptimizationSettingsForDb(db, settings, {
+  await applyDatabaseOptimizationSettingsForDb(db, settings, {
     applyPersistent: false,
   });
 }
 
-export function setAutoVacuumForDb(db: SqliteDatabase, mode: AutoVacuumMode): void {
-  const currentMode = db.pragma("auto_vacuum", { simple: true }) as number;
+export async function setAutoVacuumForDb(db: SqliteDatabase, mode: AutoVacuumMode): Promise<void> {
+  const currentMode = (await db.pragma("auto_vacuum", { simple: true })) as number;
   const targetMode = AUTO_VACUUM_MODE_TO_PRAGMA[mode];
 
   if (currentMode === targetMode) {
@@ -252,20 +254,20 @@ export function setAutoVacuumForDb(db: SqliteDatabase, mode: AutoVacuumMode): vo
     return;
   }
 
-  applyPersistentOptimizationPragmas(db, {
+  await applyPersistentOptimizationPragmas(db, {
     ...DEFAULT_DATABASE_SETTINGS.optimization,
     autoVacuumMode: mode,
-    pageSize: db.pragma("page_size", { simple: true }) as number,
+    pageSize: (await db.pragma("page_size", { simple: true })) as number,
   });
 }
 
-export function getAutoVacuumModeForDb(db: SqliteDatabase): AutoVacuumMode {
-  const mode = db.pragma("auto_vacuum", { simple: true }) as number;
+export async function getAutoVacuumModeForDb(db: SqliteDatabase): Promise<AutoVacuumMode> {
+  const mode = (await db.pragma("auto_vacuum", { simple: true })) as number;
   return PRAGMA_TO_AUTO_VACUUM_MODE[mode] || "NONE";
 }
 
-export function setPageSizeForDb(db: SqliteDatabase, pageSize: number): void {
-  const currentPageSize = db.pragma("page_size", { simple: true }) as number;
+export async function setPageSizeForDb(db: SqliteDatabase, pageSize: number): Promise<void> {
+  const currentPageSize = (await db.pragma("page_size", { simple: true })) as number;
   const targetPageSize = normalizePageSizeBytes(
     pageSize,
     DEFAULT_DATABASE_SETTINGS.optimization.pageSize
@@ -276,9 +278,9 @@ export function setPageSizeForDb(db: SqliteDatabase, pageSize: number): void {
     return;
   }
 
-  applyPersistentOptimizationPragmas(db, {
+  await applyPersistentOptimizationPragmas(db, {
     ...DEFAULT_DATABASE_SETTINGS.optimization,
-    autoVacuumMode: getAutoVacuumModeForDb(db),
+    autoVacuumMode: await getAutoVacuumModeForDb(db),
     pageSize: targetPageSize,
   });
 }

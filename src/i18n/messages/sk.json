@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "K dispozícii je nová verzia. Kliknutím aktualizujte.",
     "updateStarted": "Aktualizácia spustená...",
     "reloadingPageAutomatically": "Automaticky sa znova načítava stránka...",
-    "providerTopology": "Topológia poskytovateľa"
+    "providerTopology": "Topológia poskytovateľa",
+    "step2Media": "Nakonfigurujte mediálne schopnosti (obrázok/OCR/embedding) na stránke <mediaProviders>poskytovateľov médií</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -4713,7 +4714,8 @@
       "configure": "Nakonfigurujte poskytovateľov"
     },
     "tierFlowDiagramAlt": "3-vrstvový záložný diagram OmniRoute",
-    "apiKeyMgmt": "API kľúč Mgmt"
+    "apiKeyMgmt": "API kľúč Mgmt",
+    "loading": "Načítava sa..."
   },
   "providers": {
     "title": "Poskytovatelia",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Prejdite domov",
     "toggleMenu": "Prepnúť ponuku",
     "featuresLink": "Vlastnosti",

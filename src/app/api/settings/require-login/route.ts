@@ -4,7 +4,7 @@ import {
   hasManagementPasswordConfigured,
   hashManagementPassword,
 } from "@/lib/auth/managementPassword";
-import { isAuthenticated } from "@/shared/utils/apiAuth";
+import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { getNodeRuntimeSupport } from "@/shared/utils/nodeRuntimeSupport.ts";
 import { updateRequireLoginSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
@@ -23,7 +23,7 @@ function isBootstrapSecurityWindow(settings: Record<string, unknown>) {
   return !hasConfiguredPassword(settings);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const nodeInfo = getNodeCompatibility();
   try {
     const settings = await getSettings();
@@ -31,11 +31,20 @@ export async function GET() {
     const hasPassword = hasManagementPasswordConfigured(settings);
     const setupComplete = !!settings.setupComplete;
     const oidcEnabled = !!settings.oidcEnabled;
+    // Reuse the shared dashboard-session guard: validates the httpOnly
+    // `auth_token` cookie via jwtVerify (cookies() from next/headers), so the
+    // login page can forward already-authenticated users straight to the
+    // dashboard instead of re-prompting for the password. Strict session check
+    // only — the bootstrap window (no password configured) must NOT report
+    // authenticated, or the login page would bounce into the dashboard guard
+    // loop (home redirects to onboarding, onboarding bounces back to login).
+    const authenticated = await isDashboardSessionAuthenticated(request);
     return NextResponse.json({
       requireLogin,
       hasPassword,
       setupComplete,
       oidcEnabled,
+      authenticated,
       ...nodeInfo,
     });
   } catch (error) {
@@ -46,6 +55,7 @@ export async function GET() {
         hasPassword: true,
         setupComplete: true,
         oidcEnabled: false,
+        authenticated: false,
         ...nodeInfo,
       },
       { status: 200 }

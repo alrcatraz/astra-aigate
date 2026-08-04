@@ -6,7 +6,8 @@ lastUpdated: 2026-06-28
 
 # 🗜️ Prompt Compression Guide — OmniRoute
 
-> Save 15-95% on eligible context automatically. For a quick overview, see the [README Compression section](../README.md#%EF%B8%8F-prompt-compression--save-15-95-eligible-tokens-automatically).
+> Save 15-95% on eligible context automatically. For a quick overview, see the
+> [Compression Modes](#compression-modes) below.
 
 ## Overview
 
@@ -516,7 +517,6 @@ This is useful for:
 
 - [Environment Config](../reference/ENVIRONMENT.md) — Compression environment variables
 - [Architecture Guide](../architecture/ARCHITECTURE.md) — Compression pipeline internals
-- [User Guide](../guides/USER_GUIDE.md) — Getting started with compression
 - [RTK Compression](./RTK_COMPRESSION.md) — RTK filters, trust model, verify gate, raw-output recovery
 - [Compression Engines](./COMPRESSION_ENGINES.md) — Caveman, RTK, stacked, APIs, MCP, dashboard
 - [Compression Rules Format](./COMPRESSION_RULES_FORMAT.md) — JSON rule-pack format

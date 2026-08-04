@@ -1,8 +1,8 @@
 import os from "os";
 import path from "path";
-import { createRequire } from "node:module";
+import { nativeRequire } from "@/lib/module-require";
 
-const _require = createRequire(import.meta.url);
+const _require = nativeRequire;
 const Database = process.versions.bun
   ? (_require("bun:sqlite").Database as typeof import("better-sqlite3"))
   : (_require("better-sqlite3") as typeof import("better-sqlite3"));

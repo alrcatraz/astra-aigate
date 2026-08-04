@@ -1,12 +1,12 @@
 // src/lib/db/adapters/sqljsAdapter.ts
 import fs from "node:fs";
-import { createRequire } from "node:module";
+import { nativeRequire } from "@/lib/module-require";
 import path from "node:path";
 import type { SqliteAdapter, PreparedStatement, RunResult } from "./types";
 
 const SAVE_DEBOUNCE_MS = 100;
 const CHECKPOINT_INTERVAL_MS = 60_000;
-const _require = createRequire(import.meta.url);
+const _require = nativeRequire;
 
 let _sqlJsLib: Awaited<ReturnType<(typeof import("sql.js"))["default"]>> | null = null;
 
@@ -152,14 +152,18 @@ export async function createSqlJsAdapter(filePath: string): Promise<SqliteAdapte
     }, SAVE_DEBOUNCE_MS);
   }
 
-  function runSavepoint<T>(fn: (...args: unknown[]) => T, ...args: unknown[]): T {
+  /** Async-capable SAVEPOINT transaction (Phase 2.8). */
+  async function runSavepoint<T>(
+    fn: (...args: unknown[]) => Promise<T> | T,
+    ...args: unknown[]
+  ): Promise<T> {
     const sp = `sp_${Math.random().toString(36).slice(2)}`;
     db.run(`SAVEPOINT "${sp}"`);
     try {
-      const result = fn(...args);
+      const result = await fn(...args);
       db.run(`RELEASE "${sp}"`);
       scheduleSave();
-      return result;
+      return result as T;
     } catch (err) {
       try {
         db.run(`ROLLBACK TO "${sp}"`);
@@ -171,7 +175,7 @@ export async function createSqlJsAdapter(filePath: string): Promise<SqliteAdapte
 
   function makeStatement(sql: string): PreparedStatement {
     return {
-      run(...params: unknown[]): RunResult {
+      async run(...params: unknown[]): Promise<RunResult> {
         const stmt = db.prepare(sql);
         try {
           const bindValue = toBindValue(params);
@@ -186,7 +190,7 @@ export async function createSqlJsAdapter(filePath: string): Promise<SqliteAdapte
           stmt.free();
         }
       },
-      get(...params: unknown[]): unknown {
+      async get(...params: unknown[]): Promise<unknown> {
         const stmt = db.prepare(sql);
         try {
           const bindValue = toBindValue(params);
@@ -197,7 +201,7 @@ export async function createSqlJsAdapter(filePath: string): Promise<SqliteAdapte
           stmt.free();
         }
       },
-      all(...params: unknown[]): unknown[] {
+      async all(...params: unknown[]): Promise<unknown[]> {
         const stmt = db.prepare(sql);
         try {
           const bindValue = toBindValue(params);
@@ -264,12 +268,12 @@ export async function createSqlJsAdapter(filePath: string): Promise<SqliteAdapte
       return makeStatement(sql);
     },
 
-    exec(sql: string): void {
+    async exec(sql: string): Promise<void> {
       db.run(sql);
       scheduleSave();
     },
 
-    pragma(pragmaStr: string, options?: { simple?: boolean }): unknown {
+    async pragma(pragmaStr: string, options?: { simple?: boolean }): Promise<unknown> {
       const result = db.exec(`PRAGMA ${pragmaStr}`);
       if (!result.length) return null;
       const rows = result[0];
@@ -281,12 +285,12 @@ export async function createSqlJsAdapter(filePath: string): Promise<SqliteAdapte
       );
     },
 
-    transaction<T>(fn: (...args: unknown[]) => T): (...args: unknown[]) => T {
+    transaction<T>(fn: (...args: unknown[]) => Promise<T> | T): (...args: unknown[]) => Promise<T> {
       return (...args: unknown[]) => runSavepoint(fn, ...args);
     },
 
-    immediate(fn: () => void): void {
-      runSavepoint(() => fn());
+    async immediate(fn: () => Promise<void> | void): Promise<void> {
+      await runSavepoint(() => fn());
     },
 
     async backup(destination: string): Promise<void> {
@@ -294,14 +298,14 @@ export async function createSqlJsAdapter(filePath: string): Promise<SqliteAdapte
       if (filePath !== ":memory:") fs.copyFileSync(filePath, destination);
     },
 
-    checkpoint(_mode = "TRUNCATE"): void {
+    async checkpoint(_mode = "TRUNCATE"): Promise<void> {
       if (dirty)
         try {
           persist();
         } catch {}
     },
 
-    close(): void {
+    async close(): Promise<void> {
       gracefulClose();
     },
 

@@ -252,7 +252,7 @@ it is unit-testable without a real Bottleneck limiter.
 > around the `resolveCompressionSettings`/`selectCompressionStrategy` block),
 > not HTTP response compression on synthesized 429 bodies — there is no
 > matching code path for a literal bypass flag. That prompt-compression step
-> also currently runs *before* `withRateLimit()` in the request pipeline, so
+> also currently runs _before_ `withRateLimit()` in the request pipeline, so
 > reordering to skip it on a queue-full rejection is a separate, larger
 > change than this issue's scope; it was intentionally **not** implemented
 > here and is left as a follow-up if the CPU-saving win is worth the
@@ -305,5 +305,4 @@ default `test:integration`, chaos and heap self-skip (without `RUN_CHAOS_INT`/`-
 ## See Also
 
 - [Architecture Guide](./ARCHITECTURE.md) — System architecture and internals
-- [User Guide](../guides/USER_GUIDE.md) — Providers, combos, CLI integration
 - [Auto-Combo Engine](../routing/AUTO-COMBO.md) — 12-factor scoring, mode packs

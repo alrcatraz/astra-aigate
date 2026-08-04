@@ -101,17 +101,17 @@ function rowToConfig(record: Record<string, unknown>): UpstreamProxyConfig {
 
 export async function getUpstreamProxyConfigs() {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT * FROM upstream_proxy_config ORDER BY provider_id")
-    .all() as UpstreamProxyRow[];
+    .all()) as UpstreamProxyRow[];
   return rows.map((row) => rowToConfig(toRecord(row)));
 }
 
 export async function getUpstreamProxyConfig(providerId: string) {
   const db = getDbInstance();
-  const row = db
+  const row = (await db
     .prepare("SELECT * FROM upstream_proxy_config WHERE provider_id = ?")
-    .get(providerId) as UpstreamProxyRow | undefined;
+    .get(providerId)) as UpstreamProxyRow | undefined;
   if (!row) return null;
   return rowToConfig(toRecord(row));
 }
@@ -136,8 +136,9 @@ export async function upsertUpstreamProxyConfig(data: {
   const enabled = data.enabled !== false ? 1 : 0;
   const family = data.family ?? "auto";
 
-  db.prepare(
-    `INSERT INTO upstream_proxy_config
+  await db
+    .prepare(
+      `INSERT INTO upstream_proxy_config
      (provider_id, mode, cliproxyapi_model_mapping, native_priority, cliproxyapi_priority, enabled, family, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
      ON CONFLICT(provider_id) DO UPDATE SET
@@ -148,15 +149,16 @@ export async function upsertUpstreamProxyConfig(data: {
        enabled = excluded.enabled,
        family = excluded.family,
        updated_at = datetime('now')`
-  ).run(
-    data.providerId,
-    mode,
-    cliproxyapiModelMapping,
-    nativePriority,
-    cliproxyapiPriority,
-    enabled,
-    family
-  );
+    )
+    .run(
+      data.providerId,
+      mode,
+      cliproxyapiModelMapping,
+      nativePriority,
+      cliproxyapiPriority,
+      enabled,
+      family
+    );
 
   return getUpstreamProxyConfig(data.providerId);
 }
@@ -204,16 +206,16 @@ export async function updateUpstreamProxyConfig(
   }
 
   params.push(providerId);
-  db.prepare(`UPDATE upstream_proxy_config SET ${sets.join(", ")} WHERE provider_id = ?`).run(
-    ...params
-  );
+  await db
+    .prepare(`UPDATE upstream_proxy_config SET ${sets.join(", ")} WHERE provider_id = ?`)
+    .run(...params);
 
   return getUpstreamProxyConfig(providerId);
 }
 
 export async function deleteUpstreamProxyConfig(providerId: string) {
   const db = getDbInstance();
-  const result = db
+  const result = await db
     .prepare("DELETE FROM upstream_proxy_config WHERE provider_id = ?")
     .run(providerId);
   return result.changes > 0;
@@ -221,11 +223,11 @@ export async function deleteUpstreamProxyConfig(providerId: string) {
 
 export async function getProvidersByMode(mode: string) {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare(
       "SELECT * FROM upstream_proxy_config WHERE mode = ? AND enabled = 1 ORDER BY provider_id"
     )
-    .all(mode) as UpstreamProxyRow[];
+    .all(mode)) as UpstreamProxyRow[];
   return rows.map((row) => rowToConfig(toRecord(row)));
 }
 

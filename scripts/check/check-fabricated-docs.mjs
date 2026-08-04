@@ -94,6 +94,7 @@ const ENV_VAR_ALLOWLIST = new Set([
   "REQUIRE_API_KEY",
   "OMNIROUTE_BUILD_PROFILE", // build-time only
   "OMNIROUTE_BUILD_SHA",
+  "AIGATE_BUILD_MEMORY_MB", // build-time only (Docker build-arg, see AGENTS.md Tier 1)
   "OMNIROUTE_URL", // used by ad-hoc tooling, validated elsewhere
   "OMNIROUTE_KEY", // ditto
   "OPENCODE_API_KEY", // ditto

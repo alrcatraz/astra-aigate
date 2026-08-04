@@ -59,7 +59,7 @@ A non-manage key (or no Bearer) returns `403 LOCAL_ONLY`. The sibling prefix `/a
 
 ## IDE Configuration
 
-See [MCP Client Configuration](../guides/SETUP_GUIDE.md#mcp-client-configuration) for Claude Desktop,
+See [MCP Client Configuration](#ide-configuration) for Claude Desktop,
 Cursor, Cline, and compatible MCP client setup.
 
 ---

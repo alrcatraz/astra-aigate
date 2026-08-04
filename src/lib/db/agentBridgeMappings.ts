@@ -6,13 +6,13 @@
 import { getDbInstance } from "./core";
 import type { AgentBridgeMappingRow } from "./_rowTypes";
 
-export function getMappingsForAgent(agentId: string): AgentBridgeMappingRow[] {
+export async function getMappingsForAgent(agentId: string): Promise<AgentBridgeMappingRow[]> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare(
       "SELECT agent_id, source_model, target_model, updated_at FROM agent_bridge_mappings WHERE agent_id = ? ORDER BY source_model ASC"
     )
-    .all(agentId) as AgentBridgeMappingRow[];
+    .all(agentId)) as AgentBridgeMappingRow[];
   return rows;
 }
 
@@ -41,7 +41,8 @@ export function setMappings(
 
 export function deleteMapping(agentId: string, source: string): void {
   const db = getDbInstance();
-  db.prepare(
-    "DELETE FROM agent_bridge_mappings WHERE agent_id = ? AND source_model = ?"
-  ).run(agentId, source);
+  db.prepare("DELETE FROM agent_bridge_mappings WHERE agent_id = ? AND source_model = ?").run(
+    agentId,
+    source
+  );
 }

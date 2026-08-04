@@ -1754,7 +1754,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "Reloading page automatically...",
-    "providerTopology": "Provider Topology"
+    "providerTopology": "Provider Topology",
+    "step2Media": "Configure media capabilities (image/OCR/embedding) in <mediaProviders>Media Providers</mediaProviders>."
   },
   "analytics": {
     "title": "Analytics",
@@ -2304,7 +2305,10 @@
       "webFetch": "Web Fetch",
       "video": "Video",
       "music": "Music",
-      "ocr": "OCR"
+      "ocr": "OCR",
+      "rerank": "Rerank",
+      "moderation": "Moderation",
+      "audioTranslation": "Audio Translation"
     },
     "noProviders": "No providers configured for this kind yet.",
     "addConnection": "Add Connection",
@@ -4759,7 +4763,8 @@
       "configure": "Configure providers"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-tier fallback diagram",
-    "apiKeyMgmt": "API Key Management"
+    "apiKeyMgmt": "API Key Management",
+    "loading": "Loading..."
   },
   "providers": {
     "title": "Providers",
@@ -5507,6 +5512,12 @@
     "newApiUserIdLabel": "New-API User ID",
     "newApiUserIdPlaceholder": "e.g. 12345",
     "newApiUserIdHint": "AgentRouter New-Api-User header value, used together with the console API key to fetch quota balance.",
+    "systemAdminTokenLabel": "System admin token",
+    "systemAdminTokenPlaceholder": "Paste the system admin token",
+    "systemAdminTokenHint": "Admin token required to fetch quota for this provider. Never use the routing API key here.",
+    "dmxapiUserIdLabel": "DMXAPI user ID",
+    "dmxapiUserIdPlaceholder": "e.g. 1001",
+    "dmxapiUserIdHint": "Dmx-Api-User header value — the target account whose quota to show.",
     "cpaModeDisabledTitle": "CLIProxyAPI compatibility mode is disabled",
     "cpaModeEnabledTitle": "CLIProxyAPI compatibility mode is enabled",
     "customUserAgentHint": "Custom User Agent Hint",
@@ -9039,7 +9050,7 @@
     "signingIn": "Signing in..."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Navigate to home",
     "toggleMenu": "Toggle menu",
     "featuresLink": "Features",

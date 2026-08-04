@@ -57,12 +57,12 @@ export async function getExcludedConnectionIds(
 ): Promise<Set<string>> {
   if (!apiKeyId || !autoChannel) return new Set();
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT connection_id FROM auto_candidate_overrides
        WHERE api_key_id = ? AND auto_channel = ? AND excluded = 1`
     )
-    .all(apiKeyId, autoChannel) as Array<{ connection_id: string }>;
+    .all(apiKeyId, autoChannel)) as Array<{ connection_id: string }>;
   return new Set(rows.map((row) => row.connection_id));
 }
 
@@ -88,13 +88,13 @@ export async function setExcluded(
      DO UPDATE SET excluded = excluded.excluded`
   ).run(id, apiKeyId, autoChannel, connectionId, excluded ? 1 : 0, createdAt);
 
-  const row = db
+  const row = (await db
     .prepare(
       `SELECT id, api_key_id, auto_channel, connection_id, excluded, created_at
        FROM auto_candidate_overrides
        WHERE api_key_id = ? AND auto_channel = ? AND connection_id = ?`
     )
-    .get(apiKeyId, autoChannel, connectionId) as OverrideRow;
+    .get(apiKeyId, autoChannel, connectionId)) as OverrideRow;
   return rowToOverride(row);
 }
 
@@ -105,13 +105,13 @@ export async function listOverrides(
 ): Promise<AutoCandidateOverride[]> {
   if (!apiKeyId || !autoChannel) return [];
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, api_key_id, auto_channel, connection_id, excluded, created_at
        FROM auto_candidate_overrides
        WHERE api_key_id = ? AND auto_channel = ?
        ORDER BY created_at ASC`
     )
-    .all(apiKeyId, autoChannel) as OverrideRow[];
+    .all(apiKeyId, autoChannel)) as OverrideRow[];
   return rows.map(rowToOverride);
 }

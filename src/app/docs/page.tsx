@@ -1,68 +1,52 @@
 import Link from "next/link";
 import { Metadata } from "next";
 import { source } from "@/lib/source";
+import { APP_CONFIG } from "@/shared/constants/config";
 
 export const metadata: Metadata = {
-  title: "Astra AI Gate Documentation",
+  title: `${APP_CONFIG.name} Documentation`,
   description:
-    "Everything you need to route, compress, and scale your AI — setup guides, API reference, compression, deployment, and more.",
+    "Everything you need to route, compress, and scale your AI — API reference, architecture, compression, and more.",
   openGraph: {
-    title: "Astra AI Gate Documentation",
-    description:
-      "Comprehensive docs for OmniRoute AI gateway — setup, API, compression, deployment, and more.",
+    title: `${APP_CONFIG.name} Documentation`,
+    description: `Comprehensive docs for ${APP_CONFIG.name} — API, architecture, compression, and more.`,
     type: "website",
-    url: "https://omniroute.online/docs",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Astra AI Gate Documentation",
-    description: "Comprehensive docs for OmniRoute AI gateway",
+    title: `${APP_CONFIG.name} Documentation`,
+    description: `Comprehensive docs for ${APP_CONFIG.name}`,
   },
 };
 
 const featuredLinks = [
   {
-    href: "/docs/getting-started/quick-start",
-    title: "Quick Start",
-    icon: "rocket_launch",
-    desc: "Get OmniRoute running in 3 minutes",
+    href: "/docs/reference/api-reference",
+    title: "API Reference",
+    icon: "code",
+    desc: "Full API endpoint reference with auth model",
   },
   {
-    href: "/docs/getting-started/auto-combo-guide",
-    title: "Auto-Combo Guide",
+    href: "/docs/architecture/architecture",
+    title: "Architecture",
+    icon: "account_tree",
+    desc: "High-level architecture, subsystem map, dashboard surface",
+  },
+  {
+    href: "/docs/compression/compression-guide",
+    title: "Compression Guide",
     icon: "auto_awesome",
-    desc: "Let OmniRoute pick the best AI for you",
-  },
-  {
-    href: "/docs/getting-started/providers-guide",
-    title: "Providers Guide",
-    icon: "link",
-    desc: "Connect AI providers in minutes",
+    desc: "Prompt compression modes and engines",
   },
 ];
 
 const sections = [
   {
-    title: "For Non-Tech Users",
-    subtitle: "Get started quickly — no technical background needed",
-    icon: "rocket_launch",
-    color: "green",
-    folders: ["getting-started", "guides"],
-  },
-  {
-    title: "For Tech Users",
+    title: "Architecture & Reference",
     subtitle: "Deep dive into architecture, APIs, and internals",
     icon: "code",
     color: "blue",
-    folders: [
-      "architecture",
-      "reference",
-      "frameworks",
-      "routing",
-      "security",
-      "compression",
-      "ops",
-    ],
+    folders: ["architecture", "reference", "frameworks", "routing", "security", "compression"],
   },
 ];
 
@@ -72,7 +56,9 @@ export default function DocsHomePage() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <div className="text-center mb-16 mt-8">
-        <h1 className="text-4xl font-bold text-fd-foreground mb-5">OmniRoute Documentation</h1>
+        <h1 className="text-4xl font-bold text-fd-foreground mb-5">
+          {APP_CONFIG.name} Documentation
+        </h1>
         <p className="text-lg text-fd-muted-foreground mb-6">
           Everything you need to route, compress, and scale your AI
         </p>

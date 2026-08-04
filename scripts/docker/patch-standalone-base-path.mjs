@@ -1,6 +1,6 @@
 /**
  * Rewrites Next.js standalone manifests and embedded basePath literals so a bundle
- * built for the domain root can serve under OMNIROUTE_BASE_PATH at container start.
+ * built for the domain root can serve under AIGATE_BASE_PATH at container start.
  */
 
 import fs from "node:fs";
@@ -124,8 +124,8 @@ export function patchStandaloneBasePath({ appRoot, fromBasePath, toBasePath }) {
   }
   if (from) {
     throw new Error(
-      `runtime OMNIROUTE_BASE_PATH (${to || "(root)"}) does not match the image build ` +
-        `(${from}). Rebuild with --build-arg OMNIROUTE_BASE_PATH=${to || '""'}.`
+      `runtime AIGATE_BASE_PATH (${to || "(root)"}) does not match the image build ` +
+        `(${from}). Rebuild with --build-arg AIGATE_BASE_PATH=${to || '""'}.`
     );
   }
   if (!to) {

@@ -21,21 +21,21 @@ function mapRow(row: AgentBridgeBypassDbRow): AgentBridgeBypassRow {
   };
 }
 
-export function getAllBypassPatterns(): AgentBridgeBypassRow[] {
+export async function getAllBypassPatterns(): Promise<AgentBridgeBypassRow[]> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare(
       "SELECT pattern, source, created_at FROM agent_bridge_bypass ORDER BY source ASC, pattern ASC"
     )
-    .all() as AgentBridgeBypassDbRow[];
+    .all()) as AgentBridgeBypassDbRow[];
   return rows.map(mapRow);
 }
 
-export function getUserBypassPatterns(): string[] {
+export async function getUserBypassPatterns(): Promise<string[]> {
   const db = getDbInstance();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT pattern FROM agent_bridge_bypass WHERE source = 'user' ORDER BY pattern ASC")
-    .all() as Array<{ pattern: string }>;
+    .all()) as Array<{ pattern: string }>;
   return rows.map((r) => r.pattern);
 }
 

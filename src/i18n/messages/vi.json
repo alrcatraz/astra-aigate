@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Đã có phiên bản mới. Nhấp để cập nhật.",
     "updateStarted": "Đã bắt đầu cập nhật...",
     "reloadingPageAutomatically": "Đang tự động tải lại trang...",
-    "providerTopology": "Cấu trúc liên kết nhà cung cấp"
+    "providerTopology": "Cấu trúc liên kết nhà cung cấp",
+    "step2Media": "Cấu hình khả năng đa phương tiện (hình ảnh/OCR/nhúng) trong trang <mediaProviders>nhà cung cấp đa phương tiện</mediaProviders>."
   },
   "analytics": {
     "title": "Phân tích",
@@ -4735,7 +4736,8 @@
       "configure": "Cấu hình nhà cung cấp"
     },
     "tierFlowDiagramAlt": "Sơ đồ dự phòng 3 cấp của OmniRoute",
-    "apiKeyMgmt": "Quản lý khóa API"
+    "apiKeyMgmt": "Quản lý khóa API",
+    "loading": "Đang tải..."
   },
   "providers": {
     "title": "Nhà cung cấp",
@@ -9010,7 +9012,7 @@
     "nodeIncompatibleHint": "OmniRoute yêu cầu Node.js 22.22.2+ (22.x LTS) hoặc 24.0.0+ (24.x LTS). Khuyến nghị sử dụng Node 24 LTS."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Đi tới trang chủ",
     "toggleMenu": "Bật/tắt menu",
     "featuresLink": "Tính năng",

@@ -1,5 +1,5 @@
 /**
- * Client/server helpers for Next.js `basePath` / `OMNIROUTE_BASE_PATH` deploys.
+ * Client/server helpers for Next.js `basePath` / `AIGATE_BASE_PATH` deploys.
  *
  * Next.js rewrites Link/router automatically, but absolute browser calls like
  * `fetch("/api/...")` and `new EventSource("/api/...")` do not get the prefix.
@@ -16,14 +16,12 @@ export function normalizeBasePath(value?: string | null): string {
 
 /**
  * Deploy basePath as seen by the client bundle.
- * Set via next.config `env.NEXT_PUBLIC_OMNIROUTE_BASE_PATH` from `OMNIROUTE_BASE_PATH`.
+ * Set via next.config `env.NEXT_PUBLIC_AIGATE_BASE_PATH` from `AIGATE_BASE_PATH`.
  */
 export function getDeployBasePath(
   env: NodeJS.ProcessEnv = typeof process !== "undefined" ? process.env : ({} as NodeJS.ProcessEnv)
 ): string {
-  return normalizeBasePath(
-    env.NEXT_PUBLIC_OMNIROUTE_BASE_PATH || env.OMNIROUTE_BASE_PATH || ""
-  );
+  return normalizeBasePath(env.NEXT_PUBLIC_AIGATE_BASE_PATH || env.AIGATE_BASE_PATH || "");
 }
 
 /**
@@ -53,8 +51,7 @@ export function withBasePath(
   // Absolute URL — only rewrite same-origin
   try {
     const baseOrigin =
-      origin ||
-      (typeof window !== "undefined" ? window.location.origin : "http://localhost");
+      origin || (typeof window !== "undefined" ? window.location.origin : "http://localhost");
     const url = new URL(input, baseOrigin);
     const currentOrigin = new URL(baseOrigin).origin;
     if (url.origin !== currentOrigin) return input;

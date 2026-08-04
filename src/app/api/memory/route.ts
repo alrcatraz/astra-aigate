@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 
     // Total tokens across all memories (computed in SQL inside the domain module
     // to avoid loading every memory's content into process memory).
-    const tokensUsed = getMemoryTokensUsed(apiKeyId);
+    const tokensUsed = await getMemoryTokensUsed(apiKeyId);
 
     // Compute hit rate from memory cache
     const cacheStats = memoryCache.stats();

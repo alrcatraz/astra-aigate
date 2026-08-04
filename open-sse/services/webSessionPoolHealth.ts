@@ -11,10 +11,7 @@
  */
 
 import { PoolRegistry } from "./sessionPool/poolRegistry.ts";
-import {
-  isProviderInCooldown,
-  getProviderCooldownRemainingMs,
-} from "./accountFallback.ts";
+import { isProviderInCooldown, getProviderCooldownRemainingMs } from "./accountFallback.ts";
 import { getAllCircuitBreakerStatuses } from "../../src/shared/utils/circuitBreaker.ts";
 import type { PoolStats, PoolSessionDetail } from "./sessionPool/types.ts";
 
@@ -26,12 +23,12 @@ export interface WebSessionPoolHealthDeps {
   getSessionDetails: (provider: string) => PoolSessionDetail[] | null;
   isProviderInCooldown: (provider: string) => boolean;
   getProviderCooldownRemainingMs: (provider: string) => number | null;
-  getProviderBreakerState: (provider: string) => {
+  getProviderBreakerState: (provider: string) => Promise<{
     state?: string;
     failureCount?: number;
     lastFailureTime?: number | null;
     retryAfterMs?: number;
-  } | null;
+  } | null>;
 }
 
 const defaultDeps: WebSessionPoolHealthDeps = {
@@ -40,8 +37,8 @@ const defaultDeps: WebSessionPoolHealthDeps = {
   getSessionDetails: (p) => PoolRegistry.getSessionDetails(p),
   isProviderInCooldown: (p) => isProviderInCooldown(p),
   getProviderCooldownRemainingMs: (p) => getProviderCooldownRemainingMs(p),
-  getProviderBreakerState: (p) => {
-    const statuses = getAllCircuitBreakerStatuses();
+  getProviderBreakerState: async (p) => {
+    const statuses = await getAllCircuitBreakerStatuses();
     const match = statuses.find((s) => s.name === p);
     if (!match) return null;
     return {
@@ -120,15 +117,13 @@ function parsePercentString(value: string | undefined): number {
  */
 function computeHealth(
   pool: WebSessionPoolPoolInfo | null,
-  breaker: WebSessionPoolBreakerInfo | null,
+  breaker: WebSessionPoolBreakerInfo | null
 ): { health: PoolHealthStatus; issues: string[] } {
   const issues: string[] = [];
 
   // Check breaker state first — most critical
   if (breaker?.inCooldown) {
-    issues.push(
-      `breaker OPEN (cooldown ${breaker.cooldownRemainingMs ?? 0}ms remaining)`,
-    );
+    issues.push(`breaker OPEN (cooldown ${breaker.cooldownRemainingMs ?? 0}ms remaining)`);
     return { health: "down", issues };
   }
 
@@ -150,11 +145,10 @@ function computeHealth(
 
     // >50% sessions in cooldown/dead → degraded
     if (pool.totalSessions > 0) {
-      const unhealthyRatio =
-        (pool.cooldownSessions + pool.deadSessions) / pool.totalSessions;
+      const unhealthyRatio = (pool.cooldownSessions + pool.deadSessions) / pool.totalSessions;
       if (unhealthyRatio > 0.5) {
         issues.push(
-          `${pool.cooldownSessions + pool.deadSessions}/${pool.totalSessions} sessions in cooldown/dead`,
+          `${pool.cooldownSessions + pool.deadSessions}/${pool.totalSessions} sessions in cooldown/dead`
         );
       }
     }
@@ -170,7 +164,9 @@ function computeHealth(
 /**
  * Build pool info from PoolRegistry stats.
  */
-function buildPoolInfo(stats: (PoolStats & { createdAt: number }) | null): WebSessionPoolPoolInfo | null {
+function buildPoolInfo(
+  stats: (PoolStats & { createdAt: number }) | null
+): WebSessionPoolPoolInfo | null {
   if (!stats) return null;
 
   const elapsedMs = Date.now() - stats.createdAt;
@@ -190,11 +186,11 @@ function buildPoolInfo(stats: (PoolStats & { createdAt: number }) | null): WebSe
 /**
  * Build breaker info from accountFallback functions.
  */
-function buildBreakerInfo(
+async function buildBreakerInfo(
   provider: string,
-  deps: WebSessionPoolHealthDeps,
-): WebSessionPoolBreakerInfo | null {
-  const breakerState = deps.getProviderBreakerState(provider);
+  deps: WebSessionPoolHealthDeps
+): Promise<WebSessionPoolBreakerInfo | null> {
+  const breakerState = await deps.getProviderBreakerState(provider);
   if (!breakerState) return null;
 
   const inCooldown = deps.isProviderInCooldown(provider);
@@ -212,9 +208,7 @@ function buildBreakerInfo(
 /**
  * Map PoolSessionDetail[] to our output format.
  */
-function mapSessionDetails(
-  details: PoolSessionDetail[] | null,
-): WebSessionPoolSessionInfo[] {
+function mapSessionDetails(details: PoolSessionDetail[] | null): WebSessionPoolSessionInfo[] {
   if (!details) return [];
   return details.map((d) => ({
     id: d.id,
@@ -256,32 +250,34 @@ function formatDuration(ms: number): string {
  * @param provider - Optional provider name. If omitted, returns all registered pools.
  * @returns Health report with per-provider pool stats, breaker state, and health classification.
  */
-export function getWebSessionPoolHealth(
+export async function getWebSessionPoolHealth(
   provider?: string,
-  deps: WebSessionPoolHealthDeps = defaultDeps,
-): WebSessionPoolHealthReport {
+  deps: WebSessionPoolHealthDeps = defaultDeps
+): Promise<WebSessionPoolHealthReport> {
   const checkedAt = new Date().toISOString();
 
   const providers: string[] = provider ? [provider] : deps.listProviders();
 
-  const results: WebSessionPoolProviderHealth[] = providers.map((p) => {
-    const stats = deps.getStats(p);
-    const sessionDetails = deps.getSessionDetails(p);
+  const results: WebSessionPoolProviderHealth[] = await Promise.all(
+    providers.map(async (p) => {
+      const stats = deps.getStats(p);
+      const sessionDetails = deps.getSessionDetails(p);
 
-    const poolInfo = buildPoolInfo(stats);
-    const breakerInfo = buildBreakerInfo(p, deps);
-    const sessions = mapSessionDetails(sessionDetails);
-    const { health, issues } = computeHealth(poolInfo, breakerInfo);
+      const poolInfo = buildPoolInfo(stats);
+      const breakerInfo = await buildBreakerInfo(p, deps);
+      const sessions = mapSessionDetails(sessionDetails);
+      const { health, issues } = computeHealth(poolInfo, breakerInfo);
 
-    return {
-      provider: p,
-      pool: poolInfo,
-      breaker: breakerInfo,
-      sessions,
-      health,
-      issues,
-    };
-  });
+      return {
+        provider: p,
+        pool: poolInfo,
+        breaker: breakerInfo,
+        sessions,
+        health,
+        issues,
+      };
+    })
+  );
 
   return { checkedAt, providers: results };
 }

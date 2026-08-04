@@ -62,13 +62,13 @@ function hasTable(tableName: string): boolean {
 /**
  * Fetch memories from SQLite by an array of IDs, preserving order.
  */
-function fetchMemoriesByIds(ids: string[]): Memory[] {
+async function fetchMemoriesByIds(ids: string[]): Promise<Memory[]> {
   if (ids.length === 0) return [];
   const db = getDbInstance();
   const placeholders = ids.map(() => "?").join(", ");
-  const rows = db
+  const rows = (await db
     .prepare(`SELECT * FROM memories WHERE id IN (${placeholders})`)
-    .all(...ids) as MemoryRow[];
+    .all(...ids)) as MemoryRow[];
 
   const byId = new Map<string, Memory>();
   for (const row of rows) {
@@ -94,7 +94,7 @@ interface FtsColConfig {
  * Build the FTS5 rows for a given apiKeyId + config + query.
  * Returns MemoryRow array (or falls back to empty on error).
  */
-function buildFtsRows(apiKeyId: string, config: FtsColConfig): MemoryRow[] {
+async function buildFtsRows(apiKeyId: string, config: FtsColConfig): Promise<MemoryRow[]> {
   if (!config.query) return [];
   const db = getDbInstance();
   const {
@@ -130,7 +130,7 @@ function buildFtsRows(apiKeyId: string, config: FtsColConfig): MemoryRow[] {
   }
 
   try {
-    return db.prepare(ftsQueryStr).all(...ftsParams) as MemoryRow[];
+    return (await db.prepare(ftsQueryStr).all(...ftsParams)) as MemoryRow[];
   } catch {
     return [];
   }
@@ -346,7 +346,7 @@ async function retrieveMemoriesInternal(
               });
               if (qres.ok && qres.results && qres.results.length > 0) {
                 const hitIds = qres.results.map((r) => r.id);
-                const hitMemories = fetchMemoriesByIds(hitIds);
+                const hitMemories = await fetchMemoriesByIds(hitIds);
                 const scoreMap = new Map(qres.results.map((r) => [r.id, r.score]));
                 let qdrantItems = hitMemories.map((m) => ({
                   memory: m,
@@ -395,7 +395,7 @@ async function retrieveMemoriesInternal(
                 await vec.ensureReady(resolution);
                 const hits = await vec.searchVector(embeddingResult.vector, 100, apiKeyId);
                 const hitIds = hits.map((h) => h.memoryId);
-                const hitMemories = fetchMemoriesByIds(hitIds);
+                const hitMemories = await fetchMemoriesByIds(hitIds);
                 const scoreMap = new Map(hits.map((h) => [h.memoryId, h.score]));
 
                 let rankedItems = hitMemories.map((m) => ({
@@ -446,14 +446,14 @@ async function retrieveMemoriesInternal(
 
       // Degraded path: FTS5 keyword
       if (config.query && ftsAvailable) {
-        rows = buildFtsRows(apiKeyId, ftsColConfig);
+        rows = await buildFtsRows(apiKeyId, ftsColConfig);
         if (rows.length === 0) {
           query += ` ORDER BY ${columns.createdAt} DESC LIMIT 100`;
-          rows = db.prepare(query).all(...params) as MemoryRow[];
+          rows = (await db.prepare(query).all(...params)) as MemoryRow[];
         }
       } else {
         query += ` ORDER BY ${columns.createdAt} DESC LIMIT 100`;
-        rows = db.prepare(query).all(...params) as MemoryRow[];
+        rows = (await db.prepare(query).all(...params)) as MemoryRow[];
       }
       break;
     }
@@ -474,7 +474,7 @@ async function retrieveMemoriesInternal(
               });
               if (qres.ok && qres.results && qres.results.length > 0) {
                 const hitIds = qres.results.map((r) => r.id);
-                const hitMemories = fetchMemoriesByIds(hitIds);
+                const hitMemories = await fetchMemoriesByIds(hitIds);
                 const scoreMap = new Map(qres.results.map((r) => [r.id, r.score]));
                 let qdrantItems = hitMemories.map((m) => ({
                   memory: m,
@@ -528,7 +528,7 @@ async function retrieveMemoriesInternal(
                   apiKeyId
                 );
                 const hitIds = hybridHits.map((h) => h.memoryId);
-                const hitMemories = fetchMemoriesByIds(hitIds);
+                const hitMemories = await fetchMemoriesByIds(hitIds);
                 const scoreMap = new Map(
                   hybridHits.map((h) => [
                     h.memoryId,
@@ -588,11 +588,11 @@ async function retrieveMemoriesInternal(
       // Degraded path: FTS5 + keyword union
       let ftsRows: MemoryRow[] = [];
       if (config.query && ftsAvailable) {
-        ftsRows = buildFtsRows(apiKeyId, ftsColConfig);
+        ftsRows = await buildFtsRows(apiKeyId, ftsColConfig);
       }
       // Get chronological results for keyword scoring
       query += ` ORDER BY ${columns.createdAt} DESC LIMIT 100`;
-      const keywordRows = db.prepare(query).all(...params) as MemoryRow[];
+      const keywordRows = (await db.prepare(query).all(...params)) as MemoryRow[];
 
       // Union: FTS5 results first (higher relevance), then keyword results, dedup by id
       const seen = new Set<string>();
@@ -610,7 +610,7 @@ async function retrieveMemoriesInternal(
     case "exact":
     default: {
       query += ` ORDER BY ${columns.createdAt} DESC LIMIT 100`;
-      rows = db.prepare(query).all(...params) as MemoryRow[];
+      rows = (await db.prepare(query).all(...params)) as MemoryRow[];
     }
   }
 
@@ -700,7 +700,7 @@ export async function retrievePreview(
           );
           if (qres.ok && qres.results && qres.results.length > 0) {
             const hitIds = qres.results.map((r) => r.id);
-            const hitMemories = fetchMemoriesByIds(hitIds).slice(0, limit);
+            const hitMemories = (await fetchMemoriesByIds(hitIds)).slice(0, limit);
             const scoreMap = new Map(qres.results.map((r) => [r.id, r.score]));
             let items: Array<{
               memory: Memory;
@@ -770,7 +770,7 @@ export async function retrievePreview(
                 apiKeyId ?? undefined
               );
               const hitIds = hits.map((h) => h.memoryId);
-              const hitMemories = fetchMemoriesByIds(hitIds).slice(0, limit);
+              const hitMemories = (await fetchMemoriesByIds(hitIds)).slice(0, limit);
               const scoreMap = new Map(hits.map((h) => [h.memoryId, h.score]));
 
               let items: Array<{
@@ -812,7 +812,7 @@ export async function retrievePreview(
                 apiKeyId ?? undefined
               );
               const hitIds = hybridHits.map((h) => h.memoryId);
-              const hitMemories = fetchMemoriesByIds(hitIds);
+              const hitMemories = await fetchMemoriesByIds(hitIds);
               const scoreMap = new Map(
                 hybridHits.map((h) => [
                   h.memoryId,
@@ -901,7 +901,7 @@ export async function retrievePreview(
     baseQuery += ` ORDER BY ${createdCol} DESC LIMIT ?`;
     baseParams.push(limit);
 
-    const rows = db.prepare(baseQuery).all(...baseParams) as MemoryRow[];
+    const rows = (await db.prepare(baseQuery).all(...baseParams)) as MemoryRow[];
     for (const row of rows) {
       if (result.length >= limit) break;
       const memory = rowToMemory(row);
@@ -920,7 +920,7 @@ export async function retrievePreview(
         : `SELECT m.* FROM ${tableName} m JOIN memory_fts f ON m.memory_id = f.rowid WHERE f.memory_fts MATCH ? ORDER BY f.rank LIMIT ?`;
       const ftsP: unknown[] = apiKeyId ? [query, apiKeyId, limit] : [query, limit];
       try {
-        ftsRows = db.prepare(ftsQueryStr).all(...ftsP) as MemoryRow[];
+        ftsRows = (await db.prepare(ftsQueryStr).all(...ftsP)) as MemoryRow[];
       } catch {
         ftsRows = [];
       }
@@ -929,7 +929,7 @@ export async function retrievePreview(
     if (ftsRows.length === 0) {
       baseQuery += ` ORDER BY ${createdCol} DESC LIMIT ?`;
       baseParams.push(limit);
-      ftsRows = db.prepare(baseQuery).all(...baseParams) as MemoryRow[];
+      ftsRows = (await db.prepare(baseQuery).all(...baseParams)) as MemoryRow[];
     }
 
     for (const row of ftsRows) {

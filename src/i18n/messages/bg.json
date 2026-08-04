@@ -1730,7 +1730,8 @@
     "updateAvailableDesc": "Налична е нова версия. Кликнете, за да актуализирате.",
     "updateStarted": "Актуализацията започна...",
     "reloadingPageAutomatically": "Страницата се презарежда автоматично...",
-    "providerTopology": "Топология на доставчика"
+    "providerTopology": "Топология на доставчика",
+    "step2Media": "Конфигурирайте медийните възможности (изображение/OCR/вграждане) на страницата <mediaProviders>медийни доставчици</mediaProviders>."
   },
   "analytics": {
     "title": "Анализ",
@@ -4713,7 +4714,8 @@
       "configure": "Конфигурирайте доставчици"
     },
     "tierFlowDiagramAlt": "3-степенна резервна диаграма на OmniRoute",
-    "apiKeyMgmt": "API Key Mgmt"
+    "apiKeyMgmt": "API Key Mgmt",
+    "loading": "Зареждане..."
   },
   "providers": {
     "title": "Доставчици",
@@ -8985,7 +8987,7 @@
     "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
   },
   "landing": {
-    "brandName": "OmniRoute",
+    "brandName": "Astra AI Gate",
     "navigateHome": "Навигирайте до дома",
     "toggleMenu": "Превключване на менюто",
     "featuresLink": "Характеристики",

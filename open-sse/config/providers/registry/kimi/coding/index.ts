@@ -39,7 +39,7 @@ export const KIMI_CODING_SHARED = {
     "Anthropic-Version": ANTHROPIC_VERSION_HEADER,
   },
   models: KIMI_CODING_MODELS,
-};
+} satisfies Partial<Omit<RegistryEntry, "id" | "alias">>;
 
 export const kimi_codingProvider: RegistryEntry = {
   id: "kimi-coding",
