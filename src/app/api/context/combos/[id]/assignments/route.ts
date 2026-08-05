@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }) {
   if (!getCompressionCombo(id)) {
     return NextResponse.json({ error: "Compression combo not found" }, { status: 404 });
   }
-  return NextResponse.json({ assignments: getAssignmentsForCompressionCombo(id) });
+  return NextResponse.json({ assignments: await getAssignmentsForCompressionCombo(id) });
 }
 
 export async function PUT(request: Request, { params }) {
@@ -41,7 +41,7 @@ export async function PUT(request: Request, { params }) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  const updated = updateAssignments(id, validation.data.routingComboIds);
+  const updated = await updateAssignments(id, validation.data.routingComboIds);
   if (!updated) return NextResponse.json({ error: "Compression combo not found" }, { status: 404 });
-  return NextResponse.json({ assignments: getAssignmentsForCompressionCombo(id) });
+  return NextResponse.json({ assignments: await getAssignmentsForCompressionCombo(id) });
 }

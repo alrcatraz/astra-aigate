@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (authError) return authError;
 
   try {
-    const batch = getBatch(params.id);
+    const batch = await getBatch(params.id);
     if (!batch) {
       return NextResponse.json({ error: "Batch not found" }, { status: 404 });
     }

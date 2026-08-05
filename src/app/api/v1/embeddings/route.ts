@@ -36,7 +36,7 @@ export async function handleValidatedEmbeddingRequestBody(
   body: ValidatedEmbeddingBody,
   options: EmbeddingHandlerOptions = {}
 ) {
-  return createEmbeddingResponse(body, options);
+  return await createEmbeddingResponse(body, options);
 }
 
 async function postHandler(request, context) {

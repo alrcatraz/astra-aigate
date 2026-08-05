@@ -18,7 +18,9 @@ export async function GET(req: Request) {
     const sinceParam = url.searchParams.get("since") ?? "24h";
     const validSince = ["24h", "7d", "30d", "all"].includes(sinceParam) ? sinceParam : "24h";
 
-    const summary = getCompressionAnalyticsSummary(validSince === "all" ? undefined : validSince);
+    const summary = await getCompressionAnalyticsSummary(
+      validSince === "all" ? undefined : validSince
+    );
 
     return NextResponse.json(summary);
   } catch (err: unknown) {

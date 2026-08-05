@@ -17,7 +17,7 @@ import { addDNSEntries } from "@/mitm/dns/dnsConfig";
 
 export async function GET(): Promise<Response> {
   try {
-    const hosts = listCustomHosts();
+    const hosts = await listCustomHosts();
     return Response.json({ hosts });
   } catch (err) {
     const msg = sanitizeErrorMessage(err);

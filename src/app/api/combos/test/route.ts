@@ -13,7 +13,7 @@ async function getInternalApiKey(): Promise<string | null> {
   // Combo health-check probes hit /v1/chat/completions, which enforces
   // per-key model allowlists (see shared/utils/apiKeyPolicy.ts). Picking
   // an arbitrary active key is unsafe — see pickApiKeyForInternalUse.
-  return pickApiKeyForInternalUse("combo-health-check");
+  return await pickApiKeyForInternalUse("combo-health-check");
 }
 
 function buildComboTestResult(target, partial = {}) {

@@ -17,7 +17,7 @@ const relayTokenInputSchema = z.object({
 });
 
 export async function GET() {
-  const tokens = getRelayTokens();
+  const tokens = await getRelayTokens();
   // Strip hash from response
   const safe = tokens.map((t) => ({
     id: t.id,
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (isValidationFailure(validation)) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    const token = createRelayToken(validation.data);
+    const token = await createRelayToken(validation.data);
 
     return NextResponse.json({
       id: token.id,

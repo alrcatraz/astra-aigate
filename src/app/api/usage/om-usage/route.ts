@@ -12,5 +12,5 @@ export async function OPTIONS() {
  * OmniRoute API key used by Claude Code/Codex and requires allowUsageCommand.
  */
 export async function GET(request: Request) {
-  return handleInternalUsageCommandHttpRequest(request);
+  return await handleInternalUsageCommandHttpRequest(request);
 }

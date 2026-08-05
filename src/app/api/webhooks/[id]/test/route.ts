@@ -81,7 +81,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
   try {
     const { id } = await params;
-    const webhook = getWebhook(id);
+    const webhook = await getWebhook(id);
     if (!webhook) {
       return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
     }

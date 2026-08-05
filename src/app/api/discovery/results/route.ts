@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const url = new URL(request.url);
     const providerId = url.searchParams.get("providerId") || undefined;
-    const results = getDiscoveryResults(providerId);
+    const results = await getDiscoveryResults(providerId);
     return Response.json({ results });
   } catch (error) {
     return createErrorResponseFromUnknown(error, "Failed to list discovery results");

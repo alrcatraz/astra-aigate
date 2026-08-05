@@ -61,10 +61,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ para
   if (!connectionId) return errorResponse(400, "connectionId is required");
 
   if (!sessionId) {
-    return NextResponse.json({ sessions: listSessions(connectionId).map(publicSession) });
+    return NextResponse.json({ sessions: (await listSessions(connectionId)).map(publicSession) });
   }
 
-  const session = getSession(connectionId, sessionId);
+  const session = await getSession(connectionId, sessionId);
   if (!session) return errorResponse(404, "Browser-login session not found");
   return NextResponse.json({ session: publicSession(session) });
 }
@@ -87,8 +87,7 @@ export async function POST(
       const session = await startSession(connectionId);
       return NextResponse.json({
         session: publicSession(session),
-        note:
-          "The viewer is loopback-only. Open it on the OmniRoute host or forward its port over SSH, then harvest the session.",
+        note: "The viewer is loopback-only. Open it on the OmniRoute host or forward its port over SSH, then harvest the session.",
       });
     }
 
@@ -101,9 +100,7 @@ export async function POST(
         validation: result.validation
           ? {
               ...result.validation,
-              error: result.validation.error
-                ? sanitizeErrorMessage(result.validation.error)
-                : null,
+              error: result.validation.error ? sanitizeErrorMessage(result.validation.error) : null,
             }
           : null,
       });

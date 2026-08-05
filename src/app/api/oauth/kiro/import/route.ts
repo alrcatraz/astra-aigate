@@ -51,9 +51,9 @@ async function upsertImportedKiroConnection(
   const existing = await getProviderConnections({ provider: targetProvider });
   const match = findKiroConnectionByIdentity(existing, { authType: "oauth", ...identity });
   if (typeof match?.id === "string") {
-    return updateProviderConnection(match.id, record);
+    return await updateProviderConnection(match.id, record);
   }
-  return createProviderConnection({
+  return await createProviderConnection({
     provider: targetProvider,
     authType: "oauth",
     ...record,

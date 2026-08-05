@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const limit = Number.parseInt(url.searchParams.get("limit") || "100", 10);
-    const batches = listBatches(undefined, limit);
+    const batches = await listBatches(undefined, limit);
     return NextResponse.json({ batches });
   } catch (error) {
     console.log("Error fetching batches:", error);

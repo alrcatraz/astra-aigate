@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
   const { id } = await params;
-  const combo = getCompressionCombo(id);
+  const combo = await getCompressionCombo(id);
   if (!combo) return NextResponse.json({ error: "Compression combo not found" }, { status: 404 });
   return NextResponse.json(combo);
 }
@@ -54,12 +54,12 @@ export async function PUT(request: Request, { params }) {
   }
 
   if (validation.data.isDefault === true) {
-    const changed = setDefaultCompressionCombo(id);
+    const changed = await setDefaultCompressionCombo(id);
     if (!changed)
       return NextResponse.json({ error: "Compression combo not found" }, { status: 404 });
   }
 
-  const combo = updateCompressionCombo(id, validation.data);
+  const combo = await updateCompressionCombo(id, validation.data);
   if (!combo) return NextResponse.json({ error: "Compression combo not found" }, { status: 404 });
   return NextResponse.json(combo);
 }
@@ -68,7 +68,7 @@ export async function DELETE(request: Request, { params }) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
   const { id } = await params;
-  const deleted = deleteCompressionCombo(id);
+  const deleted = await deleteCompressionCombo(id);
   if (!deleted) {
     return NextResponse.json(
       { error: "Compression combo not found or cannot delete default combo" },

@@ -45,7 +45,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   try {
     const { id } = await params;
-    const webhook = getWebhook(id);
+    const webhook = await getWebhook(id);
     if (!webhook) {
       return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
     }
@@ -75,7 +75,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       metadata?: Record<string, string>;
     };
 
-    const existingWebhook = getWebhook(id);
+    const existingWebhook = await getWebhook(id);
     if (!existingWebhook) {
       return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
     }
@@ -119,7 +119,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
 
   try {
     const { id } = await params;
-    const deleted = deleteWebhook(id);
+    const deleted = await deleteWebhook(id);
     if (!deleted) {
       return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
     }

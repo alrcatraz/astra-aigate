@@ -18,12 +18,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const startedAt = Date.now();
   try {
-    const alive = pingDb();
+    const alive = await pingDb();
     if (!alive) {
-      return NextResponse.json(
-        { status: "error", error: "db_query_failed" },
-        { status: 503 }
-      );
+      return NextResponse.json({ status: "error", error: "db_query_failed" }, { status: 503 });
     }
     return NextResponse.json(
       {
@@ -40,9 +37,6 @@ export async function GET() {
     );
   } catch (error) {
     console.error("[ping] Unexpected error in GET /api/health/ping:", error);
-    return NextResponse.json(
-      { status: "error", error: "ping_failed" },
-      { status: 503 }
-    );
+    return NextResponse.json({ status: "error", error: "ping_failed" }, { status: 503 });
   }
 }

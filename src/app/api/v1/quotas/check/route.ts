@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const accountId = searchParams.get("accountId") ?? "";
 
   try {
-    const result = checkQuota(provider, accountId);
+    const result = await checkQuota(provider, accountId);
     return NextResponse.json({
       allowed: result.allowed,
       ...(result.errorCode ? { errorCode: result.errorCode, reason: result.errorMessage } : {}),

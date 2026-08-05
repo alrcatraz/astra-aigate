@@ -37,17 +37,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
-  return handleProxyCreate(request);
+  return await handleProxyCreate(request);
 }
 
 export async function PATCH(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
-  return handleProxyUpdate(request);
+  return await handleProxyUpdate(request);
 }
 
 export async function DELETE(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
-  return handleProxyDelete(request);
+  return await handleProxyDelete(request);
 }

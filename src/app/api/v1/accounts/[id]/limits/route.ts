@@ -47,6 +47,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const resolvedParams = await params;
   setAccountKeyLimit(resolvedParams.id, validation.data);
-  const updated = getAccountKeyLimit(resolvedParams.id);
+  const updated = await getAccountKeyLimit(resolvedParams.id);
   return NextResponse.json({ accountId: resolvedParams.id, limits: updated });
 }

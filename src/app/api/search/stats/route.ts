@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const cache = getCacheStats();
 
     // Provider aggregate stats — cost is per-query from registry
-    const providerStats = getSearchProviderStats();
+    const providerStats = await getSearchProviderStats();
 
     const providers: Record<
       string,
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     }
 
     // Recent searches
-    const recentRows = getRecentSearchLogs();
+    const recentRows = await getRecentSearchLogs();
 
     const recent_searches = recentRows.map((row) => {
       let query = "";

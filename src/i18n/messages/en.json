@@ -491,7 +491,7 @@
     "webCookieProviders": "Web Cookie Providers",
     "allTestsPassed": "All Tests Passed",
     "openaiCompatibleName": "Openai Compatible Name",
-    "warningCostOptimizedPartialPricing": "Warning Cost Optimized Partial Pricing",
+    "warningCostOptimizedPartialPricing": "Warning Cost Optimised Partial Pricing",
     "comboDefaultsGuideTitle": "Combo Defaults Guide Title",
     "hoursAgo": "Hours Ago",
     "notAvailable": "Not Available",
@@ -891,7 +891,7 @@
     "batchStatusAll": "All statuses",
     "batchStatusInProgress": "In progress",
     "batchStatusValidating": "Validating",
-    "batchStatusFinalizing": "Finalizing",
+    "batchStatusFinalizing": "Finalising",
     "batchStatusCompleted": "Completed",
     "batchStatusFailed": "Failed",
     "batchStatusCancelled": "Cancelled",
@@ -899,7 +899,7 @@
     "batchStatusExpired": "Expired",
     "batchStatusCompletedWithFailures": "completed with failures",
     "batchStatusInProgressWithFailures": "in progress (with failures)",
-    "batchStatusFinalizingWithFailures": "finalizing (with failures)",
+    "batchStatusFinalizingWithFailures": "finalising (with failures)",
     "batchStatusCancelledWithFailures": "cancelled with failures",
     "batchStatusExpiredWithFailures": "expired (partial)",
     "wizardCostEstimating": "Estimating cost…",
@@ -1543,7 +1543,7 @@
     "mediaDescription": "Generate images, videos, and music",
     "themes": "Themes",
     "themesDescription": "Choose a colour theme for the whole dashboard panel",
-    "costsDescription": "Track spending, analyze trends, and manage your AI budget across all providers",
+    "costsDescription": "Track spending, analyse trends, and manage your AI budget across all providers",
     "cacheDescription": "Monitor provider prompt cache efficiency and local semantic response reuse.",
     "limitsDescription": "Configure rate limits and quotas per API key and provider",
     "runtimeDescription": "Live runtime observability — circuit breakers, cooldowns, model lockouts, sessions and quota alerts",
@@ -1906,7 +1906,7 @@
     "comboHealthProjectedQuota": "Projected quota",
     "comboHealthPricingCoverage": "Pricing coverage",
     "comboHealthAutopilotTitle": "Combo Health Autopilot",
-    "comboHealthAutopilotDescription": "Prioritized recommendations from combo health, forecasts, quotas, and provider health.",
+    "comboHealthAutopilotDescription": "Prioritised recommendations from combo health, forecasts, quotas, and provider health.",
     "comboHealthIssues": "Issues",
     "comboHealthActionable": "{count} actionable",
     "comboHealthDown": "Down",
@@ -2739,7 +2739,7 @@
     "openToolDocs": "Open tool docs",
     "toolUseCases": {
       "claude": "Use when you want strong planning workflows and long multi-file refactors with Claude Code.",
-      "codex": "Use when your team is standardized on OpenAI Codex CLI flows and profile-based auth.",
+      "codex": "Use when your team is standardised on OpenAI Codex CLI flows and profile-based auth.",
       "droid": "Use when you need a lightweight terminal agent focused on fast coding and command execution loops.",
       "openclaw": "Use when you want an Open Claw style coding agent but routed through OmniRoute policies.",
       "cline": "Use when you configure coding agents inside editors and want guided setup with OmniRoute models.",
@@ -2953,7 +2953,7 @@
     "hermesRoleVision": "Vision",
     "hermesRoleVisionDesc": "Image and screenshot understanding",
     "hermesRoleCompression": "Compression",
-    "hermesRoleCompressionDesc": "Prompt compression and summarization",
+    "hermesRoleCompressionDesc": "Prompt compression and summarisation",
     "hermesRoleWebExtract": "Web Extract",
     "hermesRoleWebExtractDesc": "Web page content extraction",
     "hermesRoleSkillsHub": "Skills Hub",
@@ -3210,7 +3210,7 @@
       },
       "context-relay": {
         "when": "Use when long sessions must survive account rotation without losing the working context.",
-        "avoid": "Avoid when account switching is rare or when you do not want extra summarization requests.",
+        "avoid": "Avoid when account switching is rare or when you do not want extra summarisation requests.",
         "example": "Example: Codex sessions that rotate across multiple accounts near quota exhaustion."
       },
       "fill-first": {
@@ -3415,7 +3415,7 @@
         "tip1": "Let the engine balance multiple factors automatically.",
         "tip2": "Monitor which factors drive routing decisions in logs.",
         "tip3": "Use for complex workloads where no single factor dominates.",
-        "title": "Multi-Factor Optimization"
+        "title": "Multi-Factor Optimisation"
       },
       "lkgp": {
         "description": "Route based on historical performance and success patterns.",
@@ -3429,7 +3429,7 @@
         "tip1": "Route long conversations to models with larger context windows.",
         "tip2": "Monitor context utilization to avoid token waste.",
         "tip3": "Best for conversational AI requiring extensive context retention.",
-        "title": "Context Optimization"
+        "title": "Context Optimisation"
       },
       "context-relay": {
         "description": "Best when account rotation is expected and the next account must inherit a simplified task summary.",
@@ -3451,7 +3451,7 @@
     "auto": "Intelligent Auto",
     "autoDesc": "Self-healing smart routing pool with multi-factor scoring",
     "lkgp": "LKGP Mode",
-    "lkgpDesc": "Prioritizes the last provider that successfully completed a request",
+    "lkgpDesc": "Prioritises the last provider that successfully completed a request",
     "wizardGuideTitle": "Getting Started with Combos",
     "wizardGuideDesc": "Create model combos to route AI traffic intelligently",
     "wizardGuideHint": "or click + Create Combo above",
@@ -3572,7 +3572,7 @@
   },
   "costs": {
     "title": "Costs",
-    "pageDescription": "Track spending, analyze trends, and manage your AI budget across all providers",
+    "pageDescription": "Track spending, analyse trends, and manage your AI budget across all providers",
     "overview": "Overview",
     "budget": "Budget",
     "totalCost": "Total Cost",
@@ -6222,7 +6222,7 @@
     "systemTheme": "System Theme",
     "debugToggle": "Enable Debug Mode",
     "logToolSourcesToggle": "Log Tool Sources",
-    "logToolSourcesDescription": "Emit a diagnostic log line per request summarizing tool count and MCP/hosted/client source breakdown.",
+    "logToolSourcesDescription": "Emit a diagnostic log line per request summarising tool count and MCP/hosted/client source breakdown.",
     "homePinProviderQuotaToHome": "Pin Information to Home Page",
     "homePinnedSectionsDesc": "Choose which sections to pin to the top of the Home page.",
     "homeProviderQuotaLimits": "Provider Quota Limits",
@@ -6582,7 +6582,7 @@
     "backgroundDegradationTitle": "Background Task Degradation",
     "backgroundDegradationDesc": "Auto-detect background tasks (titles, summaries) and route to cheaper models",
     "enableDegradation": "Enable Background Degradation",
-    "enableDegradationHint": "When enabled, background tasks like title generation and summarization are routed to cheaper models automatically",
+    "enableDegradationHint": "When enabled, background tasks like title generation and summarisation are routed to cheaper models automatically",
     "tasksDetected": "Tasks detected",
     "degradationMap": "Model Degradation Map",
     "premiumModel": "Premium model",
@@ -6886,9 +6886,9 @@
     "resetUsageFailed": "Failed to reset usage data",
     "reset": "Reset",
     "resetting": "Resetting...",
-    "contextOpt": "Context Optimized",
+    "contextOpt": "Context Optimised",
     "contextOptDesc": "Routes based on context window requirements and conversation length",
-    "cacheOpt": "Cache Optimized",
+    "cacheOpt": "Cache Optimised",
     "cacheOptDesc": "Keeps the same reusable prompt prefix on the same provider account",
     "priorityDesc": "Sequential fallback - tries provider 1 first, then provider 2, and so on",
     "weightedDesc": "Distributes traffic by percentage weights across providers",
@@ -6966,11 +6966,11 @@
     "compressionModeStandard": "Standard (Caveman)",
     "compressionModeStandardDesc": "Rule-based compression with 30+ patterns, preserves code blocks and URLs",
     "compressionModeAggressive": "Aggressive",
-    "compressionModeAggressiveDesc": "Summarization + tool result compression + progressive aging for maximum savings",
+    "compressionModeAggressiveDesc": "Summarisation + tool result compression + progressive aging for maximum savings",
     "compressionModeUltra": "Ultra",
     "compressionModeUltraDesc": "Heuristic token pruning with optional local SLM fallback",
     "compressionAggressiveConfig": "Aggressive Engine Configuration",
-    "compressionAggressiveConfigDesc": "Fine-tune summarization, tool compression, and aging thresholds",
+    "compressionAggressiveConfigDesc": "Fine-tune summarisation, tool compression, and aging thresholds",
     "compressionUltraConfig": "Ultra Engine Configuration",
     "compressionUltraConfigDesc": "Fine-tune heuristic pruning, SLM fallback, and per-message thresholds",
     "compressionUltraRate": "Keep Rate",
@@ -6982,7 +6982,7 @@
     "compressionUltraEngineSlm": "SLM (LLMLingua-2, opt-in)",
     "compressionUltraSlmHint": "SLM downloads a small ONNX model on first use (cold-start) and transparently falls back to the heuristic on timeout or if unavailable.",
     "compressionUltraSlmPrewarm": "Pre-warm SLM model on enable",
-    "compressionSummarizerEnabled": "Enable Summarizer",
+    "compressionSummarizerEnabled": "Enable Summariser",
     "compressionMaxTokensPerMessage": "Max Tokens Per Message",
     "compressionMinSavings": "Min Savings Threshold",
     "compressionAgingThresholds": "Aging Thresholds",
@@ -7234,7 +7234,7 @@
     "storageScheduledVacuum": "Scheduled Vacuum",
     "storageVacuumHour": "Vacuum Hour (0-23)",
     "storagePageSize": "Page Size (bytes)",
-    "storageOptimizationSettings": "Optimization Settings",
+    "storageOptimizationSettings": "Optimisation Settings",
     "storageJournalModeNone": "None",
     "storageJournalModeFull": "Full",
     "storageJournalModeIncremental": "Incremental",
@@ -7244,7 +7244,7 @@
     "storageVacuumMonthly": "Monthly",
     "storageCacheSizeKb": "Cache Size (KB)",
     "storageOptimizeOnStartup": "Optimise on Startup",
-    "storageSaveOptimization": "Save Optimization Settings",
+    "storageSaveOptimization": "Save Optimisation Settings",
     "storageCompressionAggregation": "Compression & Aggregation Settings",
     "storageEnableAggregation": "Enable Data Aggregation",
     "storageRawDataRetention": "Raw Data Retention (days)",
@@ -7263,7 +7263,7 @@
     "storagePageCount": "Page Count",
     "storageFreelistCount": "Freelist Count",
     "storageLastVacuum": "Last Vacuum",
-    "storageLastOptimization": "Last Optimization",
+    "storageLastOptimization": "Last Optimisation",
     "storageIntegrityCheck": "Integrity Check",
     "storageIntegrityOk": "✓ OK",
     "storageIntegrityError": "✗ Error",
@@ -7344,7 +7344,7 @@
       },
       "aggressive": {
         "label": "Aggressive",
-        "description": "Summarize and age old turns."
+        "description": "Summarise and age old turns."
       },
       "llmlingua": {
         "label": "LLMLingua (SLM)",
@@ -7565,7 +7565,7 @@
     "resilienceComboCooldownMaxWaitMs": "Maximum wait per attempt",
     "resilienceComboCooldownBudgetMs": "Total wait budget",
     "resilienceQuotaShareConcurrencyTitle": "Quota-share per-connection concurrency",
-    "resilienceQuotaShareConcurrencyDesc": "For quota-share combos only: when a connection sets a Max Concurrent cap, serialize concurrent requests to that subscription account so it is never flooded past its ceiling. Excess requests wait in the queue instead of getting a 429. The cap comes from each connection's Max Concurrent field; this switch only enables or disables honoring it.",
+    "resilienceQuotaShareConcurrencyDesc": "For quota-share combos only: when a connection sets a Max Concurrent cap, serialize concurrent requests to that subscription account so it is never flooded past its ceiling. Excess requests wait in the queue instead of getting a 429. The cap comes from each connection's Max Concurrent field; this switch only enables or disables honouring it.",
     "resilienceQuotaShareConcurrencyToggleDesc": "Quota-share combos only; honours each connection's Max Concurrent cap.",
     "resilienceProviderCooldownTitle": "Provider Cooldown",
     "resilienceProviderCooldownScope": "All combo requests",
@@ -7804,7 +7804,7 @@
       },
       "aggressive": {
         "name": "Aggressive",
-        "description": "Summarization, tool-result compression and progressive aging."
+        "description": "Summarisation, tool-result compression and progressive aging."
       },
       "ultra": {
         "name": "Ultra",
@@ -7848,7 +7848,7 @@
         "label": "Preserve system prompt"
       },
       "summarizerEnabled": {
-        "label": "Enable summarizer"
+        "label": "Enable summariser"
       },
       "maxTokensPerMessage": {
         "label": "Maximum tokens per message"
@@ -7972,7 +7972,7 @@
     "verifyFidelity": "Verify fidelity (reject any layer that corrupts content)",
     "fuzzyDedup": "Fuzzy deduplication (near-duplicate → CCR)",
     "protectSensitive": "Protect sensitive content (risk gate)",
-    "quantumLock": "QuantumLock (stabilize the cache prefix)",
+    "quantumLock": "QuantumLock (stabilise the cache prefix)",
     "saliencyHeatmap": "Saliency heatmap",
     "running": "Running…",
     "run": "Run",
@@ -8250,10 +8250,10 @@
     "featureReasoningCacheDesc": "Re-injects cached reasoning_content for thinking-mode models (DeepSeek V4, Kimi K2, Qwen) when clients omit it from conversation history.",
     "featureSchemaCoercion": "Schema Coercion",
     "featureSchemaCoercionDesc": "Fixes broken tool schemas: adds missing additionalProperties, sanitises long descriptions, normalises nested objects.",
-    "featureRoleNormalization": "Role Normalization",
+    "featureRoleNormalization": "Role Normalisation",
     "featureRoleNormalizationDesc": "Maps developer→system for non-OpenAI targets. Maps system→user for models that don't support system role.",
-    "featureToolCallIds": "Tool Call ID Normalization",
-    "featureToolCallIdsDesc": "Generates unique tool_call IDs when missing. Normalizes to 9-char format for providers like Mistral.",
+    "featureToolCallIds": "Tool Call ID Normalisation",
+    "featureToolCallIdsDesc": "Generates unique tool_call IDs when missing. Normalises to 9-char format for providers like Mistral.",
     "featureMissingToolResponse": "Tool Response Injection",
     "featureMissingToolResponseDesc": "Injects empty tool_result messages when clients send tool_calls without corresponding responses.",
     "featureThinkingBudget": "Thinking Budget",
@@ -8330,7 +8330,7 @@
         "question": "What is the sum of the first 100 prime numbers?"
       },
       "systemPrompt": {
-        "systemInstruction": "You are a senior software engineer specializing in distributed systems. Answer questions concisely using industry best practices. Always provide code examples when relevant. Format your responses using markdown.",
+        "systemInstruction": "You are a senior software engineer specialising in distributed systems. Answer questions concisely using industry best practices. Always provide code examples when relevant. Format your responses using markdown.",
         "question": "How do I implement a circuit breaker pattern?"
       },
       "streaming": {
@@ -8464,7 +8464,7 @@
     "narratedSeeTranslatedJson": "see translated JSON",
     "narratedSeePipeline": "see pipeline",
     "advancedSectionTitle": "Advanced",
-    "advancedSectionSubtitle": "Raw JSON, pipeline and technical tools. Everything here is the same as the old tabs — just reorganized.",
+    "advancedSectionSubtitle": "Raw JSON, pipeline and technical tools. Everything here is the same as the old tabs — just reorganised.",
     "advancedRawJsonTitle": "Raw JSON (auto-detect + Monaco)",
     "advancedRawJsonSubtitle": "Paste a JSON request; the format is detected automatically.",
     "advancedPipelineTitle": "OpenAI intermediate pipeline",
@@ -8944,7 +8944,7 @@
     "autoDetecting": "Auto-detecting tokens...",
     "readingFromCache": "Reading from AWS SSO cache",
     "readingFromCursor": "Reading from Cursor IDE database",
-    "initializing": "Initializing...",
+    "initializing": "Initialising...",
     "pricingConfig": "Pricing Configuration",
     "loadingPricing": "Loading pricing data...",
     "pricingRatesFormat": "Pricing Rates Format",
@@ -9097,7 +9097,7 @@
     "howItWorksStep1Title": "1. CLI & SDKs",
     "howItWorksStep1Description": "Your requests start from your favourite tools or our unified SDK. Just change the base URL.",
     "howItWorksStep2Title": "2. OmniRoute Hub",
-    "howItWorksStep2Description": "Our engine analyzes the prompt, checks provider health, and routes for lowest latency or cost.",
+    "howItWorksStep2Description": "Our engine analyses the prompt, checks provider health, and routes for lowest latency or cost.",
     "howItWorksStep3Title": "3. AI Providers",
     "howItWorksStep3Description": "The request is fulfilled by OpenAI, Anthropic, Gemini, or others instantly.",
     "getStartedIn30Seconds": "Get Started in 30 Seconds",
@@ -9341,7 +9341,7 @@
     "featureSearchTitle": "Web Search",
     "featureSearchText": "Integrated web search with 5 providers (Serper, Brave, Exa, Tavily, Perplexity) including analytics and cost tracking.",
     "featureMemoryTitle": "Memory System",
-    "featureMemoryText": "Persistent conversational memory with extraction, injection, retrieval, and summarization across sessions.",
+    "featureMemoryText": "Persistent conversational memory with extraction, injection, retrieval, and summarisation across sessions.",
     "featureSkillsTitle": "Skills Framework",
     "featureSkillsText": "Extensible skill system with built-in and custom skills, sandbox execution, request interception, and context injection.",
     "featureAcpTitle": "Agent Communication",
@@ -9410,7 +9410,7 @@
     "termsSection5Title": "5. Disclaimer",
     "termsSection5Text": "OmniRoute is provided \"as is\" without warranty of any kind. We are not responsible for any costs incurred through API usage, service disruptions, or data loss. Always maintain backups of your configuration.",
     "termsSection6Title": "6. Open Source",
-    "termsSection6Text": "OmniRoute is open-source software. You are free to inspect, modify, and distribute it under the terms of its license."
+    "termsSection6Text": "OmniRoute is open-source software. You are free to inspect, modify, and distribute it under the terms of its licence."
   },
   "agents": {
     "title": "CLI Agents",
@@ -9499,7 +9499,7 @@
     "aboutTitle": "About Cloud Agents",
     "aboutDescription": "Cloud agents are remote AI coding assistants that can execute tasks autonomously. They work differently from local CLI agents - you interact with them through OmniRoute's API.",
     "howItWorksTitle": "How it works:",
-    "howItWorksDesc": "Create a task → Agent analyzes and proposes a plan → You approve → Agent executes → Results returned",
+    "howItWorksDesc": "Create a task → Agent analyses and proposes a plan → You approve → Agent executes → Results returned",
     "newTaskTitle": "Create New Task",
     "newTaskDescription": "Start a new task with a cloud agent",
     "selectAgent": "Select Agent",

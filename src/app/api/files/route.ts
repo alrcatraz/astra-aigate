@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const limit = Number.parseInt(url.searchParams.get("limit") || "100", 10);
-    const files = listFiles({ limit });
+    const files = await listFiles({ limit });
     return NextResponse.json({ files });
   } catch (error) {
     console.log("Error fetching files:", error);

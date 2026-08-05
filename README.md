@@ -24,13 +24,13 @@ astra-aigate is a self-hosted AI gateway console managing three categories of se
    endpoints (registered self-hosted MCPs)
 3. **Auxiliary Services** — health monitoring and reverse proxying for non-MCP tools (Camofox, SearXNG, etc.)
 
-It is an **independent project** (not a GitHub fork), seeded from [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) and evolving its own identity: Expo design language, Next.js 16 + React 19 frontend, British English locale, zh-CN/zh-TW translations.
+Built on [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT): LLM provider management, combo routing and fallback, and the API-key auth model are inherited from it; the frontend (Expo design language, Next.js 16 + React 19), the MCP gateway and the auxiliary-service layer are original work. See [Credits](#credits) for the complete list of upstream projects.
 
 ## Features
 
 - **Expo design language** — luminous monochrome UI with pure-black (#000000) primary actions
-- **Data-driven sidebar** — `sections.ts` is the single source of truth for navigation; collapsible sub-groups (Routing & Access, Combos); media-providers entry; redundant redirect stubs removed
-- **Independent scrolling** — fixed-height layout with sidebar-internal and main-content scroll reset on route change
+- **Data-driven sidebar** — `sections.ts` is the single source of truth for navigation; collapsible sub-groups (Routing & Access, Combos); media-providers entry; no redundant redirect stubs
+- **Independent scrolling** — fixed-height layout with sidebar-internal scrolling and main-content scroll resets on route change
 - **i18n** — 43 locales (English (British), zh-CN, zh-TW, and 40 more); language switcher in Settings > Appearance and docs layout
 - **Pluggable database** — SQLite by default (zero-ops), optional PostgreSQL via `DB_DRIVER=postgres`; unified async `DatabaseAdapter` interface with a dialect translation layer
 - **Podman deployment** — multi-stage standalone build, no Turbopack (webpack-only)
@@ -132,12 +132,12 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
    自部署 MCP（本机 stdio + 远端 HTTP/SSE）
 3. **辅助服务** — 非 MCP 工具（Camofox、SearXNG 等）的健康监控和反向代理
 
-本项目是**独立项目**（非 GitHub fork），种子代码来自 [OmniRoute](https://github.com/diegosouzapw/OmniRoute)（MIT），正在形成自己的身份：以 Expo 设计语言，Next.js 16 + React 19 前端，英式英语 locale，zh-CN/zh-TW 翻译。
+本项目基于 [OmniRoute](https://github.com/diegosouzapw/OmniRoute)（MIT）构建：LLM 提供商管理、组合路由与故障转移、API 密钥认证模型均继承自它；前端（Expo 设计语言、Next.js 16 + React 19）、MCP 网关与辅助服务层为原创。完整上游项目列表见[致谢](#致谢)。
 
 ## 特性
 
 - **Expo 设计语言** — 明亮单色 UI，纯黑（#000000）主按钮
-- **数据驱动侧边栏** — `sections.ts` 是导航的唯一数据源；可折叠子分组（Routing & Access、Combos）；media-providers 入口；清除纯重定向冗余项
+- **数据驱动侧边栏** — `sections.ts` 是导航的唯一数据源；可折叠子分组（Routing & Access、Combos）；media-providers 入口；无纯重定向冗余项
 - **独立滚动** — 固定高度布局，侧边栏内部滚动 + 路由切换时主内容滚动归零
 - **i18n** — 43 个 locale（英语（英式）、zh-CN、zh-TW 及另外 40 种）；Settings > Appearance 和 docs 布局中有语言切换器
 - **可插拔数据库** — 默认 SQLite（零运维），可选 PostgreSQL（`DB_DRIVER=postgres`）；统一异步 `DatabaseAdapter` 接口 + 方言翻译层

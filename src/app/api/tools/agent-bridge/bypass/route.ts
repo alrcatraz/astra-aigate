@@ -15,7 +15,7 @@ import { createErrorResponse } from "@/lib/api/errorResponse";
 
 export async function GET(): Promise<Response> {
   try {
-    const patterns = getAllBypassPatterns();
+    const patterns = await getAllBypassPatterns();
     return Response.json({ patterns });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
@@ -42,7 +42,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     replaceUserBypassPatterns(parsed.data.patterns);
-    const patterns = getAllBypassPatterns();
+    const patterns = await getAllBypassPatterns();
     return Response.json({ ok: true, patterns });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
@@ -59,10 +59,10 @@ export async function DELETE(request: Request): Promise<Response> {
   }
 
   try {
-    const existing = getUserBypassPatterns();
+    const existing = await getUserBypassPatterns();
     const updated = existing.filter((p) => p !== pattern);
     replaceUserBypassPatterns(updated);
-    const patterns = getAllBypassPatterns();
+    const patterns = await getAllBypassPatterns();
     return Response.json({ ok: true, patterns });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));

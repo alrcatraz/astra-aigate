@@ -7,15 +7,12 @@ import { revokeAccessToken } from "@/lib/db/accessTokens";
  * Admin-only (same enforcement as the collection route). Idempotent: revoking
  * an unknown/already-revoked token returns 404.
  */
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
 
   const { id } = await params;
-  const revoked = revokeAccessToken(id);
+  const revoked = await revokeAccessToken(id);
   if (!revoked) {
     return NextResponse.json({ error: "Token not found or already revoked" }, { status: 404 });
   }

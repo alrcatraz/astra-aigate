@@ -12,7 +12,7 @@ type Params = { params: { id: string } };
 
 export async function GET(_request: Request, { params }: Params): Promise<Response> {
   try {
-    const mappings = getMappingsForAgent(params.id);
+    const mappings = await getMappingsForAgent(params.id);
     return Response.json({ mappings });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
@@ -39,7 +39,7 @@ export async function PUT(request: Request, { params }: Params): Promise<Respons
 
   try {
     setMappings(params.id, parsed.data.mappings);
-    const mappings = getMappingsForAgent(params.id);
+    const mappings = await getMappingsForAgent(params.id);
     return Response.json({ ok: true, mappings });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));

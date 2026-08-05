@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
     const validated = validation.data;
 
-    const inputFile = getFile(validated.input_file_id);
+    const inputFile = await getFile(validated.input_file_id);
     if (!inputFile || (inputFile.apiKeyId !== null && inputFile.apiKeyId !== apiKeyId)) {
       return NextResponse.json(
         { error: { message: "Input file not found", type: "invalid_request_error" } },
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const batch = createBatch({
+    const batch = await createBatch({
       endpoint: validated.endpoint as any,
       completionWindow: validated.completion_window,
       inputFileId: validated.input_file_id,
@@ -72,13 +72,13 @@ export async function GET(request: Request) {
   const limit = Number.parseInt(url.searchParams.get("limit") || "20");
   const after = url.searchParams.get("after") || undefined;
 
-  const batches = listBatches(apiKeyId || undefined, limit + 1, after);
+  const batches = await listBatches(apiKeyId || undefined, limit + 1, after);
   const hasMore = batches.length > limit;
   const data = hasMore ? batches.slice(0, limit) : batches;
 
   const formattedData = data.map((b) => formatBatchResponse(b));
 
-  const totalCount = countBatches(apiKeyId || undefined);
+  const totalCount = await countBatches(apiKeyId || undefined);
 
   return NextResponse.json(
     {

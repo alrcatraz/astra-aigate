@@ -2317,7 +2317,10 @@
       "webFetch": "网页抓取",
       "video": "视频",
       "music": "音乐",
-      "ocr": "OCR"
+      "ocr": "OCR",
+      "rerank": "重排序",
+      "moderation": "内容审核",
+      "audioTranslation": "音频翻译"
     },
     "noProviders": "尚未为此类型配置任何提供者。",
     "addConnection": "添加连接",

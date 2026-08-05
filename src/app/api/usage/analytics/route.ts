@@ -349,7 +349,7 @@ export async function GET(request: Request) {
 
     // Raw-data cutoff: must match cleanupUsageHistory's rollup/delete boundary —
     // retention.usageHistory (src/lib/db/cleanup.ts), NOT aggregation.rawDataRetentionDays.
-    const dbSettings = getUserDatabaseSettings();
+    const dbSettings = await getUserDatabaseSettings();
     const rawRetentionDays = dbSettings.retention?.usageHistory ?? 30;
     const rawCutoff = new Date();
     rawCutoff.setDate(rawCutoff.getDate() - rawRetentionDays);
@@ -412,10 +412,13 @@ export async function GET(request: Request) {
       await import("@/lib/usage/costCalculator");
     const { PROVIDER_ID_TO_ALIAS } = await import("@omniroute/open-sse/config/providerModels");
 
-    const summaryRow = getUsageSummary(unifiedSource, unifiedParams) as Record<string, unknown>;
+    const summaryRow = (await getUsageSummary(unifiedSource, unifiedParams)) as Record<
+      string,
+      unknown
+    >;
 
-    const dailyRows = getDailyUsage(unifiedSource, unifiedParams) as UsageRows;
-    const dailyCostRows = getDailyCostRows(unifiedSource, unifiedParams) as UsageRows;
+    const dailyRows = (await getDailyUsage(unifiedSource, unifiedParams)) as UsageRows;
+    const dailyCostRows = (await getDailyCostRows(unifiedSource, unifiedParams)) as UsageRows;
 
     const heatmapStart = new Date();
     heatmapStart.setUTCDate(heatmapStart.getUTCDate() - 364);
@@ -437,30 +440,36 @@ export async function GET(request: Request) {
       });
     }
 
-    const heatmapRows = getHeatmapRows(heatmapConditions, heatmapParams) as UsageRows;
+    const heatmapRows = (await getHeatmapRows(heatmapConditions, heatmapParams)) as UsageRows;
 
-    const modelRows = getModelUsageRows(unifiedSource, unifiedParams) as UsageRows;
+    const modelRows = (await getModelUsageRows(unifiedSource, unifiedParams)) as UsageRows;
 
-    const providerCostRows = getProviderCostRows(unifiedSource, unifiedParams) as UsageRows;
+    const providerCostRows = (await getProviderCostRows(unifiedSource, unifiedParams)) as UsageRows;
 
-    const providerRows = getProviderUsageRows(unifiedSource, unifiedParams) as UsageRows;
+    const providerRows = (await getProviderUsageRows(unifiedSource, unifiedParams)) as UsageRows;
 
     const accountCostWhereClause = whereClause
       .replace(/timestamp/g, "usage_history.timestamp")
       .replace(/api_key_/g, "usage_history.api_key_");
-    const accountCostRows = getAccountCostRows(accountCostWhereClause, params) as UsageRows;
+    const accountCostRows = (await getAccountCostRows(accountCostWhereClause, params)) as UsageRows;
 
-    const accountRows = getAccountUsageRows(accountCostWhereClause, params) as UsageRows;
+    const accountRows = (await getAccountUsageRows(accountCostWhereClause, params)) as UsageRows;
 
     const apiKeyWhereClause = appendWhereCondition(
       whereClause,
       "(api_key_id IS NOT NULL AND api_key_id != '') OR (api_key_name IS NOT NULL AND api_key_name != '')"
     );
-    const apiKeyRows = getApiKeyUsageRows(apiKeyWhereClause, params) as UsageRows;
+    const apiKeyRows = (await getApiKeyUsageRows(apiKeyWhereClause, params)) as UsageRows;
 
-    const serviceTierRows = getServiceTierUsageRows(unifiedSource, unifiedParams) as UsageRows;
+    const serviceTierRows = (await getServiceTierUsageRows(
+      unifiedSource,
+      unifiedParams
+    )) as UsageRows;
 
-    const apiKeyMetadataRows = getApiKeyMetadataRows(apiKeyWhereClause, params) as UsageRows;
+    const apiKeyMetadataRows = (await getApiKeyMetadataRows(
+      apiKeyWhereClause,
+      params
+    )) as UsageRows;
 
     const apiKeyMetadata = new Map<string, { latestName: string; aliases: Set<string> }>();
     for (const row of apiKeyMetadataRows) {
@@ -477,7 +486,7 @@ export async function GET(request: Request) {
       apiKeyMetadata.set(groupKey, existing);
     }
 
-    const weeklyRows = getWeeklyPatternRows(unifiedSource, unifiedParams) as UsageRows;
+    const weeklyRows = (await getWeeklyPatternRows(unifiedSource, unifiedParams)) as UsageRows;
 
     const fallbackRow = getFallbackStats(whereClause, params) as Record<string, unknown>;
 
@@ -896,7 +905,7 @@ export async function GET(request: Request) {
           apiKeyParams: apiKeyParamEntries,
         });
 
-        const presetModelRows = getPresetCostModelRows(pSrc, pParams) as UsageRows;
+        const presetModelRows = (await getPresetCostModelRows(pSrc, pParams)) as UsageRows;
 
         let presetTotalCost = 0;
         for (const row of presetModelRows) {

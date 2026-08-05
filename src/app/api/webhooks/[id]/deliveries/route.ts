@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const { id } = await params;
-    const webhook = getWebhook(id);
+    const webhook = await getWebhook(id);
     if (!webhook) {
       return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
     }
@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const limitParam = url.searchParams.get("limit");
     const limit = Math.min(Math.max(1, parseInt(limitParam ?? "20", 10) || 20), 100);
 
-    const deliveries = getDeliveries(id, limit);
+    const deliveries = await getDeliveries(id, limit);
     return NextResponse.json({ deliveries });
   } catch (error: any) {
     return NextResponse.json(

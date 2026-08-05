@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   try {
     const retentionMs = getCallLogRetentionDays() * 24 * 60 * 60 * 1000;
     const cutoff = new Date(Date.now() - retentionMs).toISOString();
-    const result = deleteCallLogsBefore(cutoff);
+    const result = await deleteCallLogsBefore(cutoff);
     return NextResponse.json({
       deleted: result.deletedRows,
       deletedArtifacts: result.deletedArtifacts,
