@@ -1,0 +1,84 @@
+# Build & push the astra-aigate container image to GHCR.
+#
+# Triggers:
+#   - push tag v*        → ghcr.io/alrcatraz/astra-aigate:vX.Y.Z + :latest
+#   - push development   → ghcr.io/alrcatraz/astra-aigate:development
+#   - workflow_dispatch  → manual build (optional `target` input)
+#
+# The image builds on the openSUSE Leap 16.0 base (see Dockerfile). The webpack
+# build step needs ~8 GB of V8 heap, which is why AIGATE_BUILD_MEMORY_MB=8192
+# is passed through. GitHub-hosted ubuntu-latest runners (16 GB) can run this
+# in a single job; the manual build machine (SUSETLearn00) remains the fallback
+# for local verification.
+#
+# Gitea CI is intentionally NOT configured (2026-08-06): the NAS-hosted
+# act_runner has limited performance for a 20-minute openSUSE image build.
+# Revisit if the NAS is upgraded or a stronger runner becomes available.
+
+name: Build Image
+
+on:
+  push:
+    branches: [development]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Docker target (default: runner-cli, i.e. the final stage)"
+        required: false
+        default: "runner-cli"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/alrcatraz/astra-aigate
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve image tags
+        id: tags
+        run: |
+          REF_NAME="${{ github.ref_name }}"
+          if [[ "$REF_NAME" == v* ]]; then
+            # Tag push → versioned tag + latest
+            echo "tags=${IMAGE_NAME}:${REF_NAME},${IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+          else
+            # Branch push → branch name as tag (development)
+            echo "tags=${IMAGE_NAME}:${REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ inputs.target || 'runner-cli' }}
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            AIGATE_BUILD_MEMORY_MB=8192
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
