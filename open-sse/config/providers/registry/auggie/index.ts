@@ -2,7 +2,7 @@ import type { RegistryEntry } from "../../shared.ts";
 
 // Augment / Auggie CLI — local no-auth provider. The executor spawns the
 // user's local `auggie` binary (auth handled entirely by `auggie login`);
-// OmniRoute never stores credentials for this connection.
+// AI Gate never stores credentials for this connection.
 //
 // Model IDs sourced from `auggie model list` on auggie v0.32.0.
 export const auggieProvider: RegistryEntry = {

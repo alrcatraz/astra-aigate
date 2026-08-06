@@ -282,7 +282,7 @@ export default function CompressionPanel() {
             <h3 className="text-lg font-semibold">{t("compressionTitle")}</h3>
             <p className="text-sm text-text-muted">{t("compressionDesc")}</p>
             <a
-              href="https://github.com/diegosouzapw/OmniRoute/blob/main/docs/compression/COMPRESSION_GUIDE.md"
+              href="https://github.com/diegosouzapw/AI Gate/blob/main/docs/compression/COMPRESSION_GUIDE.md"
               target="_blank"
               rel="noopener noreferrer"
               data-testid="compression-guide-link"

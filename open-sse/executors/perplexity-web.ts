@@ -16,10 +16,7 @@ import {
 import { prepareToolMessages } from "../translator/webTools.ts";
 import { buildToolModeResponse } from "./chatgptWebTools.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
-import {
-  buildSessionCookieHeader,
-  mergeRefreshedCookie,
-} from "../utils/nextAuthCookie.ts";
+import { buildSessionCookieHeader, mergeRefreshedCookie } from "../utils/nextAuthCookie.ts";
 import {
   PPLX_SSE_ENDPOINT,
   PPLX_USER_AGENT,
@@ -272,7 +269,7 @@ async function buildNonStreamingResponse(
   for await (const chunk of extractContent(eventStream, signal)) {
     if (chunk.backendUuid) respBackendUuid = chunk.backendUuid;
     if (chunk.error) {
-      // Quota exhaustion → 429 + reset_seconds so OmniRoute marks rate_limited_until
+      // Quota exhaustion → 429 + reset_seconds so AI Gate marks rate_limited_until
       // and VibeProxy limit badges / rotation skip parse the same shape as model_cooldown.
       const isQuota =
         chunk.errorCode === "quota_exhausted" ||
@@ -362,7 +359,15 @@ export class PerplexityWebExecutor extends BaseExecutor {
     super("perplexity-web", { id: "perplexity-web", baseUrl: PPLX_SSE_ENDPOINT });
   }
 
-  async execute({ model, body, stream, credentials, signal, log, onCredentialsRefreshed }: ExecuteInput) {
+  async execute({
+    model,
+    body,
+    stream,
+    credentials,
+    signal,
+    log,
+    onCredentialsRefreshed,
+  }: ExecuteInput) {
     const bodyObj = (body || {}) as Record<string, unknown>;
     const rawMessages = bodyObj.messages as Array<Record<string, unknown>> | undefined;
     if (!rawMessages || !Array.isArray(rawMessages) || rawMessages.length === 0) {

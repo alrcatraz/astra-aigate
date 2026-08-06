@@ -24,7 +24,7 @@ export async function POST(
   }
 
   try {
-    const result = markVerified(id);
+    const result = await markVerified(id);
     if (!result) {
       return createErrorResponse({ status: 404, message: "Discovery result not found" });
     }

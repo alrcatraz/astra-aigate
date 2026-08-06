@@ -58,7 +58,7 @@ async function fetchJsonWithTimeout(fetchImpl: FetchLike, url: string): Promise<
     const response = await fetchImpl(url, {
       headers: {
         Accept: "application/json",
-        "User-Agent": "OmniRoute-AntigravityVersion/1.0",
+        "User-Agent": "AI Gate-AntigravityVersion/1.0",
       },
       signal: controller.signal,
     });

@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (scope.rejection) return scope.rejection;
 
   const { id } = await params;
-  const batch = getBatch(id);
+  const batch = await getBatch(id);
 
   if (!batch || !scopeCheck(scope, batch.apiKeyId)) {
     return NextResponse.json(
@@ -39,7 +39,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (scope.rejection) return scope.rejection;
 
   const { id } = await params;
-  const batch = getBatch(id);
+  const batch = await getBatch(id);
 
   if (!batch || !scopeCheck(scope, batch.apiKeyId)) {
     return NextResponse.json(

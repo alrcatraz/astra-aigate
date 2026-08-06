@@ -80,7 +80,7 @@ export const DEFAULT_PRICING_OAUTH = {
   },
   cx: {
     "codex-auto-review": GPT_5_5_PRICING,
-    // Codex uses credits per 1M tokens. OmniRoute stores the dollar-equivalent
+    // Codex uses credits per 1M tokens. AI Gate stores the dollar-equivalent
     // values below at the documented conversion of 25 credits per USD.
     "gpt-5.6-sol": GPT_5_6_SOL_PRICING,
     "gpt-5.6-sol-ultra": GPT_5_6_SOL_PRICING,

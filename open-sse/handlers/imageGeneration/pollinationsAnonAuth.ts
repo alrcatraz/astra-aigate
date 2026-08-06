@@ -8,7 +8,7 @@
 // equivalent: a keyless Pollinations image request went out with no
 // Authorization header AND no fingerprint headers, so Pollinations' own
 // upstream legitimately rejected it with a 401 — even with a perfectly
-// valid OmniRoute API key. This module mirrors that same anonymous
+// valid AI Gate API key. This module mirrors that same anonymous
 // session-pool fallback for the image path.
 
 import { SessionPool } from "../../services/sessionPool/sessionPool.ts";
@@ -62,7 +62,10 @@ export async function applyPollinationsAnonymousFallback(
 }
 
 /** Report the outcome of an anonymous Pollinations image request back to the pool. */
-export function reportPollinationsAnonOutcome(session: Session | null, status: number | undefined): void {
+export function reportPollinationsAnonOutcome(
+  session: Session | null,
+  status: number | undefined
+): void {
   if (!session || !pollinationsImagePool) return;
   if (status === 429) {
     pollinationsImagePool.reportCooldown(session);

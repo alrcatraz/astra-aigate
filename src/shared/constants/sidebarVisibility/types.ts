@@ -1,9 +1,13 @@
 export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   // Home
   "home",
-  // OmniProxy — flat
-  "api-manager",
+  // AI Gate — platform-level consumer access (Phase 3)
   "endpoints",
+  "api-manager",
+  "mcp-servers",
+  "services",
+  "cli-code",
+  // OmniProxy — flat
   "providers",
   "embedded-services",
   "combos",
@@ -30,7 +34,6 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "compression-studio",
   "compression-exclusions",
   // OmniProxy > Tools
-  "cli-code",
   "cli-agents",
   "acp-agents",
   "cloud-agents",
@@ -38,7 +41,6 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "traffic-inspector",
   "discovery",
   // OmniProxy > Integrations
-  "api-endpoints",
   "webhooks",
   // OmniProxy — proxy tools
   "mitm-proxy",
@@ -85,7 +87,6 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "agent-skills",
   "chaos-config",
   "mcp",
-  "a2a",
   "plugins",
   // Gamification
   "leaderboard",
@@ -127,6 +128,7 @@ export type SidebarItemId = HideableSidebarItemId | AlwaysVisibleSidebarItemId;
 
 export type SidebarSectionId =
   | "home"
+  | "ai-gate"
   | "omni-proxy"
   | "analytics"
   | "costs"

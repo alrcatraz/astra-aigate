@@ -5,7 +5,8 @@
  *
  * Features:
  *   - UUID v4 task IDs
- *   - In-memory storage with optional SQLite persistence
+ *   - In-memory storage (NOT persisted — a container restart drops tasks;
+ *     A2A is a lightweight query surface, not a durable async task system)
  *   - Event logging for each state transition
  *   - TTL with configurable expiration (default 5 min)
  *   - Concurrent task limit

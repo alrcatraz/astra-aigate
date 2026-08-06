@@ -9,7 +9,7 @@ export const ANTIGRAVITY_IDE_NODE_X_GOOG_API_CLIENT = "gl-node/22.21.1";
 
 // Antigravity presents the native macOS desktop client fingerprint: the upstream
 // backend expects the Mac build, so the OS/arch token is pinned to darwin/arm64
-// regardless of the host OmniRoute happens to run on (#8098). The IDE / CLI /
+// regardless of the host AI Gate happens to run on (#8098). The IDE / CLI /
 // IDE-Node User-Agent split (#8013) is preserved — only the platform token is fixed.
 const ANTIGRAVITY_OS_TYPE = "darwin";
 const ANTIGRAVITY_ARCH = "arm64";

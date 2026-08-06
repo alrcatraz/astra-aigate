@@ -13,7 +13,8 @@
 Unified AI service gateway web console managing three categories:
 
 1. **LLM Providers** — route /v1/chat/completions with combo fallback (290 in the catalog)
-2. **MCP Servers** — aggregate multiple MCP servers into one /mcp endpoint
+2. **MCP Servers** — MCP gateway host: one server exposing multiple MCP
+   endpoints, registered self-hosted MCPs (local stdio + remote HTTP/SSE)
 3. **Auxiliary Services** — health monitoring + reverse proxy for Camofox,
    SearXNG, etc.
 
@@ -36,7 +37,7 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
 
 - `src/` — OmniRoute's complete source (v3.8.50), fully preserved
 - LLM routing, provider/combo/API key management — from OmniRoute
-- MCP aggregation — new, planned for Phase 3
+- MCP gateway — Phase 3 (completed: registry + multi-endpoint + bridge + admin tools)
 - Service monitoring — new, planned for Phase 4
 - Expo Design System — Phase 1 (completed)
 
@@ -51,10 +52,20 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
 
 ## Git & Versioning
 
-- Remotes: `gitea` (private, git01.wrt.astra-lab.org) + `github` (public,
+- Remotes: `gitea` (private) + `github` (public,
   alrcatraz/astra-aigate) — dual push
-- Workflow: feature branches (`phase2-<topic>`) → PR → **rebase merge** to
-  main → local sync `git pull --ff-only` (no force push after Phase 1)
+- Branch hierarchy (user-confirmed 2026-08-03): `feature/<type>-<desc>` →
+  merge to **development** (dev branch) → development→main via **PR**
+  (dual: Gitea + GitHub). **Never push directly to main; never push feature
+  branches as deliverables; never have the build machine pull feature
+  branches** (bypasses the PR review line). If development is missing at
+  wrap-up, rebuild + dual-push it from main.
+- Build machine (SUSETLearn00) pulls Gitea main — symptom check: UI
+  brand/feature mismatch with code = the changed branch was never merged
+  to what the build machine pulls (or the build tree is stale), not "code
+  not changed".
+- Workflow: feature branches → PR → **rebase merge** to main → local sync
+  `git pull --ff-only` (no force push after Phase 1)
 - Version: standard SemVer; 0.x per completed phase (0.1.0 = Phase 1),
   1.0.0 = all PLAN phases done
 - `alrcatraz` is the author; all commits GPG-signed
@@ -73,6 +84,22 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
    (sync SQLite drivers wrapped), dialect translation centralized in the PG
    adapter so business modules stay driver-agnostic. SQLite→PG migration:
    `scripts/migrate-sqlite-to-pg.ts` (idempotent, reconciles row counts)
+9. MCP gateway (3.x): one server exposing MULTIPLE MCP endpoints (NOT a tool
+   merge pool). Registry `mcp_servers` table; `kind` = pure connection
+   semantics `builtin|stdio|http` (never a brand name). Preset group id
+   `aigate-*` (long IDs avoid confusion): `aigate-omniroute` (Phase 1-2
+   tools, `system=1`, enabled by default), `aigate-mcp` (Phase 3 mgmt
+   tools), `aigate-infra` (Phase 4 placeholder, disabled). Preset entries
+   are disable-able but NOT deletable. External endpoints:
+   `/api/mcp/servers/[id]/{sse,stream}`; legacy `/api/mcp/sse` +
+   `/api/mcp/stream` 301 → `aigate-omniroute`. Auth = OmniRoute API Key +
+   scopes model generalised to AI Gate (no separate DMXAPI-style system
+   token): endpoints accept EITHER admin session (requireManagementAuth)
+   OR API Key Bearer + scope; registry writes need admin session or
+   `write:mcp` scope, reads need `read:mcp`. Third-party service keys
+   (camofox etc.) live encrypted in `auth_secret`, injected on forward —
+   consumers configure only one AI Gate key. Marketplace installs: only a
+   `source` field (`manual|marketplace`), no marketplace implementation.
 
 ## Registry & Config Conventions (Phase 2)
 

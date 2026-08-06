@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const resolvedParams = await params;
-  const revoked = revokeRegisteredKey(resolvedParams.id);
+  const revoked = await revokeRegisteredKey(resolvedParams.id);
   if (!revoked) {
     return NextResponse.json({ error: "Key not found or already revoked" }, { status: 404 });
   }

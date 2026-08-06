@@ -1,5 +1,5 @@
 /**
- * OmniRoute Copilot — Chat Engine
+ * AI Gate Copilot — Chat Engine
  *
  * Processes user messages, classifies intent, executes tools,
  * queries CodeGraph, invokes CLI commands, or responds with
@@ -39,7 +39,7 @@ function getKnowledgeResponse(query: string): string | null {
     /architecture|arquitectura|pipeline/.test(q) ||
     (q.includes("request") && (q.includes("flow") || q.includes("path")))
   ) {
-    return `## OmniRoute Architecture
+    return `## AI Gate Architecture
 
 The request pipeline flows through:
 1. **API Route** → CORS → Zod validation → Auth (optional)
@@ -85,7 +85,7 @@ Use \`createCombo\` tool or \`runOmniRouteCli\` to create them.`;
   if (/provider|proveedor/.test(q)) {
     return `## Providers (212+)
 
-OmniRoute supports 212+ providers across categories:
+AI Gate supports 212+ providers across categories:
 - **Free**: Qoder AI, Kiro AI
 - **OAuth** (14): Claude Code, Antigravity, Codex, GitHub Copilot, Cursor, Kimi Coding, Windsurf, etc.
 - **API Key** (120+): OpenAI, Anthropic, Gemini, DeepSeek, Groq, xAI, Mistral, etc.
@@ -114,7 +114,7 @@ Use \`listProviders\` to see your configured ones.`;
   if (/codigo|código|codebase|cómo funciona|how does|where is|dónde está/.test(q)) {
     return `## Codebase Investigation
 
-I can use CodeGraph to explore the OmniRoute codebase. Just ask me:
+I can use CodeGraph to explore the AI Gate codebase. Just ask me:
 - "Busca la función handleChatCore"
 - "Quién llama a sanitizeMessage?"
 - "Qué funciones hay en combo.ts?"
@@ -244,7 +244,7 @@ function classifyIntent(text: string): { tool: string; args: Record<string, unkn
 // ── Help Response ────────────────────────────────────────────────────────────
 
 function getHelpResponse(): string {
-  return `## OmniRoute Copilot — Comandos disponibles
+  return `## AI Gate Copilot — Comandos disponibles
 
 ### Configuración
 - "Lista los providers" → \`listProviders\`
@@ -267,7 +267,7 @@ function getHelpResponse(): string {
 - "CLI set-budget 10" → ejecuta \`omniroute set-budget 10\`
 
 ### Conocimiento
-- "Cómo funciona OmniRoute?" → explica la arquitectura
+- "Cómo funciona AI Gate?" → explica la arquitectura
 - "Qué son los combos?" → explica routing
 - "Cómo debuggeo un error?" → troubleshooting
 
@@ -298,7 +298,7 @@ export async function processCopilotChat(request: CopilotRequest): Promise<Copil
     }
     // Fallback: respond with help
     return {
-      message: `I understand you want help with OmniRoute.\n\n${getHelpResponse()}`,
+      message: `I understand you want help with AI Gate.\n\n${getHelpResponse()}`,
     };
   }
 

@@ -16,7 +16,7 @@ import { resolveCodexWsModelInfo } from "@/app/api/internal/codex-responses-ws/m
 
 async function resolveSimulationSourceModels(model: string, transport: string, combo: unknown) {
   if (combo) return { normalized: model, aliases: [] };
-  return resolveReasoningSourceModels(model, (value) =>
+  return await resolveReasoningSourceModels(model, (value) =>
     transport === "codex-ws" ? resolveCodexWsModelInfo(value, getModelInfo) : getModelInfo(value)
   );
 }

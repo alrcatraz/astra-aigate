@@ -542,7 +542,7 @@ async function prepare(body: JsonRecord) {
   const headers = normalizeUpstreamHeaders(executor.buildHeaders(refreshedCredentials, true));
 
   // #5611: apply the configured Global/provider proxy to the upstream Codex
-  // Responses WebSocket too. The downstream client→OmniRoute hop works, but the
+  // Responses WebSocket too. The downstream client→AI Gate hop works, but the
   // upstream wreq-js.websocket() connect previously ignored the Proxy Registry,
   // so a no-direct-egress container failed with a DNS lookup error.
   const proxy = await resolveCodexProxy(provider);

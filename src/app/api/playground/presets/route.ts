@@ -78,7 +78,7 @@ export async function GET(request: Request): Promise<Response> {
       });
     }
     const { limit, offset } = validation.data;
-    const result = listPlaygroundPresets(limit !== undefined ? { limit, offset } : undefined);
+    const result = await listPlaygroundPresets(limit !== undefined ? { limit, offset } : undefined);
     return new Response(JSON.stringify({ presets: result.items, total: result.total }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...CORS_HEADERS },
@@ -121,7 +121,7 @@ export async function POST(request: Request): Promise<Response> {
 
   // 3. Create preset (Hard Rule #5 — via DB module)
   try {
-    const created = createPlaygroundPreset({
+    const created = await createPlaygroundPreset({
       name: body.name,
       endpoint: body.endpoint,
       model: body.model,

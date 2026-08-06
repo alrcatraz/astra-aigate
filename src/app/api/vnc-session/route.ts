@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (authError) return authError;
 
   return NextResponse.json({
-    sessions: listSessions().map(({ containerName, profileDir, ...rest }) => rest),
+    sessions: (await listSessions()).map(({ containerName, profileDir, ...rest }) => rest),
     providers: listVncProviders().map((provider) => ({
       id: provider.id,
       name: provider.name,

@@ -8,11 +8,11 @@ import LanguageSelector from "@/shared/components/LanguageSelector";
 
 export const metadata = {
   title: {
-    template: "%s — OmniRoute Docs",
-    default: "OmniRoute Documentation",
+    template: "%s — AI Gate Docs",
+    default: "AI Gate Documentation",
   },
   description:
-    "Comprehensive documentation for OmniRoute AI gateway — setup, API, compression, deployment, and more.",
+    "Comprehensive documentation for AI Gate AI gateway — setup, API, compression, deployment, and more.",
   robots: {
     index: true,
     follow: true,
@@ -40,7 +40,7 @@ const docsLayoutOptions: BaseLayoutProps = {
       secondary: true,
     },
   ],
-  githubUrl: "https://github.com/diegosouzapw/OmniRoute",
+  githubUrl: "https://github.com/diegosouzapw/AI Gate",
 };
 
 export default function Layout({ children }: { children: ReactNode }) {

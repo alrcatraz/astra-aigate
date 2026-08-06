@@ -414,7 +414,7 @@ export class KiroExecutor extends BaseExecutor {
             // `reasoningContentEvent` frame carrying `{ text, signature }` — NOT
             // inline `<thinking>` tags and NOT `assistantResponseEvent`. Some
             // models/variants instead use a `reasoningText` object or a flat
-            // `{ text }` (cf. javargasm/pi-kiro `src/event-parser.ts`). OmniRoute
+            // `{ text }` (cf. javargasm/pi-kiro `src/event-parser.ts`). AI Gate
             // had no handler for this event, so the reasoning was silently dropped;
             // route it to the OpenAI `reasoning_content` channel.
             {

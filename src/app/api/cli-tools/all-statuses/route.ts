@@ -129,7 +129,7 @@ export async function GET(request: Request): Promise<Response> {
             ),
           ]);
 
-          const configStatusPromise = checkToolConfigStatus(toolId);
+          const configStatusPromise = await checkToolConfigStatus(toolId);
 
           const [runtimeResult, configStatusResult] = await Promise.allSettled([
             runtimePromise,

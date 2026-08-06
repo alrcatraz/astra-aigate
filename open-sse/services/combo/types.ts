@@ -76,11 +76,11 @@ export type ComboRelayOptions = {
   sessionId?: string | null;
   config?: Record<string, unknown> | null;
   bypassProviderQuotaPolicy?: boolean;
-  /** Per-request X-OmniRoute-Mode value (auto-combo preset / mode-pack name) — #6024/#6025. */
+  /** Per-request X-AI Gate-Mode value (auto-combo preset / mode-pack name) — #6024/#6025. */
   mode?: string | null;
-  /** Per-request X-OmniRoute-Budget value (hard cost ceiling in USD) — #6023. */
+  /** Per-request X-AI Gate-Budget value (hard cost ceiling in USD) — #6023. */
   budgetCap?: number | null;
-  /** Per-request X-OmniRoute-Budget-Fallback value ("cheapest" | "strict") — #3470. */
+  /** Per-request X-AI Gate-Budget-Fallback value ("cheapest" | "strict") — #3470. */
   budgetFallback?: "cheapest" | "strict" | null;
   [key: string]: unknown;
 };

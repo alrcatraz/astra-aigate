@@ -73,7 +73,7 @@ export async function autoSyncClaudeProfilesFromLiveCatalog(
   }
   const claudeHome = path.dirname(claudePaths.settings);
 
-  // Each generated profile points ANTHROPIC_BASE_URL at the OmniRoute this server serves.
+  // Each generated profile points ANTHROPIC_BASE_URL at the AI Gate this server serves.
   // Strip a trailing /v1 (Claude Code appends the version segment itself).
   const profileBaseUrl = internalBase.replace(/\/v1$/, "");
 

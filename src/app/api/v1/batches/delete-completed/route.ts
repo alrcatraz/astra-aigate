@@ -19,7 +19,7 @@ export async function DELETE(request: Request) {
     );
   }
 
-  const result = deleteCompletedBatches();
+  const result = await deleteCompletedBatches();
 
   return NextResponse.json(
     { deleted: true, deletedBatches: result.deletedBatches, deletedFiles: result.deletedFiles },

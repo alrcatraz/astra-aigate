@@ -71,13 +71,13 @@ const readAuthFile = async () => {
   }
 };
 
-// ── Check if a base_url points to OmniRoute ──────────────────────────────
+// ── Check if a base_url points to AI Gate ──────────────────────────────
 const isOmniRouteUrl = (baseUrl) => {
   if (!baseUrl) return false;
   return baseUrl.includes(":20128") || baseUrl.includes(":3000") || baseUrl.includes("omniroute");
 };
 
-// ── Check if OmniRoute is configured ─────────────────────────────────────
+// ── Check if AI Gate is configured ─────────────────────────────────────
 const hasOmniRouteConfig = (authFile) => {
   if (!authFile?.providers) return false;
   const provider = authFile.providers[PROVIDER_NAME];
@@ -104,7 +104,7 @@ export async function GET(request: Request) {
     const authFile = await readAuthFile();
     const provider = authFile?.providers?.[PROVIDER_NAME];
 
-    // Detect if lmstudio is already configured for a non-OmniRoute endpoint
+    // Detect if lmstudio is already configured for a non-AI Gate endpoint
     let lmstudioConflict = false;
     if (provider && !isOmniRouteUrl(provider.base_url)) {
       lmstudioConflict = true;
@@ -122,18 +122,15 @@ export async function GET(request: Request) {
       backendMode: settings.preferredBackendMode || "api",
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(error) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(error) } }, { status: 500 });
   }
 }
 
-// ── POST - Apply OmniRoute as LM Studio provider + switch to local mode ──
+// ── POST - Apply AI Gate as LM Studio provider + switch to local mode ──
 /**
  * Steps 1-2 of POST: read the existing Letta auth.json, refuse to clobber a real
  * LM Studio configuration unless `overwrite` is set (409 with conflict info), and back
- * up a non-OmniRoute provider before it is overwritten. Extracted to keep POST under
+ * up a non-AI Gate provider before it is overwritten. Extracted to keep POST under
  * the complexity gate.
  */
 async function prepareLettaAuthFile(
@@ -197,7 +194,7 @@ export async function POST(request: Request) {
 
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 
-    // ── 1-2. Read auth.json, guard non-OmniRoute conflicts, back up before overwrite ──
+    // ── 1-2. Read auth.json, guard non-AI Gate conflicts, back up before overwrite ──
     const prepared = await prepareLettaAuthFile(overwrite);
     if ("conflictResponse" in prepared) {
       return prepared.conflictResponse;
@@ -242,18 +239,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Settings applied. Restart Letta CLI, then use /model to select a OmniRoute model.",
+      message: "Settings applied. Restart Letta CLI, then use /model to select a AI Gate model.",
       needsRestart: true,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(error) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(error) } }, { status: 500 });
   }
 }
 
-// ── DELETE - Remove OmniRoute configuration ──────────────────────────────
+// ── DELETE - Remove AI Gate configuration ──────────────────────────────
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -312,8 +306,8 @@ export async function DELETE(request: Request) {
     }
 
     const message = restored
-      ? "OmniRoute config removed. Your original LM Studio provider has been restored. Restart Letta CLI to take effect."
-      : "OmniRoute config removed. Restart Letta CLI to take effect.";
+      ? "AI Gate config removed. Your original LM Studio provider has been restored. Restart Letta CLI to take effect."
+      : "AI Gate config removed. Restart Letta CLI to take effect.";
 
     return NextResponse.json({
       success: true,
@@ -321,9 +315,6 @@ export async function DELETE(request: Request) {
       needsRestart: true,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(error) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(error) } }, { status: 500 });
   }
 }

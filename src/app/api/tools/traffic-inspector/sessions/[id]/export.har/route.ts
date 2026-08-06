@@ -19,7 +19,7 @@ interface Params {
 export async function GET(_request: Request, { params }: Params): Promise<Response> {
   const { id } = await params;
 
-  const session = getSession(id);
+  const session = await getSession(id);
   if (!session) {
     return new Response(JSON.stringify(buildErrorBody(404, "Session not found")), {
       status: 404,
@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: Params): Promise<Respon
   }
 
   try {
-    const rows = getSessionRequests(id);
+    const rows = await getSessionRequests(id);
     const requests: InterceptedRequest[] = rows
       .map((r) => {
         try {

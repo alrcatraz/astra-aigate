@@ -91,7 +91,7 @@ export async function checkIdempotencyCache({
       : 0;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "X-OmniRoute-Idempotent": "true",
+      "X-AI Gate-Idempotent": "true",
     };
     attachOmniRouteMetaHeaders(headers, {
       provider,

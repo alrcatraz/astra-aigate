@@ -9,7 +9,7 @@
  * `selectedApiKey` was empty — but the default `sk_omniroute` key is a valid
  * local-mode default and should not block Apply. The Reset button was disabled
  * whenever `codexStatus.hasOmniRoute` was false — but a user should always be
- * able to reset, even when Codex was never configured against OmniRoute.
+ * able to reset, even when Codex was never configured against AI Gate.
  */
 
 export interface ApplyButtonInput {

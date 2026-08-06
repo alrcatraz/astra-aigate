@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const summary = getCompressionRunTelemetrySummary();
+    const summary = await getCompressionRunTelemetrySummary();
     return NextResponse.json(summary);
   } catch {
     return NextResponse.json(

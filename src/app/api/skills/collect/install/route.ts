@@ -2,7 +2,7 @@
  * POST /api/skills/collect/install
  *
  * Install a discovered GitHub skill to detected CLI tools.
- * Uses OmniRoute's skill registry + CLI tool paths (no Skill Collector bridge).
+ * Uses AI Gate's skill registry + CLI tool paths (no Skill Collector bridge).
  *
  * Body: {
  *   repoName: string,       // GitHub full name (e.g. "user/repo")

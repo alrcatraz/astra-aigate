@@ -13,7 +13,7 @@ async function getInternalApiKey(): Promise<string | null> {
   // Combo health-check probes hit /v1/chat/completions, which enforces
   // per-key model allowlists (see shared/utils/apiKeyPolicy.ts). Picking
   // an arbitrary active key is unsafe — see pickApiKeyForInternalUse.
-  return pickApiKeyForInternalUse("combo-health-check");
+  return await pickApiKeyForInternalUse("combo-health-check");
 }
 
 function buildComboTestResult(target, partial = {}) {
@@ -63,9 +63,9 @@ async function testComboTarget(target, baseInternalUrl, internalApiKey: string |
           ...(internalApiKey ? { Authorization: `Bearer ${internalApiKey}` } : {}),
           "X-Internal-Test": "combo-health-check",
           // Force a fresh execution path so combo tests cannot be satisfied by
-          // OmniRoute's semantic cache or other request reuse layers.
-          "X-OmniRoute-No-Cache": "true",
-          ...(target.connectionId ? { "X-OmniRoute-Connection": target.connectionId } : {}),
+          // AI Gate's semantic cache or other request reuse layers.
+          "X-AI Gate-No-Cache": "true",
+          ...(target.connectionId ? { "X-AI Gate-Connection": target.connectionId } : {}),
           "X-Request-Id": `combo-test-${randomUUID()}`,
         },
         body: JSON.stringify(testBody),

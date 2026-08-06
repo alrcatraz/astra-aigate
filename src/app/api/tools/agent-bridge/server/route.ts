@@ -21,7 +21,7 @@ import { createErrorResponse } from "@/lib/api/errorResponse";
 import { pickApiKeyForInternalUse } from "@/lib/localDb";
 
 /**
- * Resolve the OmniRoute API key the spawned MITM child (`server.cjs`) uses to
+ * Resolve the AI Gate API key the spawned MITM child (`server.cjs`) uses to
  * authenticate its own outbound calls back to `/v1/chat/completions`
  * (`ROUTER_API_KEY` env — see `src/mitm/manager.ts::startMitmInternal`).
  *
@@ -30,7 +30,7 @@ import { pickApiKeyForInternalUse } from "@/lib/localDb";
  * `apiKey` field) and the `ROUTER_API_KEY` process env var (unset unless an
  * operator manually exports it). On a normal install neither is ever set, so
  * `startMitm()` always received `""` and the MITM child exited with
- * "ROUTER_API_KEY required" even though OmniRoute already had a usable key in
+ * "ROUTER_API_KEY required" even though AI Gate already had a usable key in
  * its own DB (#6403). Falls back to the same DB-backed selector used by the
  * combo-health-check / cloud-sync-verify internal probes.
  */
@@ -69,7 +69,9 @@ export async function POST(request: Request): Promise<Response> {
   try {
     if (action === "start") {
       const suppliedPassword =
-        typeof raw.sudoPassword === "string" ? normalizeMitmSudoPasswordInput(raw.sudoPassword) : "";
+        typeof raw.sudoPassword === "string"
+          ? normalizeMitmSudoPasswordInput(raw.sudoPassword)
+          : "";
       if (suppliedPassword) setCachedPassword(suppliedPassword);
       const apiKey = await resolveRouterApiKey(rawApiKey);
       const { startMitm } = await import("@/mitm/manager.runtime");
@@ -106,7 +108,9 @@ export async function POST(request: Request): Promise<Response> {
       const result = await installCertResult(sudoPassword, certPath);
       if (result.installed) {
         const suppliedPassword =
-          typeof raw.sudoPassword === "string" ? normalizeMitmSudoPasswordInput(raw.sudoPassword) : "";
+          typeof raw.sudoPassword === "string"
+            ? normalizeMitmSudoPasswordInput(raw.sudoPassword)
+            : "";
         if (process.platform !== "win32" && suppliedPassword) {
           setCachedPassword(suppliedPassword);
         }

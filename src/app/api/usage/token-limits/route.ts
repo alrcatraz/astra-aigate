@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         status: 400,
       });
     }
-    const limits = listTokenLimits(apiKeyId).map((limit: TokenLimit) => {
+    const limits = await listTokenLimits(apiKeyId).map((limit: TokenLimit) => {
       const usage = getWindowUsage(limit);
       const window = resetWindowIfElapsed(limit);
       return {
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     }
     const { id, apiKeyId, scopeType, scopeValue, tokenLimit, resetInterval, resetTime, enabled } =
       validation.data;
-    const limit = upsertTokenLimit({
+    const limit = await upsertTokenLimit({
       id,
       apiKeyId,
       scopeType,
@@ -89,7 +89,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json(buildErrorBody(400, "id query param is required"), { status: 400 });
   }
   try {
-    const deleted = deleteTokenLimit(id);
+    const deleted = await deleteTokenLimit(id);
     return NextResponse.json({ success: deleted }, { status: deleted ? 200 : 404 });
   } catch (error) {
     console.error("Error deleting token limit:", error);

@@ -574,7 +574,7 @@ export async function checkConnection(conn) {
   // (each refresh consumes the old one and returns a new one). For these, refreshing
   // on a fixed interval — instead of strictly on imminent expiry — burns rotations
   // unnecessarily AND can trigger Auth0's token family revocation (especially OpenAI
-  // Codex). 9router did not have this background sweep; it was introduced in OmniRoute
+  // Codex). 9router did not have this background sweep; it was introduced in AI Gate
   // and is the root cause of "adding account B invalidates account A" reports.
   // The interval path is kept ONLY for non-rotating providers where token state can
   // drift silently (e.g. cookie-based, opaque sessions without expires_at).

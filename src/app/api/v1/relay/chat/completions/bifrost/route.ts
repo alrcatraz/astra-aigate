@@ -131,7 +131,7 @@ export async function POST(request: Request) {
     }
 
     const tokenHash = hashToken(rawToken);
-    const token = getRelayTokenByHash(tokenHash);
+    const token = await getRelayTokenByHash(tokenHash);
     if (!token) {
       recordRelayUsage("unknown", {
         requestId: request.headers.get("x-request-id") || undefined,
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const rateCheck = checkRateLimit(token.id, token);
+    const rateCheck = await checkRateLimit(token.id, token);
     if (!rateCheck.allowed) {
       recordRelayUsage(token.id, {
         requestId: request.headers.get("x-request-id") || undefined,

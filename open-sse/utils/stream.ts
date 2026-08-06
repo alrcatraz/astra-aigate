@@ -1654,7 +1654,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   //
                   // For a malformed empty `choices: []` chunk WITHOUT valid usage we DROP
                   // it (log server-side only). We must NOT inject an assistant-content
-                  // chunk like "[OmniRoute] Upstream returned an empty response. Please
+                  // chunk like "[AI Gate] Upstream returned an empty response. Please
                   // retry." with finish_reason: "stop" — clients (Goose/opencode) feed that
                   // text back as a turn and spin in a retry loop. This restores the #3400
                   // behavior that #3422 inadvertently reverted (regression #3388/#3502).

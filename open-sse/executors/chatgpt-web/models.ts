@@ -12,7 +12,7 @@ export const MODEL_MAP: Record<string, string> = {
   "gpt-5-3": "gpt-5-3",
   "gpt-5-3-mini": "gpt-5-3-mini",
 
-  // Public OmniRoute dot-form ids exposed by the provider catalog.
+  // Public AI Gate dot-form ids exposed by the provider catalog.
   "gpt-5.6-pro": "gpt-5-6-pro",
   "gpt-5.6-thinking": "gpt-5-6-thinking",
   "gpt-5.5-pro": "gpt-5-5-pro",

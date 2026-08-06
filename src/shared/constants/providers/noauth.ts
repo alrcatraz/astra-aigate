@@ -132,11 +132,11 @@ export const NOAUTH_PROVIDERS = {
     serviceKinds: ["llm"],
     isLocalCli: true,
     freeNote:
-      "Local passthrough — runs the Augment CLI (`auggie`) on this machine. Auth is handled by `auggie login`, not OmniRoute.",
+      "Local passthrough — runs the Augment CLI (`auggie`) on this machine. Auth is handled by `auggie login`, not AI Gate.",
     authHint:
-      "No API key stored by OmniRoute. Install the Auggie CLI and run `auggie login` on this machine, then OmniRoute spawns it locally for each request.",
+      "No API key stored by AI Gate. Install the Auggie CLI and run `auggie login` on this machine, then AI Gate spawns it locally for each request.",
     notice: {
-      text: "Augment (Auggie CLI) requires the `auggie` binary installed and authenticated locally (`auggie login`). OmniRoute spawns it as a subprocess and never sees or stores your Augment credentials.",
+      text: "Augment (Auggie CLI) requires the `auggie` binary installed and authenticated locally (`auggie login`). AI Gate spawns it as a subprocess and never sees or stores your Augment credentials.",
     },
   },
   aihorde: {
@@ -162,7 +162,7 @@ export const NOAUTH_PROVIDERS = {
 };
 
 // Provider-level proxy controls are exposed only for transports whose complete
-// upstream path runs through OmniRoute's proxy-aware global fetch. Providers
+// upstream path runs through AI Gate's proxy-aware global fetch. Providers
 // with browser, WebSocket, direct dispatcher, media, or local CLI paths stay
 // hidden until those paths can guarantee the configured provider proxy.
 export const NOAUTH_PROVIDER_PROXY_SUPPORTED = new Set(["opencode", "theoldllm"]);

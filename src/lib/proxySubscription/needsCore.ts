@@ -19,7 +19,7 @@ export const NEEDS_CORE_PROTOCOLS = new Set<string>([
 ]);
 
 /**
- * Whether a redacted node summary represents a node that OmniRoute cannot
+ * Whether a redacted node summary represents a node that AI Gate cannot
  * forward directly and therefore needs a local sing-box / clash core.
  *
  * A node needs a core when it has no usable `type` (i.e. it is not a direct

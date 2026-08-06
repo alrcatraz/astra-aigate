@@ -17,9 +17,9 @@ const NAMESPACE = "interception_rules";
 export type FetchInterceptionBackend = "firecrawl" | "jina" | "tavily";
 
 export interface ModelInterceptionRule {
-  /** true = route through OmniRoute's /v1/search; false = force native passthrough. */
+  /** true = route through AI Gate's /v1/search; false = force native passthrough. */
   interceptSearch?: boolean;
-  /** true = route through OmniRoute's /v1/web/fetch; false = force native passthrough. */
+  /** true = route through AI Gate's /v1/web/fetch; false = force native passthrough. */
   interceptFetch?: boolean;
   fetchBackend?: FetchInterceptionBackend;
   fetchProxyUrl?: string;

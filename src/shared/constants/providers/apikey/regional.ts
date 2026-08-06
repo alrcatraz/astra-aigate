@@ -449,7 +449,7 @@ export const APIKEY_PROVIDERS_REGIONAL = {
     textIcon: "CS",
     website: "https://api.ncloud-docs.com/docs/en/ai-naver-clovastudio-summary",
     apiHint:
-      "CLOVA Studio (HyperCLOVA X) is OpenAI-compatible on /v1/openai. OmniRoute probes /v1/openai/models and routes chat traffic to /v1/openai/chat/completions. Uses the current clovastudio.stream.ntruss.com host — the legacy clovastudio.apigw.ntruss.com endpoint is being deprecated.",
+      "CLOVA Studio (HyperCLOVA X) is OpenAI-compatible on /v1/openai. AI Gate probes /v1/openai/models and routes chat traffic to /v1/openai/chat/completions. Uses the current clovastudio.stream.ntruss.com host — the legacy clovastudio.apigw.ntruss.com endpoint is being deprecated.",
   },
   internlm: {
     id: "internlm",
@@ -473,7 +473,7 @@ export const APIKEY_PROVIDERS_REGIONAL = {
     hasFree: true,
     freeNote: "500,000 free tokens per day per account (resets 02:00 UTC+8, no rollover)",
     authHint:
-      "Register and create an API key at the Ant Ling API console (https://chat.ant-ling.com/open), then paste it here. OmniRoute routes chat traffic to https://api.ant-ling.com/v1/chat/completions; the provider is OpenAI-compatible and also exposes an Anthropic-compatible surface.",
+      "Register and create an API key at the Ant Ling API console (https://chat.ant-ling.com/open), then paste it here. AI Gate routes chat traffic to https://api.ant-ling.com/v1/chat/completions; the provider is OpenAI-compatible and also exposes an Anthropic-compatible surface.",
   },
   sarvam: {
     id: "sarvam",
@@ -484,7 +484,7 @@ export const APIKEY_PROVIDERS_REGIONAL = {
     textIcon: "SV",
     website: "https://docs.sarvam.ai",
     apiHint:
-      "Sarvam AI is OpenAI-compatible on /v1. OmniRoute probes /v1/models and routes chat traffic to /v1/chat/completions. Models are tuned for Indic languages.",
+      "Sarvam AI is OpenAI-compatible on /v1. AI Gate probes /v1/models and routes chat traffic to /v1/chat/completions. Models are tuned for Indic languages.",
     hasFree: true,
     freeNote: "₹1,000 in free signup credits — never expire",
   },

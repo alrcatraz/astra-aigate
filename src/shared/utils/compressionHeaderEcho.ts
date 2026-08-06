@@ -2,7 +2,7 @@
  * Compression response header echo (#6422).
  *
  * When a request carries `x-omniroute-compression`, docs promise the response echoes
- * `X-OmniRoute-Compression: <mode>; source=<source>`. Internal paths (idempotency
+ * `X-AI Gate-Compression: <mode>; source=<source>`. Internal paths (idempotency
  * cache short-circuit, some combo/fusion assembly paths) build response headers
  * without threading `compressionResponseMeta` — so the promised echo silently
  * disappears. This helper is the outermost safety net: if the response is missing
@@ -36,7 +36,7 @@ export function readCompressionRequestHeader(request: {
 }
 
 /**
- * Wrap a Response so it carries `X-OmniRoute-Compression: <mode>; source=request-header`
+ * Wrap a Response so it carries `X-AI Gate-Compression: <mode>; source=request-header`
  * when the request supplied `x-omniroute-compression` and the inner pipeline did not
  * already set it. Never overwrites an existing value — the inner pipeline may have
  * attached a richer annotation. A best-effort echo covers idempotency-cache,

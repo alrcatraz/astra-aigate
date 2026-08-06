@@ -16,7 +16,7 @@
  *                `op: "set"` (initial) and `op: "append"` (incremental).
  *
  * The current SPA stores `access_token` in localStorage. A legacy `kimi-auth`
- * cookie is accepted as input for existing OmniRoute connections, but only the
+ * cookie is accepted as input for existing AI Gate connections, but only the
  * extracted token is forwarded and browser cookies are never replayed.
  *
  * The `x-msh-*` / `x-traffic-id` / `x-msh-shield-data` headers the SPA sends
@@ -271,7 +271,7 @@ export class KimiWebExecutor extends BaseExecutor {
       // The current web client always enables the thinking-capable request path.
       // K2.6's NONE/LOW enum controls whether extra reasoning is actually used.
       thinking: true,
-      // OmniRoute exposes text chat only. Kimi's built-in audio/ask-user tools
+      // AI Gate exposes text chat only. Kimi's built-in audio/ask-user tools
       // produce event types this executor cannot faithfully map to OpenAI chat.
       enable_plugin: false,
       ...(messages.systemPrompt ? { system_prompt: messages.systemPrompt } : {}),

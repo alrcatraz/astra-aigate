@@ -8,7 +8,7 @@ import { getRuntimePorts } from "@/lib/runtime/ports";
 const { apiPort } = getRuntimePorts();
 
 /**
- * Check if a tool has OmniRoute configured by reading its config file directly.
+ * Check if a tool has AI Gate configured by reading its config file directly.
  * This replaces the expensive self-referential HTTP calls to /api/cli-tools/*-settings.
  *
  * @param toolId - CLI tool identifier (e.g. "claude", "codex", "cline")
@@ -62,7 +62,7 @@ export async function checkToolConfigStatus(
 
     const config = JSON.parse(content) as Record<string, unknown>;
 
-    // Each tool stores OmniRoute config differently
+    // Each tool stores AI Gate config differently
     switch (toolId) {
       case "claude":
         return (config?.env as Record<string, unknown>)?.ANTHROPIC_BASE_URL
@@ -74,7 +74,7 @@ export async function checkToolConfigStatus(
       case "openclaw":
       case "cline":
       case "kilo": {
-        // Generic check: look for OmniRoute-specific markers in the config
+        // Generic check: look for AI Gate-specific markers in the config
         const configStr = JSON.stringify(config).toLowerCase();
         if (
           configStr.includes("omniroute") ||
@@ -88,8 +88,8 @@ export async function checkToolConfigStatus(
         // (user may configure an external domain instead of localhost)
         if (
           toolId === "cline" &&
-          ((config.actModeApiProvider === "openai" || config.planModeApiProvider === "openai") &&
-            ((config.openAiBaseUrl as string) || "").trim().length > 0)
+          (config.actModeApiProvider === "openai" || config.planModeApiProvider === "openai") &&
+          ((config.openAiBaseUrl as string) || "").trim().length > 0
         ) {
           return "configured";
         }

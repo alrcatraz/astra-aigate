@@ -29,9 +29,7 @@ const MAX_UPLOAD_MB_CEILING = 4096;
  * via `OMNIROUTE_DB_IMPORT_MAX_MB`. Invalid / out-of-range values fall back to the 100 MB
  * default and are clamped to a 4 GB ceiling.
  */
-export function resolveMaxUploadSizeBytes(
-  env: NodeJS.ProcessEnv = process.env
-): number {
+export function resolveMaxUploadSizeBytes(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env.OMNIROUTE_DB_IMPORT_MAX_MB;
   const parsed = raw === undefined ? NaN : Number(raw);
   const mb =
@@ -41,7 +39,7 @@ export function resolveMaxUploadSizeBytes(
   return mb * 1024 * 1024;
 }
 
-// Required tables that must exist in a valid OmniRoute database
+// Required tables that must exist in a valid AI Gate database
 const REQUIRED_TABLES = ["provider_connections", "provider_nodes", "combos", "api_keys"];
 
 /**
@@ -143,7 +141,7 @@ export async function POST(request: Request) {
       if (missingTables.length > 0) {
         return NextResponse.json(
           {
-            error: `Invalid OmniRoute database. Missing tables: ${missingTables.join(", ")}`,
+            error: `Invalid AI Gate database. Missing tables: ${missingTables.join(", ")}`,
           },
           { status: 400 }
         );

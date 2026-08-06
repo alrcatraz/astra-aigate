@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   if (authError) return authError;
 
   try {
-    const metrics = getCcDiscoveryMetrics();
+    const metrics = await getCcDiscoveryMetrics();
     return NextResponse.json(metrics);
   } catch (error) {
     return NextResponse.json(

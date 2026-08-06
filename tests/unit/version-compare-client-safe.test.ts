@@ -1,6 +1,6 @@
 // Regression guard for the base-red that broke the Turbopack `next build`:
-// kimiSponsorBannerGate.ts (pulled into the "use client" KimiSponsorBanner
-// bundle) imported the semver helpers from `versionCheck.ts`, whose top-level
+// a client-reachable module imported the semver helpers from `versionCheck.ts`,
+// whose top-level
 // `import { execFile } from "child_process"` cannot be tree-shaken out of a
 // client bundle → "Module not found: Can't resolve 'child_process'".
 //
@@ -18,7 +18,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 const src = (p: string) => readFileSync(resolve(here, "../../", p), "utf8");
 
 const COMPARE = "src/lib/system/versionCompare.ts";
-const GATE = "src/app/(dashboard)/dashboard/kimiSponsorBannerGate.ts";
 
 test("versionCompare.ts is dependency-free (no server-only imports)", () => {
   // Match actual import/require statements, not the word appearing in the
@@ -27,7 +26,12 @@ test("versionCompare.ts is dependency-free (no server-only imports)", () => {
     .split("\n")
     .filter((l) => /^\s*import\b/.test(l) || /\brequire\s*\(/.test(l));
   const joined = importLines.join("\n");
-  for (const forbidden of ["child_process", "@/lib/services/installers", "@/shared/utils/logger", '"util"']) {
+  for (const forbidden of [
+    "child_process",
+    "@/lib/services/installers",
+    "@/shared/utils/logger",
+    '"util"',
+  ]) {
     assert.ok(
       !joined.includes(forbidden),
       `versionCompare.ts must stay client-safe — found forbidden import ${forbidden}`
@@ -35,15 +39,6 @@ test("versionCompare.ts is dependency-free (no server-only imports)", () => {
   }
   // The file must in fact have no import statements at all (fully self-contained).
   assert.equal(importLines.length, 0, "versionCompare.ts should have zero imports");
-});
-
-test("the client-reachable Kimi banner gate imports helpers from versionCompare, not versionCheck", () => {
-  const code = src(GATE);
-  assert.match(code, /from "@\/lib\/system\/versionCompare"/);
-  assert.ok(
-    !/from "@\/lib\/system\/versionCheck"/.test(code),
-    "kimiSponsorBannerGate.ts must NOT import from versionCheck (drags child_process into the client bundle)"
-  );
 });
 
 test("versionCompare exports working isNewer/normalizeVersion", async () => {

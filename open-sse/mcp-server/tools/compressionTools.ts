@@ -1,5 +1,5 @@
 /**
- * OmniRoute MCP Compression Tools — Manage and monitor prompt compression.
+ * AI Gate MCP Compression Tools — Manage and monitor prompt compression.
  *
  * Tools:
  *   1. omniroute_compression_status   — Get compression config, analytics, and cache stats

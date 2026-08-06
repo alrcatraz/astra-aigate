@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { getCatalog, getSkillById, filterCatalog, computeCoverage, fetchSkillMarkdown } from "@/lib/agentSkills/catalog";
+import {
+  getCatalog,
+  getSkillById,
+  filterCatalog,
+  computeCoverage,
+  fetchSkillMarkdown,
+} from "@/lib/agentSkills/catalog";
 import type { AgentSkill, SkillCoverage } from "@/lib/agentSkills/types";
 
 // ── Input Schemas ────────────────────────────────────────────────────────────
@@ -21,7 +27,7 @@ export const agentSkillTools = {
   omniroute_agent_skills_list: {
     name: "omniroute_agent_skills_list",
     description:
-      "List OmniRoute agent skills with optional filtering by category (api/cli) or area. Returns skill metadata including id, name, description, endpoints/commands, and URLs.",
+      "List AI Gate agent skills with optional filtering by category (api/cli) or area. Returns skill metadata including id, name, description, endpoints/commands, and URLs.",
     inputSchema: AgentSkillsListSchema,
     handler: async (args: z.infer<typeof AgentSkillsListSchema>) => {
       const skills: AgentSkill[] =

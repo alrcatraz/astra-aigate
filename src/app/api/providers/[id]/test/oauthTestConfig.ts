@@ -88,7 +88,7 @@ export const OAUTH_TEST_CONFIG = {
     method: "GET",
     authHeader: "Authorization",
     authPrefix: "Bearer ",
-    extraHeaders: { "User-Agent": "OmniRoute", Accept: "application/vnd.github+json" },
+    extraHeaders: { "User-Agent": "AI Gate", Accept: "application/vnd.github+json" },
   },
   "gitlab-duo": {
     getUrl: (connection: any) =>
@@ -161,7 +161,7 @@ export const OAUTH_TEST_CONFIG = {
     method: "GET",
     authHeader: "Authorization",
     authPrefix: "Bearer ",
-    extraHeaders: { "User-Agent": "OmniRoute", Accept: "application/vnd.github+json" },
+    extraHeaders: { "User-Agent": "AI Gate", Accept: "application/vnd.github+json" },
     refreshable: true,
   },
 };

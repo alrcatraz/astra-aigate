@@ -2,7 +2,7 @@
  * Synced-model reasoning-effort catalog variants (#7694).
  *
  * Generic OpenAI-compatible model discovery (`src/lib/providerModels/modelDiscovery.ts`)
- * captures upstream `reasoning.supported_efforts` (or OmniRoute's own flat
+ * captures upstream `reasoning.supported_efforts` (or AI Gate's own flat
  * `supportedThinkingEfforts` import field) into `SyncedAvailableModel.supportedThinkingEfforts`,
  * and the catalog builder (`src/app/api/v1/models/catalog.ts`) surfaces it as
  * `capabilities.effort_tiers`. Catalog-only clients (OpenCode, plain OpenAI-SDK model

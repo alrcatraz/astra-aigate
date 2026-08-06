@@ -198,7 +198,10 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
   "searxng-search": {
     id: "searxng-search",
     name: "SearXNG Search",
-    baseUrl: "http://localhost:8888/search",
+    // Container-internal address (host.containers.internal), matching the
+    // gateway's services.upstream for searxng. The legacy :8888 decoy is NOT
+    // the real instance. Callers may still override per-request via baseUrl.
+    baseUrl: "http://host.containers.internal:8080/search",
     method: "GET",
     authType: "none",
     authHeader: "none",

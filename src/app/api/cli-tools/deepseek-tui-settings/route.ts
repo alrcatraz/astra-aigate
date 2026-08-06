@@ -25,13 +25,13 @@ const getDeepseekTuiConfigPath = (): string =>
 const getDeepseekTuiDir = () => path.dirname(getDeepseekTuiConfigPath());
 
 /**
- * Render the OmniRoute config block in DeepSeek TUI TOML format.
+ * Render the AI Gate config block in DeepSeek TUI TOML format.
  * DeepSeek TUI reads OPENAI_BASE_URL and OPENAI_API_KEY from its config.
  * Reference: https://github.com/hunterbown/deepseek-tui
  */
 function renderDeepseekTuiConfig(baseUrl: string, apiKey: string, model: string): string {
   return [
-    "# DeepSeek TUI config — managed by OmniRoute (plan 14)",
+    "# DeepSeek TUI config — managed by AI Gate (plan 14)",
     "",
     "[openai]",
     `base_url = "${baseUrl}"`,
@@ -42,11 +42,12 @@ function renderDeepseekTuiConfig(baseUrl: string, apiKey: string, model: string)
 }
 
 /**
- * Check if the config file contains OmniRoute settings.
+ * Check if the config file contains AI Gate settings.
  */
 const hasOmniRouteConfig = (content: string | null): boolean => {
   if (!content) return false;
-  return content.includes("managed by OmniRoute");
+  // "managed by OmniRoute" kept for pre-rebrand configs still on disk.
+  return content.includes("managed by AI Gate") || content.includes("managed by OmniRoute");
 };
 
 // Read current config.toml
@@ -97,14 +98,11 @@ export async function GET(request: Request) {
       configPath: getDeepseekTuiConfigPath(),
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// POST — write OmniRoute settings to DeepSeek TUI config.toml
+// POST — write AI Gate settings to DeepSeek TUI config.toml
 export async function POST(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -113,10 +111,7 @@ export async function POST(request: Request) {
   try {
     rawBody = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: { message: "Invalid JSON body" } },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: { message: "Invalid JSON body" } }, { status: 400 });
   }
 
   try {
@@ -161,14 +156,11 @@ export async function POST(request: Request) {
       configPath,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// DELETE — remove DeepSeek TUI OmniRoute config
+// DELETE — remove DeepSeek TUI AI Gate config
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -198,9 +190,6 @@ export async function DELETE(request: Request) {
       message: "DeepSeek TUI settings removed successfully",
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }

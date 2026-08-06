@@ -12,7 +12,7 @@
  *   - Firebase Web API keys are public client identifiers.
  *     https://firebase.google.com/docs/projects/api-keys
  *
- * OmniRoute embeds them so users who do not configure `.env` still get a
+ * AI Gate embeds them so users who do not configure `.env` still get a
  * working OAuth flow out of the box. The literals, however, trip pattern
  * scanners (AIza..., GOCSPX-..., ...googleusercontent.com) and produce
  * noisy false-positive alerts on every release.

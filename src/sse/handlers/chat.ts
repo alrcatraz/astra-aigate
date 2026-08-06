@@ -276,7 +276,7 @@ export async function handleChat(
   const sourceFormat = detectFormatFromUrl(body, request.url);
 
   // Early guard: an invalid `messages` field is rejected here with a clear
-  // OmniRoute-level 400 before any routing or upstream call (#5110, #6402).
+  // AI Gate-level 400 before any routing or upstream call (#5110, #6402).
   // Without this guard, schema-invalid bodies fell through to model resolution
   // and surfaced as a misleading 404 `model_not_found` from chatHelpers.ts (#6402).
   // Cases covered:

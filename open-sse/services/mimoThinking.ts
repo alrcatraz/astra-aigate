@@ -10,7 +10,7 @@ function asRecord(value: unknown): JsonRecord | null {
  * MiMo controls thinking ONLY via a top-level `thinking: { type: "enabled" | "disabled" }`
  * object (mimo.mi.com .../usage-guide/text-generation/deep-thinking). It does NOT
  * understand OpenAI's `reasoning_effort` / `reasoning`, and its request validator is
- * strict ("400 Param Incorrect"). OmniRoute's OpenAI path otherwise carries reasoning
+ * strict ("400 Param Incorrect"). AI Gate's OpenAI path otherwise carries reasoning
  * intent as `reasoning_effort`, and the claude→openai translator may leave a
  * Claude-shaped `thinking:{type, budget_tokens}` — forwarding either verbatim means the
  * client's on/off choice is silently dropped AND unknown keys (`budget_tokens`,

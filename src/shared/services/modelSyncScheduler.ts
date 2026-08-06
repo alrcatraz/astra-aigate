@@ -259,7 +259,7 @@ async function runSyncCycle(apiBaseUrl: string): Promise<void> {
 
 /**
  * Start the model sync scheduler.
- * @param apiBaseUrl — internal base URL to call OmniRoute's own API
+ * @param apiBaseUrl — internal base URL to call AI Gate's own API
  * @param intervalMs — sync interval in milliseconds (default: 24h)
  */
 export function startModelSyncScheduler(

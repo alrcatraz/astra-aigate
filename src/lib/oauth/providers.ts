@@ -66,7 +66,7 @@ function upgradeLoopbackToPublic(redirectUri: string, publicBaseUrl: string): st
  * credentials keep working on out-of-the-box local installs. When operators
  * provide their own Google OAuth client IDs for a remote deployment, prefer the
  * public callback URL documented in .env.example / docs/README so the popup can
- * navigate back to OmniRoute instead of stalling on localhost.
+ * navigate back to AI Gate instead of stalling on localhost.
  */
 export function resolveBrowserOAuthRedirectUri(
   providerName: string,

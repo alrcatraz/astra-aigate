@@ -30,7 +30,7 @@
  *   2. In production (`NODE_ENV=production`), reject unconditionally unless
  *      OMNIROUTE_LOCAL_ENDPOINTS_ENABLED=1 is set. The flag is opt-in so
  *      accidental dev deployments do not expose the API.
- *   3. Trust-list the OmniRoute desktop app via a shared bearer token
+ *   3. Trust-list the AI Gate desktop app via a shared bearer token
  *      (OMNIROUTE_LOCAL_ENDPOINTS_TOKEN). The desktop app injects the header
  *      and the server verifies it.
  *
@@ -57,7 +57,8 @@ export function isLocalRequestAllowed(): { allowed: true } | { allowed: false; r
     // Accept the bracketed IPv6 host form browsers send in the Host header
     // (`[::1]:20128`) alongside bare `::1`, `localhost`, and `127.0.0.1`.
     const isLoopbackHost = /^(localhost|127\.0\.0\.1|::1|\[::1\])(:\d+)?$/.test(host);
-    const isLoopbackFwd = fwd === "" || /^127\.|^::1$|^localhost$/.test(fwd.split(",")[0]?.trim() ?? "");
+    const isLoopbackFwd =
+      fwd === "" || /^127\.|^::1$|^localhost$/.test(fwd.split(",")[0]?.trim() ?? "");
     if (isLoopbackHost && isLoopbackFwd) {
       return { allowed: true };
     }
@@ -65,7 +66,10 @@ export function isLocalRequestAllowed(): { allowed: true } | { allowed: false; r
   }
 
   // Production opt-in
-  if (process.env.NODE_ENV === "production" && process.env.OMNIROUTE_LOCAL_ENDPOINTS_ENABLED !== "1") {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.OMNIROUTE_LOCAL_ENDPOINTS_ENABLED !== "1"
+  ) {
     return { allowed: false, reason: "disabled in production" };
   }
 

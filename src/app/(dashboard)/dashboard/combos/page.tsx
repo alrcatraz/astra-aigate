@@ -43,8 +43,6 @@ import {
 } from "@/lib/combos/builderDraft";
 import { normalizeComboConfigMode } from "@/shared/constants/comboConfigMode";
 import AutoComboCatalog from "./AutoComboCatalog";
-import KimiComboPresetCard from "./KimiComboPresetCard";
-import { KIMI_CODING_PRESET, hasKimiCodingPreset } from "./kimiComboPreset";
 import BuilderIntelligentStep from "./BuilderIntelligentStep";
 import IntelligentComboPanel from "./IntelligentComboPanel";
 import {
@@ -104,7 +102,7 @@ const STRATEGY_GUIDANCE_FALLBACK = {
   "context-relay": {
     when: "Use when long sessions must survive account rotation without losing the working context.",
     avoid:
-      "Avoid when account switching is rare or when you do not want extra summarization requests.",
+      "Avoid when account switching is rare or when you do not want extra summarisation requests.",
     example: "Example: Codex sessions that rotate across multiple accounts near quota exhaustion.",
   },
   random: {
@@ -118,7 +116,7 @@ const STRATEGY_GUIDANCE_FALLBACK = {
     example: "Example: Mixed workloads where one model tends to get overloaded.",
   },
   "cost-optimized": {
-    when: "Use when minimizing cost is the top priority.",
+    when: "Use when minimising cost is the top priority.",
     avoid: "Avoid when pricing data is missing or outdated.",
     example: "Example: Batch or background jobs where lower cost matters most.",
   },
@@ -153,7 +151,7 @@ const STRATEGY_GUIDANCE_FALLBACK = {
     example: "Example: Route to models with proven track records for specific tasks.",
   },
   "context-optimized": {
-    when: "Use when you need to optimize for context window usage across models.",
+    when: "Use when you need to optimise for context window usage across models.",
     avoid: "Avoid when models have similar context lengths or simple tasks.",
     example: "Example: Distribute long conversations across models with large context windows.",
   },
@@ -337,7 +335,7 @@ const STRATEGY_RECOMMENDATIONS_FALLBACK = {
     ],
   },
   auto: {
-    title: "Multi-factor optimization",
+    title: "Multi-factor optimisation",
     description: "Routes based on real-time scoring of cost, latency, quality, and health.",
     tips: [
       "Let the engine balance across multiple factors automatically.",
@@ -356,7 +354,7 @@ const STRATEGY_RECOMMENDATIONS_FALLBACK = {
   },
   "context-optimized": {
     title: "Context-aware distribution",
-    description: "Routes to optimize context window usage and conversation continuity.",
+    description: "Routes to optimise context window usage and conversation continuity.",
     tips: [
       "Best for long conversations that span multiple requests.",
       "Selects models with appropriate context capacity automatically.",
@@ -382,7 +380,7 @@ const COMBO_FORM_STAGE_META = [
   {
     id: "strategy",
     fallbackLabel: "Strategy",
-    fallbackDescription: "Routing behavior and advanced settings.",
+    fallbackDescription: "Routing behaviour and advanced settings.",
     icon: "looks_3",
   },
   {
@@ -406,7 +404,7 @@ const COMBO_TEMPLATE_FALLBACK = {
   highAvailabilityTitle: "High availability",
   highAvailabilityDesc: "Priority routing with health checks and safe retries.",
   costSaverTitle: "Cost saver",
-  costSaverDesc: "Cost-optimized routing for budget-first workloads.",
+  costSaverDesc: "Cost-optimised routing for budget-first workloads.",
   balancedTitle: "Balanced load",
   balancedDesc: "Least-used routing to spread demand over time.",
   freeStackTitle: "Free Stack ($0)",
@@ -692,7 +690,6 @@ export default function CombosPage() {
   const [providerNodes, setProviderNodes] = useState([]);
   const [showUsageGuide, setShowUsageGuide] = useState(true);
   const [recentlyCreatedCombo, setRecentlyCreatedCombo] = useState("");
-  const [creatingKimiPreset, setCreatingKimiPreset] = useState(false);
   const [comboDragIndex, setComboDragIndex] = useState(null);
   const [comboDragOverIndex, setComboDragOverIndex] = useState(null);
   const [savingComboOrder, setSavingComboOrder] = useState(false);
@@ -861,18 +858,6 @@ export default function CombosPage() {
     };
 
     await handleCreate(data);
-  };
-
-  // Kimi Coding preset (2026-07 partnership) — one-click create, mirrors
-  // handleDuplicate's directness (no separate confirmation modal). See
-  // KimiComboPresetCard.tsx for why this bypasses the combo builder wizard.
-  const handleCreateKimiPreset = async () => {
-    setCreatingKimiPreset(true);
-    try {
-      await handleCreate(KIMI_CODING_PRESET);
-    } finally {
-      setCreatingKimiPreset(false);
-    }
   };
 
   const handleTestCombo = async (combo) => {
@@ -1056,12 +1041,6 @@ export default function CombosPage() {
       </div>
 
       <AutoComboCatalog />
-
-      <KimiComboPresetCard
-        alreadyCreated={hasKimiCodingPreset(combos)}
-        creating={creatingKimiPreset}
-        onCreate={handleCreateKimiPreset}
-      />
 
       {showUsageGuide && (
         <ComboUsageGuide
@@ -4018,7 +3997,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           help={getI18nOrFallback(
                             t,
                             "contextRelayHandoffThresholdHelp",
-                            "When quota usage reaches this threshold, OmniRoute generates a structured handoff summary before the account is exhausted."
+                            "When quota usage reaches this threshold, AI Gate generates a structured handoff summary before the account is exhausted."
                           )}
                           showHelp={!isExpertMode}
                         />

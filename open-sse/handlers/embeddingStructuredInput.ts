@@ -128,7 +128,7 @@ function normalizeGeminiResponse(data: Record<string, unknown>): Record<string, 
 }
 
 /**
- * Translate OmniRoute's provider-neutral structured input into a documented
+ * Translate AI Gate's provider-neutral structured input into a documented
  * provider-native transport. Each top-level canonical array is one logical
  * multimodal item for Gemini and one vector-per-item batch for Jina.
  */

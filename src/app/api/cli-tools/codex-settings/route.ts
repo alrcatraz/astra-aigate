@@ -125,7 +125,7 @@ const readConfig = async () => {
   }
 };
 
-// Check if config has OmniRoute settings
+// Check if config has AI Gate settings
 const hasOmniRouteConfig = (config: string | null) => {
   if (!config) return false;
   return (
@@ -178,7 +178,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Update OmniRoute settings (merge with existing config)
+// POST - Update AI Gate settings (merge with existing config)
 export async function POST(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
     // Carry the user's intent forward off the deprecated Codex feature flag (#1327).
     migrateCodexFeatureFlags(parsed);
 
-    // Update only OmniRoute related fields (api_key goes to auth.json, not config.toml)
+    // Update only AI Gate related fields (api_key goes to auth.json, not config.toml)
     parsed._root.model = model;
 
     if (reasoningEffort && reasoningEffort !== "none") {
@@ -271,7 +271,7 @@ export async function POST(request: Request) {
     // Always create a custom provider to reliably pass wire_api and use OMNIROUTE_API_KEY
     parsed._root.model_provider = "omniroute";
     parsed._sections["model_providers.omniroute"] = {
-      name: "OmniRoute",
+      name: "AI Gate",
       base_url: normalizedBaseUrl,
       wire_api: wireApi || "chat",
       env_key: "OPENAI_API_KEY",
@@ -324,7 +324,7 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE - Remove OmniRoute settings only (keep other settings)
+// DELETE - Remove AI Gate settings only (keep other settings)
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -358,7 +358,7 @@ export async function DELETE(request: Request) {
     // Carry the user's intent forward off the deprecated Codex feature flag (#1327).
     migrateCodexFeatureFlags(parsed);
 
-    // Remove OmniRoute related root fields
+    // Remove AI Gate related root fields
     delete parsed._root.openai_base_url;
 
     if (parsed._root.model_provider === "omniroute") {
@@ -399,7 +399,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "OmniRoute settings removed successfully",
+      message: "AI Gate settings removed successfully",
     });
   } catch (error) {
     console.log("Error resetting codex settings:", error);

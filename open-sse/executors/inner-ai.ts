@@ -296,7 +296,7 @@ async function resolveModels(
   return models;
 }
 
-/** Find the Inner.ai model entry matching the requested OmniRoute model ID.
+/** Find the Inner.ai model entry matching the requested AI Gate model ID.
  *
  * Matching strategy (first match wins):
  * 1. Exact `llm_model` match

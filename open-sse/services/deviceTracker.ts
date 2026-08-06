@@ -13,7 +13,7 @@
  *
  * Ported from upstream 9router#931 (thanks @mugnimaestra) — original stored
  * a global singleton keyed by the raw API key string; this port keys by
- * `apiKeyInfo.id` (OmniRoute never threads the raw key value down to
+ * `apiKeyInfo.id` (AI Gate never threads the raw key value down to
  * `chatCore`) and follows the module-Map + `unref()` cleanup-timer pattern
  * used across `open-sse/services/`.
  */
@@ -124,7 +124,9 @@ function findOldestDevice(
   apiKeyId: string | null
 ): { apiKeyId: string; fingerprint: string; lastSeen: number } | null {
   let oldest: { apiKeyId: string; fingerprint: string; lastSeen: number } | null = null;
-  const entries = apiKeyId ? [[apiKeyId, devicesByApiKey.get(apiKeyId)] as const] : devicesByApiKey.entries();
+  const entries = apiKeyId
+    ? [[apiKeyId, devicesByApiKey.get(apiKeyId)] as const]
+    : devicesByApiKey.entries();
 
   for (const [entryApiKeyId, devices] of entries) {
     if (!devices) continue;

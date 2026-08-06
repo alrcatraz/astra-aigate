@@ -92,7 +92,7 @@ export async function POST(request: Request): Promise<Response> {
 /**
  * DELETE /api/tools/agent-bridge/cert — untrust (uninstall) the MITM root CA.
  *
- * OmniRoute keeps the CA installed across normal stop/start to avoid repeated
+ * AI Gate keeps the CA installed across normal stop/start to avoid repeated
  * sudo prompts (same as mitmproxy/Charles), so removal is an explicit action.
  * Idempotent: removing an absent cert reports success. (Gap 9 — a persistent
  * always-trusted MITM root CA whose key lives on disk is an attack surface.)

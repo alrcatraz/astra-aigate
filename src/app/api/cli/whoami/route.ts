@@ -18,9 +18,9 @@ export async function GET(request: Request) {
 
   const bearer = extractBearer(request);
   if (bearer && bearer.startsWith(ACCESS_TOKEN_PREFIX)) {
-    const verified = verifyAccessToken(bearer);
+    const verified = await verifyAccessToken(bearer);
     if (verified) {
-      const record = getAccessToken(verified.id);
+      const record = await getAccessToken(verified.id);
       return NextResponse.json({
         authenticated: true,
         viaAccessToken: true,

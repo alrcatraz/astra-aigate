@@ -24,8 +24,8 @@ export default function GitlabDuoSetupStep({ onContinue, onClose }: GitlabDuoSet
         </p>
       </div>
       <p className="text-xs text-text-muted">
-        After the application is registered and the env vars are set on this OmniRoute instance,
-        click Continue to start the OAuth login.
+        After the application is registered and the env vars are set on this AI Gate instance, click
+        Continue to start the OAuth login.
       </p>
       <div className="flex gap-2">
         <Button onClick={onContinue} fullWidth>

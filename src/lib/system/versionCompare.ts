@@ -4,7 +4,7 @@
  * top-level `import { execFile } from "child_process"` into the browser bundle.
  *
  * `versionCheck.ts` re-exports both names for back-compat; new client-reachable
- * callers (e.g. `kimiSponsorBannerGate.ts`) MUST import from here instead — a
+ * callers (e.g. client-reachable modules) MUST import from here instead — a
  * value-import of the server module breaks the Turbopack `next build` with
  * "Module not found: Can't resolve 'child_process'" (the client bundle cannot
  * tree-shake a top-level Node built-in import away).

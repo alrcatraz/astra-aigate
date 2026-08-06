@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(getDatabaseSettings());
+    return NextResponse.json(await getDatabaseSettings());
   } catch (error) {
     console.error("Error getting database settings:", error);
     return NextResponse.json({ error: "Failed to load database settings" }, { status: 500 });
@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest) {
     updateDatabaseSettings(validation.data);
 
     // Return merged settings (GET response pattern)
-    return NextResponse.json(getDatabaseSettings());
+    return NextResponse.json(await getDatabaseSettings());
   } catch (error) {
     console.error("Error updating database settings:", error);
     return NextResponse.json({ error: "Failed to update database settings" }, { status: 500 });

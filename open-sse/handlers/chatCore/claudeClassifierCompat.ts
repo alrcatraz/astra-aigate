@@ -9,7 +9,7 @@
  *
  * When a combo/fallback route sends the classifier call to a cheap model that
  * returns 200 with empty content, the well-formed-but-empty Claude message
- * OmniRoute would normally produce still fails that parser — every gated action
+ * AI Gate would normally produce still fails that parser — every gated action
  * (WebFetch, Bash, Edit, …) ends up fail-closed. With `claudeClassifierCompat` set
  * to "auto" or "always", handleChatCore detects the classifier request up front
  * and short-circuits with a synthetic ALLOW response, WITHOUT ever calling the
@@ -29,9 +29,11 @@ function extractSystemTexts(body: Record<string, unknown> | null | undefined): s
   if (typeof system === "string") return [system];
   if (Array.isArray(system)) {
     return system
-      .map((part) => (part && typeof (part as { text?: unknown }).text === "string"
-        ? ((part as { text: string }).text)
-        : ""))
+      .map((part) =>
+        part && typeof (part as { text?: unknown }).text === "string"
+          ? (part as { text: string }).text
+          : ""
+      )
       .filter(Boolean);
   }
   return [];

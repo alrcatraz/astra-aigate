@@ -11,7 +11,8 @@ type TextToolResult = {
 type ScopeEnforcedHandler = (
   toolName: string,
   handler: (args: unknown, extra?: McpToolExtraLike) => Promise<TextToolResult>,
-  toolScopes?: readonly string[]
+  toolScopes?: readonly string[],
+  options?: { audit?: boolean }
 ) => (args: unknown, extra?: McpToolExtraLike) => Promise<TextToolResult>;
 
 export function registerToolSearchTool(

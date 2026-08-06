@@ -2,7 +2,7 @@
 import { z } from "zod";
 
 /**
- * Endpoint suportado pelo Playground Studio. Reflete os 13 endpoints da API OmniRoute
+ * Endpoint suportado pelo Playground Studio. Reflete os 13 endpoints da API AI Gate
  * consumíveis pelas tabs Chat/Compare/Build/Search/Scrape via Export Code.
  *
  * D4-rev2 (2026-05-28): contrato expandido de 10 → 13 incluindo `responses`, `video`,

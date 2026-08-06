@@ -83,10 +83,7 @@ import {
   isAutoFetchModelsEnabled,
   persistDiscoveredModels,
 } from "@/lib/providerModels/modelDiscovery";
-import {
-  buildProviderModelsUrl,
-  getDiscoveryClientVersionOptions,
-} from "./discoveryClientVersion";
+import { buildProviderModelsUrl, getDiscoveryClientVersionOptions } from "./discoveryClientVersion";
 import {
   parseGeminiModelsList,
   type GeminiDiscoveryModel,
@@ -421,7 +418,7 @@ export async function GET(
       // getSafeOutboundFetchErrorStatus maps to 503, but unlike the other 503
       // cases (URL_GUARD_BLOCKED / INVALID_URL, which are genuinely
       // unrecoverable and stay hard errors) a blocked redirect should degrade to
-      // the local/cached catalog OmniRoute ships instead of surfacing a raw 503.
+      // the local/cached catalog AI Gate ships instead of surfacing a raw 503.
       // General fix — covers any config-driven provider that 307s (e.g. qwen-web).
       if (error instanceof SafeOutboundFetchError && error.code === "REDIRECT_BLOCKED") {
         return buildDiscoveryFallbackResponse(warnings);

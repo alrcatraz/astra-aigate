@@ -3,7 +3,7 @@
  *
  * Serverless Relay Proxy endpoint.
  * Authenticates via relay token, applies rate limits, then proxies
- * to the internal OmniRoute chat completions pipeline.
+ * to the internal AI Gate chat completions pipeline.
  */
 
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
     }
 
     const tokenHash = hashToken(rawToken);
-    const token = getRelayTokenByHash(tokenHash);
+    const token = await getRelayTokenByHash(tokenHash);
     if (!token) {
       recordRelayUsage("unknown", {
         requestId: request.headers.get("x-request-id") || undefined,
@@ -229,7 +229,7 @@ export async function POST(request: Request) {
     }
 
     // 2b. Per-token rate limit check
-    const rateCheck = checkRateLimit(token.id, token);
+    const rateCheck = await checkRateLimit(token.id, token);
     if (!rateCheck.allowed) {
       recordRelayUsage(token.id, {
         requestId: request.headers.get("x-request-id") || undefined,

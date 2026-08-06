@@ -1,5 +1,5 @@
 /**
- * Global Type Declarations for OmniRoute
+ * Global Type Declarations for AI Gate
  *
  * Ambient declarations for modules and globals that don't ship their own types.
  */

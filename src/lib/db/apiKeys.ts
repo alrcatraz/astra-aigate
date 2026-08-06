@@ -485,7 +485,7 @@ export async function getApiKeysCount(): Promise<number> {
 }
 
 /**
- * Select an API key for internal OmniRoute operations (combo health checks,
+ * Select an API key for internal AI Gate operations (combo health checks,
  * cloud-sync verify pings, etc.).
  *
  * Naive selection of `getApiKeys()[0]` is unsafe because the first row is
@@ -1317,7 +1317,12 @@ export async function getApiKeyMetadata(
 
   const db = (await getAsyncDb()) as ApiKeysDbLike;
   const stmt = getPreparedStatements(db);
-  const row = stmt.getKeyMetadata.get(key, hashedKey);
+  // NOTE: getAsyncDb() returns the async adapter wrapper (sqliteAsyncAdapter /
+  // PG adapter) whose statement .get() is async — mirror validateApiKey's await.
+  // Without it, `row` is a Promise: toRecord() yields an empty record, meta.id
+  // is "", and resolveMcpCallerAuthInfo (open-sse httpAuthContext) treats the
+  // key as having no per-key authInfo, silently falling back to env scopes.
+  const row = await stmt.getKeyMetadata.get(key, hashedKey);
 
   if (!row) return null;
 

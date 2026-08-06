@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const apiKeyId = scope.apiKeyId;
 
   const { id } = await params;
-  const file = getFile(id);
+  const file = await getFile(id);
 
   if (!file || (file.apiKeyId !== null && file.apiKeyId !== apiKeyId && !scope.isSessionAuth)) {
     return NextResponse.json(
@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     );
   }
 
-  const content = getFileContent(id);
+  const content = await getFileContent(id);
   if (!content) {
     return NextResponse.json(
       { error: { message: "File content not found", type: "invalid_request_error" } },

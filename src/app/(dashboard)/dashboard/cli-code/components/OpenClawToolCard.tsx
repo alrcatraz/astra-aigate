@@ -341,7 +341,7 @@ export default function OpenClawToolCard({
               </div>
               {/*
                 Always surface Manual Config even when the CLI is not
-                detected locally — typical of remote OmniRoute
+                detected locally — typical of remote AI Gate
                 deployments where the CLI lives on the user's machine,
                 not on the server. Upstream report: #579.
               */}

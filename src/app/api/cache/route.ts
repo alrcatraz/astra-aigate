@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    return NextResponse.json({ error: await errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -95,6 +95,6 @@ export async function DELETE(req: NextRequest) {
     const cleared = clearCache();
     return NextResponse.json({ ok: true, cleared, scope: "all" });
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    return NextResponse.json({ error: await errorMessage(error) }, { status: 500 });
   }
 }

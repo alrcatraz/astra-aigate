@@ -43,7 +43,7 @@ export function SkillPreviewPane({
 
   const handleCopyRawUrl = useCallback(async () => {
     if (!skillId) return;
-    const rawUrl = `https://raw.githubusercontent.com/diegosouzapw/OmniRoute/refs/heads/main/skills/${skillId}/SKILL.md`;
+    const rawUrl = `https://raw.githubusercontent.com/diegosouzapw/AI Gate/refs/heads/main/skills/${skillId}/SKILL.md`;
     try {
       await navigator.clipboard.writeText(rawUrl);
     } catch {
@@ -52,7 +52,7 @@ export function SkillPreviewPane({
   }, [skillId]);
 
   const githubUrl = skillId
-    ? `https://github.com/diegosouzapw/OmniRoute/blob/main/skills/${skillId}/SKILL.md`
+    ? `https://github.com/diegosouzapw/AI Gate/blob/main/skills/${skillId}/SKILL.md`
     : null;
 
   // Empty state

@@ -5,7 +5,7 @@ export const DEFAULT_MODEL_ALIAS_SEED = Object.freeze({
   "gemini-3.1-flash-lite-preview": "gemini/gemini-3.1-flash-lite",
 });
 
-// Remove only aliases that still match a default value previously shipped by OmniRoute.
+// Remove only aliases that still match a default value previously shipped by AI Gate.
 // User-customized targets with the same alias key are intentionally preserved.
 export const RETIRED_DEFAULT_MODEL_ALIAS_SEED = Object.freeze({
   "gemini-3-pro-high": ["agy/gemini-3.1-pro-high", "agy/gemini-pro-agent"],

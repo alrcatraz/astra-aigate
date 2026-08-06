@@ -27,7 +27,7 @@ export async function GET(
   }
 
   try {
-    const result = getDiscoveryResultById(id);
+    const result = await getDiscoveryResultById(id);
     if (!result) {
       return createErrorResponse({ status: 404, message: "Discovery result not found" });
     }
@@ -51,7 +51,7 @@ export async function DELETE(
   }
 
   try {
-    const removed = deleteDiscoveryResult(id);
+    const removed = await deleteDiscoveryResult(id);
     if (!removed) {
       return createErrorResponse({ status: 404, message: "Discovery result not found" });
     }

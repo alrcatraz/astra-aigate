@@ -137,7 +137,7 @@ export interface RtkFilterDefinition {
   maxLines: number;
   preserveHead: number;
   preserveTail: number;
-  /** Exact RTK TOML schema-v1 head/tail stages. Undefined for OmniRoute-native JSON filters. */
+  /** Exact RTK TOML schema-v1 head/tail stages. Undefined for AI Gate-native JSON filters. */
   rtkTomlHeadLines?: number;
   rtkTomlTailLines?: number;
   rtkTomlMaxLines?: number;

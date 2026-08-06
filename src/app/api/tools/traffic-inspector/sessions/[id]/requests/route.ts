@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: Params): Promise<Respon
   const { id } = await params;
 
   // Verify session exists before attempting to append
-  const session = getSession(id);
+  const session = await getSession(id);
   if (!session) {
     return new Response(JSON.stringify(buildErrorBody(404, "Session not found")), {
       status: 404,
@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: Params): Promise<Respon
   }
 
   try {
-    const seq = appendSessionRequest(id, parsed.data.payload);
+    const seq = await appendSessionRequest(id, parsed.data.payload);
     return Response.json({ seq }, { status: 201 });
   } catch (err) {
     const msg = sanitizeErrorMessage(err);

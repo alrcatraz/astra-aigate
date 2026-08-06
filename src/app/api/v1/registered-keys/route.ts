@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   const accountId = searchParams.get("accountId") ?? undefined;
 
   try {
-    const keys = listRegisteredKeys({ provider, accountId });
+    const keys = await listRegisteredKeys({ provider, accountId });
     return NextResponse.json({ keys, total: keys.length });
   } catch (err) {
     console.error("[registered-keys] GET failed:", err);
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
   // ── Quota check ──
   try {
-    const quota = checkQuota(provider, accountId);
+    const quota = await checkQuota(provider, accountId);
     if (!quota.allowed) {
       return NextResponse.json(
         { error: quota.errorMessage, errorCode: quota.errorCode },
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
 
   // ── Issue ──
   try {
-    const result = issueRegisteredKey(validation.data);
+    const result = await issueRegisteredKey(validation.data);
 
     if ("idempotencyConflict" in result) {
       return NextResponse.json(

@@ -18,7 +18,7 @@ export async function resolveApiKey(
 
 /**
  * Get or create a DB-backed API key for CLI tool setup.
- * Returns a valid OmniRoute API key (not a placeholder like "sk_omniroute").
+ * Returns a valid AI Gate API key (not a placeholder like "sk_omniroute").
  * Used when user has not explicitly selected a key from API Keys.
  */
 export async function getOrCreateApiKey(apiKeyId?: string | null): Promise<string> {

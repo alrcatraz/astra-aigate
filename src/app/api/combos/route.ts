@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     }
 
     const range = validation.data;
-    const total = getCombosCount();
+    const total = await getCombosCount();
     const rawCombos = await getCombos(range.limit, range.offset);
     const combos = rawCombos.map((combo) => ({
       ...combo,

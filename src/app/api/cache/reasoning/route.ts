@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ stats, entries });
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    return NextResponse.json({ error: await errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -79,6 +79,6 @@ export async function DELETE(req: NextRequest) {
       ...(provider ? { provider } : {}),
     });
   } catch (error) {
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    return NextResponse.json({ error: await errorMessage(error) }, { status: 500 });
   }
 }

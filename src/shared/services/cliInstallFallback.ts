@@ -6,7 +6,7 @@ import fsSync from "fs";
  * `getCliRuntimeStatus()` in `cliRuntime.ts` determines `installed` from
  * binary resolution alone (known install paths + a `where`/`which` PATH
  * search). If the binary is not currently resolvable — stale PATH inherited
- * by a long-running/background OmniRoute process, the binary having moved,
+ * by a long-running/background AI Gate process, the binary having moved,
  * or an install method we don't enumerate yet — it used to unconditionally
  * report `installed:false`, even when the tool's own settings/config file on
  * disk proves it was installed and used before.

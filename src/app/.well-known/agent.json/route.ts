@@ -107,7 +107,7 @@ export async function GET() {
         id: "list-capabilities",
         name: "List Capabilities",
         description:
-          "Returns the full catalog of 42 OmniRoute agent skills (22 API + 20 CLI) " +
+          "Returns the full catalog of gateway agent skills (22 API + 20 CLI) " +
           "with raw URLs for the SKILL.md docs.",
         tags: ["discovery", "capabilities"],
         examples: ["What can you do?", "List your skills", "Show capabilities"],

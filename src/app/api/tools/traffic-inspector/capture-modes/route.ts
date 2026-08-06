@@ -20,7 +20,7 @@ import {
 
 export async function GET(): Promise<Response> {
   try {
-    const customHosts = listCustomHosts();
+    const customHosts = await listCustomHosts();
     const httpProxy = getHttpProxyHandle();
     const systemProxy = getSystemProxyState();
 
