@@ -52,10 +52,20 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
 
 ## Git & Versioning
 
-- Remotes: `gitea` (private, git01.wrt.astra-lab.org) + `github` (public,
+- Remotes: `gitea` (private) + `github` (public,
   alrcatraz/astra-aigate) — dual push
-- Workflow: feature branches (`phase2-<topic>`) → PR → **rebase merge** to
-  main → local sync `git pull --ff-only` (no force push after Phase 1)
+- Branch hierarchy (user-confirmed 2026-08-03): `feature/<type>-<desc>` →
+  merge to **development** (dev branch) → development→main via **PR**
+  (dual: Gitea + GitHub). **Never push directly to main; never push feature
+  branches as deliverables; never have the build machine pull feature
+  branches** (bypasses the PR review line). If development is missing at
+  wrap-up, rebuild + dual-push it from main.
+- Build machine (SUSETLearn00) pulls Gitea main — symptom check: UI
+  brand/feature mismatch with code = the changed branch was never merged
+  to what the build machine pulls (or the build tree is stale), not "code
+  not changed".
+- Workflow: feature branches → PR → **rebase merge** to main → local sync
+  `git pull --ff-only` (no force push after Phase 1)
 - Version: standard SemVer; 0.x per completed phase (0.1.0 = Phase 1),
   1.0.0 = all PLAN phases done
 - `alrcatraz` is the author; all commits GPG-signed

@@ -38,10 +38,31 @@ Built on [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT): LLM provi
 ## Quick Start
 
 ```bash
-# Run the prebuilt image on the target host:
+# Run the prebuilt image on the target host (IPv4 only):
 podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astra-aigate:latest
 # Open http://<host>:<port> — first login uses INITIAL_PASSWORD from .env
 ```
+
+If you use a dual-stack network (IPv4/IPv6), or expose the gateway as a
+public service, add dual-stack support with the following guidance. The
+gateway itself is dual-stack ready, but rootless Podman's `pasta` port
+forwarding binds IPv4 only. If a hostname resolves to both A and AAAA records
+and a client prefers IPv6 (e.g. a ULA `fd..` address on your LAN), connections
+to the published port can hang or return empty responses — the IPv6 listener
+simply does not exist:
+
+1. **Publish v4 explicitly** and rely on Happy Eyeballs for v6 clients to fall
+   back: `podman run -p 0.0.0.0:20128:20128 ...` (pasta already binds v4 only —
+   the risk is on clients that resolve v6 first and do not retry).
+2. **Front with a reverse proxy** (nginx / Caddy / Camofox): terminate TLS on
+   a dual-stack listener and proxy to `127.0.0.1:20128` (or the container's
+   published v4 port). One stable hostname, working v4 + v6.
+3. **Verify both stacks after deploy**: `curl -6 https://<host>/v1/models` and
+   `curl -4 https://<host>/v1/models` must both return 200. If only v4 works,
+   check the proxy listener, not the gateway.
+4. **Container-to-host traffic** uses `host.containers.internal` (rootless
+   Podman cannot reach the host IP directly) — this resolves to the host's v4
+   address; do not rely on IPv6 for upstream services.
 
 ### PostgreSQL (optional)
 
@@ -49,7 +70,7 @@ Set `DB_DRIVER=postgres` and `DATABASE_URL` in `.env` to back the gateway
 with PostgreSQL instead of SQLite. The schema is created automatically on a
 fresh database; migrate an existing SQLite deployment with
 `scripts/migrate-sqlite-to-pg.ts`. In containers, reach the host database via
-`host.containers.internal` (rootless Podman cannot reach the host IP directly).
+`host.containers.internal` (see the dual-stack note above).
 
 ## Tech Stack
 
@@ -146,17 +167,35 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
 ## 快速开始
 
 ```bash
-# 在目标主机上运行预构建镜像：
+# 在目标主机上运行预构建镜像（仅 IPv4）：
 podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astra-aigate:latest
 # 打开 http://<host>:<port> — 首次登录使用 .env 中的 INITIAL_PASSWORD
 ```
+
+如果你使用双栈网络（IPv4/IPv6），或作为公开服务提供，则可以参考以下命令
+实现双栈网络支持。网关本身支持双栈，但 rootless Podman 的 pasta 端口转发
+仅绑定 IPv4。如果主机名同时解析出 A 和 AAAA 记录，而客户端优先使用 IPv6
+（例如局域网中的 ULA `fd..` 地址），对已发布端口的连接可能挂起或返回空
+响应——IPv6 监听根本不存在：
+
+1. **显式发布 v4**，依靠 Happy Eyeballs 让 v6 客户端回退：
+   `podman run -p 0.0.0.0:20128:20128 ...`（pasta 本就只绑 v4——风险在
+   客户端先解析 v6 且不重试）。
+2. **前置反向代理**（nginx / Caddy / Camofox）：在双栈监听器上终止 TLS，
+   代理到 `127.0.0.1:20128`（或容器已发布的 v4 端口）。一个稳定主机名，
+   v4 + v6 同时可用。
+3. **部署后验证双栈**：`curl -6 https://<host>/v1/models` 与
+   `curl -4 https://<host>/v1/models` 都必须返回 200。只有 v4 通时，检查
+   代理监听器而非网关。
+4. **容器到宿主流量** 使用 `host.containers.internal`（rootless Podman
+   无法直连宿主 IP）——它解析为宿主的 v4 地址；上游服务不要依赖 IPv6。
 
 ### PostgreSQL（可选）
 
 在 `.env` 中设置 `DB_DRIVER=postgres` 和 `DATABASE_URL`，即可用 PostgreSQL
 替代 SQLite 作为网关存储。新库自动建表；迁移现有 SQLite 数据用
 `scripts/migrate-sqlite-to-pg.ts`。容器内访问宿主数据库须用
-`host.containers.internal`（rootless Podman 无法直连宿主 IP）。
+`host.containers.internal`（见上文双栈说明）。
 
 ## 技术栈
 
