@@ -11,8 +11,8 @@
  *   - A 20 RPM rolling window (true rolling — timestamps pruned to the last 60s,
  *     not a fixed-bucket reset).
  *
- * Bucketed by ACCOUNT, not by connection/key — multiple OmniRoute connections
- * that share one upstream OpenRouter account must share one window. OmniRoute's
+ * Bucketed by ACCOUNT, not by connection/key — multiple AI Gate connections
+ * that share one upstream OpenRouter account must share one window. AI Gate's
  * `provider_connections` are per-key, so callers resolve an account bucket key
  * via `resolveAccountKey()`: an explicit `providerSpecificData.openrouterAccountKey`
  * groups keys under one account; otherwise each connection gets its own bucket

@@ -444,7 +444,7 @@ export function findKiroConnectionByProfileArn(
   return findKiroConnectionByIdentity(connections, { profileArn });
 }
 
-// ── Save to OmniRoute DB ──────────────────────────────────────────────────────
+// ── Save to AI Gate DB ──────────────────────────────────────────────────────
 
 type SaveAndRespondResult = Awaited<ReturnType<typeof tryKiroCliSqlite>> & {
   // Fields added by tryAwsSsoCache for IDC tokens (#2059)

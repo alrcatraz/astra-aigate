@@ -26,7 +26,8 @@ const TOOL_ID = "codewhale";
  * read/write that path as a legacy fallback.
  */
 const getPrimaryConfigPath = (): string =>
-  getCliPrimaryConfigPath(TOOL_ID) ?? path.join(process.env.HOME ?? "~", ".codewhale", "config.toml");
+  getCliPrimaryConfigPath(TOOL_ID) ??
+  path.join(process.env.HOME ?? "~", ".codewhale", "config.toml");
 
 const getLegacyConfigPath = (): string =>
   path.join(process.env.HOME ?? "~", ".deepseek", "config.toml");
@@ -34,13 +35,13 @@ const getLegacyConfigPath = (): string =>
 const getPrimaryConfigDir = () => path.dirname(getPrimaryConfigPath());
 
 /**
- * Render the OmniRoute config block in CodeWhale TOML format.
+ * Render the AI Gate config block in CodeWhale TOML format.
  * CodeWhale reads OPENAI_BASE_URL and OPENAI_API_KEY from its config.
  * Reference: https://github.com/Hmbown/CodeWhale
  */
 function renderCodewhaleConfig(baseUrl: string, apiKey: string, model: string): string {
   return [
-    "# CodeWhale config — managed by OmniRoute (plan 14)",
+    "# CodeWhale config — managed by AI Gate (plan 14)",
     "",
     "[openai]",
     `base_url = "${baseUrl}"`,
@@ -51,11 +52,12 @@ function renderCodewhaleConfig(baseUrl: string, apiKey: string, model: string): 
 }
 
 /**
- * Check if the config file contains OmniRoute settings.
+ * Check if the config file contains AI Gate settings.
  */
 const hasOmniRouteConfig = (content: string | null): boolean => {
   if (!content) return false;
-  return content.includes("managed by OmniRoute");
+  // "managed by OmniRoute" kept for pre-rebrand configs still on disk.
+  return content.includes("managed by AI Gate") || content.includes("managed by OmniRoute");
 };
 
 // Read current config.toml — prefers the primary ~/.codewhale path, falling
@@ -109,14 +111,11 @@ export async function GET(request: Request) {
       configPath: getPrimaryConfigPath(),
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// POST — write OmniRoute settings to CodeWhale's config.toml (primary), and
+// POST — write AI Gate settings to CodeWhale's config.toml (primary), and
 // keep the legacy ~/.deepseek/config.toml in sync when it already exists so
 // users who have not yet upgraded their CLI binary keep working.
 export async function POST(request: Request) {
@@ -127,10 +126,7 @@ export async function POST(request: Request) {
   try {
     rawBody = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: { message: "Invalid JSON body" } },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: { message: "Invalid JSON body" } }, { status: 400 });
   }
 
   try {
@@ -181,14 +177,11 @@ export async function POST(request: Request) {
       configPath: primaryPath,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// DELETE — remove OmniRoute CodeWhale config (primary + legacy, if present)
+// DELETE — remove AI Gate CodeWhale config (primary + legacy, if present)
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -227,9 +220,6 @@ export async function DELETE(request: Request) {
       message: "CodeWhale settings removed successfully",
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }

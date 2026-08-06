@@ -3,7 +3,7 @@
  *
  * Serverless Relay Proxy endpoint.
  * Authenticates via relay token, applies rate limits, then proxies
- * to the internal OmniRoute chat completions pipeline.
+ * to the internal AI Gate chat completions pipeline.
  */
 
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";

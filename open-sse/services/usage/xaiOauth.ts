@@ -3,7 +3,7 @@
  *
  * Extracted from services/usage.ts (god-file decomposition): the xAI OAuth
  * variant uses a live billing endpoint (`cli-chat-proxy.grok.com/v1/billing`)
- * with the connection's OAuth access token, falling back to OmniRoute's own
+ * with the connection's OAuth access token, falling back to AI Gate's own
  * self-tracked token totals when the live quota is unavailable.
  *
  * `creditUsagePercent` is percent **used** (0–100), matching grok.com Usage.
@@ -73,8 +73,8 @@ export async function getXaiOauthUsage(
       (await getMonthlyProviderTokensForConnection("xao", connectionId)) ||
       0;
     return {
-      plan: "xAI OAuth (Grok) · OmniRoute-tracked",
-      message: "Live weekly quota unavailable; showing OmniRoute-routed token totals only.",
+      plan: "xAI OAuth (Grok) · AI Gate-tracked",
+      message: "Live weekly quota unavailable; showing AI Gate-routed token totals only.",
       quotas: {
         monthly: {
           used,

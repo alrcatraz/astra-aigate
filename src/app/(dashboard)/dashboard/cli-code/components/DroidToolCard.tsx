@@ -45,8 +45,8 @@ export default function DroidToolCard({
   const [restoringBackup, setRestoringBackup] = useState(null);
   const cliReady = !!(droidStatus?.installed && droidStatus?.runnable);
 
-  // (#618) Match any custom:OmniRoute-<i> entry (multi-model).
-  const isOmniRouteEntry = (m) => typeof m?.id === "string" && m.id.startsWith("custom:OmniRoute");
+  // (#618) Match any custom:AI Gate-<i> entry (multi-model).
+  const isOmniRouteEntry = (m) => typeof m?.id === "string" && m.id.startsWith("custom:AI Gate");
 
   const getConfigStatus = () => {
     if (!cliReady) return null;
@@ -93,7 +93,7 @@ export default function DroidToolCard({
   useEffect(() => {
     if (droidStatus?.installed && !hasInitializedModel.current) {
       hasInitializedModel.current = true;
-      // (#618) Pre-fill the multi-model list from every custom:OmniRoute-<i>
+      // (#618) Pre-fill the multi-model list from every custom:AI Gate-<i>
       // entry, preserving the original index order.
       const existing = (droidStatus.settings?.customModels || [])
         .filter(isOmniRouteEntry)
@@ -277,7 +277,7 @@ export default function DroidToolCard({
     const settingsContent = {
       customModels: modelsForPreview.map((m, i) => ({
         model: m,
-        id: `custom:OmniRoute-${i}`,
+        id: `custom:AI Gate-${i}`,
         index: i,
         baseUrl: getEffectiveBaseUrl(),
         apiKey: keyToDisplay,
@@ -362,7 +362,7 @@ export default function DroidToolCard({
           {!checkingDroid && cliReady && (
             <>
               <div className="flex flex-col gap-2">
-                {/* Current Base URL — first OmniRoute entry, any index (#618) */}
+                {/* Current Base URL — first AI Gate entry, any index (#618) */}
                 {droidStatus?.settings?.customModels?.find(isOmniRouteEntry)?.baseUrl && (
                   <div className="flex items-center gap-2">
                     <span className="w-32 shrink-0 text-sm font-semibold text-text-main text-right">

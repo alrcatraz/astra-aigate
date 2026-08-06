@@ -87,7 +87,7 @@ export async function POST(
       const session = await startSession(connectionId);
       return NextResponse.json({
         session: publicSession(session),
-        note: "The viewer is loopback-only. Open it on the OmniRoute host or forward its port over SSH, then harvest the session.",
+        note: "The viewer is loopback-only. Open it on the AI Gate host or forward its port over SSH, then harvest the session.",
       });
     }
 

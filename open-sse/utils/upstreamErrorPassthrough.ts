@@ -6,7 +6,7 @@
  * via buildErrorBody() truncates the message and breaks that recovery. For
  * upstream-originated 4xx errors the body is the provider's public API message —
  * not our internals — so it is safe and required to relay it verbatim.
- * OmniRoute-generated errors MUST keep using buildErrorBody() (Hard Rule #12).
+ * AI Gate-generated errors MUST keep using buildErrorBody() (Hard Rule #12).
  */
 const PASSTHROUGH_MIN = 400;
 const PASSTHROUGH_MAX = 499;

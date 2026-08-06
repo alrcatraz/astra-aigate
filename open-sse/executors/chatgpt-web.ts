@@ -82,8 +82,8 @@ function deviceIdFor(cookie: string): string {
   return id;
 }
 
-// OmniRoute model ID → ChatGPT internal slug. The public ChatGPT Web catalog
-// keeps OmniRoute's historical dot-form IDs (e.g. "gpt-5.5-pro"), while
+// AI Gate model ID → ChatGPT internal slug. The public ChatGPT Web catalog
+// keeps AI Gate's historical dot-form IDs (e.g. "gpt-5.5-pro"), while
 // ChatGPT's backend routes use dash-form slugs (e.g. "gpt-5-5-pro"). The slug
 // catalog comes from /backend-api/models on a logged-in account.
 
@@ -899,7 +899,7 @@ interface ChatGptMessage {
  * Why a heuristic instead of always disabling Temporary Chat: when
  * `history_and_training_disabled: false`, every conversation gets saved to
  * the user's chatgpt.com history. For text-only chats that's noise — a
- * dozen "OmniRoute" entries clutter the sidebar and can interact with
+ * dozen "AI Gate" entries clutter the sidebar and can interact with
  * ChatGPT's memory. We pay that cost only when the user actually wants an
  * image, since Temporary Chat refuses image_gen with the message
  * "I cannot generate images in this chat".
@@ -1606,7 +1606,7 @@ type ImageResolver = (
  * — so the assistant text carries no image markdown. Lets callers surface an
  * accurate "generated but not retrievable" error instead of the misleading
  * "no image was produced". Escalated mesh report: image visible in the ChatGPT
- * chat but returned to OmniRoute as a bare "completed without image markdown".
+ * chat but returned to AI Gate as a bare "completed without image markdown".
  */
 export function detectImageResolutionFailure(pointerCount: number, resolvedCount: number): boolean {
   return pointerCount > 0 && resolvedCount === 0;
@@ -2211,7 +2211,7 @@ function deriveHeaderBaseUrl(clientHeaders?: Record<string, string> | null): str
  * Build the absolute base URL the client should use to fetch our cached
  * images at /v1/chatgpt-web/image/<id>. The most reliable value is an
  * explicit browser-facing origin because relay clients such as Open WebUI
- * often reach OmniRoute from a container while the user's browser needs a
+ * often reach AI Gate from a container while the user's browser needs a
  * LAN, tunnel, or reverse-proxy URL.
  */
 function derivePublicBaseUrl(
@@ -2307,13 +2307,13 @@ async function fetchDownloadUrl(endpoint: string, ctx: ResolverContext): Promise
 }
 
 /**
- * Download a chatgpt.com signed image URL and re-serve it from OmniRoute's
+ * Download a chatgpt.com signed image URL and re-serve it from AI Gate's
  * short-lived image cache. The URLs returned by /files/<id>/download and
  * /conversation/<cid>/attachment/<fid>/download point at chatgpt.com's
  * estuary endpoint, which 403s for any request without the user's session
  * cookie. Downstream clients (Open WebUI, OpenAI-compatible apps) won't
  * have those cookies, so we download once via the authenticated TLS client
- * and return a browser-fetchable OmniRoute URL.
+ * and return a browser-fetchable AI Gate URL.
  */
 const IMAGE_DOWNLOAD_MAX_BYTES = 8 * 1024 * 1024;
 
@@ -2697,9 +2697,10 @@ async function pollForAsyncImage(
         const message = node?.message;
         const parts = message?.content?.parts;
         if (!Array.isArray(parts)) continue;
-        const pointers = extractImagePointers(parts).map(
-          (pointer) => ({ pointer, messageId: message?.id })
-        );
+        const pointers = extractImagePointers(parts).map((pointer) => ({
+          pointer,
+          messageId: message?.id,
+        }));
         if (pointers.length === 0) continue;
         const at = message?.create_time ?? 0;
         if (!newest || at >= newest.at) newest = { pointers, at };
@@ -2741,7 +2742,7 @@ function makeImageResolver(ctx: ResolverContext): ImageResolver {
       // user's current session — that URL 403s without the cookie, so
       // downstream clients can't fetch it directly. We download once via
       // the authenticated TLS client and expose the bytes through
-      // OmniRoute's short-lived image cache.
+      // AI Gate's short-lived image cache.
       //
       // /files/{id}/download is the historical path. It works for
       // chat-uploaded files and the older image_gen output format
@@ -2766,7 +2767,7 @@ function makeImageResolver(ctx: ResolverContext): ImageResolver {
     let finalUrl: string | null = null;
     if (signedUrl) {
       // chatgpt.com signed URLs require the user's session cookie to fetch,
-      // so we materialize the bytes into our own cache and emit an OmniRoute
+      // so we materialize the bytes into our own cache and emit an AI Gate
       // URL. If that fails (oversize, network error, etc.) we return null —
       // never the signed URL — because handing it back would emit broken
       // markdown that 403s for the client. Better to drop the image silently

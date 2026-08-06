@@ -1,5 +1,5 @@
 /**
- * OmniRoute logo SVG — network hub icon with connected nodes.
+ * AI Gate logo SVG — network hub icon with connected nodes.
  * Matches the favicon and app icon design.
  */
 type OmniRouteLogoProps = {

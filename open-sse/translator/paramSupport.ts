@@ -61,9 +61,14 @@ const STRIP_RULES: StripRule[] = [
   // independent live-endpoint reports hitting the same Ark endpoint for both
   // kimi-k2.5 and kimi-k2.7-code (NousResearch/hermes-agent#51773,
   // MoonshotAI/kimi-cli#1124), and by upstream decolua/9router#2460. Scoped to
-  // OmniRoute's actual volcengine Kimi id (not a broad /kimi/i regex) so it
+  // AI Gate's actual volcengine Kimi id (not a broad /kimi/i regex) so it
   // never clamps an unrelated future Kimi listing whose Ark cap may differ.
-  { provider: "volcengine", match: /^kimi-k2-5-260127$/, maxOutputCap: 32768, clampToModelMaxOutput: true },
+  {
+    provider: "volcengine",
+    match: /^kimi-k2-5-260127$/,
+    maxOutputCap: 32768,
+    clampToModelMaxOutput: true,
+  },
   // #7364: Z.AI's glm-4.6v vision endpoint enforces a 32768 max_tokens ceiling
   // server-side and 400s when a client sends a larger explicit max_tokens (e.g. a
   // client defaulting to 65536). Scoped to both wire paths that can reach this

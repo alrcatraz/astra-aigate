@@ -12,7 +12,7 @@ import { matchesSearch } from "@/shared/utils/turkishText";
  * Generates the chatLanguageModels.json block for VS Code GitHub Copilot
  * using the Azure vendor pattern as required by Copilot's architecture.
  *
- * Feature request: https://github.com/diegosouzapw/OmniRoute/issues/142
+ * Feature request: https://github.com/diegosouzapw/AI Gate/issues/142
  */
 export default function CopilotToolCard({
   tool,
@@ -142,14 +142,14 @@ export default function CopilotToolCard({
     }));
 
     const config = {
-      name: "OmniRoute",
+      name: "AI Gate",
       vendor: "azure",
       apiKey: `\${input:chat.lm.secret.omniroute}`,
       models,
     };
 
     const responsesConfig = {
-      name: "OmniRoute-responses",
+      name: "AI Gate-responses",
       vendor: "azure",
       apiKey: `\${input:chat.lm.secret.omniroute}`,
       models: responseModels,

@@ -14,7 +14,7 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const DB_KEY = "cursorupdate.lastUpdatedAndShown.version";
 /**
  * Version reported when the Cursor IDE state DB is unavailable (the common
- * case for a headless OmniRoute deployment). Kept in sync with
+ * case for a headless AI Gate deployment). Kept in sync with
  * `CURSOR_REGISTRY_VERSION` in providerHeaderProfiles.ts. Exported so tests
  * assert against the single source of truth instead of a drifting literal.
  */

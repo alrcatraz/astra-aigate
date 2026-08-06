@@ -608,7 +608,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Use your ZenMux API key in Authorization: Bearer <key>. ZenMux is fully OpenAI-compatible. Base URL: https://zenmux.ai/api/v1.",
     apiHint:
-      "ZenMux exposes an OpenAI-compatible chat completions endpoint at /api/v1/chat/completions, plus Anthropic Messages (/api/anthropic/v1/messages) and Google Gemini (/api/vertex-ai) protocol surfaces. OmniRoute uses the OpenAI protocol.",
+      "ZenMux exposes an OpenAI-compatible chat completions endpoint at /api/v1/chat/completions, plus Anthropic Messages (/api/anthropic/v1/messages) and Google Gemini (/api/vertex-ai) protocol surfaces. AI Gate uses the OpenAI protocol.",
   },
   openadapter: {
     id: "openadapter",
@@ -624,7 +624,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Use your OpenAdapter API key in Authorization: Bearer sk-cv-<key>. Fully OpenAI-compatible. API base URL: https://api.openadapter.in/v1.",
     apiHint:
-      "OpenAdapter exposes an OpenAI-compatible chat completions endpoint at https://api.openadapter.in/v1/chat/completions, aggregating 70+ open-source models (DeepSeek, Qwen, Kimi, MiniMax, GLM, Llama, Mistral, …). OmniRoute uses the OpenAI protocol.",
+      "OpenAdapter exposes an OpenAI-compatible chat completions endpoint at https://api.openadapter.in/v1/chat/completions, aggregating 70+ open-source models (DeepSeek, Qwen, Kimi, MiniMax, GLM, Llama, Mistral, …). AI Gate uses the OpenAI protocol.",
   },
   dit: {
     id: "dit",
@@ -637,7 +637,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Use your dit.ai API key in Authorization: Bearer <key>. Fully OpenAI-compatible — a drop-in replacement, just change the base URL to https://api.dit.ai/v1.",
     apiHint:
-      "dit.ai (Distributed Intelligence Trade) is an OpenAI-compatible router/gateway with dynamic per-request pricing, exposing /v1/chat/completions at https://api.dit.ai/v1. OmniRoute uses the OpenAI protocol; spend/savings analytics live in the dit.ai dashboard.",
+      "dit.ai (Distributed Intelligence Trade) is an OpenAI-compatible router/gateway with dynamic per-request pricing, exposing /v1/chat/completions at https://api.dit.ai/v1. AI Gate uses the OpenAI protocol; spend/savings analytics live in the dit.ai dashboard.",
   },
   tokenrouter: {
     id: "tokenrouter",
@@ -653,7 +653,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Use your TokenRouter API key in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://api.tokenrouter.com/v1.",
     apiHint:
-      "TokenRouter exposes an OpenAI-compatible chat completions endpoint at https://api.tokenrouter.com/v1/chat/completions, plus a working /v1/models catalog. OmniRoute uses the OpenAI protocol.",
+      "TokenRouter exposes an OpenAI-compatible chat completions endpoint at https://api.tokenrouter.com/v1/chat/completions, plus a working /v1/models catalog. AI Gate uses the OpenAI protocol.",
   },
   sumopod: {
     id: "sumopod",
@@ -667,7 +667,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Use your SumoPod API key (sk-...) in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://ai.sumopod.com/v1.",
     apiHint:
-      "SumoPod exposes an OpenAI-compatible chat completions endpoint at https://ai.sumopod.com/v1/chat/completions, plus a live /v1/models catalog. OmniRoute uses the OpenAI protocol and lists models via passthrough.",
+      "SumoPod exposes an OpenAI-compatible chat completions endpoint at https://ai.sumopod.com/v1/chat/completions, plus a live /v1/models catalog. AI Gate uses the OpenAI protocol and lists models via passthrough.",
   },
   x5lab: {
     id: "x5lab",
@@ -681,7 +681,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Use your X5Lab API key (x5-...) in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://api.x5lab.dev/v1.",
     apiHint:
-      "X5Lab exposes an OpenAI-compatible chat completions endpoint at https://api.x5lab.dev/v1/chat/completions, plus a live /v1/models catalog. OmniRoute uses the OpenAI protocol and lists models via passthrough.",
+      "X5Lab exposes an OpenAI-compatible chat completions endpoint at https://api.x5lab.dev/v1/chat/completions, plus a live /v1/models catalog. AI Gate uses the OpenAI protocol and lists models via passthrough.",
   },
   chenzk: {
     id: "chenzk",
@@ -708,7 +708,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Use your Kenari API key (kn-...) in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://kenari.id/v1.",
     apiHint:
-      "Kenari exposes an OpenAI-compatible chat completions endpoint at https://kenari.id/v1/chat/completions, plus a live /v1/models catalog covering Claude, GPT, DeepSeek, GLM, Kimi and more. OmniRoute uses the OpenAI protocol and lists models via passthrough.",
+      "Kenari exposes an OpenAI-compatible chat completions endpoint at https://kenari.id/v1/chat/completions, plus a live /v1/models catalog covering Claude, GPT, DeepSeek, GLM, Kimi and more. AI Gate uses the OpenAI protocol and lists models via passthrough.",
   },
   navy: {
     id: "navy",
@@ -743,7 +743,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint:
       "Create a free API key at ainative.studio (no card), then paste it here as a Bearer token.",
     apiHint:
-      "OpenAI-compatible endpoint at https://api.ainative.studio/api/v1 with a public /models catalog (84 models). OmniRoute lists models via passthrough.",
+      "OpenAI-compatible endpoint at https://api.ainative.studio/api/v1 with a public /models catalog (84 models). AI Gate lists models via passthrough.",
   },
   aion: {
     id: "aion",

@@ -5,6 +5,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "endpoints",
   "api-manager",
   "mcp-servers",
+  "services",
   "cli-code",
   // OmniProxy — flat
   "providers",
@@ -40,7 +41,6 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "traffic-inspector",
   "discovery",
   // OmniProxy > Integrations
-  "api-endpoints",
   "webhooks",
   // OmniProxy — proxy tools
   "mitm-proxy",
@@ -87,7 +87,6 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "agent-skills",
   "chaos-config",
   "mcp",
-  "a2a",
   "plugins",
   // Gamification
   "leaderboard",

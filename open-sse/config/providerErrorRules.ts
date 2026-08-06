@@ -43,8 +43,8 @@ export type ProviderErrorRuleMatch = {
 // every model on the same provider until the 5h window resets.
 //
 // Scope note: `scope: "connection"` (not "provider") is correct because the
-// upstream quota is per-account, and a single OmniRoute provider entry maps to
-// one user account. Multiple OmniRoute connections under the same provider
+// upstream quota is per-account, and a single AI Gate provider entry maps to
+// one user account. Multiple AI Gate connections under the same provider
 // name mean the user has multiple upstream accounts — locking at the provider
 // level would disable every one of them when only one is exhausted. See
 // Issue #2 (Monthly quota exhausted treated as transient 429).

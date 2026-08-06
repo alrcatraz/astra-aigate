@@ -6,7 +6,7 @@ import { buildClaudeDiscoverySettingsSnippet } from "@/shared/services/claudeCli
 
 /**
  * ClaudeGatewayOnboardingBlock — the copy-paste `settings.json` fragment that points
- * Claude Code at this OmniRoute with gateway model discovery enabled.
+ * Claude Code at this AI Gate with gateway model discovery enabled.
  *
  * Sits next to ClaudeCcDiscoveryInfoButton on the Claude tool card: that button explains
  * the discovery-alias gate and links to the flag, this block gives the operator the exact

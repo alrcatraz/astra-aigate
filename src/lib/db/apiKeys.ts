@@ -485,7 +485,7 @@ export async function getApiKeysCount(): Promise<number> {
 }
 
 /**
- * Select an API key for internal OmniRoute operations (combo health checks,
+ * Select an API key for internal AI Gate operations (combo health checks,
  * cloud-sync verify pings, etc.).
  *
  * Naive selection of `getApiKeys()[0]` is unsafe because the first row is

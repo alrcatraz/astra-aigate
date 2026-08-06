@@ -800,7 +800,7 @@ export async function handleChatCore({
     body = bodyWithWebSearchFallback as typeof body;
     log?.info?.(
       "TOOLS",
-      `Converted ${webSearchFallbackPlan.convertedToolCount} web_search tool(s) to OmniRoute fallback for ${provider}`
+      `Converted ${webSearchFallbackPlan.convertedToolCount} web_search tool(s) to AI Gate fallback for ${provider}`
     );
   }
   // #7339: interceptFetch (Phase 3-4 of #3384) — same per-model rule + native-bypass
@@ -818,7 +818,7 @@ export async function handleChatCore({
     body = bodyWithWebFetchFallback as typeof body;
     log?.info?.(
       "TOOLS",
-      `Converted ${webFetchFallbackPlan.convertedToolCount} web_fetch tool(s) to OmniRoute fallback for ${provider}`
+      `Converted ${webFetchFallbackPlan.convertedToolCount} web_fetch tool(s) to AI Gate fallback for ${provider}`
     );
   }
   const noLogEnabled = apiKeyInfo?.noLog === true;
@@ -955,7 +955,7 @@ export async function handleChatCore({
   const explicitStreamAlias = resolveExplicitStreamAlias(body);
 
   // Remove non-standard non-stream aliases before provider translation/execution.
-  // They are accepted for compatibility at the OmniRoute API boundary only.
+  // They are accepted for compatibility at the AI Gate API boundary only.
   if (body && typeof body === "object") {
     const b = body as Record<string, unknown>;
     if (explicitStreamAlias !== undefined) {
@@ -2365,7 +2365,7 @@ export async function handleChatCore({
   }
 
   // Xiaomi MiMo controls reasoning ONLY via `thinking:{type:"enabled"|"disabled"}` and
-  // rejects unknown/extra params with a strict "400 Param Incorrect". Map OmniRoute's
+  // rejects unknown/extra params with a strict "400 Param Incorrect". Map AI Gate's
   // OpenAI reasoning signals onto that native shape: reduce any thinking object to
   // `{type}` and drop `reasoning_effort`/`reasoning`. See services/mimoThinking.ts.
   if (provider === "xiaomi-mimo") {
@@ -4591,7 +4591,7 @@ export async function handleChatCore({
       compressionResponseMeta,
       comboStrategy,
     });
-    // #6426: align response body `model` with the `X-OmniRoute-Model` header
+    // #6426: align response body `model` with the `X-AI Gate-Model` header
     // (both must be the resolved backend model). Some upstreams (notably legacy
     // /v1/completions text-completion path) return a body `model` field that
     // differs from the resolved backend id we advertised in the header, leaving

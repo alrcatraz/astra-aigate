@@ -3,7 +3,7 @@
  *
  * Both families break for the same underlying reason — the dashboard is reached at a
  * LAN address, so the `localhost`/`127.0.0.1` the provider redirects to belongs to the
- * machine running the browser rather than to the OmniRoute server — but they differ in
+ * machine running the browser rather than to the AI Gate server — but they differ in
  * which ports are involved and in what the remedy is:
  *
  * - `pkceLoopbackWarning.ts` (codex / xai-oauth / grok-cli): a FIXED foreign port

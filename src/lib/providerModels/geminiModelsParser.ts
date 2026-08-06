@@ -1,7 +1,7 @@
 /**
  * Parses the Google Generative Language `v1beta/models` listing into discovery models.
  *
- * Each model's `supportedGenerationMethods` is mapped to OmniRoute endpoints:
+ * Each model's `supportedGenerationMethods` is mapped to AI Gate endpoints:
  *   - generateContent / generateAnswer → "chat"
  *   - predict                          → "images"  (Imagen image generation)
  *   - predictLongRunning               → "video"   (Veo video generation)

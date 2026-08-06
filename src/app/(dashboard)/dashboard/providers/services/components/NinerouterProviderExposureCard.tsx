@@ -1,7 +1,7 @@
 /**
  * G-09 — Provider Exposure toggle for 9Router.
  * Persists the `providerExpose` field via POST /api/services/9router/provider-expose.
- * When enabled, 9Router models appear as `9router/...` in OmniRoute's model selection.
+ * When enabled, 9Router models appear as `9router/...` in AI Gate's model selection.
  */
 "use client";
 

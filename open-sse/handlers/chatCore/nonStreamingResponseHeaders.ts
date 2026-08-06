@@ -3,7 +3,7 @@
  * decomposition, #3501).
  *
  * Extracted from handleChatCore's non-streaming success path: build the response header map for a
- * cache-MISS JSON response — the static Content-Type + cache marker, the OmniRoute meta headers
+ * cache-MISS JSON response — the static Content-Type + cache marker, the AI Gate meta headers
  * (provider/model/latency/usage/cost/request-id), and the optional compression header. Pure builder
  * (returns a fresh map; only mutates the map it owns). Behaviour is byte-identical to the previous
  * inline block, including `latencyMs: now - startTime`.

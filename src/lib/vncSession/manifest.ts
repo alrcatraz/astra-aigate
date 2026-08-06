@@ -11,7 +11,7 @@ export interface VncProviderEntry {
   name: string;
   /** Login page opened by the browser container. */
   url: string;
-  /** Canonical OmniRoute credential contract for this provider. */
+  /** Canonical AI Gate credential contract for this provider. */
   requirement: Exclude<WebSessionCredentialRequirement, { kind: "none" }>;
 }
 
@@ -29,8 +29,7 @@ export function getVncProvider(id: string | null | undefined): VncProviderEntry 
   if (!id || VNC_UNSUPPORTED_PROVIDER_REASONS[id]) return null;
 
   const catalog = WEB_COOKIE_PROVIDERS[id as keyof typeof WEB_COOKIE_PROVIDERS] as
-    | { id: string; name: string; website?: string }
-    | undefined;
+    { id: string; name: string; website?: string } | undefined;
   const requirement = getWebSessionCredentialRequirement(id);
 
   if (

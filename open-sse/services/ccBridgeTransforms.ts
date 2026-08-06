@@ -2,7 +2,7 @@
  * CC Bridge Transforms — config-driven request body normalization for the
  * Claude Code Compatible (`anthropic-compatible-cc-*`) bridge.
  *
- * Goal: ensure the final request body OmniRoute sends to Anthropic's
+ * Goal: ensure the final request body AI Gate sends to Anthropic's
  * `/v1/messages?beta=true` endpoint has classifier-correct structure
  * regardless of which client (OpenCode, Cline, Cursor, Continue, raw API
  * consumer) supplied the prompt.
@@ -17,7 +17,7 @@
  * prefixes, text replacements, billing header algorithm) but generalised
  * behind a discriminated-union DSL so future fingerprints are configurable.
  *
- * Related: OmniRoute issue #2260.
+ * Related: AI Gate issue #2260.
  */
 import { createHash } from "node:crypto";
 
@@ -146,7 +146,7 @@ export const DEFAULT_TEXT_REPLACEMENTS: Array<{ match: string; replacement: stri
 
 /**
  * Default pipeline shipped with the PR — matches the T4-200 fixture layout
- * proven against the live OmniRoute deployment (call log
+ * proven against the live AI Gate deployment (call log
  * f0c2fedb-b27a-4f1d-9ee6-0c88646a6d42).
  *
  * Layout after pipeline (system blocks):
@@ -254,7 +254,7 @@ export function computeExMachinaVersionSuffix(firstUserText: string, version: st
 }
 
 /**
- * Compute the `cc_version` suffix per the OmniRoute native-OAuth algorithm:
+ * Compute the `cc_version` suffix per the AI Gate native-OAuth algorithm:
  * sha256(YYYY-MM-DD + version).slice(0,3). Stable per UTC day.
  */
 export function computeDaystampVersionSuffix(version: string, now: Date = new Date()): string {

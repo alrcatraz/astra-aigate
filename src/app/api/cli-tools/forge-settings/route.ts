@@ -24,14 +24,14 @@ const getForgeConfigPath = (): string =>
 const getForgeDir = () => path.dirname(getForgeConfigPath());
 
 /**
- * Render the OmniRoute provider block in Forge TOML format.
+ * Render the AI Gate provider block in Forge TOML format.
  * Forge uses a TOML config at ~/.forge/config.toml with an [openai] section.
  * Reference: https://github.com/antinomyhq/forge
  */
 function renderForgeConfig(baseUrl: string, apiKey: string, model: string): string {
   const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
   return [
-    "# Forge config — managed by OmniRoute (plan 14)",
+    "# Forge config — managed by AI Gate (plan 14)",
     "",
     "[openai]",
     `api_key = "${apiKey}"`,
@@ -42,12 +42,13 @@ function renderForgeConfig(baseUrl: string, apiKey: string, model: string): stri
 }
 
 /**
- * Check if the config file contains OmniRoute settings.
- * Looks for the managed-by-OmniRoute marker comment.
+ * Check if the config file contains AI Gate settings.
+ * Looks for the managed-by-AI Gate marker comment.
  */
 const hasOmniRouteConfig = (content: string | null): boolean => {
   if (!content) return false;
-  return content.includes("managed by OmniRoute");
+  // "managed by OmniRoute" kept for pre-rebrand configs still on disk.
+  return content.includes("managed by AI Gate") || content.includes("managed by OmniRoute");
 };
 
 // Read current config.toml
@@ -98,14 +99,11 @@ export async function GET(request: Request) {
       configPath: getForgeConfigPath(),
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// POST — write OmniRoute settings to Forge config.toml
+// POST — write AI Gate settings to Forge config.toml
 export async function POST(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -114,10 +112,7 @@ export async function POST(request: Request) {
   try {
     rawBody = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: { message: "Invalid JSON body" } },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: { message: "Invalid JSON body" } }, { status: 400 });
   }
 
   try {
@@ -162,14 +157,11 @@ export async function POST(request: Request) {
       configPath,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// DELETE — remove Forge OmniRoute config
+// DELETE — remove Forge AI Gate config
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -196,9 +188,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true, message: "Forge settings removed successfully" });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }

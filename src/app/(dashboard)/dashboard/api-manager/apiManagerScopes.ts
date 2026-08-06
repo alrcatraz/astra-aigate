@@ -12,6 +12,8 @@ export interface CreateScopeOptions {
   mcpAdminEnabled?: boolean;
   mcpReadEnabled?: boolean;
   mcpWriteEnabled?: boolean;
+  /** Dynamic per-service scopes (svc:<id>), one entry per proxied service. */
+  serviceScopes?: string[];
 }
 
 export interface PermissionScopeOptions {
@@ -22,6 +24,8 @@ export interface PermissionScopeOptions {
   mcpAdminEnabled?: boolean;
   mcpReadEnabled?: boolean;
   mcpWriteEnabled?: boolean;
+  /** Complete list of wanted service scopes (svc:<id>); svc:* not listed are dropped. */
+  serviceScopes?: string[];
 }
 
 export function buildApiKeyCreateScopes(options: CreateScopeOptions): string[] {
@@ -38,6 +42,8 @@ export function buildApiKeyCreateScopes(options: CreateScopeOptions): string[] {
   if (options.mcpAdminEnabled === true) scopes.push(MCP_ADMIN_SCOPE);
   if (options.mcpReadEnabled === true) scopes.push(MCP_READ_SCOPE);
   if (options.mcpWriteEnabled === true) scopes.push(MCP_WRITE_SCOPE);
+  const extraScopes = new Set(options.serviceScopes ?? []);
+  for (const scope of extraScopes) scopes.push(scope);
   return scopes;
 }
 
@@ -58,6 +64,14 @@ export function mergeApiKeyPermissionScopes(
   setScope(scopes, MCP_ADMIN_SCOPE, options.mcpAdminEnabled === true);
   setScope(scopes, MCP_READ_SCOPE, options.mcpReadEnabled === true);
   setScope(scopes, MCP_WRITE_SCOPE, options.mcpWriteEnabled === true);
+
+  // Dynamic service scopes: keep svc:* exactly matching the wanted list,
+  // drop any svc:* the caller unchecked (unknown scopes are preserved).
+  const wantedServices = new Set(options.serviceScopes ?? []);
+  for (const scope of [...scopes]) {
+    if (scope.startsWith("svc:") && !wantedServices.has(scope)) scopes.delete(scope);
+  }
+  for (const scope of wantedServices) scopes.add(scope);
 
   return [...scopes];
 }

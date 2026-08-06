@@ -5,7 +5,7 @@ export function normalizeClaudeBaseUrl(value: string): string {
 }
 
 export interface ClaudeDiscoverySnippetInput {
-  /** OmniRoute root — Claude Code appends `/v1/messages` itself, so no `/v1` suffix. */
+  /** AI Gate root — Claude Code appends `/v1/messages` itself, so no `/v1` suffix. */
   baseUrl: string;
   /** Rendered verbatim; the caller passes a placeholder, never a real key. */
   apiKeyPlaceholder: string;
@@ -18,7 +18,7 @@ export interface ClaudeDiscoverySnippetInput {
 }
 
 /**
- * Build the `settings.json` fragment that points Claude Code at this OmniRoute and
+ * Build the `settings.json` fragment that points Claude Code at this AI Gate and
  * turns on gateway model discovery. Pure string builder — no key material, no I/O —
  * so the dashboard can render it and a test can assert its exact shape.
  */

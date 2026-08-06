@@ -9,7 +9,7 @@ export const KIMI_K3_MODEL: RegistryModel = {
   maxOutputTokens: 1048576,
   supportsVision: true,
   supportsReasoning: true,
-  // K3 accepts literal `max` only; it does not accept OmniRoute's `xhigh` tier.
+  // K3 accepts literal `max` only; it does not accept AI Gate's `xhigh` tier.
   supportsXHighEffort: false,
   toolCalling: true,
   interleavedField: "reasoning_content",

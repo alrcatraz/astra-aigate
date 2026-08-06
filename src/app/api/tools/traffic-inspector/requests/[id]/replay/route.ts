@@ -1,7 +1,7 @@
 /**
  * POST /api/tools/traffic-inspector/requests/[id]/replay
  *
- * Re-issues the captured request through the local OmniRoute instance and
+ * Re-issues the captured request through the local AI Gate instance and
  * returns the response body. The replay will itself appear in the traffic
  * buffer (captured by agentBridgeHook or httpProxyServer depending on path).
  *

@@ -62,7 +62,7 @@ type SseHeartbeatTransformOptions = {
 const HEARTBEAT_ENCODER = new TextEncoder();
 
 /**
- * Whether OmniRoute may emit SSE `:` comment lines (e.g. the `: keepalive` heartbeat).
+ * Whether AI Gate may emit SSE `:` comment lines (e.g. the `: keepalive` heartbeat).
  * Some strict OpenAI-compatible clients parse every SSE line as JSON and crash on `:` comments.
  * Set OMNIROUTE_SSE_COMMENTS=off to suppress comment-shaped heartbeats (they become a no-op).
  * Defaults to enabled for backward compatibility.

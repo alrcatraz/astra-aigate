@@ -20,14 +20,13 @@ export const CURSOR_TARGET: MitmTarget = {
   ],
   setupTutorial: {
     steps: [
-      "Install OmniRoute's root certificate",
+      "Install AI Gate's root certificate",
       "Enable DNS routing for Cursor",
       "Restart Cursor IDE",
-      "Done — Cursor traffic now routes through OmniRoute",
+      "Done — Cursor traffic now routes through AI Gate",
     ],
     detection: { command: "which cursor", platform: "all" },
   },
-  handler: () =>
-    import("../handlers/cursor").then((m) => ({ default: m.CursorHandler })),
+  handler: () => import("../handlers/cursor").then((m) => ({ default: m.CursorHandler })),
   riskNoticeKey: "providers.riskNotice.oauth",
 };

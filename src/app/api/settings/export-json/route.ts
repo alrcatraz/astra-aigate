@@ -46,7 +46,7 @@ export function filterPaidComboSteps<T extends { models?: unknown }>(combos: T[]
 
 /**
  * GET /api/settings/export-json
- * Exports a legacy OmniRoute-compatible JSON backup.
+ * Exports a legacy AI Gate-compatible JSON backup.
  */
 export async function GET(request: Request) {
   if (await isAuthRequired(request)) {
@@ -75,9 +75,10 @@ export async function GET(request: Request) {
 
     // #6328: honor hidePaidModels at the export boundary so backup files
     // cannot silently smuggle paid model ids back in on import.
-    const combos = rawSettings.hidePaidModels === true
-      ? filterPaidComboSteps(combosRaw as Array<{ models?: unknown }>)
-      : combosRaw;
+    const combos =
+      rawSettings.hidePaidModels === true
+        ? filterPaidComboSteps(combosRaw as Array<{ models?: unknown }>)
+        : combosRaw;
 
     const exportData: Record<string, unknown> = {
       settings: safeSettings,

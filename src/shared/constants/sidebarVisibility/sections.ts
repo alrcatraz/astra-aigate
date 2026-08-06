@@ -44,6 +44,13 @@ const AI_GATE_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "hub",
   },
   {
+    id: "services",
+    href: "/dashboard/services",
+    i18nKey: "services",
+    subtitleKey: "servicesSubtitle",
+    icon: "monitor_heart",
+  },
+  {
     id: "cli-code",
     href: "/dashboard/cli-code",
     i18nKey: "cliCode",
@@ -330,37 +337,6 @@ const TOOLS_GROUP: SidebarItemGroup = {
   ],
 };
 
-const INTEGRATIONS_GROUP: SidebarItemGroup = {
-  type: "group",
-  id: "integrations",
-  titleKey: "integrationsGroup",
-  titleFallback: "Integrations",
-  items: [
-    {
-      id: "api-endpoints",
-      href: "/dashboard/api-endpoints",
-      i18nKey: "apiEndpoints",
-      subtitleKey: "apiEndpointsSubtitle",
-      icon: "api",
-    },
-    {
-      id: "webhooks",
-      href: "/dashboard/webhooks",
-      i18nKey: "webhooks",
-      subtitleKey: "webhooksSubtitle",
-      icon: "webhook",
-    },
-  ],
-};
-
-const PROXY_ITEM: SidebarItemDefinition = {
-  id: "proxy",
-  href: "/dashboard/system/proxy",
-  i18nKey: "proxy",
-  subtitleKey: "proxySubtitle",
-  icon: "dns",
-};
-
 const ANALYTICS_ITEMS: readonly SidebarItemDefinition[] = [
   {
     id: "analytics",
@@ -418,15 +394,12 @@ const ANALYTICS_ITEMS: readonly SidebarItemDefinition[] = [
     subtitleKey: "providerStatsSubtitle",
     icon: "speed",
   },
-];
-
-const MONITORING_ITEMS: readonly SidebarItemDefinition[] = [
   {
-    id: "activity",
-    href: "/dashboard/activity",
-    i18nKey: "activity",
-    subtitleKey: "activitySubtitle",
-    icon: "timeline",
+    id: "media",
+    href: "/dashboard/cache/media",
+    i18nKey: "media",
+    subtitleKey: "mediaSubtitle",
+    icon: "perm_media",
   },
 ];
 
@@ -436,6 +409,13 @@ const LOGS_GROUP: SidebarItemGroup = {
   titleKey: "logsGroup",
   titleFallback: "Logs",
   items: [
+    {
+      id: "activity",
+      href: "/dashboard/activity",
+      i18nKey: "activity",
+      subtitleKey: "activitySubtitle",
+      icon: "timeline",
+    },
     {
       id: "logs",
       href: "/dashboard/logs",
@@ -473,6 +453,13 @@ const SYSTEM_GROUP: SidebarItemGroup = {
   titleKey: "systemGroup",
   titleFallback: "System",
   items: [
+    {
+      id: "proxy",
+      href: "/dashboard/system/proxy",
+      i18nKey: "proxy",
+      subtitleKey: "proxySubtitle",
+      icon: "dns",
+    },
     {
       id: "health",
       href: "/dashboard/health",
@@ -632,13 +619,6 @@ const AGENTIC_FEATURES_ITEMS: readonly SidebarSectionChild[] = [
   },
   MCP_ITEM,
   {
-    id: "a2a",
-    href: "/dashboard/a2a",
-    i18nKey: "a2a",
-    subtitleKey: "a2aSubtitle",
-    icon: "device_hub",
-  },
-  {
     id: "plugins",
     href: "/dashboard/plugins",
     i18nKey: "plugins",
@@ -688,13 +668,6 @@ const GAMIFICATION_GROUP: SidebarItemGroup = {
 
 const OTHER_FEATURES_ITEMS: readonly SidebarItemDefinition[] = [
   {
-    id: "media",
-    href: "/dashboard/cache/media",
-    i18nKey: "media",
-    subtitleKey: "mediaSubtitle",
-    icon: "perm_media",
-  },
-  {
     id: "relay",
     href: "/dashboard/relay",
     i18nKey: "relay",
@@ -704,13 +677,11 @@ const OTHER_FEATURES_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "lan",
   },
   {
-    id: "media-providers",
-    href: "/dashboard/media-providers",
-    i18nKey: "mediaProviders",
-    labelFallback: "Media Providers",
-    subtitleKey: "mediaProvidersSubtitle",
-    subtitleFallback: "Image/audio/video providers",
-    icon: "perm_media",
+    id: "webhooks",
+    href: "/dashboard/webhooks",
+    i18nKey: "webhooks",
+    subtitleKey: "webhooksSubtitle",
+    icon: "webhook",
   },
 ];
 
@@ -829,7 +800,7 @@ const HELP_ITEMS: readonly SidebarItemDefinition[] = [
   },
   {
     id: "issues",
-    href: "https://github.com/diegosouzapw/OmniRoute/issues",
+    href: "https://github.com/diegosouzapw/AI Gate/issues",
     i18nKey: "issues",
     subtitleKey: "issuesSubtitle",
     icon: "bug_report",
@@ -863,15 +834,8 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
   {
     id: "omni-proxy",
     titleKey: "omniProxySection",
-    titleFallback: "OmniRoute",
-    children: [
-      ROUTING_GROUP,
-      COMBOS_GROUP,
-      COMPRESSION_CONTEXT_GROUP,
-      TOOLS_GROUP,
-      INTEGRATIONS_GROUP,
-      PROXY_ITEM,
-    ],
+    titleFallback: "AI Gate",
+    children: [ROUTING_GROUP, COMBOS_GROUP, COMPRESSION_CONTEXT_GROUP, TOOLS_GROUP],
   },
   {
     id: "analytics",
@@ -889,7 +853,7 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
     id: "monitoring",
     titleKey: "monitoringSection",
     titleFallback: "Monitoring",
-    children: [...MONITORING_ITEMS, LOGS_GROUP, AUDIT_GROUP, SYSTEM_GROUP],
+    children: [LOGS_GROUP, AUDIT_GROUP, SYSTEM_GROUP],
   },
   {
     id: "devtools",

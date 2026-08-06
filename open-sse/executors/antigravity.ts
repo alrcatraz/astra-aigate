@@ -378,7 +378,7 @@ function sanitizeAntigravityGeminiRequest(
   }
 
   // Preserve only caller-supplied safetySettings through the Claude-path whitelist.
-  // Missing settings stay absent so OmniRoute does not silently weaken upstream safety.
+  // Missing settings stay absent so AI Gate does not silently weaken upstream safety.
   if (Array.isArray(request.safetySettings)) {
     clean.safetySettings = request.safetySettings;
   }

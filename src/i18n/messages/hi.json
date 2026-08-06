@@ -1214,11 +1214,11 @@
     "trafficInspector": "ट्रैफ़िक इंस्पेक्टर",
     "trafficInspectorSubtitle": "LLM कॉल्स की निगरानी करें + किसी भी HTTPS ट्रैफ़िक को डीबग करें",
     "cliCode": "CLI कोड",
-    "cliCodeSubtitle": "OmniRoute पर पॉइंट करने वाले कोड टूल्स",
+    "cliCodeSubtitle": "AI Gate पर पॉइंट करने वाले कोड टूल्स",
     "cliAgents": "CLI एजेंट्स",
     "cliAgentsSubtitle": "स्वायत्त CLI एजेंट्स",
     "acpAgents": "ACP एजेंट्स",
-    "acpAgentsSubtitle": "OmniRoute द्वारा स्पॉन किए गए CLIs",
+    "acpAgentsSubtitle": "AI Gate द्वारा स्पॉन किए गए CLIs",
     "skipToContent": "सामग्री पर जाएं",
     "mainNavigation": "मुख्य नेविगेशन",
     "unpinSection": "सेक्शन अनपिन करें",
@@ -1233,7 +1233,33 @@
     "discoverySubtitle": "मुफ़्त एक्सेस के लिए प्रोवाइडर्स को स्कैन करें",
     "aiGateSection": "AI Gate",
     "mcpServers": "MCP Servers",
-    "mcpServersSubtitle": "Registered MCP endpoints"
+    "mcpServersSubtitle": "Registered MCP endpoints",
+    "services": "Services",
+    "servicesSubtitle": "Auxiliary services and health",
+    "routingGroup": "Routing & Access",
+    "combosGroup": "Combos",
+    "contextSubtitle": "Compression overview",
+    "compressionSubtitle": "Compression configuration",
+    "compressionLive": "Live Compression",
+    "compressionLiveSubtitle": "Real-time compression monitor",
+    "autoCombo": "Auto Combo",
+    "autoComboSubtitle": "Automatic combo routing",
+    "combosPlayground": "Combo Playground",
+    "combosPlaygroundSubtitle": "Test combo cascades",
+    "system1proxy": "1Proxy",
+    "system1proxySubtitle": "External proxy",
+    "systemMitmProxy": "MITM Proxy",
+    "systemMitmProxySubtitle": "Man-in-the-middle proxy",
+    "settingsPricing": "Pricing",
+    "settingsPricingSubtitle": "Per-provider pricing",
+    "relay": "Relay",
+    "relaySubtitle": "Relay deployments",
+    "mediaProviders": "Media Providers",
+    "mediaProvidersSubtitle": "Image/audio/video providers",
+    "analyticsLimits": "Limits",
+    "analyticsLimitsSubtitle": "Rate limits and constraints",
+    "gamificationAdmin": "Gamification Admin",
+    "gamificationAdminSubtitle": "Gamification administration"
   },
   "webhooks": {
     "title": "वेबहुक",
@@ -1523,7 +1549,7 @@
     "cacheDescription": "Monitor provider prompt cache efficiency and local semantic response reuse.",
     "limitsDescription": "Configure rate limits and quotas per API key and provider",
     "runtimeDescription": "Live runtime observability — circuit breakers, cooldowns, model lockouts, sessions and quota alerts",
-    "apiManagerDescription": "Manage API keys and access control for your OmniRoute instance",
+    "apiManagerDescription": "Manage API keys and access control for your AI Gate instance",
     "batchDescription": "Process large volumes of requests asynchronously with batched API calls",
     "contextCavemanDescription": "Rule-based message compression, language packs, analytics and output mode controls.",
     "contextRtkDescription": "Command-aware compression for tool output, terminal logs and build results.",
@@ -2034,7 +2060,7 @@
     "direct": "डायरेक्ट",
     "routeUnableToLoad": "रूट स्पष्टीकरण लोड करने में असमर्थ",
     "routeNoRequestLogs": "कोई अनुरोध लॉग उपलब्ध नहीं है",
-    "routeNoRequestLogsDescription": "पहले OmniRoute के माध्यम से ट्रैफ़िक भेजें। रूट स्पष्टीकरण सहेजे गए संरचित कॉल लॉग से उत्पन्न होते हैं।",
+    "routeNoRequestLogsDescription": "पहले AI Gate के माध्यम से ट्रैफ़िक भेजें। रूट स्पष्टीकरण सहेजे गए संरचित कॉल लॉग से उत्पन्न होते हैं।",
     "routeDecisionSummary": "निर्णय सारांश",
     "routeConfidence": "{confidence} कॉन्फिडेंस",
     "routeScore": "रूट स्कोर",
@@ -2106,7 +2132,7 @@
     "keyName": "कुंजी का नाम",
     "keyNamePlaceholder": "उदाहरण के लिए, उत्पादन कुंजी, विकास कुंजी",
     "keyNameDesc": "इस कुंजी के उद्देश्य को पहचानने के लिए एक वर्णनात्मक नाम चुनें",
-    "managementAccessDesc": "इस API कुंजी को OmniRoute कॉन्फ़िगरेशन प्रबंधित करने की अनुमति दें।",
+    "managementAccessDesc": "इस API कुंजी को AI Gate कॉन्फ़िगरेशन प्रबंधित करने की अनुमति दें।",
     "selfServiceVisibility": "स्व-सेवा दृश्यता",
     "selfServiceVisibilityDesc": "नियंत्रित करें कि यह कुंजी अपने उपयोग और साझा upstream कोटा के बारे में क्या देख सकती है।",
     "ownUsageVisibility": "स्वयं की लागत और टोकन उपयोग",
@@ -2245,7 +2271,9 @@
     "mcpWrite": "Manage registry",
     "mcpWriteDesc": "Register, update and delete MCP endpoint entries",
     "mcpAdmin": "Manage MCP gateway (admin:mcp)",
-    "mcpAdminDesc": "Full endpoint-level access to the aigate-mcp management endpoint. Grants the admin:mcp scope required to connect."
+    "mcpAdminDesc": "Full endpoint-level access to the aigate-mcp management endpoint. Grants the admin:mcp scope required to connect.",
+    "serviceAccess": "Service Access",
+    "serviceAccessDesc": "Grant this key access to proxied services (svc:<id>)"
   },
   "auditLog": {
     "title": "ऑडिट लॉग",
@@ -2293,7 +2321,10 @@
       "webFetch": "वेब फ़ेच",
       "video": "वीडियो",
       "music": "संगीत",
-      "ocr": "OCR"
+      "ocr": "OCR",
+      "rerank": "Rerank",
+      "moderation": "Moderation",
+      "audioTranslation": "Audio Translation"
     },
     "noProviders": "इस प्रकार के लिए अभी तक कोई प्रदाता कॉन्फ़िगर नहीं किया गया है।",
     "addConnection": "कनेक्शन जोड़ें",
@@ -2313,7 +2344,7 @@
     "imagePromptPlaceholder": "सूर्यास्त के समय पहाड़ों का एक शांत परिदृश्य...",
     "videoPromptPlaceholder": "फूल के खिलने का एक टाइमलैप्स...",
     "musicPromptPlaceholder": "सिंथ पैड के साथ जोशीला इलेक्ट्रॉनिक संगीत...",
-    "speechTextPlaceholder": "नमस्ते! OmniRoute में आपका स्वागत है, आपका इंटेलिजेंट AI गेटवे...",
+    "speechTextPlaceholder": "नमस्ते! AI Gate में आपका स्वागत है, आपका इंटेलिजेंट AI गेटवे...",
     "transcriptionPlaceholder": "ट्रांसक्राइब करने के लिए एक ऑडियो फ़ाइल अपलोड करें...",
     "noImagesReturned": "कोई इमेज वापस नहीं मिली। हो सकता है कि प्रदाता ने अनुरोध स्वीकार कर लिया हो लेकिन खाली डेटा लौटाया हो।",
     "generatedImageAlt": "जनरेट की गई इमेज {index}",
@@ -2495,7 +2526,7 @@
     "video": "वीडियो",
     "videoSample": "पर्वत श्रृंखला के ऊपर बादलों का एक टाइम-लैप्स",
     "webFetch": "वेब फ़ेच",
-    "webSearchSample": "OmniRoute AI गेटवे क्या है?",
+    "webSearchSample": "AI Gate AI गेटवे क्या है?",
     "noActiveProviderDescription": "कोई सक्रिय खोज प्रदाता नहीं है। Providers में एक कॉन्फ़िगर करें।",
     "configureProviders": "प्रदाता कॉन्फ़िगर करें",
     "compareQuery": "तुलना करने के लिए क्वेरी",
@@ -2623,8 +2654,8 @@
     "antigravityStep2Prefix": "2. जोड़ें",
     "antigravityStep2Suffix": "आपकी होस्ट फ़ाइल में 127.0.0.1 के रूप में।",
     "antigravityStep3": "3. एंटीग्रेविटी खोलें और अनुरोधों को प्रॉक्सी किया जाएगा।",
-    "mitmHowWorksDesc": "{toolName} sends requests to its provider endpoint. MITM intercepts and redirects them to OmniRoute.",
-    "mitmStep1": "1. Start MITM to route requests through OmniRoute.",
+    "mitmHowWorksDesc": "{toolName} sends requests to its provider endpoint. MITM intercepts and redirects them to AI Gate.",
+    "mitmStep1": "1. Start MITM to route requests through AI Gate.",
     "mitmStep2Prefix": "2. Add",
     "mitmStep2Suffix": "to your hosts file as 127.0.0.1.",
     "mitmStep3": "3. Open {toolName} and requests will be proxied.",
@@ -2713,12 +2744,12 @@
       "continue": "IDE में जारी रखें चलाते समय उपयोग करें और आपको पोर्टेबल JSON-आधारित प्रदाता कॉन्फ़िगरेशन की आवश्यकता है।",
       "opencode": "जब आप ओपनकोड के माध्यम से टर्मिनल-नेटिव एजेंट रन और स्क्रिप्टेड ऑटोमेशन पसंद करते हैं तो इसका उपयोग करें।",
       "kiro": "किरो को एकीकृत करते समय और ओमनीरूट से केंद्रीय रूप से मॉडल रूटिंग को नियंत्रित करते समय उपयोग करें।",
-      "windsurf": "Use when you want an AI-first IDE with Codeium/Windsurf models routed through OmniRoute.",
+      "windsurf": "Use when you want an AI-first IDE with Codeium/Windsurf models routed through AI Gate.",
       "antigravity": "इसका उपयोग तब करें जब एंटीग्रेविटी/किरो ट्रैफिक को एमआईटीएम के माध्यम से रोका जाना चाहिए और ओमनीरूट पर भेजा जाना चाहिए।",
       "copilot": "जब आप ओम्निरूट कुंजी और रूटिंग नियमों को लागू करते समय कोपायलट चैट शैली यूएक्स चाहते हैं तो इसका उपयोग करें।",
-      "amp": "Use when you want Amp CLI routed through OmniRoute with stable shorthand aliases and OpenAI-compatible setup.",
+      "amp": "Use when you want Amp CLI routed through AI Gate with stable shorthand aliases and OpenAI-compatible setup.",
       "hermes": "जब आपको त्वरित कार्यों के लिए हल्के टर्मिनल-नेटिव एआई सहायक की आवश्यकता हो तो इसका उपयोग करें।",
-      "hermes-agent": "इसका उपयोग तब करें जब आपको OmniRoute के माध्यम से रूट किए गए डिफ़ॉल्ट, डेलिगेशन, विज़न और सहायक मॉडल के साथ Hermes Agent (Nousresearch द्वारा) की आवश्यकता हो।",
+      "hermes-agent": "इसका उपयोग तब करें जब आपको AI Gate के माध्यम से रूट किए गए डिफ़ॉल्ट, डेलिगेशन, विज़न और सहायक मॉडल के साथ Hermes Agent (Nousresearch द्वारा) की आवश्यकता हो।",
       "custom": "कस्टम टूल कार्यान्वयन या सामान्य OpenAI-संगत कॉन्फ़िगरेशन के लिए उपयोग करें।"
     },
     "toolDescriptions": {
@@ -2843,7 +2874,7 @@
           },
           "2": {
             "title": "Base URL",
-            "desc": "Paste your OmniRoute endpoint URL"
+            "desc": "Paste your AI Gate endpoint URL"
           },
           "3": {
             "title": "API Key"
@@ -2872,7 +2903,7 @@
           },
           "4": {
             "title": "API Key",
-            "desc": "Select your OmniRoute API key"
+            "desc": "Select your AI Gate API key"
           },
           "5": {
             "title": "Select Model",
@@ -2904,7 +2935,7 @@
     "customCliAliasPlaceholder": "जैसे समीक्षा",
     "customCliTargetModelLabel": "लक्ष्य मॉडल",
     "customCliEndpointHintLabel": "समापन बिंदु को कैसे तारित करें",
-    "customCliEndpointHint": "किसी भी OpenAI-संगत क्लाइंट को OmniRoute /v1 बेस URL पर इंगित करें। कच्ची चैट पूर्णता समापन बिंदु {endpoint} है। जब उपकरण प्रदाता ऑब्जेक्ट चाहता है तो JSON ब्लॉक का उपयोग करें, या जब यह OPENAI_* वेरिएबल पढ़ता है तो env स्क्रिप्ट का उपयोग करें।",
+    "customCliEndpointHint": "किसी भी OpenAI-संगत क्लाइंट को AI Gate /v1 बेस URL पर इंगित करें। कच्ची चैट पूर्णता समापन बिंदु {endpoint} है। जब उपकरण प्रदाता ऑब्जेक्ट चाहता है तो JSON ब्लॉक का उपयोग करें, या जब यह OPENAI_* वेरिएबल पढ़ता है तो env स्क्रिप्ट का उपयोग करें।",
     "customCliEnvBlockTitle": "Env/शेल स्निपेट",
     "customCliJsonBlockTitle": "प्रदाता JSON ब्लॉक",
     "networkError": "नेटवर्क त्रुटि",
@@ -2928,13 +2959,13 @@
     "hermesSelectBeforePreview": "पूर्वावलोकन करने से पहले, भूमिकाओं के लिए मॉडल चुनें, या सुनिश्चित करें कि भूमिकाएं लोड हैं।",
     "hermesPreviewFailed": "पूर्वावलोकन जनरेट करने में विफल",
     "hermesSavedTo": "{path} पर सहेजा गया",
-    "hermesFirstSetupTitle": "{date} को OmniRoute के माध्यम से पहली बार सेट अप किया गया",
+    "hermesFirstSetupTitle": "{date} को AI Gate के माध्यम से पहली बार सेट अप किया गया",
     "hermesSinceSetup": "सेटअप के बाद से {time}",
     "hermesConfiguredRoles": "{configured}/{total} भूमिकाएं",
     "hermesQuickApply": "सभी भूमिकाओं पर तुरंत वही मॉडल लागू करें:",
     "hermesApplyModelToAll": "प्रत्येक भूमिका पर {model} लागू करें",
-    "hermesViaOmniRoute": "{provider} (OmniRoute के माध्यम से)",
-    "hermesNotOmniRoute": "{provider} (OmniRoute नहीं)",
+    "hermesViaAI Gate": "{provider} (AI Gate के माध्यम से)",
+    "hermesNotAI Gate": "{provider} (AI Gate नहीं)",
     "hermesRemovePendingRole": "इस भूमिका को लंबित परिवर्तनों से हटाएं",
     "hermesApply": "Hermes Agent पर लागू करें",
     "hermesRolesWillUpdate": "{count, plural, one {# भूमिका अपडेट की जाएगी} other {# भूमिकाएं अपडेट की जाएंगी}}",
@@ -2965,8 +2996,30 @@
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
     "ccOnboardingCopied": "__MISSING__:Copied",
-    "ccOnboardingKeyPlaceholder": "__MISSING__:<your OmniRoute API key>",
-    "ccOnboardingWindowNote": "__MISSING__:Claude Code assumes a 200K context window for any model id it does not recognize. For a model with a different real window, add CLAUDE_CODE_AUTO_COMPACT_WINDOW just under it so auto-compaction does not fire too early."
+    "ccOnboardingKeyPlaceholder": "__MISSING__:<your AI Gate API key>",
+    "ccOnboardingWindowNote": "__MISSING__:Claude Code assumes a 200K context window for any model id it does not recognize. For a model with a different real window, add CLAUDE_CODE_AUTO_COMPACT_WINDOW just under it so auto-compaction does not fire too early.",
+    "hermesRoleMcp": "MCP",
+    "hermesRoleMcpDesc": "MCP server tool calls",
+    "hermesRoleTitleGeneration": "Title Generation",
+    "hermesRoleTitleGenerationDesc": "Session title generation",
+    "hermesRoleMemoryQueryRewrite": "Memory Query Rewrite",
+    "hermesRoleMemoryQueryRewriteDesc": "Memory search query rewriting",
+    "hermesRoleTtsAudioTags": "TTS Audio Tags",
+    "hermesRoleTtsAudioTagsDesc": "TTS audio tag generation",
+    "hermesRoleTriageSpecifier": "Triage Specifier",
+    "hermesRoleTriageSpecifierDesc": "Issue and PR triage specification",
+    "hermesRoleKanbanDecomposer": "Kanban Decomposer",
+    "hermesRoleKanbanDecomposerDesc": "Kanban task decomposition",
+    "hermesRoleProfileDescriber": "Profile Describer",
+    "hermesRoleProfileDescriberDesc": "User profile description",
+    "hermesRoleGoalJudge": "Goal Judge",
+    "hermesRoleGoalJudgeDesc": "Goal completion judging",
+    "hermesRoleCurator": "Curator",
+    "hermesRoleCuratorDesc": "Skill and memory curation",
+    "hermesRoleMonitor": "Monitor",
+    "hermesRoleMonitorDesc": "Background monitoring",
+    "hermesRoleBackgroundReview": "Background Review",
+    "hermesRoleBackgroundReviewDesc": "Background code review"
   },
   "combos": {
     "title": "संयोजन",
@@ -3053,7 +3106,7 @@
     "concurrencyPerModel": "समवर्ती/मॉडल",
     "queueTimeout": "कतार समय समाप्ति (एमएस)",
     "contextRelayHandoffThreshold": "Handoff Threshold",
-    "contextRelayHandoffThresholdHelp": "When quota usage reaches this threshold, OmniRoute generates a structured handoff summary before the active account is exhausted.",
+    "contextRelayHandoffThresholdHelp": "When quota usage reaches this threshold, AI Gate generates a structured handoff summary before the active account is exhausted.",
     "contextRelayMaxMessages": "Max Messages For Summary",
     "contextRelayMaxMessagesHelp": "Limits how much recent history is condensed into the relay summary.",
     "contextRelaySummaryModel": "Summary Model",
@@ -3516,10 +3569,7 @@
     "modePack": "मोड पैक",
     "disableSessionStickiness": "सेशन स्टिकिनेस अक्षम करें",
     "sessionStickinessEnabled": "स्टिकिनेस चालू",
-    "sessionStickinessDisabled": "स्टिकिनेस बंद",
-    "kimiPresetTitle": "Kimi Coding प्रीसेट",
-    "kimiPresetDescription": "मुख्य मॉडल के रूप में Kimi K3 (Moonshot API), कॉन्फ़िगर होने पर आपके Kimi Code कनेक्शन (kimi-coding, kimi-web) पर स्वचालित फ़ॉलबैक के साथ।",
-    "kimiPresetCta": "प्रीसेट जोड़ें"
+    "sessionStickinessDisabled": "स्टिकिनेस बंद"
   },
   "costs": {
     "title": "लागत",
@@ -3647,7 +3697,7 @@
     "moderationsDesc": "सामग्री मॉडरेशन और सुरक्षा वर्गीकरण",
     "responsesDesc": "OpenAI Responses API for Codex and advanced agentic workflows",
     "listModelsDesc": "List all available models across all connected providers",
-    "settingsApiDesc": "Read and modify OmniRoute configuration via API",
+    "settingsApiDesc": "Read and modify AI Gate configuration via API",
     "settingsApi": "Settings API",
     "categoryCore": "कोर API",
     "categoryMedia": "मीडिया और मल्टी-मोडल",
@@ -3755,9 +3805,9 @@
     "videoDesc": "Generate videos using AI models like ComfyUI and Stable Video Diffusion.",
     "tailscaleRequestFailed": "Failed to load Tailscale status",
     "tailscaleEnableFailed": "Failed to enable Tailscale Funnel",
-    "tailscaleWaitingForLogin": "Complete the Tailscale login in the opened browser tab. OmniRoute will retry automatically.",
+    "tailscaleWaitingForLogin": "Complete the Tailscale login in the opened browser tab. AI Gate will retry automatically.",
     "tailscaleLoginTimedOut": "Timed out waiting for Tailscale login",
-    "tailscaleWaitingForFunnel": "Enable Funnel for this device in the opened browser tab. OmniRoute will keep polling.",
+    "tailscaleWaitingForFunnel": "Enable Funnel for this device in the opened browser tab. AI Gate will keep polling.",
     "tailscaleFunnelTimedOut": "Timed out waiting for Tailscale Funnel to be enabled",
     "tailscaleStarted": "Tailscale Funnel enabled",
     "tailscaleDisableFailed": "Failed to disable Tailscale Funnel",
@@ -3781,7 +3831,7 @@
     "tailscaleBinaryPath": "Binary: {path}",
     "tailscaleLastError": "Last error: {error}",
     "tailscaleInstallTitle": "Install Tailscale",
-    "tailscaleInstallIntro": "Installs Tailscale on this machine and prepares OmniRoute to enable Funnel.",
+    "tailscaleInstallIntro": "Installs Tailscale on this machine and prepares AI Gate to enable Funnel.",
     "tailscaleInstallPasswordHint": "On macOS and Linux, sudo may be required for the package install and daemon start.",
     "tailscaleSudoPlaceholder": "Optional sudo password",
     "tailscaleInstalling": "Installing",
@@ -3908,7 +3958,32 @@
     "obsidianWebdavUrl": "WebDAV URL",
     "obsidianUsername": "यूज़रनेम",
     "obsidianPassword": "पासवर्ड",
-    "obsidianTailscaleHint": "यदि मोबाइल से कनेक्ट कर रहे हैं तो localhost के बजाय अपने Tailscale IP का उपयोग करें। दोनों डिवाइस एक ही Tailscale नेटवर्क पर होने चाहिए।"
+    "obsidianTailscaleHint": "यदि मोबाइल से कनेक्ट कर रहे हैं तो localhost के बजाय अपने Tailscale IP का उपयोग करें। दोनों डिवाइस एक ही Tailscale नेटवर्क पर होने चाहिए।",
+    "auxiliaryAccess": "Auxiliary access",
+    "auxiliaryAccessDesc": "Supporting facilities for connecting tools and clients.",
+    "entryApiKeys": "API Keys",
+    "entryApiKeysDesc": "Create and manage API keys with scopes",
+    "entryCliCode": "CLI Code",
+    "entryCliCodeDesc": "Code snippets pointing to AI Gate",
+    "entryAccessTokens": "Access Tokens",
+    "entryAccessTokensDesc": "Long-lived tokens for external tooling",
+    "entryMcpServers": "MCP Servers",
+    "entryMcpServersDesc": "Registered MCP endpoints and connection tests",
+    "entryVscodeAlias": "VS Code Token Alias",
+    "viewOnThisPage": "View on this page",
+    "tabApiEndpoints": "API Endpoints",
+    "tabServices": "Services",
+    "servicesTotal": "Total services",
+    "servicesEnabled": "Enabled",
+    "servicesUp": "Healthy",
+    "servicesName": "Name",
+    "servicesUrl": "Access path",
+    "servicesType": "Type",
+    "servicesStatus": "Status",
+    "servicesDisabled": "Disabled",
+    "servicesManage": "Manage services",
+    "servicesLoadError": "Failed to load services",
+    "servicesProxied": "via gateway"
   },
   "endpoints": {
     "tabProxy": "Endpoint Proxy",
@@ -4006,7 +4081,15 @@
     "apiKeyId": "Api Key Id",
     "offset": "Offset",
     "limit": "Limit",
-    "tool": "Tool"
+    "tool": "Tool",
+    "connectionEndpoints": "Connection endpoints",
+    "connectionEndpointsDesc": "Register these URLs in your MCP client (Claude Desktop, Cursor, etc.) to use the gateway tools.",
+    "requiredScope": "Required scope",
+    "endpointDisabled": "Disabled",
+    "streamableHttpLabel": "Streamable HTTP",
+    "sseLabel": "SSE",
+    "copied": "Copied",
+    "lazyStartHint": "The bridge starts lazily on first call — this state is normal."
   },
   "a2aDashboard": {
     "loading": "Loading A2A dashboard...",
@@ -4094,7 +4177,7 @@
     "compactOld": "पुराने को संकुचित करें",
     "concept": {
       "title": "संवादात्मक मेमोरी",
-      "description": "OmniRoute हर बातचीत से सीखता है, तथ्यों, प्रसंगों, प्रक्रियाओं और सिमेंटिक अवधारणाओं को याद रखता है जो प्रतिक्रियाओं को अधिक सटीक और संदर्भ-जागरूक बनाते हैं।",
+      "description": "AI Gate हर बातचीत से सीखता है, तथ्यों, प्रसंगों, प्रक्रियाओं और सिमेंटिक अवधारणाओं को याद रखता है जो प्रतिक्रियाओं को अधिक सटीक और संदर्भ-जागरूक बनाते हैं।",
       "howWorksToggle": "यह कैसे काम करता है",
       "howWorksContent": "1. स्वचालित निष्कर्षण: प्रत्येक प्रतिक्रिया के अंत में, तथ्यों और प्रसंगों का पता लगाया जाता है और उन्हें स्वचालित रूप से सहेजा जाता है।\n2. पुनर्प्राप्ति: प्रत्येक प्रतिक्रिया से पहले, FTS5 (सटीक), वेक्टर (सिमेंटिक), या हाइब्रिड RRF के माध्यम से सबसे प्रासंगिक यादों को खोजा जाता है।\n3. इंजेक्शन: प्रतिक्रिया की गुणवत्ता में सुधार के लिए सहायक संदर्भ में प्रासंगिक यादों को इंजेक्ट किया जाता है।\n4. प्रबंधन: पुरानी यादों को देखने, संपादित करने, निर्यात करने और संकुचित करने के लिए इस पृष्ठ का उपयोग करें।"
     },
@@ -4203,7 +4286,7 @@
       "enableDesc": "सक्षम होने पर, Qdrant का उपयोग प्राथमिक वेक्टर स्टोर के रूप में किया जाता है",
       "banner": "टियर 2 वेक्टर स्टोर — अंतर्निहित sqlite-vec (टियर 1) का एक बाहरी, स्केलेबल विकल्प। इसे केवल तभी सक्षम करें जब आपके पास बहुत बड़ा मेमोरी सेट हो या आप विभिन्न इंस्टेंस में साझा मेमोरी चाहते हों; अधिकांश उपयोगकर्ता sqlite-vec पर ठीक काम कर सकते हैं। सक्षम होने पर यह प्राथमिक स्टोर बन जाता है और अनुपलब्ध होने पर स्वचालित रूप से sqlite-vec पर वापस आ जाता है।",
       "hostHelp": "स्थानीय Docker: http://localhost:6333 · Qdrant Cloud: आपका क्लस्टर URL",
-      "collectionHelp": "कोई भी नाम — OmniRoute इसे पहले उपयोग पर बनाता है",
+      "collectionHelp": "कोई भी नाम — AI Gate इसे पहले उपयोग पर बनाता है",
       "embeddingModelHelp": "पहली बार उपयोग करने पर वेक्टर आयाम को स्वचालित रूप से सेट करता है। मौजूदा मेमोरीज़ को बैक-फिल नहीं किया जाता है, और डेटा मौजूद होने के बाद मॉडल को बदलने के लिए एक नए कलेक्शन की आवश्यकता होती है।",
       "testConnection": "कनेक्शन का परीक्षण करें",
       "testing": "परीक्षण किया जा रहा है...",
@@ -4760,7 +4843,7 @@
     "adaptaTutorial": {
       "title": "Adapta Web को कैसे कनेक्ट करें",
       "introPrefix": "Adapta, Clerk के माध्यम से प्रमाणीकरण करता है। टोकन",
-      "introSuffix": "एक दीर्घकालिक JWT है जो OmniRoute को सत्रों को स्वचालित रूप से रीफ़्रेश करने देता है।",
+      "introSuffix": "एक दीर्घकालिक JWT है जो AI Gate को सत्रों को स्वचालित रूप से रीफ़्रेश करने देता है।",
       "or": "या",
       "step1Title": "Adapta चैट खोलें",
       "step1DescPrefix": "खोलें",
@@ -4779,7 +4862,7 @@
       "step5Title": "इसे यहाँ पेस्ट करें और सेव करें",
       "step5DescPrefix": "क्लिक करें",
       "step5DescMiddle": "पेस्ट करें",
-      "step5DescSuffix": "मान को API Key फ़ील्ड में, फिर सेव करें। OmniRoute सत्र को स्वचालित रूप से रीफ़्रेश करेगा।",
+      "step5DescSuffix": "मान को API Key फ़ील्ड में, फिर सेव करें। AI Gate सत्र को स्वचालित रूप से रीफ़्रेश करेगा।",
       "tipLabel": "सुझाव:",
       "tipPrefix": "यह",
       "tipSuffix": "कुकी लंबे समय तक मान्य रहती है, आमतौर पर महीनों तक। आपको इसे केवल तभी नवीनीकृत करने की आवश्यकता होती है जब आप साइन आउट करते हैं या Adapta सत्र को अमान्य कर देता है।"
@@ -5147,7 +5230,7 @@
     "compatDoNotPreserveDeveloper": "Do not preserve developer role",
     "compatBadgeNoPreserve": "No preserve",
     "compatProtocolLabel": "Client request protocol",
-    "compatProtocolHint": "These options apply when OmniRoute detects this request shape (OpenAI Chat, Responses API, or Anthropic Messages).",
+    "compatProtocolHint": "These options apply when AI Gate detects this request shape (OpenAI Chat, Responses API, or Anthropic Messages).",
     "compatProtocolOpenAI": "OpenAI Chat Completions",
     "compatProtocolOpenAIResponses": "OpenAI Responses API",
     "compatProtocolClaude": "Anthropic Messages",
@@ -5182,15 +5265,15 @@
     "paramFiltersResetSuccess": "पैरामीटर फ़िल्टर कॉन्फ़िगरेशन डिफ़ॉल्ट पर रीसेट किया गया",
     "paramFiltersResetError": "पैरामीटर फ़िल्टर कॉन्फ़िगरेशन रीसेट करने में विफल: {error}",
     "interceptionSectionTitle": "वेब टूल इंटरसेप्शन",
-    "interceptionSectionHint": "इस प्रदाता के मूल web_search / web_fetch टूल कॉल को प्रदाता द्वारा मूल रूप से चलाने देने के बजाय OmniRoute के अपने खोज और फ़ेच एंडपॉइंट के माध्यम से रूट करें। डिफ़ॉल्ट रूप से बंद — मौजूदा व्यवहार अपरिवर्तित है।",
+    "interceptionSectionHint": "इस प्रदाता के मूल web_search / web_fetch टूल कॉल को प्रदाता द्वारा मूल रूप से चलाने देने के बजाय AI Gate के अपने खोज और फ़ेच एंडपॉइंट के माध्यम से रूट करें। डिफ़ॉल्ट रूप से बंद — मौजूदा व्यवहार अपरिवर्तित है।",
     "interceptSearchLabel": "web_search को इंटरसेप्ट करें",
-    "interceptSearchHint": "मूल web_search टूल कॉल को OmniRoute के /v1/search पर रीराइट करें।",
+    "interceptSearchHint": "मूल web_search टूल कॉल को AI Gate के /v1/search पर रीराइट करें।",
     "interceptFetchLabel": "web_fetch को इंटरसेप्ट करें",
-    "interceptFetchHint": "मूल web_fetch टूल कॉल को OmniRoute के /v1/web/fetch पर रीराइट करें।",
+    "interceptFetchHint": "मूल web_fetch टूल कॉल को AI Gate के /v1/web/fetch पर रीराइट करें।",
     "interceptionLoadError": "इंटरसेप्शन सेटिंग्स लोड करने में विफल: {error}",
     "interceptionSaveError": "इंटरसेप्शन सेटिंग्स सहेजने में विफल: {error}",
     "compatUpstreamHeadersLabel": "Extra upstream headers",
-    "compatUpstreamHeadersHint": "High-privilege setting — same trust level as editing provider API credentials; only trusted admins should use it. Merged after OmniRoute adds auth from the provider API key. If a custom header uses the same name as an existing one (e.g. Authorization), your value fully replaces the auto-generated header (including the Bearer token) — the upstream only sees what you typed, not the key from settings. Misconfiguration can cause 401 or broken upstream auth. One row per header (e.g. extra Authentication for some gateways). Hover or focus the value to preview. Saves on blur, outside click, or closing this panel.",
+    "compatUpstreamHeadersHint": "High-privilege setting — same trust level as editing provider API credentials; only trusted admins should use it. Merged after AI Gate adds auth from the provider API key. If a custom header uses the same name as an existing one (e.g. Authorization), your value fully replaces the auto-generated header (including the Bearer token) — the upstream only sees what you typed, not the key from settings. Misconfiguration can cause 401 or broken upstream auth. One row per header (e.g. extra Authentication for some gateways). Hover or focus the value to preview. Saves on blur, outside click, or closing this panel.",
     "compatUpstreamHeaderName": "Header name",
     "compatUpstreamHeaderValue": "Value",
     "compatUpstreamAddRow": "Add header",
@@ -5493,7 +5576,7 @@
     "googlePseInfo": "Google Pse Info",
     "antigravityProjectIdHint": "एंटीग्रेविटी क्लाउड कोड अनुरोधों के लिए वैकल्पिक ओवरराइड। Google OAuth के दौरान खोजे गए प्रोजेक्ट का उपयोग करने के लिए खाली छोड़ दें।",
     "antigravityClientProfileLabel": "क्लाइंट प्रोफ़ाइल",
-    "antigravityClientProfileHint": "चुनें कि OmniRoute API को कौन सी Antigravity क्लाइंट पहचान प्रस्तुत करता है।",
+    "antigravityClientProfileHint": "चुनें कि AI Gate API को कौन सी Antigravity क्लाइंट पहचान प्रस्तुत करता है।",
     "antigravityClientProfileIde": "IDE",
     "antigravityClientProfileCli": "Harness / CLI",
     "codexFastTierActiveChip": "Codex Fast टियर सक्रिय है",
@@ -5522,7 +5605,7 @@
     "tierOverrideFree": "मुफ़्त",
     "tierOverrideCheap": "सस्ता",
     "tierOverridePremium": "प्रीमियम",
-    "tierOverrideHelpText": "OmniRoute को मॉडल मूल्य निर्धारण से इसका अनुमान लगाने देने के बजाय इस प्रदाता को एक राउटिंग टियर पर पिन करें।",
+    "tierOverrideHelpText": "AI Gate को मॉडल मूल्य निर्धारण से इसका अनुमान लगाने देने के बजाय इस प्रदाता को एक राउटिंग टियर पर पिन करें।",
     "museSparkWebCookieHint": "Muse Spark Web Cookie Hint",
     "museSparkWebCookiePlaceholder": "Muse Spark Web Cookie Placeholder",
     "oauth": "Oauth",
@@ -5613,7 +5696,7 @@
     "zedNoCredentials": "कीचेन में कोई Zed क्रेडेंशियल नहीं मिले",
     "zedUnsupportedCredentials": "{count} कीचेन क्रेडेंशियल मिले, लेकिन कोई भी समर्थित प्रदाताओं से मेल नहीं खाता",
     "zedManualTitle": "मैन्युअल टोकन आयात",
-    "zedManualDescription": "इसका उपयोग तब करें जब OmniRoute Docker में चल रहा हो या कीचेन अनुपलब्ध हो। Zed द्वारा <path>~/.config/zed/settings.json</path> के अंतर्गत संग्रहीत API कुंजी पेस्ट करें, या इसे Zed AI सेटिंग्स पैनल से कॉपी करें।",
+    "zedManualDescription": "इसका उपयोग तब करें जब AI Gate Docker में चल रहा हो या कीचेन अनुपलब्ध हो। Zed द्वारा <path>~/.config/zed/settings.json</path> के अंतर्गत संग्रहीत API कुंजी पेस्ट करें, या इसे Zed AI सेटिंग्स पैनल से कॉपी करें।",
     "zedPasteApiKey": "API कुंजी पेस्ट करें…",
     "zedSaving": "सहेज रहा है…",
     "zedImportAction": "आयात करें",
@@ -5663,9 +5746,9 @@
     "webFetchTooltip": "प्रदाता जो वेब URL से सामग्री निकालते हैं (HTML → Markdown, स्क्रैप, स्क्रीनशॉट)",
     "webFetchProvidersHeading": "वेब फ़ेच प्रदाता",
     "compatibleProvidersDesc": "OpenAI-संगत और Anthropic-संगत एंडपॉइंट जिन्हें आप होस्ट या कॉन्फ़िगर करते हैं। किसी भी OpenAI SDK को अपने स्वयं के URL पर इंगित करें और अनुरोधों को यहाँ रूट करें।",
-    "oauthProvidersDesc": "OAuth के माध्यम से प्रमाणित प्रदाता — एक बार साइन इन करें और OmniRoute टोकन रोटेशन को स्वचालित रूप से संभालता है।",
+    "oauthProvidersDesc": "OAuth के माध्यम से प्रमाणित प्रदाता — एक बार साइन इन करें और AI Gate टोकन रोटेशन को स्वचालित रूप से संभालता है।",
     "webCookieProvidersDesc": "ये प्रदाता एपीआई कुंजियों के बजाय ब्राउज़र वेब सत्र, कुकीज़ या वेब टोकन का उपयोग करते हैं। आवश्यक सत्र क्रेडेंशियल जोड़ने के लिए एक प्रदाता खोलें।",
-    "apiKeyProvidersDesc": "मानक API कुंजी प्रदाता। अपनी कुंजी एक बार जोड़ें और OmniRoute आपकी ओर से रूट, पुनः प्रयास और दर-सीमा तय करता है।",
+    "apiKeyProvidersDesc": "मानक API कुंजी प्रदाता। अपनी कुंजी एक बार जोड़ें और AI Gate आपकी ओर से रूट, पुनः प्रयास और दर-सीमा तय करता है।",
     "noAuthProvidersDesc": "ओपन एंडपॉइंट्स जिन्हें किसी क्रेडेंशियल की आवश्यकता नहीं है — बिना किसी साइन-अप के तुरंत उपयोग के लिए तैयार।",
     "upstreamProxyProvidersDesc": "प्रदाता तक पहुँचने से पहले आउटबाउंड ट्रैफ़िक को अपस्ट्रीम प्रॉक्सी के माध्यम से रूट करें। कॉर्पोरेट नेटवर्क या ट्रैफ़िक निरीक्षण के लिए उपयोगी।",
     "webFetchProvidersDesc": "प्रदाता जो वेब URL से सामग्री प्राप्त और एक्सट्रैक्ट करते हैं। लाइव वेब डेटा के साथ प्रॉम्प्ट को ग्राउंड करने के लिए इनका उपयोग करें।",
@@ -5755,10 +5838,10 @@
       "bailian-coding-plan": "Alibaba Coding Plan को एक API कुंजी से कनेक्ट करें।",
       "bedrock": "मूल Bedrock एकीकरण: मॉडल खोज Bedrock फाउंडेशन मॉडल और इनफेरेंस प्रोफाइल का उपयोग करती है, जबकि चैट क्षेत्रीय Bedrock Runtime Converse/ConverseStream API का उपयोग करती है।",
       "anthropic": "Anthropic को एक API कुंजी से कनेक्ट करें।",
-      "ant-ling": "__MISSING__:Register and create an API key at the Ant Ling API console (https://chat.ant-ling.com/open), then paste it here. OmniRoute routes chat traffic to https://api.ant-ling.com/v1/chat/completions; the provider is OpenAI-compatible and also exposes an Anthropic-compatible surface.",
+      "ant-ling": "__MISSING__:Register and create an API key at the Ant Ling API console (https://chat.ant-ling.com/open), then paste it here. AI Gate routes chat traffic to https://api.ant-ling.com/v1/chat/completions; the provider is OpenAI-compatible and also exposes an Anthropic-compatible surface.",
       "api-airforce": "https://panel.api.airforce से अपनी API कुंजी प्राप्त करें — OpenAI-संगत एंडपॉइंट https://api.airforce/v1 पर है",
       "arcee-ai": "arcee.ai पर API कुंजी प्राप्त करें",
-      "azure-ai": "Foundry मॉडल के रूप में परिनियोजन नामों के साथ OpenAI v1 सरफेस का उपयोग करता है। OmniRoute रूट संसाधन URL को v1 चैट और /models एंडपॉइंट्स पर सामान्य करता है।",
+      "azure-ai": "Foundry मॉडल के रूप में परिनियोजन नामों के साथ OpenAI v1 सरफेस का उपयोग करता है। AI Gate रूट संसाधन URL को v1 चैट और /models एंडपॉइंट्स पर सामान्य करता है।",
       "azure-openai": "अपनी Azure OpenAI API कुंजी का उपयोग करें। बेस URL आपका संसाधन एंडपॉइंट होना चाहिए, उदाहरण के लिए https://my-resource.openai.azure.com।",
       "bai": "b.ai OpenAI-संगत LLM गेटवे (TheB.AI से अलग) के लिए Bearer API कुंजी। https://docs.b.ai पर एक कुंजी बनाएं, फिर OpenAI-संगत बेस URL के रूप में https://api.b.ai/v1 का उपयोग करें।",
       "baichuan": "platform.baichuan-ai.com पर API कुंजी प्राप्त करें",
@@ -5776,7 +5859,7 @@
       "chutes": "Chutes OpenAI-संगत गेटवे के लिए Bearer API कुंजी।",
       "clarifai": "Clarifai /v2/ext/openai/v1 पर OpenAI-संगत चैट, प्रतिक्रियाएं और /models प्रदर्शित करता है। सार्वजनिक/सामुदायिक मॉडल के लिए आमतौर पर एक PAT की आवश्यकता होती है; ऐप-स्कोप्ड कुंजियाँ केवल उसी ऐप के भीतर के संसाधनों के लिए काम करती हैं।",
       "cloudflare-ai": "API टोकन और खाता आईडी (Account ID) की आवश्यकता है (dash.cloudflare.com पर पाई जा सकती है)",
-      "clova-studio": "__MISSING__:CLOVA Studio (HyperCLOVA X) is OpenAI-compatible on /v1/openai. OmniRoute probes /v1/openai/models and routes chat traffic to /v1/openai/chat/completions. Uses the current clovastudio.stream.ntruss.com host — the legacy clovastudio.apigw.ntruss.com endpoint is being deprecated.",
+      "clova-studio": "__MISSING__:CLOVA Studio (HyperCLOVA X) is OpenAI-compatible on /v1/openai. AI Gate probes /v1/openai/models and routes chat traffic to /v1/openai/chat/completions. Uses the current clovastudio.stream.ntruss.com host — the legacy clovastudio.apigw.ntruss.com endpoint is being deprecated.",
       "codestral": "Codestral को एक API कुंजी से कनेक्ट करें।",
       "cohere": "निःशुल्क परीक्षण: परीक्षण के लिए 1,000 API कॉल/माह, किसी क्रेडिट कार्ड की आवश्यकता नहीं है",
       "command-code": "Command Code से एक API कुंजी बनाएं या कॉपी करें, फिर उसे यहाँ Bearer टोकन के रूप में पेस्ट करें।",
@@ -5789,7 +5872,7 @@
       "dgrid": "https://dgrid.ai पर एक DGrid API कुंजी बनाएं, फिर https://api.dgrid.ai/v1 को OpenAI-संगत बेस URL के रूप में उपयोग करें।",
       "dify": "अपने Dify इंस्टेंस से API कुंजी प्राप्त करें।",
       "digitalocean": "DigitalOcean को एक API कुंजी से कनेक्ट करें।",
-      "dit": "dit.ai (Distributed Intelligence Trade) गतिशील प्रति-अनुरोध मूल्य निर्धारण के साथ एक OpenAI-संगत राउटर/गेटवे है, जो https://api.dit.ai/v1 पर /v1/chat/completions प्रदर्शित करता है। OmniRoute, OpenAI प्रोटोकॉल का उपयोग करता है; खर्च/बचत विश्लेषण dit.ai डैशबोर्ड में लाइव होते हैं।",
+      "dit": "dit.ai (Distributed Intelligence Trade) गतिशील प्रति-अनुरोध मूल्य निर्धारण के साथ एक OpenAI-संगत राउटर/गेटवे है, जो https://api.dit.ai/v1 पर /v1/chat/completions प्रदर्शित करता है। AI Gate, OpenAI प्रोटोकॉल का उपयोग करता है; खर्च/बचत विश्लेषण dit.ai डैशबोर्ड में लाइव होते हैं।",
       "doubao": "console.volcengine.com पर API कुंजी प्राप्त करें",
       "empower": "Empower, https://app.empower.dev/api/v1 पर OpenAI-संगत चैट प्रदर्शित करता है जिसमें empower-functions पर टूल-कॉलिंग समर्थन शामिल है।",
       "factory": "https://app.factory.ai/settings/api-keys पर अपनी Factory API कुंजी प्राप्त करें, फिर इसे Bearer टोकन के रूप में पेस्ट करें। OpenAI-संगत एंडपॉइंट https://api.factory.ai/v1 पर है।",
@@ -5826,7 +5909,7 @@
       "internlm": "__MISSING__:Free monthly quota ~1M input / 3M output tokens (~10 RPM)",
       "jina-ai": "Jina AI rerank API के लिए Bearer API कुंजी।",
       "jina-reader": "Jina Reader को एक API कुंजी से कनेक्ट करें।",
-      "kenari": "Kenari https://kenari.id/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन्स एंडपॉइंट प्रदर्शित करता है, साथ ही एक लाइव /v1/models कैटलॉग भी प्रदान करता है जिसमें Claude, GPT, DeepSeek, GLM, Kimi और बहुत कुछ शामिल हैं। OmniRoute OpenAI प्रोटोकॉल का उपयोग करता है और पासथ्रू के माध्यम से मॉडलों को सूचीबद्ध करता है।",
+      "kenari": "Kenari https://kenari.id/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन्स एंडपॉइंट प्रदर्शित करता है, साथ ही एक लाइव /v1/models कैटलॉग भी प्रदान करता है जिसमें Claude, GPT, DeepSeek, GLM, Kimi और बहुत कुछ शामिल हैं। AI Gate OpenAI प्रोटोकॉल का उपयोग करता है और पासथ्रू के माध्यम से मॉडलों को सूचीबद्ध करता है।",
       "kie": "KIE.AI को एक API कुंजी से कनेक्ट करें।",
       "kilo-gateway": "Kilo Gateway को एक API कुंजी से कनेक्ट करें।",
       "kimi": "Kimi को एक API कुंजी से कनेक्ट करें।",
@@ -5843,23 +5926,23 @@
       "minimax-cn": "Minimax (China) को एक API कुंजी से कनेक्ट करें।",
       "minimax": "Minimax Coding को एक API कुंजी से कनेक्ट करें।",
       "mistral": "निःशुल्क प्रयोग टियर: सभी मॉडलों तक दर-सीमित पहुंच, किसी क्रेडिट कार्ड की आवश्यकता नहीं है",
-      "modal": "Modal आमतौर पर /v1 पर उपयोगकर्ता-होस्ट किए गए OpenAI-संगत ऐप्स को सेवा प्रदान करता है। OmniRoute /v1/models की जांच करेगा और चैट ट्रैफ़िक को /v1/chat/completions पर रूट करेगा।",
+      "modal": "Modal आमतौर पर /v1 पर उपयोगकर्ता-होस्ट किए गए OpenAI-संगत ऐप्स को सेवा प्रदान करता है। AI Gate /v1/models की जांच करेगा और चैट ट्रैफ़िक को /v1/chat/completions पर रूट करेगा।",
       "modelscope": "ModelScope API-Inference के माध्यम से निःशुल्क टियर — अलीबाबा खाते की आवश्यकता है।",
       "monsterapi": "monsterapi.ai पर API कुंजी प्राप्त करें",
       "moonshot": "Moonshot AI को एक API कुंजी से कनेक्ट करें।",
       "morph": "निःशुल्क टियर: 250K क्रेडिट/माह, $0",
       "nanogpt": "NanoGPT को एक API कुंजी से कनेक्ट करें।",
       "nebius": "API परीक्षण के लिए साइनअप पर ~$1 ट्रायल क्रेडिट",
-      "nlpcloud": "NLP Cloud, OpenAI chat/completions के बजाय एक मालिकाना चैटबॉट API का उपयोग करता है। OmniRoute OpenAI संदेशों को इनपुट/संदर्भ/इतिहास के अनुकूल बनाता है और समर्थित चैटबॉट मॉडलों का एक स्थानीय कैटलॉग प्रदर्शित करता है।",
+      "nlpcloud": "NLP Cloud, OpenAI chat/completions के बजाय एक मालिकाना चैटबॉट API का उपयोग करता है। AI Gate OpenAI संदेशों को इनपुट/संदर्भ/इतिहास के अनुकूल बनाता है और समर्थित चैटबॉट मॉडलों का एक स्थानीय कैटलॉग प्रदर्शित करता है।",
       "nomic": "atlas.nomic.ai पर API कुंजी प्राप्त करें",
       "nous-research": "Nous एक बड़े रिमोट /models कैटलॉग के साथ एक OpenAI-संगत /v1 सरफेस प्रदर्शित करता है। प्रोग्रामेटिक इन्फरेंस के लिए /chat/completions एंडपॉइंट को एक वैध API कुंजी की आवश्यकता होती है।",
       "novita": "साइनअप पर $0.50 ट्रायल क्रेडिट (लगभग 1 वर्ष के लिए वैध)",
       "nscale": "इन्फरेंस परीक्षण के लिए साइनअप पर $5 निःशुल्क क्रेडिट",
       "nube": "Nube.sh को एक API कुंजी से कनेक्ट करें।",
       "nvidia": "निःशुल्क देव एक्सेस: ~40 RPM, 70+ मॉडल (Kimi K2.5, GLM 4.7, DeepSeek V3.2...)",
-      "oci": "OCI OpenAI-संगत चैट और रिस्पॉन्स एंडपॉइंट्स को एक्सपोज़ करता है। OmniRoute में Project ID वैकल्पिक है लेकिन Responses और एजेंटिक वर्कफ़्लो के लिए आवश्यक हो सकता है।",
+      "oci": "OCI OpenAI-संगत चैट और रिस्पॉन्स एंडपॉइंट्स को एक्सपोज़ करता है। AI Gate में Project ID वैकल्पिक है लेकिन Responses और एजेंटिक वर्कफ़्लो के लिए आवश्यक हो सकता है।",
       "ollama-cloud": "API कुंजी के साथ Ollama Cloud को कनेक्ट करें।",
-      "openadapter": "OpenAdapter https://api.openadapter.in/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट एक्सपोज़ करता है, जो 70+ ओपन-सोर्स मॉडल (DeepSeek, Qwen, Kimi, MiniMax, GLM, Llama, Mistral, …) को एकत्रित करता है। OmniRoute OpenAI प्रोटोकॉल का उपयोग करता है।",
+      "openadapter": "OpenAdapter https://api.openadapter.in/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट एक्सपोज़ करता है, जो 70+ ओपन-सोर्स मॉडल (DeepSeek, Qwen, Kimi, MiniMax, GLM, Llama, Mistral, …) को एकत्रित करता है। AI Gate OpenAI प्रोटोकॉल का उपयोग करता है।",
       "openai": "API कुंजी के साथ OpenAI को कनेक्ट करें।",
       "opencode-go": "API कुंजी के साथ OpenCode Go को कनेक्ट करें।",
       "opencode-zen": "API कुंजी के साथ OpenCode Zen को कनेक्ट करें।",
@@ -5877,12 +5960,12 @@
       "puter": "puter.com/dashboard पर टोकन प्राप्त करें → Auth Token कॉपी करें",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key पर एक Qiniu AI इनफेरेंस API कुंजी बनाएं, फिर इसे यहाँ Bearer टोकन के रूप में पेस्ट करें। https://api.qnaigc.com/v1 पर OpenAI-संगत एंडपॉइंट, जो एक कुंजी के पीछे DeepSeek, Claude, Kimi और अन्य को प्रॉक्सी करता है।",
       "recraft": "API कुंजी के साथ Recraft को कनेक्ट करें।",
-      "reka": "Reka Chat /v1 पर OpenAI-संगत है। OmniRoute /v1/models की जांच करता है और चैट ट्रैफ़िक को /v1/chat/completions पर रूट करता है।",
+      "reka": "Reka Chat /v1 पर OpenAI-संगत है। AI Gate /v1/models की जांच करता है और चैट ट्रैफ़िक को /v1/chat/completions पर रूट करता है।",
       "requesty": "https://app.requesty.ai पर एक API कुंजी बनाएं, फिर इसे यहाँ Bearer टोकन के रूप में पेस्ट करें। https://router.requesty.ai/v1 पर OpenAI-संगत एंडपॉइंट, एक लाइव /v1/models कैटलॉग के साथ।",
-      "runwayml": "Runway वीडियो जनरेशन टास्क-आधारित है। OmniRoute टेक्स्ट-टू-वीडियो या इमेज-टू-वीडियो जॉब सबमिट करता है, /v1/tasks/[id] को पोल करता है, और तैयार वीडियो आउटपुट को वापस OpenAI जैसे /v1/videos/generations रिस्पॉन्स में सामान्य (normalize) करता है।",
+      "runwayml": "Runway वीडियो जनरेशन टास्क-आधारित है। AI Gate टेक्स्ट-टू-वीडियो या इमेज-टू-वीडियो जॉब सबमिट करता है, /v1/tasks/[id] को पोल करता है, और तैयार वीडियो आउटपुट को वापस OpenAI जैसे /v1/videos/generations रिस्पॉन्स में सामान्य (normalize) करता है।",
       "sambanova": "साइनअप पर $5 मुफ्त क्रेडिट (30 दिनों की वैधता), किसी क्रेडिट कार्ड की आवश्यकता नहीं है",
       "sap": "मॉडल खोज AI_API_URL पर /v2/lm/scenarios/foundation-models/models का उपयोग करती है। चैट अनुरोध deploymentUrl/chat/completions का उपयोग करते हैं और इसके लिए AI-Resource-Group की आवश्यकता होती है।",
-      "sarvam": "__MISSING__:Sarvam AI is OpenAI-compatible on /v1. OmniRoute probes /v1/models and routes chat traffic to /v1/chat/completions. Models are tuned for Indic languages.",
+      "sarvam": "__MISSING__:Sarvam AI is OpenAI-compatible on /v1. AI Gate probes /v1/models and routes chat traffic to /v1/chat/completions. Models are tuned for Indic languages.",
       "scaleway": "नए खातों के लिए 1M मुफ्त टोकन — EU/GDPR अनुपालन (पेरिस), Qwen3 235B और Llama 70B",
       "sensenova": "platform.sensenova.cn पर API कुंजी प्राप्त करें",
       "siliconflow": "पहचान सत्यापन के बाद $1 मुफ्त क्रेडिट और स्थायी रूप से मुफ्त मॉडल",
@@ -5890,14 +5973,14 @@
       "sparkdesk": "console.xfyun.cn पर API कुंजी प्राप्त करें",
       "stability-ai": "API कुंजी के साथ Stability AI को कनेक्ट करें।",
       "stepfun": "platform.stepfun.com पर API कुंजी प्राप्त करें",
-      "sumopod": "SumoPod https://ai.sumopod.com/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट एक्सपोज़ करता है, साथ ही एक लाइव /v1/models कैटलॉग भी। OmniRoute OpenAI प्रोटोकॉल का उपयोग करता है और पासथ्रू के माध्यम से मॉडल सूचीबद्ध करता है।",
+      "sumopod": "SumoPod https://ai.sumopod.com/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट एक्सपोज़ करता है, साथ ही एक लाइव /v1/models कैटलॉग भी। AI Gate OpenAI प्रोटोकॉल का उपयोग करता है और पासथ्रू के माध्यम से मॉडल सूचीबद्ध करता है।",
       "suno": "suno.ai (Clerk auth) से सेशन कुकी पेस्ट करें",
       "synthetic": "API कुंजी के साथ Synthetic को कनेक्ट करें।",
       "tencent": "console.cloud.tencent.com पर API कुंजी प्राप्त करें",
       "thebai": "TheB.AI OpenAI-संगत गेटवे के लिए Bearer API कुंजी।",
       "tinyfish": "agent.tinyfish.ai/api-keys से X-API-Key",
       "together": "API कुंजी के साथ Together AI को कनेक्ट करें।",
-      "tokenrouter": "TokenRouter https://api.tokenrouter.com/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट एक्सपोज़ करता है, साथ ही एक काम करने वाला /v1/models कैटलॉग भी। OmniRoute OpenAI प्रोटोकॉल का उपयोग करता है।",
+      "tokenrouter": "TokenRouter https://api.tokenrouter.com/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट एक्सपोज़ करता है, साथ ही एक काम करने वाला /v1/models कैटलॉग भी। AI Gate OpenAI प्रोटोकॉल का उपयोग करता है।",
       "topaz": "API कुंजी के साथ Topaz को कनेक्ट करें।",
       "typhoon": "__MISSING__:Typhoon is OpenAI-compatible on /v1. Built by SCB 10X (Thailand); typhoon-v2.5-30b-a3b-instruct is a thai-first, multilingual model.",
       "udio": "udio.com (Supabase auth) से सेशन कुकी पेस्ट करें",
@@ -5913,12 +5996,12 @@
       "wafer": "https://wafer.ai से API कुंजी",
       "wandb": "API कुंजी के साथ Weights & Biases Inference को कनेक्ट करें।",
       "writer": "__MISSING__:Writer Palmyra is OpenAI-compatible at https://api.writer.com/v1. palmyra-x5 offers a 1M-token context window.",
-      "x5lab": "X5Lab https://api.x5lab.dev/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट प्रदान करता है, साथ ही एक लाइव /v1/models कैटलॉग भी। OmniRoute OpenAI प्रोटोकॉल का उपयोग करता है और पासथ्रू के माध्यम से मॉडल सूचीबद्ध करता है।",
+      "x5lab": "X5Lab https://api.x5lab.dev/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट प्रदान करता है, साथ ही एक लाइव /v1/models कैटलॉग भी। AI Gate OpenAI प्रोटोकॉल का उपयोग करता है और पासथ्रू के माध्यम से मॉडल सूचीबद्ध करता है।",
       "xai": "API कुंजी के साथ xAI (Grok) को कनेक्ट करें।",
       "xiaomi-mimo": "API कुंजी के साथ Xiaomi MiMo को कनेक्ट करें।",
       "yi": "platform.lingyiwanwu.com पर API कुंजी प्राप्त करें",
       "zai": "https://open.bigmodel.cn/usercenter/apikeys से API कुंजी",
-      "zenmux": "ZenMux /api/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट प्रदान करता है, साथ ही Anthropic Messages (/api/anthropic/v1/messages) और Google Gemini (/api/vertex-ai) प्रोटोकॉल सरफेस भी। OmniRoute OpenAI प्रोटोकॉल का उपयोग करता है।",
+      "zenmux": "ZenMux /api/v1/chat/completions पर एक OpenAI-संगत चैट कम्पलीशन एंडपॉइंट प्रदान करता है, साथ ही Anthropic Messages (/api/anthropic/v1/messages) और Google Gemini (/api/vertex-ai) प्रोटोकॉल सरफेस भी। AI Gate OpenAI प्रोटोकॉल का उपयोग करता है।",
       "galadriel": "API कुंजी के साथ Galadriel को कनेक्ट करें।",
       "predibase": "$25 मुफ्त ट्रायल क्रेडिट (30 दिनों की वैधता)",
       "chenzk": "chenzk.top पर लाइव मॉडल कैटलॉग के साथ OpenAI-संगत गेटवे।",
@@ -5938,7 +6021,7 @@
       "cline": "मौजूदा OAuth फ़्लो के साथ Cline को कनेक्ट करें।",
       "cursor": "मौजूदा OAuth फ़्लो के साथ Cursor IDE को कनेक्ट करें।",
       "github": "मौजूदा OAuth फ़्लो के साथ GitHub Copilot को कनेक्ट करें।",
-      "gitlab-duo": "ai_features + read_user स्कोप के साथ OAuth एप्लिकेशन। इस OmniRoute इंस्टेंस पर GITLAB_DUO_OAUTH_CLIENT_ID और वैकल्पिक रूप से GITLAB_DUO_OAUTH_CLIENT_SECRET कॉन्फ़िगर करें।",
+      "gitlab-duo": "ai_features + read_user स्कोप के साथ OAuth एप्लिकेशन। इस AI Gate इंस्टेंस पर GITLAB_DUO_OAUTH_CLIENT_ID और वैकल्पिक रूप से GITLAB_DUO_OAUTH_CLIENT_SECRET कॉन्फ़िगर करें।",
       "kilocode": "मौजूदा OAuth फ़्लो के साथ Kilo Code को कनेक्ट करें।",
       "kimi-coding": "मौजूदा OAuth फ़्लो के साथ Kimi Coding को कनेक्ट करें।",
       "kiro": "फ्री टियर: 50 क्रेडिट/महीना (~25K–100K टोकन)। ⚠️ Kiro ToS तृतीय-पक्ष प्रॉक्सी/हार्नेस के उपयोग को प्रतिबंधित करता है।",
@@ -5988,9 +6071,8 @@
     "overrideBaseUrlHint": "उन्नत: इस इन-बिल्ट प्रदाता को एक कस्टम एंडपॉइंट पर इंगित करें। डिफ़ॉल्ट का उपयोग करने के लिए खाली छोड़ दें।",
     "bulkAddFormatHintCloudflare": "प्रति पंक्ति एक कुंजी। प्रारूप: name|accountId|apiKey (Cloudflare खाता ID + API टोकन)।",
     "lmarenaWebCookieHint": "arena.ai खोलें, साइन इन करें, फिर Network अनुरोध से पूरा Cookie हेडर कॉपी करें। arena-auth-prod-v1.0 और arena-auth-prod-v1.1 (और यदि मौजूद हों तो आगे के हिस्से) शामिल करें, अधिमानतः cf_clearance के साथ। केवल खाली arena-auth-prod-v1 कुकी पेस्ट न करें। वैकल्पिक: providerSpecificData.recaptchaV3Token यदि create-evaluation अभी भी 403 लौटाता है।",
-    "kimiOfficialSupporterBadge": "संस्थापक मित्र",
-    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI), OmniRoute का संस्थापक ओपन सोर्स मित्र है",
-    "kimiPartnerLinkNote": "पार्टनर लिंक — बिना किसी अतिरिक्त लागत के OmniRoute का समर्थन करता है",
+    "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI), AI Gate का संस्थापक ओपन सोर्स मित्र है",
+    "kimiPartnerLinkNote": "पार्टनर लिंक — बिना किसी अतिरिक्त लागत के AI Gate का समर्थन करता है",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
     "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
@@ -6002,7 +6084,16 @@
     "ccAliasAddModelPlaceholder": "__MISSING__:Model id (e.g. gpt-4o)",
     "ccAliasAddModelButton": "__MISSING__:Add override",
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
-    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}"
+    "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
+    "systemAdminTokenLabel": "System admin token",
+    "systemAdminTokenPlaceholder": "Paste the system admin token",
+    "systemAdminTokenHint": "Admin token required to fetch quota for this provider. Never use the routing API key here.",
+    "dmxapiUserIdLabel": "DMXAPI user ID",
+    "dmxapiUserIdPlaceholder": "e.g. 1001",
+    "dmxapiUserIdHint": "Dmx-Api-User header value — the target account whose quota to show.",
+    "apiProtocolLabel": "API protocol",
+    "apiProtocolDefault": "OpenAI-compatible (default)",
+    "apiProtocolHint": "Some providers publish the same models over more than one protocol. Leave the default unless you need the alternative."
   },
   "settings": {
     "title": "सेटिंग्स",
@@ -6033,7 +6124,7 @@
     "routingOpDropBlockContainsDesc": "संपूर्ण सिस्टम ब्लॉक (न केवल पैराग्राफ) को हटाता है जिसके टेक्स्ट में सूचीबद्ध सबस्ट्रिंग्स में से कोई भी शामिल हो। तब उपयोग करें जब पूरा ब्लॉक फ़िंगरप्रिंट-युक्त हो और आप इसे हटाना चाहते हों — जैसे, एक इंजेक्ट किया गया MCP-server विवरण।",
     "routingOpPrependSystemBlockDesc": "सिस्टम एरे के शुरुआत (FRONT) में एक नया टेक्स्ट ब्लॉक सम्मिलित करता है। इसका उपयोग SDK पहचान 'You are a Claude agent, built on Anthropic's Claude Agent SDK.' जोड़ने के लिए करें जिसकी Anthropic का क्लासिफायर अपेक्षा करता है।",
     "routingOpAppendSystemBlockDesc": "सिस्टम एरे के अंत (END) में एक नया टेक्स्ट ब्लॉक सम्मिलित करता है। इसका उपयोग उन कॉस्मेटिक परिवर्धनों के लिए करें जिन्हें स्थिति [0] पर होने की आवश्यकता नहीं है।",
-    "routingOpInjectBillingHeaderDesc": "विशेष 'x-anthropic-billing-header: cc_version=...; cc_entrypoint=...; cch=...;' टेक्स्ट ब्लॉक को शुरुआत में जोड़ता है जिसे Anthropic का क्लासिफायर मान्य करता है। CC bridge relay एंडपॉइंट्स के लिए आवश्यक है; नेटिव claude प्रोवाइडर के लिए OmniRoute पहले से ही अपनी बिलिंग लाइन इंजेक्ट करता है इसलिए यह op आमतौर पर वहां निरर्थक होता है।",
+    "routingOpInjectBillingHeaderDesc": "विशेष 'x-anthropic-billing-header: cc_version=...; cc_entrypoint=...; cch=...;' टेक्स्ट ब्लॉक को शुरुआत में जोड़ता है जिसे Anthropic का क्लासिफायर मान्य करता है। CC bridge relay एंडपॉइंट्स के लिए आवश्यक है; नेटिव claude प्रोवाइडर के लिए AI Gate पहले से ही अपनी बिलिंग लाइन इंजेक्ट करता है इसलिए यह op आमतौर पर वहां निरर्थक होता है।",
     "routingOpObfuscateWordsDesc": "प्रत्येक सूचीबद्ध शब्द के पहले अक्षर के बाद एक Zero-Width-Joiner वर्ण सम्मिलित करता है, जिससे 'opencode' 'o‍pencode' बन जाता है। इंसानों के पढ़ने में समान लगता है लेकिन क्लासिफायर वर्ड मिलानों को बायपास करता है। सिस्टम ब्लॉक्स, user/assistant संदेशों और टूल विवरणों को लक्षित करता है।",
     "routingNeedlesHint": "सबस्ट्रिंग्स की सूची। यदि किसी पैराग्राफ में इनमें से कोई भी एक शामिल है तो वह मेल खाता है। 'Add entry' के माध्यम से प्रति पंक्ति एक जोड़ें।",
     "routingPrefixesHint": "स्ट्रिंग्स की सूची। यदि कोई पैराग्राफ इनमें से किसी एक से शुरू होता है तो वह मेल खाता है (मिलान से पहले शुरुआती व्हाइटस्पेस को ट्रिम कर दिया जाता है)।",
@@ -6123,8 +6214,8 @@
     "memoryTitle": "Memory",
     "memoryDesc": "Persistent cross-session conversational memory",
     "memoryEnabled": "Enable Memory",
-    "memoryEnabledDesc": "When enabled, OmniRoute will inject relevant past context.",
-    "memoryTokenCostWarning": "ध्यान दें: मेमोरी सक्षम होने पर, OmniRoute प्रत्येक चैट अनुरोध में पुनर्प्राप्त संदर्भ के अधिकतम {tokens} टोकन इंजेक्ट करता है — इससे टोकन का उपयोग और लागत बढ़ जाती है। किसी विशिष्ट अनुरोध के लिए इंजेक्शन छोड़ने के लिए, \"x-omniroute-no-memory: true\" हेडर भेजें।",
+    "memoryEnabledDesc": "When enabled, AI Gate will inject relevant past context.",
+    "memoryTokenCostWarning": "ध्यान दें: मेमोरी सक्षम होने पर, AI Gate प्रत्येक चैट अनुरोध में पुनर्प्राप्त संदर्भ के अधिकतम {tokens} टोकन इंजेक्ट करता है — इससे टोकन का उपयोग और लागत बढ़ जाती है। किसी विशिष्ट अनुरोध के लिए इंजेक्शन छोड़ने के लिए, \"x-omniroute-no-memory: true\" हेडर भेजें।",
     "maxTokens": "Max Tokens",
     "retentionDays": "Retention",
     "recent": "Recent",
@@ -6308,7 +6399,7 @@
     "invalidFaviconFileType": "अमान्य फ़ाइल प्रकार। कृपया PNG, ICO, SVG, GIF, या WebP अपलोड करें।",
     "failedToReadFile": "फ़ाइल पढ़ने में विफल",
     "startOnLogin": "लॉगिन पर प्रारंभ करें",
-    "startOnLoginDesc": "सिस्टम स्टार्टअप पर स्वचालित रूप से OmniRoute लॉन्च करें और बैकग्राउंड ट्रे में चुपचाप चलाएं।",
+    "startOnLoginDesc": "सिस्टम स्टार्टअप पर स्वचालित रूप से AI Gate लॉन्च करें और बैकग्राउंड ट्रे में चुपचाप चलाएं।",
     "flushCache": "कैश फ्लश करें",
     "flushing": "निस्तब्धता...",
     "size": "आकार",
@@ -6346,7 +6437,7 @@
     "healthcheckProxyUrl": "Proxy URL",
     "healthcheckLatency": "Latency",
     "proxyDocumentationScopeTitle": "प्रॉक्सी स्कोप रिज़ॉल्यूशन",
-    "proxyDocumentationScopeDescBefore": "OmniRoute प्राथमिकता क्रम में आउटबाउंड प्रॉक्सी को रिज़ॉल्व करता है:",
+    "proxyDocumentationScopeDescBefore": "AI Gate प्राथमिकता क्रम में आउटबाउंड प्रॉक्सी को रिज़ॉल्व करता है:",
     "proxyDocumentationScopeOrder": "combo → account → provider → global",
     "proxyDocumentationScopeDescAfter": "। सबसे विशिष्ट स्कोप लागू होता है।",
     "proxyDocumentationAddTitle": "कस्टम प्रॉक्सी जोड़ना",
@@ -7081,9 +7172,9 @@
     "oneproxySuccess": "सफलता",
     "oneproxyFailed": "असफल",
     "routingAntigravitySignatureTitle": "एंटीग्रेविटी सिग्नेचर कैश मोड",
-    "routingAntigravitySignatureDesc": "नियंत्रित करें कि क्या OmniRoute केवल संग्रहीत Gemini थॉट सिग्नेचर का पुन: उपयोग करता है या Antigravity-संगत टूल-कॉल फ़्लो में मान्य क्लाइंट-प्रदान किए गए सिग्नेचर को स्वीकार करता है।",
+    "routingAntigravitySignatureDesc": "नियंत्रित करें कि क्या AI Gate केवल संग्रहीत Gemini थॉट सिग्नेचर का पुन: उपयोग करता है या Antigravity-संगत टूल-कॉल फ़्लो में मान्य क्लाइंट-प्रदान किए गए सिग्नेचर को स्वीकार करता है।",
     "routingAntigravitySignatureEnabledLabel": "सक्षम",
-    "routingAntigravitySignatureEnabledDesc": "वर्तमान व्यवहार। क्लाइंट-प्रदान किए गए सिग्नेचर को अनदेखा करें और संग्रहीत OmniRoute फ़्लो का उपयोग जारी रखें।",
+    "routingAntigravitySignatureEnabledDesc": "वर्तमान व्यवहार। क्लाइंट-प्रदान किए गए सिग्नेचर को अनदेखा करें और संग्रहीत AI Gate फ़्लो का उपयोग जारी रखें।",
     "routingAntigravitySignatureBypassLabel": "बायपास",
     "routingAntigravitySignatureBypassDesc": "हल्के सत्यापन के बाद क्लाइंट-प्रदान किए गए सिग्नेचर स्वीकार करें और अमान्य होने पर संग्रहीत सिग्नेचर पर वापस जाएं।",
     "routingAntigravitySignatureBypassStrictLabel": "बायपास स्ट्रिक्ट",
@@ -7092,12 +7183,12 @@
     "routingServerRejectedSave": "⚠ सर्वर ने सहेजना अस्वीकृत कर दिया:",
     "routingAddTransformOp": "एक परिवर्तन ऑप जोड़ें",
     "routingClientCacheControlTitle": "क्लाइंट कैश नियंत्रण",
-    "routingClientCacheControlDesc": "कॉन्फ़िगर करें कि क्या OmniRoute क्लाइंट-प्रदान किए गए cache_control मार्कर को सुरक्षित रखता है",
-    "routingClientCacheControlAutoDesc": "नियत Claude-संगत फ़्लो के लिए, क्लाइंट-प्रदान किए गए cache_control को वैसे ही सुरक्षित रखें। यदि अनुरोध में कोई cache_control नहीं है, तो OmniRoute CC-संगत तृतीय-पक्ष प्रॉक्सी संगतता के लिए कोई ब्रिज-स्वामित्व वाले मार्कर इंजेक्ट नहीं करता है।",
+    "routingClientCacheControlDesc": "कॉन्फ़िगर करें कि क्या AI Gate क्लाइंट-प्रदान किए गए cache_control मार्कर को सुरक्षित रखता है",
+    "routingClientCacheControlAutoDesc": "नियत Claude-संगत फ़्लो के लिए, क्लाइंट-प्रदान किए गए cache_control को वैसे ही सुरक्षित रखें। यदि अनुरोध में कोई cache_control नहीं है, तो AI Gate CC-संगत तृतीय-पक्ष प्रॉक्सी संगतता के लिए कोई ब्रिज-स्वामित्व वाले मार्कर इंजेक्ट नहीं करता है।",
     "routingClientCacheControlAlwaysLabel": "हमेशा सुरक्षित रखें",
     "routingClientCacheControlAlwaysDesc": "क्लाइंट-प्रदान किए गए cache_control हेडर को हमेशा अपस्ट्रीम प्रदाताओं को वैसे ही अग्रेषित करें।",
     "routingClientCacheControlNeverLabel": "कभी सुरक्षित न रखें",
-    "routingClientCacheControlNeverDesc": "हमेशा क्लाइंट cache_control हेडर को हटा दें और OmniRoute को कैशिंग प्रबंधित करने दें जहां मूल प्रदाता फ़्लो इसका समर्थन करते हैं।",
+    "routingClientCacheControlNeverDesc": "हमेशा क्लाइंट cache_control हेडर को हटा दें और AI Gate को कैशिंग प्रबंधित करने दें जहां मूल प्रदाता फ़्लो इसका समर्थन करते हैं।",
     "routingZeroConfigTitle": "शून्य-कॉन्फिग ऑटो-रूटिंग",
     "routingZeroConfigDesc": "auto/ प्रीफिक्स का उपयोग करके स्वचालित प्रदाता चयन सक्षम करें। सक्षम होने पर, auto, auto/coding, auto/fast, आदि के अनुरोध गतिशील रूप से सभी जुड़े प्रदाताओं में रूट होंगे।",
     "routingDefaultAutoVariant": "डिफ़ॉल्ट ऑटो वैरिएंट",
@@ -7107,7 +7198,7 @@
     "visionBridgeEnabledDesc": "प्री-कॉल ब्रिज को टॉगल करें जो छवि भागों को निकाले गए टेक्स्ट से बदल देता है।",
     "visionBridgeModel": "ब्रिज मॉडल",
     "visionBridgeModelPlaceholder": "openai/gpt-4o-मिनी",
-    "visionBridgeModelHint": "कोई भी OmniRoute मॉडल ID जो विज़न का समर्थन करता है, यहाँ उपयोग किया जा सकता है।",
+    "visionBridgeModelHint": "कोई भी AI Gate मॉडल ID जो विज़न का समर्थन करता है, यहाँ उपयोग किया जा सकता है।",
     "visionBridgePrompt": "ब्रिज प्रॉम्प्ट",
     "visionBridgePromptPlaceholder": "इस छवि का संक्षेप में वर्णन करें.",
     "visionBridgePromptHint": "मूल अनुरोध में निकाले गए विवरण को वापस इंजेक्ट करने से पहले विज़न मॉडल को भेजा गया।",
@@ -7335,7 +7426,7 @@
     "cliproxyapiStatus": "CLIProxyAPI स्थिति",
     "cliproxyapiNotDetected": "पता नहीं चला",
     "cliproxyapiImportAuthTitle": "CLIProxyAPI से खाते आयात करें",
-    "cliproxyapiImportAuthDesc": "CLIProxyAPI द्वारा पहले से ही ~/.cli-proxy-api/ में सहेजे गए OAuth खातों को OmniRoute कनेक्शन के रूप में आयात करें, ताकि आपको प्रत्येक खाते में फिर से लॉग इन न करना पड़े। समर्थित खाता प्रकार (Gemini, Codex, Claude, Antigravity, Qwen, Kimi) आयात किए जाते हैं; अन्य को छोड़ दिया जाता है।",
+    "cliproxyapiImportAuthDesc": "CLIProxyAPI द्वारा पहले से ही ~/.cli-proxy-api/ में सहेजे गए OAuth खातों को AI Gate कनेक्शन के रूप में आयात करें, ताकि आपको प्रत्येक खाते में फिर से लॉग इन न करना पड़े। समर्थित खाता प्रकार (Gemini, Codex, Claude, Antigravity, Qwen, Kimi) आयात किए जाते हैं; अन्य को छोड़ दिया जाता है।",
     "cliproxyapiImportAuthButton": "खाते आयात करें",
     "payloadRulesTitle": "पेलोड नियम",
     "payloadRulesDesc": "मॉडल और प्रोटोकॉल द्वारा अनुरोध पेलोड म्यूटेशन को कॉन्फ़िगर करें। परिवर्तन सेटिंग्स में सहेजे जाते हैं और सहेजने के तुरंत बाद रनटाइम में हॉट रीलोड हो जाते हैं।",
@@ -7379,7 +7470,7 @@
     "modelCooldownsReasonRemaining": "कारण: {reason} • शेष: {remaining}",
     "modelCooldownsReactivate": "पुनः सक्रिय करें",
     "responsesStateTitle": "प्रतिक्रिया स्थिति",
-    "responsesStateDesc": "नियंत्रित करें कि OmniRoute कैसे previous_response_id को अग्रेषित करता है।",
+    "responsesStateDesc": "नियंत्रित करें कि AI Gate कैसे previous_response_id को अग्रेषित करता है।",
     "responsesStateModeLabel": "previous_response_id हैंडलिंग",
     "responsesStateModeAuto": "ऑटो",
     "responsesStateModeStrip": "हटाएं",
@@ -7535,7 +7626,7 @@
     "vercelRelaySuccess": "Vercel रिले सफलतापूर्वक तैनात किया गया",
     "vercelRelayButton": "Vercel रिले तैनात करें",
     "vercelRelayModalTitle": "Vercel रिले तैनात करें",
-    "vercelRelayWarning": "चेतावनी: एक Vercel परिनियोजन टोकन आवश्यक है। इस टोकन का उपयोग केवल सर्वरलेस रिले बनाने के लिए किया जाएगा और इसे OmniRoute द्वारा कभी भी संग्रहीत नहीं किया जाएगा।",
+    "vercelRelayWarning": "चेतावनी: एक Vercel परिनियोजन टोकन आवश्यक है। इस टोकन का उपयोग केवल सर्वरलेस रिले बनाने के लिए किया जाएगा और इसे AI Gate द्वारा कभी भी संग्रहीत नहीं किया जाएगा।",
     "vercelRelayTokenLabel": "Vercel एक्सेस टोकन",
     "vercelRelayProjectNameLabel": "Vercel प्रोजेक्ट का नाम",
     "vercelRelayFreeTierNote": "रिले हल्के प्रॉक्सी एंडपॉइंट हैं जो स्थानीय नेटवर्क/क्षेत्र की सीमाओं को बायपास करने के लिए Vercel के मुफ्त टियर पर तैनात किए जाते हैं।",
@@ -7544,7 +7635,7 @@
     "deployRelayButton": "रिले तैनात करें",
     "denoRelayButton": "Deno रिले तैनात करें",
     "denoRelayModalTitle": "Deno रिले तैनात करें",
-    "denoRelayWarning": "चेतावनी: एक Deno Deploy संगठन टोकन आवश्यक है। इस टोकन का उपयोग केवल रिले ऐप बनाने के लिए किया जाएगा और इसे OmniRoute द्वारा कभी भी संग्रहीत नहीं किया जाएगा।",
+    "denoRelayWarning": "चेतावनी: एक Deno Deploy संगठन टोकन आवश्यक है। इस टोकन का उपयोग केवल रिले ऐप बनाने के लिए किया जाएगा और इसे AI Gate द्वारा कभी भी संग्रहीत नहीं किया जाएगा।",
     "denoRelayTokenLabel": "Deno Deploy संगठन टोकन",
     "denoRelayOrgDomainLabel": "संगठन डोमेन",
     "denoRelayProjectNameLabel": "Deno ऐप का नाम",
@@ -7600,7 +7691,41 @@
     "enableCredentialRedaction": "क्रेडेंशियल रिडैक्शन सक्षम करें",
     "enableCredentialRedactionDesc": "संदेशों, टूल कॉल और प्रतिक्रियाओं से API keys, tokens, private keys और JWTs को हटाता है।",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
-    "pricingAutoSyncEnabled": "Automatic Sync Enabled"
+    "pricingAutoSyncEnabled": "Automatic Sync Enabled",
+    "language": "Language",
+    "languageDesc": "Change the interface language",
+    "uiLanguage": "UI Language",
+    "uiLanguageDesc": "Select your preferred display language",
+    "accessTokensTitle": "Access Tokens",
+    "accessTokensDescription": "Scoped tokens that let the gateway CLI manage this server remotely (read/write/admin). Distinct from inference API keys — model access is managed in AI Gate → API Manager. The secret is shown once.",
+    "accessTokensCreateHeading": "Create a token",
+    "accessTokensNamePlaceholder": "Name (e.g. laptop)",
+    "accessTokensScopeRead": "read — list/inspect",
+    "accessTokensScopeWrite": "write — configure",
+    "accessTokensScopeAdmin": "admin — manage",
+    "accessTokensExpiresPlaceholder": "Expires (days, optional)",
+    "accessTokensCreating": "Creating…",
+    "accessTokensCreate": "Create",
+    "accessTokensCopyNow": "Copy this token now — it will not be shown again:",
+    "accessTokensCopied": "Copied",
+    "accessTokensCopy": "Copy",
+    "accessTokensDismiss": "Dismiss",
+    "accessTokensExisting": "Existing tokens",
+    "accessTokensEmpty": "No access tokens yet.",
+    "accessTokensColName": "Name",
+    "accessTokensColScope": "Scope",
+    "accessTokensColPrefix": "Prefix",
+    "accessTokensColStatus": "Status",
+    "accessTokensColLastUsed": "Last used",
+    "accessTokensColExpires": "Expires",
+    "accessTokensStatusRevoked": "revoked",
+    "accessTokensStatusActive": "active",
+    "accessTokensRevoke": "Revoke",
+    "accessTokensRevokeTitle": "Revoke access token",
+    "accessTokensRevokeConfirm": "This immediately invalidates the token. Any machine using it loses access.",
+    "accessTokensLoadError": "Could not load access tokens.",
+    "accessTokensCreateError": "Could not create token.",
+    "accessTokensRevokeError": "Could not revoke token."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8009,7 +8134,7 @@
     "port": "पोर्ट {port}",
     "externalBadge": "बाह्य रूप से प्रबंधित",
     "externalTitle": "बाहरी 9Router का पता चला",
-    "externalDescription": "OmniRoute को {host}:{port} पर 9Router मिला। इसका लाइफ़साइकिल, लॉग, अपडेट और सर्विस कुंजी बाहरी इंस्टॉलेशन द्वारा प्रबंधित रहते हैं।",
+    "externalDescription": "AI Gate को {host}:{port} पर 9Router मिला। इसका लाइफ़साइकिल, लॉग, अपडेट और सर्विस कुंजी बाहरी इंस्टॉलेशन द्वारा प्रबंधित रहते हैं।",
     "start": "शुरू करें",
     "starting": "शुरू हो रहा है…",
     "stop": "रोकें",
@@ -8021,9 +8146,9 @@
     "install": "इंस्टॉल करें",
     "installing": "इंस्टॉल हो रहा है…",
     "autoStart": "ऑटो-स्टार्ट",
-    "autoStartDescription": "OmniRoute शुरू होने पर {name} को स्वचालित रूप से लॉन्च करें",
+    "autoStartDescription": "AI Gate शुरू होने पर {name} को स्वचालित रूप से लॉन्च करें",
     "apiKey": "API कुंजी",
-    "apiKeyDescription": "{name} के साथ प्रमाणित करने के लिए OmniRoute द्वारा उपयोग की जाने वाली कुंजी",
+    "apiKeyDescription": "{name} के साथ प्रमाणित करने के लिए AI Gate द्वारा उपयोग की जाने वाली कुंजी",
     "keyRotated": "कुंजी रोटेट की गई — नई कुंजी लागू करने के लिए {name} को रीस्टार्ट किया गया",
     "keyRotateFailed": "कुंजी रोटेट करने में विफल",
     "keyRevealFailed": "कुंजी दिखाने में विफल",
@@ -8042,7 +8167,7 @@
     "version": "संस्करण",
     "versionHint": "“latest” या कोई विशिष्ट संस्करण दर्ज करें (उदाहरण के लिए, 1.2.3)।",
     "servicePort": "पोर्ट",
-    "servicePortHint": "OmniRoute और 9Router को अलग-अलग पोर्ट का उपयोग करना चाहिए। डिफ़ॉल्ट 9Router पोर्ट 20130 है।",
+    "servicePortHint": "AI Gate और 9Router को अलग-अलग पोर्ट का उपयोग करना चाहिए। डिफ़ॉल्ट 9Router पोर्ट 20130 है।",
     "installationFailed": "इंस्टॉलेशन विफल रहा (HTTP {status})",
     "installationSucceeded": "9Router सफलतापूर्वक इंस्टॉल हो गया। शुरू हो रहा है…",
     "networkInstallFailed": "नेटवर्क त्रुटि — इंस्टॉल एंडपॉइंट तक नहीं पहुंचा जा सका",
@@ -8060,7 +8185,7 @@
     "providerExposure": "प्रदाता एक्सपोज़र",
     "providerExposureDescription": "<prefix>9router/</prefix> प्रीफिक्स के तहत 9Router मॉडल को राउटिंग टारगेट के रूप में एक्सपोज़ करें।",
     "providerExposureLabel": "<prefix>9router/…</prefix> के रूप में एक्सपोज़ करें",
-    "providerExposureHint": "सक्षम होने पर, खोजे गए मॉडल OmniRoute में प्रदाता चयनकर्ताओं में दिखाई देते हैं।",
+    "providerExposureHint": "सक्षम होने पर, खोजे गए मॉडल AI Gate में प्रदाता चयनकर्ताओं में दिखाई देते हैं।",
     "providerExposureUpdateFailed": "अपडेट करने में विफल (HTTP {status})",
     "providerExposureNetworkFailed": "नेटवर्क त्रुटि — प्रदाता एक्सपोज़र सेटिंग को अपडेट नहीं किया जा सका",
     "webUi": "9Router वेब UI",
@@ -8081,7 +8206,7 @@
     "saved": "सहेजा गया",
     "saveFailed": "सेटिंग सहेजने में विफल",
     "modelMapping": "मॉडल मैपिंग",
-    "modelMappingDescription": "OmniRoute मॉडल ID को CLIProxyAPI मॉडल ID से मैप करें (उदाहरण के लिए, <example>\"gpt-4o\": \"openai-gpt-4o\"</example>)",
+    "modelMappingDescription": "AI Gate मॉडल ID को CLIProxyAPI मॉडल ID से मैप करें (उदाहरण के लिए, <example>\"gpt-4o\": \"openai-gpt-4o\"</example>)",
     "modelMappingEditor": "मॉडल मैपिंग JSON संपादक",
     "mappingSaved": "मैपिंग सहेजी गई",
     "mappingSaveFailed": "मैपिंग सहेजने में विफल",
@@ -8385,7 +8510,7 @@
     "simpleAppUsesLabel": "मेरा ऐप उपयोग करता है",
     "simpleAppUsesHint": "वह API फ़ॉर्मेट जिसका आपका ऐप उपयोग करता है (जैसे, Anthropic SDK = claude)।",
     "simpleSendToLabel": "यहाँ भेजें",
-    "simpleSendToHint": "अनुरोध वास्तव में कहाँ भेजना है (OmniRoute में जुड़ा एक प्रदाता)।",
+    "simpleSendToHint": "अनुरोध वास्तव में कहाँ भेजना है (AI Gate में जुड़ा एक प्रदाता)।",
     "simpleStartWithLabel": "इसके साथ शुरू करें",
     "simpleStartWithExamplePlaceholder": "एक तैयार उदाहरण चुनें",
     "simpleStartWithCustomOption": "अपना अनुरोध पेस्ट करें (उन्नत)",
@@ -8994,9 +9119,12 @@
     "waitingForQoderAuthorization": "Waiting for Qoder authorization...",
     "exchangingCodeForTokens": "Exchanging code for tokens...",
     "nodeIncompatibleTitle": "Incompatible Node.js Version",
-    "nodeIncompatibleDesc": "You are running Node.js {version}, which is outside OmniRoute's supported secure runtime policy. Use a patched Node.js 20.x or 22.x LTS release.",
+    "nodeIncompatibleDesc": "You are running Node.js {version}, which is outside AI Gate's supported secure runtime policy. Use a patched Node.js 20.x or 22.x LTS release.",
     "nodeIncompatibleFixLabel": "Fix: install a patched Node.js 22 LTS release",
-    "nodeIncompatibleHint": "OmniRoute requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended."
+    "nodeIncompatibleHint": "AI Gate requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended.",
+    "signInDescription": "Enter your password to continue",
+    "passwordPlaceholder": "Password",
+    "signingIn": "Signing in..."
   },
   "landing": {
     "brandName": "Astra AI Gate",
@@ -9039,7 +9167,7 @@
     "howItWorksStep3Description": "अनुरोध OpenAI, एंथ्रोपिक, जेमिनी या अन्य द्वारा तुरंत पूरा किया जाता है।",
     "getStartedIn30Seconds": "30 सेकंड में आरंभ करें",
     "getStartedDescription": "ओम्निरूट स्थापित करें, वेब डैशबोर्ड के माध्यम से अपने प्रदाताओं को कॉन्फ़िगर करें, और एआई अनुरोधों को रूट करना शुरू करें।",
-    "installOmniRoute": "ओम्निरूट स्थापित करें",
+    "installAI Gate": "ओम्निरूट स्थापित करें",
     "installStepDescription": "सर्वर को तुरंत प्रारंभ करने के लिए npx कमांड चलाएँ",
     "openDashboard": "डैशबोर्ड खोलें",
     "openDashboardStepDescription": "वेब इंटरफ़ेस के माध्यम से प्रदाताओं और एपीआई कुंजियों को कॉन्फ़िगर करें",
@@ -9048,7 +9176,7 @@
     "terminal": "टर्मिनल",
     "copy": "प्रतिलिपि",
     "copied": "✓ कॉपी किया गया",
-    "startingOmniRoute": "ओम्निरूट प्रारंभ हो रहा है...",
+    "startingAI Gate": "ओम्निरूट प्रारंभ हो रहा है...",
     "serverRunningOnLabel": "सर्वर चालू है",
     "dashboardLabel": "डैशबोर्ड",
     "readyToRoute": "रूट करने के लिए तैयार! ✓",
@@ -9133,7 +9261,7 @@
     "deployPwaTitle": "पीडब्लूए",
     "deployPwaText": "एंड्रॉइड, आईओएस और डेस्कटॉप ब्राउज़र पर ओमनीरूट को एक प्रगतिशील वेब ऐप के रूप में इंस्टॉल करें।",
     "deployTermuxTitle": "Termux (Android)",
-    "deployTermuxText": "Run OmniRoute headless on Android via Termux. Access the dashboard from your mobile browser.",
+    "deployTermuxText": "Run AI Gate headless on Android via Termux. Access the dashboard from your mobile browser.",
     "featureRoutingTitle": "बहु-प्रदाता रूटिंग",
     "featureRoutingText": "एकल OpenAI-संगत एंडपॉइंट के माध्यम से 30+ AI प्रदाताओं को रूट अनुरोध। चैट, प्रतिक्रियाओं, ऑडियो और छवि एपीआई का समर्थन करता है।",
     "featureCombosTitle": "संयोजन और संतुलन",
@@ -9191,9 +9319,9 @@
     "clientKimiBullet2": "कोडिंग प्रवाह में पूर्वनिर्धारित मॉडल को प्राथमिकता दें ताकि फ़ॉलबैक और ऑडिट ट्रेल स्पष्ट रहें।",
     "clientKimiBullet3": "जब आप टूल-उपयोग करने वाले क्लाइंट के लिए मूल प्रतिक्रिया-शैली रूटिंग चाहते हैं तो `/v1/responses` का उपयोग करें।",
     "protocolsTitle": "Protocols: MCP & A2A",
-    "protocolsDescription": "OmniRoute exposes two operational protocols in addition to OpenAI-compatible APIs: MCP for tool execution and A2A for agent-to-agent workflows.",
+    "protocolsDescription": "AI Gate exposes two operational protocols in addition to OpenAI-compatible APIs: MCP for tool execution and A2A for agent-to-agent workflows.",
     "protocolMcpTitle": "MCP (Model Context Protocol)",
-    "protocolMcpDesc": "Use MCP over stdio to let clients discover and call OmniRoute tools with audit visibility.",
+    "protocolMcpDesc": "Use MCP over stdio to let clients discover and call AI Gate tools with audit visibility.",
     "protocolMcpStep1": "Start MCP transport with `omniroute --mcp`.",
     "protocolMcpStep2": "Point your MCP client to stdio transport.",
     "protocolMcpStep3": "Call `omniroute_get_health` and `omniroute_list_combos` to validate connectivity.",
@@ -9368,13 +9496,13 @@
     "scanning": "Scanning system for CLI agents...",
     "opencodeIntegration": "OpenCode Integration",
     "opencodeDetected": "opencode {version} detected",
-    "opencodeDesc": "Generate a ready-to-use {configFile} with your OmniRoute base URL and all available models — drop it in your project root and run {command}.",
+    "opencodeDesc": "Generate a ready-to-use {configFile} with your AI Gate base URL and all available models — drop it in your project root and run {command}.",
     "downloadConfig": "Download {file}",
     "downloaded": "Downloaded!",
     "setupGuideTitle": "Setup guide",
     "openCliTools": "Open CLI Tools",
     "setupGuideDetectCliTitle": "Detect installed CLIs",
-    "setupGuideDetectCliDesc": "Click Refresh after installing or updating a CLI so OmniRoute can rescan binaries and versions.",
+    "setupGuideDetectCliDesc": "Click Refresh after installing or updating a CLI so AI Gate can rescan binaries and versions.",
     "setupGuideCustomAgentTitle": "Register custom binary",
     "setupGuideCustomAgentDesc": "Use Add Custom Agent when your CLI is not in the built-in list. Provide binary name and version command.",
     "setupGuideCommandMissingTitle": "Fix 'command not found'",
@@ -9386,7 +9514,7 @@
     "versionCommandPlaceholder": "Version Command Placeholder",
     "architectureTitle": "Architecture Title",
     "flowLocalBinary": "Flow Local Binary",
-    "flowOmniRoute": "Flow Omni Route",
+    "flowAI Gate": "Flow Omni Route",
     "agentNamePlaceholder": "Agent Name Placeholder",
     "architectureDescription": "Architecture Description",
     "flowExecute": "Flow Execute",
@@ -9403,8 +9531,8 @@
     "agentUseCaseHint": "एसीपी प्रोटोकॉल के माध्यम से निष्पादन लक्ष्य के रूप में उपयोग किया जा सकता है",
     "flowDiagramClient": "क्लाइंट ऐप",
     "flowDiagramClientDesc": "एसडीके, एपीआई, या अपस्ट्रीम सेवा",
-    "flowDiagramOmniRoute": "ओम्निरूट",
-    "flowDiagramOmniRouteDesc": "अनुरोध प्राप्त करता है और लक्ष्य का चयन करता है",
+    "flowDiagramAI Gate": "ओम्निरूट",
+    "flowDiagramAI GateDesc": "अनुरोध प्राप्त करता है और लक्ष्य का चयन करता है",
     "flowDiagramSpawn": "स्पॉन प्रक्रिया",
     "flowDiagramSpawnDesc": "stdio के माध्यम से सीएलआई बाइनरी लॉन्च करता है",
     "flowDiagramCli": "सीएलआई एजेंट",
@@ -9422,12 +9550,12 @@
     "browseAllSkillsOnGithub": "GitHub पर सभी कौशल ब्राउज़ करें",
     "apiSkills": "एपीआई कौशल",
     "cliSkills": "सीएलआई कौशल",
-    "apiSkillsSubtitle": "{count} कौशल — REST / HTTP के माध्यम से OmniRoute को नियंत्रित करें",
-    "cliSkillsSubtitle": "{count} कौशल — omniroute टर्मिनल बाइनरी के माध्यम से OmniRoute को नियंत्रित करें",
+    "apiSkillsSubtitle": "{count} कौशल — REST / HTTP के माध्यम से AI Gate को नियंत्रित करें",
+    "cliSkillsSubtitle": "{count} कौशल — omniroute टर्मिनल बाइनरी के माध्यम से AI Gate को नियंत्रित करें",
     "howToUseStep1": "उस कौशल पर <bold>{copyUrl}</bold> पर क्लिक करें जिसके बारे में आप चाहते हैं कि आपका एजेंट जाने।",
     "howToUseStep2": "अपने AI एजेंट (Claude, Cursor, Cline…) में कहें:",
     "howToUseStep2Code": "[pasted-url] पर कौशल का उपयोग करें",
-    "howToUseStep3": "एजेंट SKILL.md प्राप्त करता है और OmniRoute के API या CLI को सीखता है — किसी मैन्युअल दस्तावेज़ की आवश्यकता नहीं है।"
+    "howToUseStep3": "एजेंट SKILL.md प्राप्त करता है और AI Gate के API या CLI को सीखता है — किसी मैन्युअल दस्तावेज़ की आवश्यकता नहीं है।"
   },
   "cloudAgents": {
     "title": "क्लाउड एजेंट",
@@ -9463,7 +9591,7 @@
     "settingsTitle": "Cloud Agent Settings",
     "settingsDesc": "क्लाउड एजेंटों के लिए स्थानीय प्राथमिकताओं को कॉन्फ़िगर करें।",
     "settingEnableAgents": "क्लाउड एजेंटों को सक्षम करें",
-    "settingEnableAgentsDesc": "OmniRoute को स्वायत्त कोडिंग एजेंटों को व्यवस्थित करने की अनुमति दें।",
+    "settingEnableAgentsDesc": "AI Gate को स्वायत्त कोडिंग एजेंटों को व्यवस्थित करने की अनुमति दें।",
     "settingAutoPR": "स्वचालित रूप से PR बनाएं",
     "settingAutoPRDesc": "कार्य पूरा होने पर, परिवर्तनों के साथ स्वचालित रूप से एक Pull Request बनाएं।",
     "settingRequireApproval": "योजना की स्वीकृति आवश्यक है",
@@ -9627,8 +9755,8 @@
     "tableProvider": "प्रदाता",
     "tableModel": "मॉडल",
     "performanceTitle": "प्रदर्शन",
-    "semanticCacheSectionDesc": "OmniRoute's own deterministic response cache. When enabled, repeated non-streaming temperature=0 requests can be served locally without hitting the upstream provider.",
-    "semanticCacheDisabledDesc": "Semantic cache is disabled. OmniRoute will skip local response reuse until you turn it back on in Settings.",
+    "semanticCacheSectionDesc": "AI Gate's own deterministic response cache. When enabled, repeated non-streaming temperature=0 requests can be served locally without hitting the upstream provider.",
+    "semanticCacheDisabledDesc": "Semantic cache is disabled. AI Gate will skip local response reuse until you turn it back on in Settings.",
     "semanticEntriesDesc": "Persisted semantic cache records currently stored in SQLite. Provider-side prompt cache activity is not listed here.",
     "searchEntries": "Search entries...",
     "search": "Search",
@@ -9734,20 +9862,20 @@
     "deviceCodeYourCode": "आपका कोड",
     "deviceCodeWaiting": "प्राधिकरण की प्रतीक्षा है...",
     "googleLoopbackTitle": "__MISSING__:Google sign-in can't complete from this address",
-    "googleLoopbackWhatHappens": "__MISSING__:Google only releases the authorization code once <code>{redirectUri}</code> is reachable from the browser that approves the sign-in. Here that address points at this computer, not at the OmniRoute server — so the consent screen hangs instead of redirecting, and there is no callback URL to copy.",
+    "googleLoopbackWhatHappens": "__MISSING__:Google only releases the authorization code once <code>{redirectUri}</code> is reachable from the browser that approves the sign-in. Here that address points at this computer, not at the AI Gate server — so the consent screen hangs instead of redirecting, and there is no callback URL to copy.",
     "googleLoopbackRecommended": "__MISSING__:Recommended — run this on your own computer, then paste the result below:",
     "googleLoopbackHelperNote": "__MISSING__:It opens the Google consent locally (where 127.0.0.1 works) and prints a one-line omniroute-cred-v1.… blob. Paste that blob into the Step 2 field below — it accepts a credential blob as well as a callback URL.",
-    "googleLoopbackTunnelLabel": "__MISSING__:Or forward the dashboard port over SSH and reload OmniRoute through the tunnel:",
+    "googleLoopbackTunnelLabel": "__MISSING__:Or forward the dashboard port over SSH and reload AI Gate through the tunnel:",
     "googleLoopbackTunnelNote": "__MISSING__:Replace {userPlaceholder} with your SSH username, keep the terminal open, then open {localUrl} and connect again from there.",
     "googleLoopbackHeadlessAlt": "__MISSING__:For fully headless use with no local callback at all, <a>configure your own Google OAuth credentials</a> plus a public base URL.",
     "remoteAccessInfo": "रिमोट एक्सेस: चूंकि आप ओमनीरूट को दूरस्थ रूप से एक्सेस कर रहे हैं, प्राधिकरण के बाद आपको एक त्रुटि पृष्ठ दिखाई देगा (लोकलहोस्ट नहीं मिला)। यह सामान्य है - बस अपने ब्राउज़र एड्रेस बार से पूरा यूआरएल कॉपी करें और नीचे पेस्ट करें।",
     "loopbackMismatchTitle": "__MISSING__:Sign-in can't complete from this address",
     "loopbackMismatchWhatHappened": "__MISSING__:What's happening",
-    "loopbackMismatchExplanation": "__MISSING__:After you approve the login, {providerName} always sends the browser back to <code>{redirectUri}</code>. That address points at the computer running this browser, not at the OmniRoute server — so the authorization code never reaches OmniRoute and the provider fails the sign-in without showing an error.",
+    "loopbackMismatchExplanation": "__MISSING__:After you approve the login, {providerName} always sends the browser back to <code>{redirectUri}</code>. That address points at the computer running this browser, not at the AI Gate server — so the authorization code never reaches AI Gate and the provider fails the sign-in without showing an error.",
     "loopbackMismatchHowToFix": "__MISSING__:How to fix it",
-    "loopbackMismatchStep1": "__MISSING__:On this computer, open a terminal and start an SSH tunnel to the OmniRoute server:",
+    "loopbackMismatchStep1": "__MISSING__:On this computer, open a terminal and start an SSH tunnel to the AI Gate server:",
     "loopbackMismatchStep1Note": "__MISSING__:Replace {userPlaceholder} with your SSH username. Keep this terminal open until the connection shows as active — both ports are needed: one serves the dashboard, the other receives the callback.",
-    "loopbackMismatchStep2": "__MISSING__:In this browser, reopen OmniRoute through the tunnel:",
+    "loopbackMismatchStep2": "__MISSING__:In this browser, reopen AI Gate through the tunnel:",
     "loopbackMismatchStep3": "__MISSING__:Then connect {providerName} again from the new tab. The callback now reaches the server and the login completes normally.",
     "loopbackMismatchAlternative": "__MISSING__:No SSH access? If this provider offers a token import tab, connect with a token instead — that path doesn't use a loopback callback.",
     "step1OpenUrl": "चरण 1: इस URL को अपने ब्राउज़र में खोलें",
@@ -10179,16 +10307,16 @@
     "musicSample": "वार्म पियानो और सॉफ्ट स्ट्रिंग्स के साथ एक शांत एम्बिएंट ट्रैक",
     "noAudioUrl": "प्रतिक्रिया में कोई ऑडियो URL शामिल नहीं था: {response}",
     "music": "संगीत",
-    "embeddingSample": "OmniRoute कई प्रदाताओं में AI अनुरोधों को रूट करता है।",
+    "embeddingSample": "AI Gate कई प्रदाताओं में AI अनुरोधों को रूट करता है।",
     "embedding": "एम्बेडिंग",
     "imageSample": "सूर्यास्त के समय एक भविष्यवादी शहर, सिनेमैटिक लाइटिंग",
     "image": "छवि",
-    "ttsSample": "OmniRoute की ओर से नमस्ते। यह एक टेक्स्ट-टू-स्पीच परीक्षण है।",
+    "ttsSample": "AI Gate की ओर से नमस्ते। यह एक टेक्स्ट-टू-स्पीच परीक्षण है।",
     "textToSpeech": "टेक्स्ट टू स्पीच",
     "videoSample": "एक भविष्यवादी शहर के ऊपर उड़ता हुआ कागज़ का हवाई जहाज़",
     "video": "वीडियो",
     "webFetch": "वेब फ़ेच",
-    "webSearchSample": "OmniRoute क्या है?",
+    "webSearchSample": "AI Gate क्या है?",
     "webSearch": "वेब खोज",
     "documentUrl": "दस्तावेज़ URL",
     "browserAudioUnsupported": "आपका ब्राउज़र ऑडियो का समर्थन नहीं करता है।",
@@ -10244,7 +10372,7 @@
     "cacheUp": "UP",
     "semantic": "Semantic",
     "upstream": "Upstream",
-    "semanticCacheHit": "Semantic cache hit (served by OmniRoute)",
+    "semanticCacheHit": "Semantic cache hit (served by AI Gate)",
     "upstreamResponse": "Upstream provider response",
     "noApiKey": "No API key",
     "requestedRoutedTitle": "Requested {requested}, routed as {routed}",
@@ -10542,7 +10670,7 @@
   },
   "plugins": {
     "title": "Plugins",
-    "description": "Install and manage plugins for extending OmniRoute functionality",
+    "description": "Install and manage plugins for extending AI Gate functionality",
     "loading": "Loading plugins...",
     "scanning": "Scanning...",
     "scanForPlugins": "Scan for Plugins",
@@ -10700,7 +10828,7 @@
   },
   "agentBridge": {
     "title": "AgentBridge",
-    "subtitle": "OmniRoute मॉडल के साथ IDE एजेंटों का उपयोग करें — किसी कॉन्फ़िगरेशन की आवश्यकता नहीं है",
+    "subtitle": "AI Gate मॉडल के साथ IDE एजेंटों का उपयोग करें — किसी कॉन्फ़िगरेशन की आवश्यकता नहीं है",
     "riskBannerTitle": "अपने जोखिम पर उपयोग करें",
     "riskBannerBody": "AgentBridge IDE एजेंटों से HTTPS ट्रैफ़िक को इंटरसेप्ट करता है। इसे सक्रिय करके आप प्रत्येक एजेंट की सेवा की शर्तों के अनुपालन की जिम्मेदारी स्वीकार करते हैं। उन उपकरणों या नेटवर्क पर कभी भी उपयोग न करें जहां TLS निरीक्षण निषिद्ध है।",
     "riskBannerDismiss": "खारिज करें",
@@ -10750,7 +10878,7 @@
     "investigatingNotice": "इस एजेंट की जांच की जा रही है। होस्ट और API सरफ़ेस की पुष्टि अभी भी की जा रही है। अपस्ट्रीम API के प्रलेखित होने के बाद सेटअप उपलब्ध होगा।",
     "modelMappingsLabel": "मॉडल मैपिंग",
     "sourceModel": "स्रोत मॉडल (एजेंट मूल)",
-    "targetModel": "लक्ष्य मॉडल (OmniRoute)",
+    "targetModel": "लक्ष्य मॉडल (AI Gate)",
     "noMappings": "कोई मॉडल मैपिंग कॉन्फ़िगर नहीं की गई है। मॉडल का स्वचालित रूप से पता लगाने के लिए सेटअप विज़ार्ड चलाएं।",
     "selectModel": "चुनें…",
     "saveMappings": "मैपिंग सहेजें",
@@ -10857,7 +10985,7 @@
   },
   "relay": {
     "title": "सर्वरलेस रिले प्रॉक्सी",
-    "description": "सार्वजनिक API एंडपॉइंट बनाएं जो रेट लिमिटिंग और एक्सेस कंट्रोल के साथ OmniRoute को प्रॉक्सी करते हैं",
+    "description": "सार्वजनिक API एंडपॉइंट बनाएं जो रेट लिमिटिंग और एक्सेस कंट्रोल के साथ AI Gate को प्रॉक्सी करते हैं",
     "created": "रिले टोकन बनाया गया",
     "createFailed": "टोकन बनाने में विफल",
     "toggleFailed": "टोकन टॉगल करने में विफल",
@@ -11020,25 +11148,25 @@
     "concept": {
       "code": {
         "title": "CLI कोड",
-        "phrase": "कोड टूल्स जिन्हें आप OmniRoute पर पॉइंट करते हैं",
-        "flow": "आप → CLI Code → OmniRoute → Provider",
+        "phrase": "कोड टूल्स जिन्हें आप AI Gate पर पॉइंट करते हैं",
+        "flow": "आप → CLI Code → AI Gate → Provider",
         "seeOther": "देखें →"
       },
       "agent": {
         "title": "CLI एजेंट्स",
-        "phrase": "व्यापक-उद्देश्यीय स्वायत्त CLI एजेंट्स जिन्हें आप OmniRoute पर पॉइंट करते हैं",
-        "flow": "आप → CLI Agent → OmniRoute → Provider",
+        "phrase": "व्यापक-उद्देश्यीय स्वायत्त CLI एजेंट्स जिन्हें आप AI Gate पर पॉइंट करते हैं",
+        "flow": "आप → CLI Agent → AI Gate → Provider",
         "seeOther": "देखें →"
       },
       "acp": {
         "title": "ACP एजेंट्स",
-        "phrase": "CLIs जिन्हें OmniRoute निष्पादन बैकएंड (रिवर्स फ़्लो) के रूप में स्पॉन करता है",
-        "flow": "क्लाइंट → OmniRoute → spawn CLI (stdio/ACP) → प्रतिक्रिया",
+        "phrase": "CLIs जिन्हें AI Gate निष्पादन बैकएंड (रिवर्स फ़्लो) के रूप में स्पॉन करता है",
+        "flow": "क्लाइंट → AI Gate → spawn CLI (stdio/ACP) → प्रतिक्रिया",
         "seeOther": "देखें →"
       }
     },
     "comparison": {
-      "title": "OmniRoute में 3 CLI प्रकारों को समझें",
+      "title": "AI Gate में 3 CLI प्रकारों को समझें",
       "thisPage": "यह पृष्ठ",
       "open": "खोलें →",
       "code": {
@@ -11096,7 +11224,7 @@
   },
   "cliCode": {
     "pageTitle": "CLI कोड्स",
-    "pageSubtitle": "OmniRoute की ओर पॉइंट करने वाले कोड टूल्स",
+    "pageSubtitle": "AI Gate की ओर पॉइंट करने वाले कोड टूल्स",
     "searchPlaceholder": "CLI खोजें…",
     "filterDetectionLabel": "डिटेक्शन",
     "filterBaseUrlLabel": "Base URL",
@@ -11121,7 +11249,7 @@
   },
   "acpAgents": {
     "pageTitle": "ACP एजेंट्स",
-    "pageSubtitle": "वे CLI जिन्हें OmniRoute एक्ज़ीक्यूशन बैकएंड के रूप में स्पॉन करता है",
+    "pageSubtitle": "वे CLI जिन्हें AI Gate एक्ज़ीक्यूशन बैकएंड के रूप में स्पॉन करता है",
     "scanning": "एजेंट्स का पता लगाया जा रहा है…",
     "refresh": "रीफ़्रेश करें",
     "setupGuideTitle": "सेटअप गाइड",
@@ -11156,7 +11284,7 @@
     "catalog": {
       "omni-auth": {
         "name": "प्रमाणीकरण",
-        "description": "API कुंजी प्रमाणीकरण और सत्र टोकन प्रबंधित करें। Bearer टोकन के माध्यम से अनुरोधों को प्रमाणित करने, सत्र कुकीज़ प्राप्त करने और OmniRoute API के लिए लॉगिन आवश्यकताओं को कॉन्फ़िगर करने के लिए यहाँ से शुरू करें।"
+        "description": "API कुंजी प्रमाणीकरण और सत्र टोकन प्रबंधित करें। Bearer टोकन के माध्यम से अनुरोधों को प्रमाणित करने, सत्र कुकीज़ प्राप्त करने और AI Gate API के लिए लॉगिन आवश्यकताओं को कॉन्फ़िगर करने के लिए यहाँ से शुरू करें।"
       },
       "omni-providers": {
         "name": "प्रदाता",
@@ -11172,7 +11300,7 @@
       },
       "omni-api-keys": {
         "name": "API कुंजियाँ",
-        "description": "OmniRoute API कुंजियाँ बनाएं, सूचीबद्ध करें, रोटेट करें और निरस्त करें। प्रति-कुंजी स्कोप, खर्च सीमा और समाप्ति को नियंत्रित करें। कुंजियाँ सभी प्रॉक्सी और प्रबंधन एंडपॉइंट्स तक पहुंच को नियंत्रित करती हैं।"
+        "description": "AI Gate API कुंजियाँ बनाएं, सूचीबद्ध करें, रोटेट करें और निरस्त करें। प्रति-कुंजी स्कोप, खर्च सीमा और समाप्ति को नियंत्रित करें। कुंजियाँ सभी प्रॉक्सी और प्रबंधन एंडपॉइंट्स तक पहुंच को नियंत्रित करती हैं।"
       },
       "omni-usage-logs": {
         "name": "उपयोग और लॉग",
@@ -11208,15 +11336,15 @@
       },
       "omni-cli-tools": {
         "name": "CLI टूल्स",
-        "description": "API के माध्यम से एक्सपोज़्ड CLI टूल इंटीग्रेशन को प्रबंधित करें। OmniRoute के ऑटोमेशन सरफेस को बढ़ाने वाले CLI टूल प्लगइन्स को सूचीबद्ध, कॉन्फ़िगर और इनवोक करें।"
+        "description": "API के माध्यम से एक्सपोज़्ड CLI टूल इंटीग्रेशन को प्रबंधित करें। AI Gate के ऑटोमेशन सरफेस को बढ़ाने वाले CLI टूल प्लगइन्स को सूचीबद्ध, कॉन्फ़िगर और इनवोक करें।"
       },
       "omni-tunnels": {
         "name": "टनल",
-        "description": "OmniRoute को इंटरनेट पर एक्सपोज़ करने या रिमोट एजेंटों और CI पाइपलाइनों के साथ एक्सेस साझा करने के लिए सुरक्षित टनल (ngrok, Cloudflare Tunnel, कस्टम) बनाएं और प्रबंधित करें।"
+        "description": "AI Gate को इंटरनेट पर एक्सपोज़ करने या रिमोट एजेंटों और CI पाइपलाइनों के साथ एक्सेस साझा करने के लिए सुरक्षित टनल (ngrok, Cloudflare Tunnel, कस्टम) बनाएं और प्रबंधित करें।"
       },
       "omni-sync-cloud": {
         "name": "क्लाउड सिंक",
-        "description": "क्लाउड स्टोरेज से/में OmniRoute कॉन्फ़िगरेशन, प्रोवाइडर कनेक्शन और सेटिंग्स को सिंक्रोनाइज़ करें। क्लाउड वर्कर ऑथेंटिकेशन और रिमोट बैकअप टारगेट को प्रबंधित करें।"
+        "description": "क्लाउड स्टोरेज से/में AI Gate कॉन्फ़िगरेशन, प्रोवाइडर कनेक्शन और सेटिंग्स को सिंक्रोनाइज़ करें। क्लाउड वर्कर ऑथेंटिकेशन और रिमोट बैकअप टारगेट को प्रबंधित करें।"
       },
       "omni-db-backups": {
         "name": "डेटाबेस और बैकअप",
@@ -11228,11 +11356,11 @@
       },
       "omni-mcp": {
         "name": "MCP सर्वर",
-        "description": "OmniRoute MCP सर्वर (37 टूल्स, 3 ट्रांसपोर्ट: SSE/stdio/HTTP) से कनेक्ट करें। 16 परमिशन स्कोप में राउटिंग, कैशे, कम्प्रेशन, मेमोरी, स्किल्स, प्रोवाइडर्स और ऑडिट टूल्स को कवर करता है।"
+        "description": "AI Gate MCP सर्वर (37 टूल्स, 3 ट्रांसपोर्ट: SSE/stdio/HTTP) से कनेक्ट करें। 16 परमिशन स्कोप में राउटिंग, कैशे, कम्प्रेशन, मेमोरी, स्किल्स, प्रोवाइडर्स और ऑडिट टूल्स को कवर करता है।"
       },
       "omni-agents-a2a": {
         "name": "एजेंट और A2A प्रोटोकॉल",
-        "description": "JSON-RPC 2.0 एजेंट-टू-एजेंट प्रोटोकॉल के माध्यम से OmniRoute के साथ इंटरैक्ट करें। 6 इन-बिल्ट A2A स्किल्स: smart-routing, quota-management, provider-discovery, cost-analysis, health-report, list-capabilities।"
+        "description": "JSON-RPC 2.0 एजेंट-टू-एजेंट प्रोटोकॉल के माध्यम से AI Gate के साथ इंटरैक्ट करें। 6 इन-बिल्ट A2A स्किल्स: smart-routing, quota-management, provider-discovery, cost-analysis, health-report, list-capabilities।"
       },
       "omni-version-manager": {
         "name": "वर्जन मैनेजर",
@@ -11244,7 +11372,7 @@
       },
       "cli-serve": {
         "name": "CLI: Serve",
-        "description": "CLI से OmniRoute सर्वर को स्टार्ट, स्टॉप और रीस्टार्ट करें। डेमन मोड, पोर्ट कॉन्फ़िगरेशन, ऑटो-रिकवरी, सिस्टम ट्रे इंटीग्रेशन और डैशबोर्ड ओपन शॉर्टकट को प्रबंधित करें।"
+        "description": "CLI से AI Gate सर्वर को स्टार्ट, स्टॉप और रीस्टार्ट करें। डेमन मोड, पोर्ट कॉन्फ़िगरेशन, ऑटो-रिकवरी, सिस्टम ट्रे इंटीग्रेशन और डैशबोर्ड ओपन शॉर्टकट को प्रबंधित करें।"
       },
       "cli-health": {
         "name": "CLI: Health",
@@ -11256,7 +11384,7 @@
       },
       "cli-keys": {
         "name": "CLI: API Keys",
-        "description": "CLI से OmniRoute API कीज़ बनाएं, सूचीबद्ध करें, रोटेट करें और रिवोक करें। प्रोवाइडर ऑथेंटिकेशन के लिए OAuth फ़्लो प्रबंधित करें और की स्कोप व एक्सपायरी का निरीक्षण करें।"
+        "description": "CLI से AI Gate API कीज़ बनाएं, सूचीबद्ध करें, रोटेट करें और रिवोक करें। प्रोवाइडर ऑथेंटिकेशन के लिए OAuth फ़्लो प्रबंधित करें और की स्कोप व एक्सपायरी का निरीक्षण करें।"
       },
       "cli-models": {
         "name": "CLI: Models",
@@ -11264,7 +11392,7 @@
       },
       "cli-chat": {
         "name": "CLI: Chat",
-        "description": "CLI से चैट कम्प्लीशन्स भेजें, रिस्पॉन्स स्ट्रीम करें, और एक इंटरैक्टिव REPL सेशन शुरू करें। सभी OmniRoute प्रोवाइडर्स, कॉम्बो राउटिंग और सिस्टम प्रॉम्प्ट कॉन्फ़िगरेशन का समर्थन करता है।"
+        "description": "CLI से चैट कम्प्लीशन्स भेजें, रिस्पॉन्स स्ट्रीम करें, और एक इंटरैक्टिव REPL सेशन शुरू करें। सभी AI Gate प्रोवाइडर्स, कॉम्बो राउटिंग और सिस्टम प्रॉम्प्ट कॉन्फ़िगरेशन का समर्थन करता है।"
       },
       "cli-routing": {
         "name": "CLI: Routing & Combos",
@@ -11292,7 +11420,7 @@
       },
       "cli-a2a": {
         "name": "CLI: A2A प्रोटोकॉल",
-        "description": "CLI से OmniRoute A2A सर्वर के साथ इंटरैक्ट करें। कार्य भेजें, स्किल निष्पादन इतिहास का निरीक्षण करें, और JSON-RPC 2.0 एजेंट-टू-एजेंट प्रोटोकॉल का इंटरैक्टिव रूप से परीक्षण करें।"
+        "description": "CLI से AI Gate A2A सर्वर के साथ इंटरैक्ट करें। कार्य भेजें, स्किल निष्पादन इतिहास का निरीक्षण करें, और JSON-RPC 2.0 एजेंट-टू-एजेंट प्रोटोकॉल का इंटरैक्टिव रूप से परीक्षण करें।"
       },
       "cli-tunnel": {
         "name": "CLI: टनल",
@@ -11300,7 +11428,7 @@
       },
       "cli-backup-sync": {
         "name": "CLI: बैकअप और सिंक",
-        "description": "CLI से OmniRoute डेटा का बैकअप लें और उसे रीस्टोर करें। इंक्रीमेंटल स्नैपशॉट ट्रिगर करें, क्लाउड स्टोरेज से सिंक करें, बैकअप शेड्यूल प्रबंधित करें, और आर्काइव फ़ाइलों से रीस्टोर करें।"
+        "description": "CLI से AI Gate डेटा का बैकअप लें और उसे रीस्टोर करें। इंक्रीमेंटल स्नैपशॉट ट्रिगर करें, क्लाउड स्टोरेज से सिंक करें, बैकअप शेड्यूल प्रबंधित करें, और आर्काइव फ़ाइलों से रीस्टोर करें।"
       },
       "cli-policy-audit": {
         "name": "CLI: पॉलिसी और ऑडिट",
@@ -11324,11 +11452,11 @@
       },
       "cli-skill-collector": {
         "name": "CLI: एजेंट स्किल कलेक्टर",
-        "description": "इंस्टॉल किए गए CLI कोडिंग टूल्स (Claude Code, Codex, Cursor, Copilot, Cline और अन्य) का पता लगाएं, मिलान करने वाले एजेंट स्किल्स के लिए GitHub पर खोजें, और OmniRoute के अंतर्निहित APIs के माध्यम से उन्हें पता लगाए गए टूल्स में इंस्टॉल करें।"
+        "description": "इंस्टॉल किए गए CLI कोडिंग टूल्स (Claude Code, Codex, Cursor, Copilot, Cline और अन्य) का पता लगाएं, मिलान करने वाले एजेंट स्किल्स के लिए GitHub पर खोजें, और AI Gate के अंतर्निहित APIs के माध्यम से उन्हें पता लगाए गए टूल्स में इंस्टॉल करें।"
       },
       "config-codex-cli": {
         "name": "कॉन्फ़िगरेशन: Codex CLI",
-        "description": "OmniRoute को OpenAI-संगत बैकएंड के रूप में उपयोग करने के लिए किसी भी मशीन (Linux, macOS, Windows) पर OpenAI Codex CLI को कॉन्फ़िगर करने के लिए चरण-दर-चरण एजेंट वर्कफ़्लो। OS और शेल का पता लगाता है, config.toml और 7 नामित प्रोफाइल लिखता है, एनवायरनमेंट वेरिएबल्स सेट करता है, और सेटअप को सत्यापित करता है।"
+        "description": "AI Gate को OpenAI-संगत बैकएंड के रूप में उपयोग करने के लिए किसी भी मशीन (Linux, macOS, Windows) पर OpenAI Codex CLI को कॉन्फ़िगर करने के लिए चरण-दर-चरण एजेंट वर्कफ़्लो। OS और शेल का पता लगाता है, config.toml और 7 नामित प्रोफाइल लिखता है, एनवायरनमेंट वेरिएबल्स सेट करता है, और सेटअप को सत्यापित करता है।"
       },
       "omni-github-skills": {
         "name": "GitHub स्किल डिस्कवरी",
@@ -11336,16 +11464,16 @@
       }
     },
     "pageTitle": "एजेंट स्किल्स",
-    "pageSubtitle": "अपने एजेंट को OmniRoute संचालित करना सिखाएं — 23 API क्षेत्र + 21 CLI परिवार",
+    "pageSubtitle": "अपने एजेंट को AI Gate संचालित करना सिखाएं — 23 API क्षेत्र + 21 CLI परिवार",
     "conceptCard": {
       "agent": {
         "title": "एजेंट स्किल्स — आउटबाउंड",
-        "description": "एजेंट स्किल्स मशीन-पठनीय SKILL.md दस्तावेज़ हैं जिन्हें बाहरी AI एजेंट (Claude Code, Cursor, Copilot…) GitHub से प्राप्त करते हैं ताकि वे सीख सकें कि REST या CLI के माध्यम से OmniRoute को कैसे संचालित किया जाए। इन्हें एजेंट द्वारा पढ़ा जाता है, OmniRoute द्वारा निष्पादित नहीं किया जाता है।",
+        "description": "एजेंट स्किल्स मशीन-पठनीय SKILL.md दस्तावेज़ हैं जिन्हें बाहरी AI एजेंट (Claude Code, Cursor, Copilot…) GitHub से प्राप्त करते हैं ताकि वे सीख सकें कि REST या CLI के माध्यम से AI Gate को कैसे संचालित किया जाए। इन्हें एजेंट द्वारा पढ़ा जाता है, AI Gate द्वारा निष्पादित नहीं किया जाता है।",
         "crossLinkLabel": "अंतर समझें →"
       },
       "omni": {
         "title": "Omni स्किल्स — इनबाउंड",
-        "description": "Omni स्किल्स सैंडबॉक्स टूल्स हैं जिन्हें OmniRoute हर अनुरोध पर मॉडल के संदर्भ (context) में इंजेक्ट करता है। इन्हें OmniRoute द्वारा निष्पादित किया जाता है, एजेंट द्वारा पढ़ा नहीं जाता है।",
+        "description": "Omni स्किल्स सैंडबॉक्स टूल्स हैं जिन्हें AI Gate हर अनुरोध पर मॉडल के संदर्भ (context) में इंजेक्ट करता है। इन्हें AI Gate द्वारा निष्पादित किया जाता है, एजेंट द्वारा पढ़ा नहीं जाता है।",
         "crossLinkLabel": "अंतर समझें →"
       },
       "comparison": {
@@ -11353,18 +11481,18 @@
         "colOmni": "Omni स्किल्स",
         "whatIs": {
           "label": "यह क्या है",
-          "agent": "मशीन-पठनीय SKILL.md जो किसी बाहरी एजेंट को OmniRoute संचालित करना सिखाता है",
-          "omni": "निष्पादन योग्य टूल्स जिन्हें OmniRoute LLM अनुरोधों में टूल्स के रूप में इंजेक्ट करता है"
+          "agent": "मशीन-पठनीय SKILL.md जो किसी बाहरी एजेंट को AI Gate संचालित करना सिखाता है",
+          "omni": "निष्पादन योग्य टूल्स जिन्हें AI Gate LLM अनुरोधों में टूल्स के रूप में इंजेक्ट करता है"
         },
         "direction": {
           "label": "दिशा",
-          "agent": "आउटबाउंड — बाहरी एजेंट OmniRoute को नियंत्रित करना सीखता है",
-          "omni": "इनबाउंड — OmniRoute अपने माध्यम से गुजरने वाले मॉडलों को टूल्स देता है"
+          "agent": "आउटबाउंड — बाहरी एजेंट AI Gate को नियंत्रित करना सीखता है",
+          "omni": "इनबाउंड — AI Gate अपने माध्यम से गुजरने वाले मॉडलों को टूल्स देता है"
         },
         "executor": {
           "label": "निष्पादक",
           "agent": "बाहरी एजेंट (markdown पढ़ता है → API/CLI के माध्यम से कार्य करता है)",
-          "omni": "स्वयं OmniRoute (tool_calls को रोकता है, Docker सैंडबॉक्स)"
+          "omni": "स्वयं AI Gate (tool_calls को रोकता है, Docker सैंडबॉक्स)"
         },
         "storage": {
           "label": "स्टोरेज",
@@ -11373,8 +11501,8 @@
         },
         "tagline": {
           "label": "टैगलाइन",
-          "agent": "अपने एजेंट को OmniRoute का उपयोग करना सिखाएं",
-          "omni": "OmniRoute मॉडल्स को निष्पादन योग्य टूल्स दें"
+          "agent": "अपने एजेंट को AI Gate का उपयोग करना सिखाएं",
+          "omni": "AI Gate मॉडल्स को निष्पादन योग्य टूल्स दें"
         }
       }
     },
@@ -11390,7 +11518,7 @@
     "coverageLabel": "कवरेज",
     "mcpUrl": "MCP URL",
     "a2aLink": "A2A",
-    "mcpPrompt": "अपने एजेंट को 37 OmniRoute टूल्स देने के लिए इस MCP एंडपॉइंट को उसमें जोड़ें।",
+    "mcpPrompt": "अपने एजेंट को 37 AI Gate टूल्स देने के लिए इस MCP एंडपॉइंट को उसमें जोड़ें।",
     "a2aPrompt": "A2A कार्य सौंपने को सक्षम करने के लिए इस एजेंट कार्ड को अपने ऑर्केस्ट्रेटर के साथ पंजीकृत करें।",
     "refresh": "ताज़ा करें",
     "copyUrl": "URL कॉपी करें",
@@ -11515,7 +11643,7 @@
     "rank": "रैंक",
     "name": "नाम",
     "score": "स्कोर",
-    "leaderboardEmpty": "इस स्कोप के लिए अभी तक कोई प्रविष्टि नहीं है। लीडरबोर्ड पर दिखने के लिए OmniRoute का उपयोग करना शुरू करें!",
+    "leaderboardEmpty": "इस स्कोप के लिए अभी तक कोई प्रविष्टि नहीं है। लीडरबोर्ड पर दिखने के लिए AI Gate का उपयोग करना शुरू करें!",
     "profileLoadFailed": "प्रोफ़ाइल डेटा लोड करने में विफल",
     "levelTitles": {
       "beginner": "शुरुआती",
@@ -11535,7 +11663,7 @@
     "dayStreak": "{count}-दिनों की स्ट्रीक",
     "levelProgress": "स्तर {current} → {next}",
     "totalXpEarned": "कुल {count} XP अर्जित किए गए",
-    "maintainStreak": "अपनी स्ट्रीक बनाए रखने के लिए हर दिन OmniRoute का उपयोग करते रहें!",
+    "maintainStreak": "अपनी स्ट्रीक बनाए रखने के लिए हर दिन AI Gate का उपयोग करते रहें!",
     "badgesTitle": "बैज ({earned}/{total})",
     "noBadges": "अभी तक कोई बैज उपलब्ध नहीं हैं।",
     "hiddenBadge": "छिपी हुई उपलब्धि",
@@ -11560,22 +11688,22 @@
       "first-token": {
         "name": "पहला टोकन",
         "description": "अपना पहला API अनुरोध किया",
-        "criteria": "OmniRoute के माध्यम से अपना पहला API अनुरोध पूरा करें।"
+        "criteria": "AI Gate के माध्यम से अपना पहला API अनुरोध पूरा करें।"
       },
       "token-consumer": {
         "name": "टोकन उपभोक्ता",
         "description": "1,000 API अनुरोध किए",
-        "criteria": "OmniRoute के माध्यम से 1,000 API अनुरोध पूरे करें।"
+        "criteria": "AI Gate के माध्यम से 1,000 API अनुरोध पूरे करें।"
       },
       "token-machine": {
         "name": "टोकन मशीन",
         "description": "10,000 API अनुरोध किए",
-        "criteria": "OmniRoute के माध्यम से 10,000 API अनुरोध पूरे करें।"
+        "criteria": "AI Gate के माध्यम से 10,000 API अनुरोध पूरे करें।"
       },
       "token-whale": {
         "name": "टोकन व्हेल",
         "description": "100,000 API अनुरोध किए",
-        "criteria": "OmniRoute के माध्यम से 100,000 API अनुरोध पूरे करें।"
+        "criteria": "AI Gate के माध्यम से 100,000 API अनुरोध पूरे करें।"
       },
       "generous": {
         "name": "उदार",
@@ -11625,22 +11753,22 @@
       "daily-user": {
         "name": "दैनिक उपयोगकर्ता",
         "description": "लगातार 3 दिनों तक सक्रिय",
-        "criteria": "लगातार 3 दिनों तक OmniRoute का उपयोग करें।"
+        "criteria": "लगातार 3 दिनों तक AI Gate का उपयोग करें।"
       },
       "weekly-warrior": {
         "name": "साप्ताहिक योद्धा",
         "description": "लगातार 7 दिनों तक सक्रिय",
-        "criteria": "लगातार 7 दिनों तक OmniRoute का उपयोग करें।"
+        "criteria": "लगातार 7 दिनों तक AI Gate का उपयोग करें।"
       },
       "monthly-master": {
         "name": "मासिक मास्टर",
         "description": "लगातार 30 दिनों तक सक्रिय",
-        "criteria": "लगातार 30 दिनों तक OmniRoute का उपयोग करें।"
+        "criteria": "लगातार 30 दिनों तक AI Gate का उपयोग करें।"
       },
       "unstoppable": {
         "name": "अजेय",
         "description": "लगातार 365 दिनों तक सक्रिय",
-        "criteria": "लगातार 365 दिनों तक OmniRoute का उपयोग करें।"
+        "criteria": "लगातार 365 दिनों तक AI Gate का उपयोग करें।"
       },
       "early-adopter": {
         "name": "शुरुआती अपनाने वाले",
@@ -11655,7 +11783,7 @@
       "contributor": {
         "name": "योगदानकर्ता",
         "description": "1 pull request मर्ज किया",
-        "criteria": "OmniRoute में 1 pull request मर्ज करवाएं।"
+        "criteria": "AI Gate में 1 pull request मर्ज करवाएं।"
       },
       "community-leader": {
         "name": "कम्युनिटी लीडर",
@@ -12189,8 +12317,8 @@
     "noProviderOverrides": "कोई ओवरराइड नहीं — सभी सक्रिय प्रदाता अपने डिफ़ॉल्ट मॉडल के साथ भाग लेंगे"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI), OmniRoute का संस्थापक ओपन सोर्स मित्र है",
-    "description": "Kimi K3 लागत के एक अंश पर OmniRoute में 1M-टोकन संदर्भ विंडो और अत्याधुनिक कोडिंग प्रदर्शन लाता है।",
+    "title": "Kimi (Moonshot AI), AI Gate का संस्थापक ओपन सोर्स मित्र है",
+    "description": "Kimi K3 लागत के एक अंश पर AI Gate में 1M-टोकन संदर्भ विंडो और अत्याधुनिक कोडिंग प्रदर्शन लाता है।",
     "cta": "Kimi Code प्राप्त करें",
     "partnerLinkNote": "पार्टनर लिंक",
     "dismissAriaLabel": "खारिज करें"
@@ -12223,5 +12351,42 @@
     "testing": "Testing…",
     "delete": "Delete",
     "confirmDelete": "Delete MCP server \"{name}\"?"
+  },
+  "servicesPage": {
+    "title": "Services Monitor",
+    "subtitle": "Auxiliary services hosted behind the AI Gate gateway — register, health-check and manage them from one place.",
+    "loading": "Loading services…",
+    "loadError": "Failed to load services",
+    "addService": "Register service",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "registerService": "Register a new service",
+    "name": "Name",
+    "namePlaceholder": "e.g. local search",
+    "type": "Type",
+    "typeWeb": "Web (browser UI)",
+    "typeHttp": "HTTP API",
+    "url": "URL",
+    "urlPlaceholder": "http://127.0.0.1:8080",
+    "healthEndpoint": "Health endpoint",
+    "healthPlaceholder": "/health (optional)",
+    "noServices": "No services registered yet.",
+    "statusUp": "Up",
+    "statusDown": "Down",
+    "statusUnknown": "Unknown",
+    "lastChecked": "Checked",
+    "probe": "Check health",
+    "probing": "Checking…",
+    "enabled": "Enabled",
+    "preset": "preset",
+    "deleteService": "Delete",
+    "deleteConfirmMessage": "Delete service",
+    "proxied": "Proxy through gateway",
+    "upstream": "Upstream (gateway-internal)",
+    "upstreamPlaceholder": "http://host.containers.internal:8080",
+    "requiredScope": "Required scope",
+    "requiredScopePlaceholder": "svc:my-service (optional)",
+    "viaGateway": "via gateway"
   }
 }

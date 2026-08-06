@@ -48,7 +48,7 @@ export function interpretMitmStartupError(stderr: string, port: number): string 
     return `MITM server failed to start: permission denied for port ${port} (run with elevated privileges, or use a port ≥ 1024)`;
   }
   if (lower.includes("router_api_key")) {
-    return "MITM server failed to start: no API key was provided (ROUTER_API_KEY is required). Set a router API key in OmniRoute and retry.";
+    return "MITM server failed to start: no API key was provided (ROUTER_API_KEY is required). Set a router API key in AI Gate and retry.";
   }
 
   // Surface the first "❌ <message>" diagnostic line verbatim (marker stripped),
@@ -424,7 +424,7 @@ export async function getMitmStatus(agentId?: string): Promise<{
 
 /**
  * Start MITM proxy
- * @param {string} apiKey - OmniRoute API key
+ * @param {string} apiKey - AI Gate API key
  * @param {string} sudoPassword - Sudo password for DNS/cert operations
  */
 export async function startMitm(
@@ -586,7 +586,7 @@ async function startMitmInternal(
       : 443;
   // D4 — resolve the inspector ingest token so the spawned proxy can post
   // captured AgentBridge traffic to the local-only ingest endpoint. The token
-  // is shared with the OmniRoute process: getIngestTokenForBootstrap() returns
+  // is shared with the AI Gate process: getIngestTokenForBootstrap() returns
   // the same value the ingest route validates against (env or auto-generated).
   // Best-effort — if it cannot be resolved, the proxy simply skips capture.
   let ingestToken = process.env.INSPECTOR_INTERNAL_INGEST_TOKEN || "";

@@ -210,7 +210,7 @@ export const WEB_COOKIE_PROVIDERS = {
     freeNote:
       "Free model comparison platform (formerly LMArena) at arena.ai — Direct-chat catalog of chat models (GPT, Claude, Gemini, Llama, …). No subscription required.",
     authHint:
-      "Paste the full Cookie header from arena.ai (DevTools → Network → request → Cookie). Include arena-auth-prod-v1.0/.1… and cf_clearance/__cf_bm when present. OmniRoute uses Chrome TLS impersonation; if Arena still 403s, set providerSpecificData.recaptchaV3Token from a live browser session.",
+      "Paste the full Cookie header from arena.ai (DevTools → Network → request → Cookie). Include arena-auth-prod-v1.0/.1… and cf_clearance/__cf_bm when present. AI Gate uses Chrome TLS impersonation; if Arena still 403s, set providerSpecificData.recaptchaV3Token from a live browser session.",
     riskNoticeVariant: "webCookie",
   },
   "yuanbao-web": {
@@ -391,7 +391,7 @@ export const WEB_COOKIE_PROVIDERS = {
     riskNoticeVariant: "webCookie",
     authHint: "Paste the full Cookie header from chat.z.ai (must include the token=<JWT> cookie)",
   },
-  "promptql": {
+  promptql: {
     id: "promptql",
     alias: "pql",
     name: "PromptQL (Unofficial/Experimental)",

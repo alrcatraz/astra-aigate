@@ -2,7 +2,7 @@
  * GET /api/skills/collect/detect
  *
  * Detect installed CLI coding tools + search GitHub for matching agent skills.
- * Uses OmniRoute's built-in CLI_TOOL_IDS detection (no Skill Collector bridge needed).
+ * Uses AI Gate's built-in CLI_TOOL_IDS detection (no Skill Collector bridge needed).
  *
  * Returns: {
  *   tools: { toolId, installed, runnable, command, reason }[],

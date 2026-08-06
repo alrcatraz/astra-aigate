@@ -16,7 +16,7 @@ function asRecord(value: unknown): JsonRecord | null {
  * Claude Opus 4.7 and later (Opus 4.7/4.8/5, Fable 5) removed manual extended thinking: the
  * Messages API returns HTTP 400 for `thinking.type:"enabled"` and for ANY
  * `thinking.budget_tokens`. Reasoning is steered exclusively by `output_config.effort`
- * (Anthropic's current model migration guidance). OmniRoute can still produce a manual
+ * (Anthropic's current model migration guidance). AI Gate can still produce a manual
  * thinking block on these models from several paths — a Claude-native passthrough client
  * sending the legacy shape, the OpenAI→Claude translator's reasoning_effort buckets, or a
  * per-model thinking default — so this is the final, provider-agnostic guard keyed on the
@@ -61,7 +61,7 @@ export function normalizeClaudeAdaptiveThinking<T extends Record<string, unknown
  * Enforce the direct Anthropic Messages API restriction for disabled thinking.
  *
  * Claude Opus 5 accepts `thinking.type:"disabled"` only through `high` effort.
- * This contract is verified for OmniRoute's two direct Anthropic API providers:
+ * This contract is verified for AI Gate's two direct Anthropic API providers:
  * `anthropic` (API key) and `claude` (OAuth). GitHub Copilot and Claude Web use
  * separate upstream contracts and must not inherit this normalization.
  */

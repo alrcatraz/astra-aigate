@@ -34,7 +34,7 @@ export function checkQueueAdmission(
   const err = new Error(
     `Request rejected: the local rate-limit queue for ${identity} already holds ${queuedCount} ` +
       `queued request(s), at or above the configured admission cap maxQueueDepth (${maxQueueDepth}) ` +
-      `— this is OmniRoute's request queue (resilienceSettings.requestQueue.maxQueueDepth), not an ` +
+      `— this is AI Gate's request queue (resilienceSettings.requestQueue.maxQueueDepth), not an ` +
       `upstream rejection. Raise it in Settings → Resilience if this is expected burst traffic.`
   ) as Error & { code?: string; status?: number };
   err.code = "RATE_LIMIT_QUEUE_FULL";

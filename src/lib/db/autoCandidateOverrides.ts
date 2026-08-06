@@ -2,7 +2,7 @@
  * db/autoCandidateOverrides.ts — Per-API-key candidate exclusions for `auto/*`
  * channels (#7819, Level 2 of the "per-user candidate control" feature).
  *
- * OmniRoute is single-tenant (no `users` table, no `user_id`/`userId` column
+ * AI Gate is single-tenant (no `users` table, no `user_id`/`userId` column
  * anywhere under `src/lib/db/`) — `apiKeyId` is the closest real per-caller
  * identity this app has, so overrides are keyed by (apiKeyId, autoChannel,
  * connectionId) rather than "per user". See the Open Question in the #7819

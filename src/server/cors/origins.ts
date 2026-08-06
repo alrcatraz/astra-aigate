@@ -1,7 +1,7 @@
 /**
  * Centralized CORS origin allowlist.
  *
- * Source of truth for which browser origins may call OmniRoute over CORS.
+ * Source of truth for which browser origins may call AI Gate over CORS.
  * No wildcard default. To allow any origin, opt in via `CORS_ALLOW_ALL=true`.
  *
  * Resolution order:

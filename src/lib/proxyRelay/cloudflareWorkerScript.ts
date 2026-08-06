@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker source emitter for the OmniRoute proxy relay.
+ * Cloudflare Worker source emitter for the AI Gate proxy relay.
  *
  * Port of upstream decolua/9router PR #1360. The Worker plays the same role
  * the Vercel-relay edge function does (`src/app/api/settings/proxy/vercel-deploy/route.ts`):
@@ -15,7 +15,7 @@
  * The string template is fed to Cloudflare's PUT /accounts/{id}/workers/scripts/{name}
  * API with main_module=index.js (ESM Workers Modules format).
  *
- * The OmniRoute variant intentionally diverges from the upstream PR:
+ * The AI Gate variant intentionally diverges from the upstream PR:
  *  - The upstream worker had NO auth check, leaving the deployed workers.dev URL
  *    as an open SSRF proxy. We mirror Vercel's x-relay-auth scheme instead so the
  *    same buildVercelRelayHeaders helper (open-sse/utils/proxyDispatcher.ts) and
@@ -74,7 +74,7 @@ export function buildCloudflareWorkerScript(relayAuth: string): string {
   // relayAuth is generated server-side via randomBytes(24).toString("hex") — no
   // user-controlled input ever reaches this template, so direct interpolation
   // into the worker source string is safe.
-  return `// OmniRoute Cloudflare Worker proxy relay — generated at deploy time.
+  return `// AI Gate Cloudflare Worker proxy relay — generated at deploy time.
 function isPrivateHostname(h) {
   if (!h) return true;
   const host = h.trim().toLowerCase().replace(/^\\[|\\]$/g, "");

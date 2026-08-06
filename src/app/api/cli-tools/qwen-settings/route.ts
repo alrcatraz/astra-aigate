@@ -163,7 +163,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return NextResponse.json({
       success: true,
-      message: "Qwen Code now routes through OmniRoute",
+      message: "Qwen Code now routes through AI Gate",
       settingsPath: configPaths.settings,
       envPath: configPaths.env,
     });
@@ -210,7 +210,7 @@ export async function DELETE(request: Request): Promise<Response> {
 
     return NextResponse.json({
       success: true,
-      message: "OmniRoute settings removed from Qwen Code",
+      message: "AI Gate settings removed from Qwen Code",
     });
   } catch (error) {
     logger.error({ err: error }, "Failed to reset Qwen Code settings");

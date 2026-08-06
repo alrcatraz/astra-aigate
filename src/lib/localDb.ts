@@ -344,6 +344,26 @@ export {
   slugifyMcpServerId,
 } from "./db/mcpServers";
 
+export {
+  listServices,
+  getService,
+  createService,
+  updateService,
+  deleteService,
+  recordProbe,
+  listHealthLogs,
+  resolveHealthUrl,
+  slugifyServiceId,
+} from "./db/services";
+
+export type {
+  Service,
+  ServiceType,
+  ServiceSource,
+  ServiceStatus,
+  HealthLogEntry,
+} from "./db/services";
+
 export type {
   McpServer,
   McpServerInput,

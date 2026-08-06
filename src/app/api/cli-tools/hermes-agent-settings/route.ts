@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 
   await fs.writeFile(configPath, result.yaml, "utf-8");
 
-  // Record first setup time if this is the first save via OmniRoute
+  // Record first setup time if this is the first save via AI Gate
   const metaPath = getMetadataPath(configPath);
   try {
     await fs.access(metaPath);

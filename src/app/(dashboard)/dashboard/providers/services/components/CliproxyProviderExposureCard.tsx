@@ -1,7 +1,7 @@
 /**
  * Provider Exposure toggle for CLIProxyAPI.
  * Persists the `providerExpose` field via POST /api/services/cliproxy/provider-expose.
- * When enabled, CLIProxyAPI models appear as `cliproxyapi/...` in OmniRoute's model selection.
+ * When enabled, CLIProxyAPI models appear as `cliproxyapi/...` in AI Gate's model selection.
  */
 "use client";
 
@@ -78,12 +78,15 @@ export function CliproxyProviderExposureCard() {
             <code className="font-mono bg-bg-subtle px-1 rounded text-xs">cliproxyapi/...</code>
           </p>
           <p className="text-xs text-text-muted mt-0.5">
-            When enabled, discovered models appear in provider selects across OmniRoute.
+            When enabled, discovered models appear in provider selects across AI Gate.
           </p>
         </div>
-        <Toggle checked={data?.providerExpose ?? false} onChange={handleToggle} disabled={pending || !data} />
+        <Toggle
+          checked={data?.providerExpose ?? false}
+          onChange={handleToggle}
+          disabled={pending || !data}
+        />
       </div>
     </Card>
   );
 }
-

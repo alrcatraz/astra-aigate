@@ -1,8 +1,4 @@
-import {
-  generateSignature,
-  getCachedResponse,
-  isCacheableForRead,
-} from "@/lib/semanticCache";
+import { generateSignature, getCachedResponse, isCacheableForRead } from "@/lib/semanticCache";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { trackPendingRequest } from "@/lib/usageDb";
 import { synthesizeOpenAiSseFromJson } from "../../utils/jsonToSse.ts";
@@ -77,8 +73,8 @@ export async function checkSemanticCache({
         [OMNIROUTE_RESPONSE_HEADERS.cache]: "HIT",
       };
       // A cache HIT serves WITHOUT an upstream call, so the incremental cost billed to
-      // the client is 0 (consumers that sum X-OmniRoute-Response-Cost must not charge for
-      // hits). The original/would-have-been cost is surfaced via X-OmniRoute-Cost-Saved.
+      // the client is 0 (consumers that sum X-AI Gate-Response-Cost must not charge for
+      // hits). The original/would-have-been cost is surfaced via X-AI Gate-Cost-Saved.
       attachOmniRouteMetaHeaders(headers, {
         provider,
         model,

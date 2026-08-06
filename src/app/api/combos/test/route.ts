@@ -63,9 +63,9 @@ async function testComboTarget(target, baseInternalUrl, internalApiKey: string |
           ...(internalApiKey ? { Authorization: `Bearer ${internalApiKey}` } : {}),
           "X-Internal-Test": "combo-health-check",
           // Force a fresh execution path so combo tests cannot be satisfied by
-          // OmniRoute's semantic cache or other request reuse layers.
-          "X-OmniRoute-No-Cache": "true",
-          ...(target.connectionId ? { "X-OmniRoute-Connection": target.connectionId } : {}),
+          // AI Gate's semantic cache or other request reuse layers.
+          "X-AI Gate-No-Cache": "true",
+          ...(target.connectionId ? { "X-AI Gate-Connection": target.connectionId } : {}),
           "X-Request-Id": `combo-test-${randomUUID()}`,
         },
         body: JSON.stringify(testBody),

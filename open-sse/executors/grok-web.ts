@@ -56,7 +56,7 @@ const GROK_USER_AGENT =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
 // ─── Model mappings ─────────────────────────────────────────────────────────
-// Grok Web exposes UI modes, not stable public model IDs. Keep OmniRoute model
+// Grok Web exposes UI modes, not stable public model IDs. Keep AI Gate model
 // IDs mapped directly to Grok's modeId field.
 
 interface GrokModelInfo {

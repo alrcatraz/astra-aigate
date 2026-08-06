@@ -3,7 +3,7 @@ import { ApiExplorerClient } from "../components/ApiExplorerClient";
 
 export const metadata: Metadata = {
   title: "API Explorer — Astra AI Gate Docs",
-  description: "Interactive API explorer — try OmniRoute endpoints live with real-time responses",
+  description: "Interactive API explorer — try AI Gate endpoints live with real-time responses",
 };
 
 export default function ApiExplorerPage() {
@@ -11,8 +11,8 @@ export default function ApiExplorerPage() {
     <div>
       <h1 className="text-3xl font-bold text-text-main mb-2">API Explorer</h1>
       <p className="text-text-muted mb-8">
-        Try OmniRoute endpoints live. Select an endpoint, configure your request, and see the
-        response in real time.
+        Try AI Gate endpoints live. Select an endpoint, configure your request, and see the response
+        in real time.
       </p>
       <ApiExplorerClient />
     </div>

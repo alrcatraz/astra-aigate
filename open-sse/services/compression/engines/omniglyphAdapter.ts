@@ -97,7 +97,7 @@ export const omniglyphEngine: CompressionEngine = {
     inputScope: "mixed",
     targetLatencyMs: 250, // render+encode PNG de páginas grandes
     supportsPreview: true,
-    stable: false, // P1: preview — promover após o e2e P3 (30/30 via OmniRoute)
+    stable: false, // P1: preview — promover após o e2e P3 (30/30 via AI Gate)
   },
   // Contrato da interface: engines async-only mantêm apply síncrono como pass-through seguro.
   apply(body) {

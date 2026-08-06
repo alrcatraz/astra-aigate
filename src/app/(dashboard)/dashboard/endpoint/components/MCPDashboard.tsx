@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, Button } from "@/shared/components";
 import { useTranslations } from "next-intl";
+import { useDisplayBaseUrl } from "@/shared/hooks";
+import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
 type McpTransport = "stdio" | "sse" | "streamable-http";
 
@@ -49,6 +51,14 @@ type McpTool = {
   phase: 1 | 2;
   auditLevel: "none" | "basic" | "full";
   sourceEndpoints: string[];
+};
+
+type McpServerSummary = {
+  id: string;
+  name: string;
+  kind: "builtin" | "stdio" | "http";
+  enabled: boolean;
+  required_scope: string | null;
 };
 
 type McpAuditEntry = {
@@ -181,6 +191,9 @@ function formatPercent(value: number | null | undefined) {
 
 export default function McpDashboardPage() {
   const t = useTranslations("mcpDashboard");
+  const baseUrl = useDisplayBaseUrl();
+  const { copied, copy } = useCopyToClipboard();
+  const [servers, setServers] = useState<McpServerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<McpStatusResponse | null>(null);
   const [tools, setTools] = useState<McpTool[]>([]);
@@ -211,10 +224,11 @@ export default function McpDashboardPage() {
 
   const refreshSummary = useCallback(async () => {
     try {
-      const [statusRes, toolsRes, combosRes] = await Promise.all([
+      const [statusRes, toolsRes, combosRes, serversRes] = await Promise.all([
         fetch("/api/mcp/status"),
         fetch("/api/mcp/tools"),
         fetch("/api/combos"),
+        fetch("/api/mcp-servers"),
       ]);
 
       if (statusRes.ok) {
@@ -234,6 +248,11 @@ export default function McpDashboardPage() {
         if (!selectedComboId && nextCombos.length > 0) {
           setSelectedComboId(nextCombos[0].id);
         }
+      }
+
+      if (serversRes.ok) {
+        const json = await serversRes.json();
+        setServers(Array.isArray(json.servers) ? json.servers : []);
       }
     } finally {
       setLoading(false);
@@ -385,6 +404,51 @@ export default function McpDashboardPage() {
         <StatCard label={t("lastHeartbeat")} value={heartbeatLabel} />
       </div>
 
+      {!status?.online && <p className="text-xs text-text-muted -mt-4">{t("lazyStartHint")}</p>}
+
+      <Card className="p-5">
+        <h2 className="text-lg font-semibold mb-1">{t("connectionEndpoints")}</h2>
+        <p className="text-sm text-text-muted mb-4">{t("connectionEndpointsDesc")}</p>
+        <div className="space-y-3">
+          {servers.length === 0 && <p className="text-sm text-text-muted">{t("loading")}</p>}
+          {servers.map((server) => (
+            <div key={server.id} className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <span className="font-mono text-sm font-semibold">{server.id}</span>
+                <div className="flex items-center gap-2 text-xs">
+                  {server.required_scope && (
+                    <span className="rounded bg-bg px-2 py-0.5 font-mono">
+                      {t("requiredScope")}: {server.required_scope}
+                    </span>
+                  )}
+                  <span className={server.enabled ? "text-green-500" : "text-text-muted"}>
+                    {server.enabled ? t("active") : t("endpointDisabled")}
+                  </span>
+                </div>
+              </div>
+              {[
+                { labelKey: "streamableHttpLabel", path: "stream" },
+                { labelKey: "sseLabel", path: "sse" },
+              ].map((transport) => {
+                const url = `${baseUrl}/api/mcp/servers/${server.id}/${transport.path}`;
+                const copyId = `${server.id}:${transport.path}`;
+                return (
+                  <div key={transport.path} className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-text-muted w-32 shrink-0">
+                      {t(transport.labelKey)}
+                    </span>
+                    <code className="flex-1 rounded bg-bg px-2 py-1 text-xs break-all">{url}</code>
+                    <Button size="sm" variant="secondary" onClick={() => copy(url, copyId)}>
+                      {copied === copyId ? t("copied") : t("copy")}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </Card>
+
       <Card className="p-5">
         <h2 className="text-lg font-semibold mb-4">{t("activity24h")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -425,7 +489,9 @@ export default function McpDashboardPage() {
               <p>
                 {t("scopesEnforced")}:{" "}
                 <span className="font-semibold">
-                  {(status?.scopesEnforced ?? status?.heartbeat?.scopesEnforced) ? t("yes") : t("no")}
+                  {(status?.scopesEnforced ?? status?.heartbeat?.scopesEnforced)
+                    ? t("yes")
+                    : t("no")}
                 </span>
               </p>
               <p>

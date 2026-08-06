@@ -2,7 +2,7 @@
  * Content-Type guard for chat/message routes (#6414).
  *
  * OpenAI's reference API returns HTTP 415 `unsupported_media_type` when a POST to
- * /v1/chat/completions arrives with a non-JSON Content-Type (or none). OmniRoute
+ * /v1/chat/completions arrives with a non-JSON Content-Type (or none). AI Gate
  * previously admitted such requests, silently parsed the body as JSON (via
  * `request.clone().json().catch(() => null)`), and let them fall through to the
  * provider-lookup layer — where they emerged as a misleading `model_not_found` /

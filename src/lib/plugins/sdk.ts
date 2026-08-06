@@ -2,17 +2,12 @@
  * Plugin SDK — typed API for plugin developers.
  *
  * Provides `definePlugin()` factory and re-exports all types needed
- * to build OmniRoute plugins.
+ * to build AI Gate plugins.
  *
  * @module plugins/sdk
  */
 
-import type {
-  Plugin,
-  PluginContext,
-  PluginResult,
-  BlockingHookResult,
-} from "./hooks.ts";
+import type { Plugin, PluginContext, PluginResult, BlockingHookResult } from "./hooks.ts";
 
 export type { Plugin, PluginContext, PluginResult, BlockingHookResult };
 
@@ -34,7 +29,7 @@ export interface PluginDefinition {
 }
 
 /**
- * Define an OmniRoute plugin with type safety.
+ * Define an AI Gate plugin with type safety.
  *
  * @example
  * ```ts

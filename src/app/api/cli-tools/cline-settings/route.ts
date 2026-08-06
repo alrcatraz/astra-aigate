@@ -26,7 +26,7 @@ const readGlobalState = async () => readJsoncConfig(GLOBAL_STATE_PATH);
 // Read secrets.json (same JSONC-tolerant behaviour; defaults to {} for compat).
 const readSecrets = async () => readJsoncConfig<Record<string, unknown>>(SECRETS_PATH, {});
 
-// Check if OmniRoute is configured as OpenAI-compatible provider
+// Check if AI Gate is configured as OpenAI-compatible provider
 const hasOmniRouteConfig = (globalState: any) => {
   if (!globalState) return false;
   const isOpenAi =
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Configure Cline to use OmniRoute as OpenAI-compatible provider
+// POST - Configure Cline to use AI Gate as OpenAI-compatible provider
 export async function POST(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE - Remove OmniRoute OpenAI-compatible provider config
+// DELETE - Remove AI Gate OpenAI-compatible provider config
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -247,7 +247,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "OmniRoute settings removed from Cline",
+      message: "AI Gate settings removed from Cline",
     });
   } catch (error) {
     console.log("Error resetting cline settings:", error);

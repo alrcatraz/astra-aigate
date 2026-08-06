@@ -155,7 +155,7 @@ export function applyToolFilter(
 
 /**
  * Strip all <omniModel> tags from message content before forwarding to the provider.
- * The tag is an internal OmniRoute marker; providers must never see it or their
+ * The tag is an internal AI Gate marker; providers must never see it or their
  * cache will treat every tagged request as a new session (#454).
  */
 export function stripModelTags(messages: Message[]): Message[] {
@@ -207,7 +207,7 @@ export function applyComboAgentMiddleware(
   );
 
   // 4. Strip internal <omniModel> tags before forwarding to provider (#454)
-  //    These tags are OmniRoute-internal markers and must never reach the provider
+  //    These tags are AI Gate-internal markers and must never reach the provider
   //    since providers would treat each tagged request as a new cache session.
   messages = stripModelTags(messages);
 

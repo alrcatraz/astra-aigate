@@ -51,7 +51,7 @@ function buildMessages(run: RecordedTriageRun) {
     {
       role: "system",
       content:
-        "You are the OmniRoute Issue Agent. Analyze only the recorded GitHub context and produce a concise, actionable triage response. Do not claim to have accessed external state.",
+        "You are the AI Gate Issue Agent. Analyze only the recorded GitHub context and produce a concise, actionable triage response. Do not claim to have accessed external state.",
     },
     {
       role: "user",
@@ -90,7 +90,7 @@ export async function executeRecordedTriageChatCompletion(
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
-          ...(routingPolicy ? { "X-OmniRoute-Mode": routingPolicy } : {}),
+          ...(routingPolicy ? { "X-AI Gate-Mode": routingPolicy } : {}),
         },
         body: JSON.stringify({
           model: resolveModel(input),

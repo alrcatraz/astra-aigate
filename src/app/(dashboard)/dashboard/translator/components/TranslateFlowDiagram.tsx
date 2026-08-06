@@ -120,7 +120,7 @@ export default function TranslateFlowDiagram() {
         example={tr("conceptDiagramExampleTarget", "Gemini")}
         tooltipContent={tr(
           "conceptDiagramTargetTooltip",
-          "The provider connected in OmniRoute that actually responds, such as Google Gemini or Anthropic."
+          "The provider connected in AI Gate that actually responds, such as Google Gemini or Anthropic."
         )}
       />
     </div>

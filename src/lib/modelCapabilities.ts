@@ -312,7 +312,7 @@ function stripLatestAlias(modelId: string | null): string | null {
 }
 
 function reverseModelsDevProviders(provider: string): string[] {
-  // models.dev may store capabilities under a different OmniRoute provider id
+  // models.dev may store capabilities under a different AI Gate provider id
   // that also maps from the same upstream models.dev provider. Build reverse
   // candidates from MODELS_DEV_PROVIDER_MAP (e.g. openai ↔ cx).
   //
@@ -694,8 +694,7 @@ export function capThinkingBudget(input: CapabilityInput, budget: number): numbe
   // default to "gemini". Without this a cap learned via the executor would be
   // invisible to bare-model callers. Provider-qualified inputs keep their own
   // provider, preserving per-provider independence.
-  const providerForLearned =
-    resolved.provider ?? (modelLower.includes("gemini") ? "gemini" : null);
+  const providerForLearned = resolved.provider ?? (modelLower.includes("gemini") ? "gemini" : null);
 
   const learned = getLearnedThinkingCap(providerForLearned, modelId);
   if (learned !== null) {

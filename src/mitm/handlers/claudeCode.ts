@@ -4,7 +4,7 @@
  * Host: `api.anthropic.com` (opt-in — typical Anthropic API requests originate
  * from many callers, so this handler only fires when the user explicitly
  * configures DNS routing for Claude Code).
- * Format: Anthropic Messages API — POST `/v1/messages` on the OmniRoute router.
+ * Format: Anthropic Messages API — POST `/v1/messages` on the AI Gate router.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AgentId } from "../types";
@@ -48,7 +48,7 @@ export class ClaudeCodeHandler extends MitmHandlerBase {
 
       if (!upstream.ok) {
         const errText = await upstream.text().catch(() => "");
-        throw new Error(`OmniRoute ${upstream.status}: ${errText}`);
+        throw new Error(`AI Gate ${upstream.status}: ${errText}`);
       }
 
       let collected = "";

@@ -484,6 +484,11 @@ async function isSchemaAlreadyApplied(
       // exists the rebuild ran — skip re-executing the rename/copy/drop, which
       // would fail on the missing proxy_assignments_pre117 table.
       return await hasColumn(db, "proxy_assignments", "position");
+    case "137":
+      // Phase 3.8 B 方案 services proxy columns. The ALTER TABLE statements in
+      // 137_services_proxy.sql fail with "duplicate column" on a re-run, so the
+      // migration is skipped wholesale once `proxied` exists.
+      return await hasColumn(db, "services", "proxied");
     default:
       return false;
   }
@@ -899,7 +904,7 @@ export async function runMigrations(
     );
     console.error(
       `[Migration] The version-only tracking will skip these (version already applied), ` +
-        `but please report this to the OmniRoute maintainers.`
+        `but please report this to the AI Gate maintainers.`
     );
   }
 

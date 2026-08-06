@@ -3,7 +3,7 @@
  *
  * Extracted from services/usage.ts (god-file decomposition): the Vertex family —
  * Vertex AI exposes no usage/quota API for an API key or Service Account, so
- * OmniRoute self-tracks the USD it spent through the connection (summed from
+ * AI Gate self-tracks the USD it spent through the connection (summed from
  * usage_history via getConnectionSpendUsdSinceAdded) and surfaces a `spend`
  * quota entry plus a `$X used · N requests` message. Depends only on the
  * sibling scalar/quota leaves + the usageStats dynamic import — no host
@@ -18,7 +18,7 @@ type JsonRecord = Record<string, unknown>;
  *
  * Vertex AI exposes no usage/quota API for an API key or Service Account (billing/credit balance
  * lives behind the Cloud Billing API, which the proxy credential can't reach). Instead we report
- * the USD that OmniRoute has spent through this connection since the account was added — summed
+ * the USD that AI Gate has spent through this connection since the account was added — summed
  * from `usage_history` and priced via the backend pricing table. Returns a `message` (with the $
  * figure) plus a `spend` quota entry so the limits cache persists it (a message-only result is
  * treated as a transient error and not cached).
@@ -42,7 +42,7 @@ export async function getVertexUsage(connectionId: string, provider: string) {
     if (requests === 0) {
       return {
         plan: "Vertex AI",
-        message: "Vertex connected. No usage recorded through OmniRoute yet for this account.",
+        message: "Vertex connected. No usage recorded through AI Gate yet for this account.",
         quotas: { spend },
       };
     }

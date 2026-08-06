@@ -92,7 +92,7 @@ async function updateNssDatabases(
         shell: "/bin/bash",
         env: {
           ...process.env,
-          CERT_NAME: "OmniRoute MITM Root CA",
+          CERT_NAME: "AI Gate MITM Root CA",
           CERT_PATH: certPath || "",
           ACTION: action,
         },
@@ -380,7 +380,7 @@ async function installCertLinux(sudoPassword: string, certPath: string): Promise
 
 // SECURITY-AUDITOR-NOTE: This function and the surrounding install/uninstall
 // pair appear in Socket.dev finding `77484.js` (AI-detected potential malware).
-// They install / remove the OmniRoute MITM root CA from the OS trust store and
+// They install / remove the AI Gate MITM root CA from the OS trust store and
 // only run when an operator explicitly enables the MITM proxy from the local
 // dashboard at /dashboard/cli-tools/mitm. The privileged commands invoked
 // here — `certutil -addstore Root`, `security add-trusted-cert`,

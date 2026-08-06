@@ -254,7 +254,7 @@ async function openFallbackAuditDb(
 
 /**
  * Lazy-load the database connection.
- * Uses the same SQLite database as the main OmniRoute app.
+ * Uses the same SQLite database as the main AI Gate app.
  *
  * Driver priority:
  *   1. better-sqlite3 — fast native binding (when its compiled `.node`

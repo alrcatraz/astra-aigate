@@ -13,7 +13,7 @@
  *     }
  *   }
  *
- * Browser SPA often uses session cookies (credentials:include). Headless OmniRoute
+ * Browser SPA often uses session cookies (credentials:include). Headless AI Gate
  * uses the playground JWT (Bearer). We send Bearer always when present and Cookie
  * when providerSpecificData.cookie is stored.
  */
@@ -31,8 +31,7 @@ import {
 // file-size cap + dedup with open-sse/executors/promptql.ts — see PR #7911 review).
 export { extractProjectIdFromToken };
 
-const CREDITS_GQL =
-  process.env.PROMPTQL_CREDITS_ENDPOINT || "https://data.pro.ql.app/v1/graphql";
+const CREDITS_GQL = process.env.PROMPTQL_CREDITS_ENDPOINT || "https://data.pro.ql.app/v1/graphql";
 
 const GET_CREDIT_SUMMARY = `
 query getCreditSummary($project_id: uuid!) {
@@ -66,8 +65,7 @@ export function buildPromptQlCreditsQuota(row: {
   const total = available > 0 ? available : remaining + drawn;
   const used = Math.max(0, Math.min(total, drawn > 0 ? drawn : Math.max(0, total - remaining)));
   const rem = remaining > 0 ? remaining : Math.max(0, total - used);
-  const remainingPercentage =
-    total > 0 ? Math.round((rem / total) * 1000) / 10 : rem > 0 ? 100 : 0;
+  const remainingPercentage = total > 0 ? Math.round((rem / total) * 1000) / 10 : rem > 0 ? 100 : 0;
   return {
     used,
     total,
@@ -109,7 +107,9 @@ function collectCreditsTokens(
     out.push(t);
   };
   // Explicit credits tokens first
-  push(readPs(providerSpecificData, ["luxJwt", "ddnToken", "projectToken", "creditsToken", "luxToken"]));
+  push(
+    readPs(providerSpecificData, ["luxJwt", "ddnToken", "projectToken", "creditsToken", "luxToken"])
+  );
   push(apiKey || "");
   // Also allow nested vibeProxy bag (forward-compat)
   if (providerSpecificData && typeof providerSpecificData.vibeProxy === "object") {
@@ -220,8 +220,7 @@ export async function getPromptQlUsage(
     }
 
     // All tokens failed — if we only had enrich-token, explain dual-token requirement.
-    const onlyEnrich =
-      tokens.length > 0 && tokens.every((t) => !isLikelyDdnToken(t));
+    const onlyEnrich = tokens.length > 0 && tokens.every((t) => !isLikelyDdnToken(t));
     if (onlyEnrich) {
       return {
         message:

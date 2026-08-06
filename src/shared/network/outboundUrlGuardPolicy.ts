@@ -18,7 +18,7 @@ const TRUE_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
 export const PRIVATE_PROVIDER_URLS_ENV = "OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS";
 // #5066: scoped to provider validation/use. Allows local/private provider endpoints
 // (127.0.0.1, localhost, LAN) so local-first OpenAI-compatible providers validate, while
-// cloud-metadata endpoints stay blocked. Defaults ON (OmniRoute is local-first); operators
+// cloud-metadata endpoints stay blocked. Defaults ON (AI Gate is local-first); operators
 // who only use public providers can disable it to restore strict SSRF blocking.
 export const LOCAL_PROVIDER_URLS_ENV = "OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS";
 
@@ -62,7 +62,7 @@ export function getProviderOutboundGuard(): OutboundUrlGuardMode {
 
 /**
  * #5066: whether provider endpoints on local/private addresses are permitted. Defaults ON
- * (OmniRoute is local-first — local OpenAI-compatible providers should validate out of the
+ * (AI Gate is local-first — local OpenAI-compatible providers should validate out of the
  * box). Disable via the `OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS` flag (DB toggle or env) to
  * restore strict public-only SSRF blocking. Cloud-metadata stays blocked regardless.
  */

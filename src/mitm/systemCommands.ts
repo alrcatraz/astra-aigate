@@ -19,7 +19,7 @@ export function isRoot(): boolean {
 /**
  * Probe whether `sudo` is discoverable on PATH.
  *
- * Slim Docker images (e.g. `node:24-trixie-slim` used by OmniRoute's runtime
+ * Slim Docker images (e.g. `node:24-trixie-slim` used by AI Gate's runtime
  * stage) do not ship `sudo`. When the container runs as a non-root user
  * (`USER node`, UID 1000), `spawn("sudo", ...)` fails with ENOENT and breaks
  * any MITM operation triggered from inside the container. `execFileWithPassword`

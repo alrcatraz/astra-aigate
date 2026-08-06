@@ -669,7 +669,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
   // claude-opus-4-20250514) are never mistaken for a dash-separated minor
   // version and corrupted into claude-opus-4.20250514 (upstream 9router #2270).
   // The supported `-thinking` selector is a local alias: strip it before the request leaves
-  // OmniRoute so Kiro only receives a real upstream model ID. Non-functional agentic and
+  // AI Gate so Kiro only receives a real upstream model ID. Non-functional agentic and
   // auto-kiro aliases are rejected above instead of silently degrading to another model.
   const { upstream: normalizedModel, thinking: modelRequestsThinking } =
     resolveKiroModelAlias(model);

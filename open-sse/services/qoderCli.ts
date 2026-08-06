@@ -71,7 +71,7 @@ export function getQoderCliWorkspace(): string {
 }
 
 /**
- * Isolated `--config-dir` for OmniRoute-driven qodercli runs. Keeping it separate
+ * Isolated `--config-dir` for AI Gate-driven qodercli runs. Keeping it separate
  * from the operator's own `~/.qoder` avoids polluting an interactive qodercli
  * session and lets each PAT authenticate via `QODER_PERSONAL_ACCESS_TOKEN`
  * without clobbering a browser login. Override with `QODER_CLI_CONFIG_DIR`.
@@ -242,7 +242,7 @@ export async function runQoderCli(options: QoderCliRunOptions): Promise<QoderCli
     "json",
     "--model",
     level,
-    // Disable all built-in tools — OmniRoute only wants a plain LM reply, never
+    // Disable all built-in tools — AI Gate only wants a plain LM reply, never
     // file-system access or command execution from the proxied CLI.
     "--tools",
     "",
@@ -304,7 +304,7 @@ export function parseQoderCliModelNames(stdout: string): string[] {
 }
 
 /**
- * Resolve an OmniRoute model id to the exact value to pass to `qodercli -m`.
+ * Resolve an AI Gate model id to the exact value to pass to `qodercli -m`.
  * Pure (no I/O) so it can be unit-tested against a captured model list.
  *
  * Preference order:
@@ -539,7 +539,7 @@ function formatMessage(message: unknown): string {
 export function buildQoderPrompt(body: unknown): string {
   const requestBody = asRecord(body);
   const lines = [
-    "You are answering an OmniRoute OpenAI-compatible request through the Qoder CLI transport.",
+    "You are answering an AI Gate OpenAI-compatible request through the Qoder CLI transport.",
     "Respond as a plain language model only.",
     "Do not use your own tools, do not inspect files, and do not run commands.",
     "Do not mention the adapter unless the user explicitly asks.",
@@ -780,7 +780,7 @@ export function buildCosyHeadersForValidation(bodyStr: string, token: string) {
 // exchanges the PAT for a short-lived job token (`jt-*`) at
 // `openapi.qoder.sh/api/v1/jobToken/exchange`, then carries that `jt-*` in the Cosy
 // envelope for chat. Passing the raw `pt-*` makes Cosy return a generic 500, which
-// OmniRoute mis-surfaced as "PAT may not be valid for the chat API". We mirror the
+// AI Gate mis-surfaced as "PAT may not be valid for the chat API". We mirror the
 // exchange here and cache the `jt-*` for its lifetime.
 const QODER_JOB_TOKEN_EXCHANGE_URL = "https://openapi.qoder.sh/api/v1/jobToken/exchange";
 // Refresh a little before the ~24h expiry to avoid using a just-expired token.
@@ -948,7 +948,7 @@ export async function validateQoderCliPat({
     return {
       valid: false,
       error:
-        "qodercli timed out while validating the token. Check network/proxy access from the OmniRoute host.",
+        "qodercli timed out while validating the token. Check network/proxy access from the AI Gate host.",
       unsupported: false,
     };
   }
