@@ -1,5 +1,5 @@
 /** Upstream proxy config persistence for upstream_proxy_config table. */
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 interface UpstreamProxyConfig {
   id: number;
@@ -100,7 +100,7 @@ function rowToConfig(record: Record<string, unknown>): UpstreamProxyConfig {
 }
 
 export async function getUpstreamProxyConfigs() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT * FROM upstream_proxy_config ORDER BY provider_id")
     .all()) as UpstreamProxyRow[];
@@ -108,7 +108,7 @@ export async function getUpstreamProxyConfigs() {
 }
 
 export async function getUpstreamProxyConfig(providerId: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT * FROM upstream_proxy_config WHERE provider_id = ?")
     .get(providerId)) as UpstreamProxyRow | undefined;
@@ -125,7 +125,7 @@ export async function upsertUpstreamProxyConfig(data: {
   enabled?: boolean;
   family?: string;
 }) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const mode = data.mode ?? "native";
   const cliproxyapiModelMapping =
     data.cliproxyapiModelMapping !== undefined
@@ -167,7 +167,7 @@ export async function updateUpstreamProxyConfig(
   providerId: string,
   updates: Record<string, unknown>
 ) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const current = await getUpstreamProxyConfig(providerId);
   if (!current) {
     throw new Error(`Provider ${providerId} not found`);
@@ -214,7 +214,7 @@ export async function updateUpstreamProxyConfig(
 }
 
 export async function deleteUpstreamProxyConfig(providerId: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db
     .prepare("DELETE FROM upstream_proxy_config WHERE provider_id = ?")
     .run(providerId);
@@ -222,7 +222,7 @@ export async function deleteUpstreamProxyConfig(providerId: string) {
 }
 
 export async function getProvidersByMode(mode: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       "SELECT * FROM upstream_proxy_config WHERE mode = ? AND enabled = 1 ORDER BY provider_id"

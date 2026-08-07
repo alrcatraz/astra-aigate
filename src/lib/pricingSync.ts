@@ -10,7 +10,7 @@
  * Opt-in via PRICING_SYNC_ENABLED=true (default: false).
  */
 
-import { getDbInstance } from "./db/core";
+import { getDbInstance, getAsyncDb } from "./db/core";
 import type { RawSyncDb, SqliteAdapter } from "./db/adapters/types";
 import { invalidateDbCache } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
@@ -236,8 +236,8 @@ function toRecord(value: unknown): Record<string, unknown> {
 /**
  * Read synced pricing from `pricing_synced` namespace.
  */
-export function getSyncedPricing(): PricingByProvider {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+export async function getSyncedPricing(): Promise<PricingByProvider> {
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const rows = raw
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing_synced'")
     .all();
@@ -259,10 +259,10 @@ export function getSyncedPricing(): PricingByProvider {
 /**
  * Save synced pricing to `pricing_synced` namespace (full replace).
  */
-export function saveSyncedPricing(data: PricingByProvider): void {
-  const db = getDbInstance();
-  const del = db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'");
-  const insert = db.prepare(
+export async function saveSyncedPricing(data: PricingByProvider): Promise<void> {
+  const db = getAsyncDb();
+  const del = await db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'");
+  const insert = await db.prepare(
     "INSERT INTO key_value (namespace, key, value) VALUES ('pricing_synced', ?, ?)"
   );
   const tx = db.transaction(() => {
@@ -279,9 +279,9 @@ export function saveSyncedPricing(data: PricingByProvider): void {
 /**
  * Clear all synced pricing data.
  */
-export function clearSyncedPricing(): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'").run();
+export async function clearSyncedPricing(): Promise<void> {
+  const db = getAsyncDb();
+  await db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'").run();
   backupDbFile("pre-write");
   invalidateDbCache("pricing");
 }
@@ -299,7 +299,7 @@ const SYNC_STATUS_NAMESPACE = "pricing_sync_status";
 const SYNC_STATUS_KEY = "last_sync";
 
 function readPersistedSyncStatus(): { lastSyncTime: string; lastSyncModelCount: number } | null {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const row = db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(SYNC_STATUS_NAMESPACE, SYNC_STATUS_KEY);
@@ -319,16 +319,18 @@ function readPersistedSyncStatus(): { lastSyncTime: string; lastSyncModelCount: 
   }
 }
 
-function writePersistedSyncStatus(lastSync: string, modelCount: number): void {
-  const db = getDbInstance();
-  db.prepare(
-    "INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?) " +
-      "ON CONFLICT(namespace, key) DO UPDATE SET value = excluded.value"
-  ).run(
-    SYNC_STATUS_NAMESPACE,
-    SYNC_STATUS_KEY,
-    JSON.stringify({ lastSyncTime: lastSync, lastSyncModelCount: modelCount })
-  );
+async function writePersistedSyncStatus(lastSync: string, modelCount: number): Promise<void> {
+  const db = getAsyncDb();
+  await db
+    .prepare(
+      "INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?) " +
+        "ON CONFLICT(namespace, key) DO UPDATE SET value = excluded.value"
+    )
+    .run(
+      SYNC_STATUS_NAMESPACE,
+      SYNC_STATUS_KEY,
+      JSON.stringify({ lastSyncTime: lastSync, lastSyncModelCount: modelCount })
+    );
 }
 
 // ─── Main sync function ─────────────────────────────────

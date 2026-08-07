@@ -66,7 +66,7 @@ export async function enforceQuotaShare(input: EnforceInput): Promise<EnforceDec
     allocation: import("@/lib/db/quotaPools").PoolAllocation;
   }>;
   try {
-    allocations = listAllocationsForApiKey(input.apiKeyId);
+    allocations = await listAllocationsForApiKey(input.apiKeyId);
   } catch {
     // DB not available or migration not run — fail-open
     return { kind: "allow" };
@@ -83,7 +83,7 @@ export async function enforceQuotaShare(input: EnforceInput): Promise<EnforceDec
   for (const { poolId, allocation } of allocations) {
     let p: import("@/lib/db/quotaPools").QuotaPool | null = null;
     try {
-      p = getPool(poolId);
+      p = await getPool(poolId);
     } catch {
       continue;
     }
@@ -112,7 +112,7 @@ export async function enforceQuotaShare(input: EnforceInput): Promise<EnforceDec
   const store = await getQuotaStore();
 
   // 3. Resolve the provider plan (dimensions).
-  const plan = resolvePlan(input.connectionId, input.provider);
+  const plan = await resolvePlan(input.connectionId, input.provider);
 
   // 3b. Per-(key, model) model-cap pre-check (Fase 3 #7).
   //
@@ -131,7 +131,7 @@ export async function enforceQuotaShare(input: EnforceInput): Promise<EnforceDec
   if (input.model) {
     let modelCap: import("@/lib/db/quotaModelCaps").ModelCap | null = null;
     try {
-      modelCap = getModelCap(pool.id, input.apiKeyId, input.model);
+      modelCap = await getModelCap(pool.id, input.apiKeyId, input.model);
     } catch {
       // DB error — fail-open per B16
     }
@@ -295,7 +295,7 @@ export async function recordConsumption(input: RecordConsumptionInput): Promise<
     allocation: import("@/lib/db/quotaPools").PoolAllocation;
   }>;
   try {
-    allocations = listAllocationsForApiKey(input.apiKeyId);
+    allocations = await listAllocationsForApiKey(input.apiKeyId);
   } catch {
     return; // DB not available — silent no-op
   }
@@ -307,7 +307,7 @@ export async function recordConsumption(input: RecordConsumptionInput): Promise<
   for (const { poolId: pid } of allocations) {
     let p: import("@/lib/db/quotaPools").QuotaPool | null = null;
     try {
-      p = getPool(pid);
+      p = await getPool(pid);
     } catch {
       continue;
     }
@@ -325,7 +325,7 @@ export async function recordConsumption(input: RecordConsumptionInput): Promise<
 
   if (!poolId) return;
 
-  const plan = resolvePlan(input.connectionId, input.provider);
+  const plan = await resolvePlan(input.connectionId, input.provider);
   const store = await getQuotaStore();
 
   // Pool-level dimension consumption (existing behaviour).
@@ -346,7 +346,7 @@ export async function recordConsumption(input: RecordConsumptionInput): Promise<
   if (input.model) {
     let modelCap: import("@/lib/db/quotaModelCaps").ModelCap | null = null;
     try {
-      modelCap = getModelCap(poolId, input.apiKeyId, input.model);
+      modelCap = await getModelCap(poolId, input.apiKeyId, input.model);
     } catch {
       // DB not available — silent no-op per B29
     }

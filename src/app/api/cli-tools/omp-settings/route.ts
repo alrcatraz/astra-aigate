@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     await fs.writeFile(getOmpModelsYmlPath(), yamlDump(modelsYml, { lineWidth: -1 }), "utf-8");
 
     // 2. Write auth_credentials — so omp sees omniroute as "logged in"
-    saveOmpCredentials(PROVIDER_ID, keyRef, normalizedBaseUrl);
+    await saveOmpCredentials(PROVIDER_ID, keyRef, normalizedBaseUrl);
 
     return NextResponse.json({
       success: true,
@@ -159,7 +159,7 @@ export async function DELETE(request: Request) {
     }
 
     // 2. Remove from auth_credentials
-    deleteOmpCredentials(PROVIDER_ID);
+    await deleteOmpCredentials(PROVIDER_ID);
 
     return NextResponse.json({
       success: true,

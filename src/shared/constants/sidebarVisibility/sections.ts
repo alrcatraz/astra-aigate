@@ -834,7 +834,7 @@ export const SIDEBAR_SECTIONS: readonly SidebarSectionDefinition[] = [
   {
     id: "omni-proxy",
     titleKey: "omniProxySection",
-    titleFallback: "AI Gate",
+    titleFallback: "OmniRoute",
     children: [ROUTING_GROUP, COMBOS_GROUP, COMPRESSION_CONTEXT_GROUP, TOOLS_GROUP],
   },
   {

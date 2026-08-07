@@ -37,7 +37,11 @@ function getCatalogModelId(model: OpenAiCatalogModel) {
 }
 
 function normalizeArchitectureKey(value: string) {
-  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
   return normalized || "model";
 }
 
@@ -58,7 +62,9 @@ function getRequestedModelName(payload: unknown): string | null {
 function getOllamaModelFamily(model: OpenAiCatalogModel, canonicalFamily?: string | null) {
   const rawModelId = getCatalogModelId(model).trim();
   const { baseModelId } = parseVscodeServiceTierVariantModelId(rawModelId);
-  const modelFamily = baseModelId.includes("/") ? baseModelId.split("/").slice(1).join("/") : baseModelId;
+  const modelFamily = baseModelId.includes("/")
+    ? baseModelId.split("/").slice(1).join("/")
+    : baseModelId;
 
   if (modelFamily) {
     return modelFamily;
@@ -73,8 +79,11 @@ function getOllamaModelFamily(model: OpenAiCatalogModel, canonicalFamily?: strin
     : "omniroute";
 }
 
-function matchesRequestedModel(model: OpenAiCatalogModel, requestedName: string): boolean {
-  const canonicalMetadata = getCanonicalModelMetadata({
+async function matchesRequestedModel(
+  model: OpenAiCatalogModel,
+  requestedName: string
+): Promise<boolean> {
+  const canonicalMetadata = await getCanonicalModelMetadata({
     provider: model.owned_by || null,
     model: model.root || model.id || model.name || null,
   });
@@ -99,22 +108,23 @@ function buildCapabilities(model: OpenAiCatalogModel): string[] {
   return capabilities;
 }
 
-function buildShowPayload(model: OpenAiCatalogModel, responseModelId?: string) {
+async function buildShowPayload(model: OpenAiCatalogModel, responseModelId?: string) {
   const actualModelId = getCatalogModelId(model);
-  const displayName = getVscodeRawModelDisplayName(model);
-  const canonicalMetadata = getCanonicalModelMetadata({
+  const displayName = await getVscodeRawModelDisplayName(model);
+  const canonicalMetadata = await getCanonicalModelMetadata({
     provider: model.owned_by || null,
     model: model.root || model.id || model.name || null,
   });
   const family = getOllamaModelFamily(model, canonicalMetadata?.metadata.family || null);
   const modelId = responseModelId || actualModelId;
-  const architectureSource =
-    normalizeArchitectureSource(
-      canonicalMetadata?.providerAlias || canonicalMetadata?.provider || model.owned_by || family || "model"
-    );
-  const architecture = normalizeArchitectureKey(
-    architectureSource
+  const architectureSource = normalizeArchitectureSource(
+    canonicalMetadata?.providerAlias ||
+      canonicalMetadata?.provider ||
+      model.owned_by ||
+      family ||
+      "model"
   );
+  const architecture = normalizeArchitectureKey(architectureSource);
   const reasoningEffortValues = getReasoningEffortValues(model as VscodeCatalogModel);
   const selectedReasoningEffort = reasoningEffortValues
     ? inferSelectedReasoningEffort(model as VscodeCatalogModel, reasoningEffortValues) || "none"
@@ -273,9 +283,16 @@ export async function POST(
     ? expandVscodeRawModels(catalogBody.data.filter(isUsableChatModel))
     : [];
 
-  const model = Array.isArray(expandedModels)
-  ? expandedModels.find((entry) => matchesRequestedModel(entry, requestedName))
-    : undefined;
+  let model: OpenAiCatalogModel | undefined;
+
+  if (Array.isArray(expandedModels)) {
+    for (const entry of expandedModels) {
+      if (await matchesRequestedModel(entry, requestedName)) {
+        model = entry;
+        break;
+      }
+    }
+  }
 
   if (!model) {
     return Response.json(
@@ -291,7 +308,7 @@ export async function POST(
     );
   }
 
-  return Response.json(buildShowPayload(model), {
+  return Response.json(await buildShowPayload(model), {
     headers: {
       ...CORS_HEADERS,
     },

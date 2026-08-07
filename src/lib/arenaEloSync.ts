@@ -384,7 +384,7 @@ export async function syncArenaElo(dryRun = false): Promise<SyncResult> {
     // Clean up stale entries before writing new ones
     if (!dryRun) {
       try {
-        deleteExpiredIntelligence();
+        await deleteExpiredIntelligence();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.warn(`[ARENA_ELO_SYNC] Failed to delete expired intelligence: ${message}`);
@@ -447,8 +447,8 @@ export async function syncArenaElo(dryRun = false): Promise<SyncResult> {
  * since the DB module provides per-key deletion. This is used by the
  * DELETE /api/intelligence/sync endpoint.
  */
-export function clearSyncedIntelligence(): void {
-  const deleted = deleteModelIntelligenceBySource("arena_elo");
+export async function clearSyncedIntelligence(): Promise<void> {
+  const deleted = await deleteModelIntelligenceBySource("arena_elo");
   console.log(`[ARENA_ELO_SYNC] Cleared ${deleted} arena_elo intelligence entries`);
 }
 

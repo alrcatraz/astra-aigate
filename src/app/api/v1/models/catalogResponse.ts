@@ -32,7 +32,7 @@ import { isCodexModelCatalogClient } from "./catalogRequest";
  * returns early, but it still owes the caller these steps — the discovery mirrors in
  * particular are what let Claude Code see a quota pool's models at all.
  */
-export function applyCatalogPostFilters(
+export async function applyCatalogPostFilters(
   request: Request,
   models: Array<Record<string, any>>,
   ctx: {
@@ -40,7 +40,7 @@ export function applyCatalogPostFilters(
     prefixMode: string;
     aliasToProviderId: Record<string, string>;
   }
-): Array<Record<string, any>> {
+): Promise<Array<Record<string, any>>> {
   let finalModels = models;
 
   // variants are only generated for surviving models.
@@ -75,8 +75,8 @@ export function applyCatalogPostFilters(
   // `type` here — non-chat entries (embedding/image/etc.) get a mirror too; the
   // gate itself (default-off + explicit opt-in) is the operator's filter, not a
   // hardcoded type allowlist.
-  const ccAliasGlobal = isCcAliasGlobalEnabled();
-  const ccAliasSettings = getCcAliasSettingsBulk();
+  const ccAliasGlobal = await isCcAliasGlobalEnabled();
+  const ccAliasSettings = await getCcAliasSettingsBulk();
   if (ccAliasGlobal || ccAliasSettings.providers.size > 0 || ccAliasSettings.models.size > 0) {
     finalModels = appendCcDiscoveryAliases(
       finalModels,

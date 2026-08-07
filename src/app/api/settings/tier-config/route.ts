@@ -26,7 +26,7 @@ const tierOverridePutSchema = z.object({
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
-  return NextResponse.json(loadTierConfig());
+  return NextResponse.json(await loadTierConfig());
 }
 
 export async function PUT(request: Request) {
@@ -42,7 +42,7 @@ export async function PUT(request: Request) {
   }
 
   const { provider, tier } = parsed.data;
-  const config = loadTierConfig();
+  const config = await loadTierConfig();
   const nextOverrides = config.providerOverrides.filter(
     (o) => o.provider.toLowerCase() !== provider.toLowerCase()
   );

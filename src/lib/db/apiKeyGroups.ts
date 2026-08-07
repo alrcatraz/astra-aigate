@@ -7,7 +7,7 @@
  * Enables team-level API key management with model-level access control.
  */
 
-import { getDbInstance } from "@/lib/db/core";
+import { getAsyncDb } from "@/lib/db/core";
 import { randomUUID } from "crypto";
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -43,48 +43,52 @@ export interface KeyGroupWithPermissions extends KeyGroup {
 
 // ── Key Groups CRUD ──────────────────────────────────────────────────────
 
-export function getAllKeyGroups(): KeyGroup[] {
-  const db = getDbInstance() as any;
-  const rows = db.prepare("SELECT * FROM key_groups ORDER BY name ASC").all() as any[];
+export async function getAllKeyGroups(): Promise<KeyGroup[]> {
+  const db = (await getAsyncDb()) as any;
+  const rows = (await db.prepare("SELECT * FROM key_groups ORDER BY name ASC").all()) as any[];
   return rows.map(rowToGroup);
 }
 
-export function getKeyGroup(id: string): KeyGroup | undefined {
-  const db = getDbInstance() as any;
-  const row = db.prepare("SELECT * FROM key_groups WHERE id = ?").get(id) as any;
+export async function getKeyGroup(id: string): Promise<KeyGroup | undefined> {
+  const db = (await getAsyncDb()) as any;
+  const row = (await db.prepare("SELECT * FROM key_groups WHERE id = ?").get(id)) as any;
   return row ? rowToGroup(row) : undefined;
 }
 
-export function getKeyGroupWithPermissions(id: string): KeyGroupWithPermissions | undefined {
-  const group = getKeyGroup(id);
+export async function getKeyGroupWithPermissions(
+  id: string
+): Promise<KeyGroupWithPermissions | undefined> {
+  const group = await getKeyGroup(id);
   if (!group) return undefined;
 
-  const permissions = getGroupPermissions(id);
-  const memberCount = getGroupMemberCount(id);
+  const permissions = await getGroupPermissions(id);
+  const memberCount = await getGroupMemberCount(id);
 
   return { ...group, permissions, memberCount };
 }
 
-export function createKeyGroup(name: string, description = ""): KeyGroup {
-  const db = getDbInstance() as any;
+export async function createKeyGroup(name: string, description = ""): Promise<KeyGroup> {
+  const db = (await getAsyncDb()) as any;
   const id = randomUUID();
   const now = new Date().toISOString();
 
-  db.prepare(
-    "INSERT INTO key_groups (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-  ).run(id, name, description, now, now);
+  await db
+    .prepare(
+      "INSERT INTO key_groups (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+    )
+    .run(id, name, description, now, now);
 
-  return getKeyGroup(id)!;
+  return (await getKeyGroup(id))!;
 }
 
-export function updateKeyGroup(
+export async function updateKeyGroup(
   id: string,
   updates: { name?: string; description?: string; isActive?: boolean }
-): KeyGroup | undefined {
-  const existing = getKeyGroup(id);
+): Promise<KeyGroup | undefined> {
+  const existing = await getKeyGroup(id);
   if (!existing) return undefined;
 
-  const db = getDbInstance() as any;
+  const db = (await getAsyncDb()) as any;
   const sets: string[] = [];
   const params: Record<string, unknown> = { id };
 
@@ -104,70 +108,74 @@ export function updateKeyGroup(
   if (sets.length === 0) return existing;
   sets.push("updated_at = datetime('now')");
 
-  db.prepare(`UPDATE key_groups SET ${sets.join(", ")} WHERE id = @id`).run(params);
+  await db.prepare(`UPDATE key_groups SET ${sets.join(", ")} WHERE id = @id`).run(params);
   return getKeyGroup(id);
 }
 
-export function deleteKeyGroup(id: string): boolean {
-  const db = getDbInstance() as any;
+export async function deleteKeyGroup(id: string): Promise<boolean> {
+  const db = (await getAsyncDb()) as any;
   // CASCADE deletes permissions and members
-  const result = db.prepare("DELETE FROM key_groups WHERE id = ?").run(id);
+  const result = await db.prepare("DELETE FROM key_groups WHERE id = ?").run(id);
   return result.changes > 0;
 }
 
 // ── Group Permissions ────────────────────────────────────────────────────
 
-export function getGroupPermissions(groupId: string): GroupModelPermission[] {
-  const db = getDbInstance() as any;
-  const rows = db
+export async function getGroupPermissions(groupId: string): Promise<GroupModelPermission[]> {
+  const db = (await getAsyncDb()) as any;
+  const rows = (await db
     .prepare(
       "SELECT * FROM group_model_permissions WHERE group_id = ? ORDER BY access_type ASC, model_pattern ASC"
     )
-    .all(groupId) as any[];
+    .all(groupId)) as any[];
   return rows.map(rowToPermission);
 }
 
-export function addGroupPermission(
+export async function addGroupPermission(
   groupId: string,
   modelPattern: string,
   accessType: "allow" | "deny",
   provider?: string
-): GroupModelPermission {
-  const db = getDbInstance() as any;
+): Promise<GroupModelPermission> {
+  const db = (await getAsyncDb()) as any;
   const id = randomUUID();
   const now = new Date().toISOString();
 
-  db.prepare(
-    "INSERT INTO group_model_permissions (id, group_id, model_pattern, provider, access_type, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-  ).run(id, groupId, modelPattern, provider || null, accessType, now);
+  await db
+    .prepare(
+      "INSERT INTO group_model_permissions (id, group_id, model_pattern, provider, access_type, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    )
+    .run(id, groupId, modelPattern, provider || null, accessType, now);
 
-  return getGroupPermissions(groupId).find((p) => p.id === id)!;
+  return (await getGroupPermissions(groupId)).find((p) => p.id === id)!;
 }
 
-export function removeGroupPermission(permissionId: string): boolean {
-  const db = getDbInstance() as any;
-  const result = db.prepare("DELETE FROM group_model_permissions WHERE id = ?").run(permissionId);
+export async function removeGroupPermission(permissionId: string): Promise<boolean> {
+  const db = (await getAsyncDb()) as any;
+  const result = await db
+    .prepare("DELETE FROM group_model_permissions WHERE id = ?")
+    .run(permissionId);
   return result.changes > 0;
 }
 
-export function clearGroupPermissions(groupId: string): void {
-  const db = getDbInstance() as any;
-  db.prepare("DELETE FROM group_model_permissions WHERE group_id = ?").run(groupId);
+export async function clearGroupPermissions(groupId: string): Promise<void> {
+  const db = (await getAsyncDb()) as any;
+  await db.prepare("DELETE FROM group_model_permissions WHERE group_id = ?").run(groupId);
 }
 
 // ── Key Group Members ────────────────────────────────────────────────────
 
-export function getGroupMembers(groupId: string): KeyGroupMember[] {
-  const db = getDbInstance() as any;
-  const rows = db
+export async function getGroupMembers(groupId: string): Promise<KeyGroupMember[]> {
+  const db = (await getAsyncDb()) as any;
+  const rows = (await db
     .prepare("SELECT * FROM key_group_members WHERE group_id = ? ORDER BY created_at ASC")
-    .all(groupId) as any[];
+    .all(groupId)) as any[];
   return rows.map(rowToMember);
 }
 
-export function getKeyGroupsForApiKey(keyId: string): KeyGroup[] {
-  const db = getDbInstance() as any;
-  const rows = db
+export async function getKeyGroupsForApiKey(keyId: string): Promise<KeyGroup[]> {
+  const db = (await getAsyncDb()) as any;
+  const rows = (await db
     .prepare(
       `
     SELECT g.* FROM key_groups g
@@ -176,36 +184,35 @@ export function getKeyGroupsForApiKey(keyId: string): KeyGroup[] {
     ORDER BY g.name ASC
   `
     )
-    .all(keyId) as any[];
+    .all(keyId)) as any[];
   return rows.map(rowToGroup);
 }
 
-export function addKeyToGroup(keyId: string, groupId: string): boolean {
-  const db = getDbInstance() as any;
+export async function addKeyToGroup(keyId: string, groupId: string): Promise<boolean> {
+  const db = (await getAsyncDb()) as any;
   try {
-    db.prepare("INSERT OR IGNORE INTO key_group_members (key_id, group_id) VALUES (?, ?)").run(
-      keyId,
-      groupId
-    );
+    await db
+      .prepare("INSERT OR IGNORE INTO key_group_members (key_id, group_id) VALUES (?, ?)")
+      .run(keyId, groupId);
     return true;
   } catch {
     return false;
   }
 }
 
-export function removeKeyFromGroup(keyId: string, groupId: string): boolean {
-  const db = getDbInstance() as any;
-  const result = db
+export async function removeKeyFromGroup(keyId: string, groupId: string): Promise<boolean> {
+  const db = (await getAsyncDb()) as any;
+  const result = await db
     .prepare("DELETE FROM key_group_members WHERE key_id = ? AND group_id = ?")
     .run(keyId, groupId);
   return result.changes > 0;
 }
 
-function getGroupMemberCount(groupId: string): number {
-  const db = getDbInstance() as any;
-  const row = db
+async function getGroupMemberCount(groupId: string): Promise<number> {
+  const db = (await getAsyncDb()) as any;
+  const row = (await db
     .prepare("SELECT COUNT(*) as count FROM key_group_members WHERE group_id = ?")
-    .get(groupId) as any;
+    .get(groupId)) as any;
   return row?.count || 0;
 }
 
@@ -221,22 +228,22 @@ export interface ModelAccessCheck {
  * Check if an API key has access to a specific model.
  * Deny rules override allow rules. If no rules match, access is allowed by default.
  */
-export function checkKeyModelAccess(
+export async function checkKeyModelAccess(
   keyId: string,
   model: string,
   provider?: string
-): ModelAccessCheck {
-  const groups = getKeyGroupsForApiKey(keyId);
+): Promise<ModelAccessCheck> {
+  const groups = await getKeyGroupsForApiKey(keyId);
   if (groups.length === 0) {
     // No groups = no restrictions
     return { allowed: true, matchedRules: [], deniedBy: null };
   }
 
-  const db = getDbInstance() as any;
+  const db = (await getAsyncDb()) as any;
   const groupIds = groups.map((g) => g.id);
   const placeholders = groupIds.map(() => "?").join(",");
 
-  const rules = db
+  const rules = (await db
     .prepare(
       `
     SELECT * FROM group_model_permissions
@@ -244,7 +251,7 @@ export function checkKeyModelAccess(
     ORDER BY access_type ASC
   `
     )
-    .all(...groupIds) as any[];
+    .all(...groupIds)) as any[];
 
   const permissions = rules.map(rowToPermission);
 

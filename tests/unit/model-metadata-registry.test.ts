@@ -52,7 +52,10 @@ test("canonical model metadata merges static and synced capabilities into one re
     },
   });
 
-  const metadata = registry.getCanonicalModelMetadata({ provider: "openai", model: "gpt-4o" });
+  const metadata = await registry.getCanonicalModelMetadata({
+    provider: "openai",
+    model: "gpt-4o",
+  });
 
   assert.ok(metadata);
   assert.equal(metadata.provider, "openai");

@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { ZipFile } from "yazl";
-import { getDbInstance, isCloud, isBuildPhase, DATA_DIR } from "../db/core";
+import { getDbInstance, isCloud, isBuildPhase, DATA_DIR, getAsyncDb } from "../db/core";
 import { getLegacyDotDataDir, isSamePath } from "../dataPaths";
 import { getAppLogFilePath } from "../logEnv";
 import { protectPayloadForLog } from "../logPayloads";
@@ -288,7 +288,7 @@ export async function archiveLegacyRequestLogs() {
   if (!shouldPersistToDisk) return null;
   if (LEGACY_LAYOUT_MARKER && fs.existsSync(LEGACY_LAYOUT_MARKER)) return null;
 
-  const targets = listArchiveTargets();
+  const targets = await listArchiveTargets();
   if (targets.length === 0) return null;
 
   const archiveFilename = await createLegacyArchive(targets);
@@ -301,6 +301,8 @@ export async function archiveLegacyRequestLogs() {
 
 export function migrateUsageJsonToSqlite() {
   if (!shouldPersistToDisk) return;
+  // Sync handle: the JSON→SQLite migration runs once at startup inside a
+  // better-sqlite3 transaction whose callback must be synchronous.
   const db = getDbInstance();
 
   if (USAGE_JSON_FILE && fs.existsSync(USAGE_JSON_FILE)) {

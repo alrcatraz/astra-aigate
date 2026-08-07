@@ -3,11 +3,11 @@
  * CRUD operations for agent_bridge_mappings table.
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import type { AgentBridgeMappingRow } from "./_rowTypes";
 
 export async function getMappingsForAgent(agentId: string): Promise<AgentBridgeMappingRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       "SELECT agent_id, source_model, target_model, updated_at FROM agent_bridge_mappings WHERE agent_id = ? ORDER BY source_model ASC"
@@ -16,15 +16,15 @@ export async function getMappingsForAgent(agentId: string): Promise<AgentBridgeM
   return rows;
 }
 
-export function setMappings(
+export async function setMappings(
   agentId: string,
   mappings: Array<{ source: string; target: string }>
-): void {
-  const db = getDbInstance();
+): Promise<void> {
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
 
-  const deleteStmt = db.prepare("DELETE FROM agent_bridge_mappings WHERE agent_id = ?");
-  const insertStmt = db.prepare(
+  const deleteStmt = await db.prepare("DELETE FROM agent_bridge_mappings WHERE agent_id = ?");
+  const insertStmt = await db.prepare(
     `INSERT INTO agent_bridge_mappings (agent_id, source_model, target_model, updated_at)
      VALUES (?, ?, ?, ?)`
   );
@@ -39,10 +39,9 @@ export function setMappings(
   runTransaction();
 }
 
-export function deleteMapping(agentId: string, source: string): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM agent_bridge_mappings WHERE agent_id = ? AND source_model = ?").run(
-    agentId,
-    source
-  );
+export async function deleteMapping(agentId: string, source: string): Promise<void> {
+  const db = await getAsyncDb();
+  await db
+    .prepare("DELETE FROM agent_bridge_mappings WHERE agent_id = ? AND source_model = ?")
+    .run(agentId, source);
 }

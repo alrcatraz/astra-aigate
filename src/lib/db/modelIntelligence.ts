@@ -7,7 +7,7 @@
  * @see Migration 097_model_intelligence.sql
  */
 
-import { getDbInstance, rowToCamel } from "./core";
+import { getDbInstance, rowToCamel, getAsyncDb } from "./core";
 import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
 
 // ──────────────── Types ────────────────
@@ -47,21 +47,21 @@ export function getModelIntelligence(
   model: string,
   category: string
 ): ModelIntelligenceEntry | null {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const row = raw
     .prepare(
       `SELECT * FROM model_intelligence
-       WHERE model = ? AND category = ?
-         AND source IN ('user_override', 'arena_elo', 'models_dev_tier')
-         AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
-       ORDER BY CASE source
-         WHEN 'user_override' THEN 1
-         WHEN 'arena_elo' THEN 2
-         WHEN 'models_dev_tier' THEN 3
-       END
-       LIMIT 1`
+      WHERE model = ? AND category = ?
+        AND source IN ('user_override', 'arena_elo', 'models_dev_tier')
+        AND (expires_at IS NULL OR expires_at > ?)
+      ORDER BY CASE source
+        WHEN 'user_override' THEN 1
+        WHEN 'arena_elo' THEN 2
+        WHEN 'models_dev_tier' THEN 3
+      END
+      LIMIT 1`
     )
-    .get(model, category) as Record<string, unknown> | undefined;
+    .get(model, category, new Date().toISOString()) as Record<string, unknown> | undefined;
 
   return row ? rowToEntry(row) : null;
 }
@@ -71,20 +71,20 @@ export function getModelIntelligenceBySource(
   source: string,
   category: string
 ): ModelIntelligenceEntry | null {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const row = raw
     .prepare(
       `SELECT * FROM model_intelligence
-       WHERE model = ? AND source = ? AND category = ?
-         AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))`
+      WHERE model = ? AND source = ? AND category = ?
+        AND (expires_at IS NULL OR expires_at > ?)`
     )
-    .get(model, source, category) as Record<string, unknown> | undefined;
+    .get(model, source, category, new Date().toISOString()) as Record<string, unknown> | undefined;
 
   return row ? rowToEntry(row) : null;
 }
 
 export function upsertModelIntelligence(entry: Omit<ModelIntelligenceEntry, "syncedAt">): void {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
 
   raw
     .prepare(
@@ -104,7 +104,7 @@ export function upsertModelIntelligence(entry: Omit<ModelIntelligenceEntry, "syn
 }
 
 export function deleteModelIntelligence(model: string, source: string, category: string): boolean {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const result = raw
     .prepare(
       `DELETE FROM model_intelligence
@@ -114,10 +114,9 @@ export function deleteModelIntelligence(model: string, source: string, category:
   return (result.changes ?? 0) > 0;
 }
 
-export function deleteExpiredIntelligence(source?: string): number {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
-  const conditions = ["expires_at IS NOT NULL", "datetime(expires_at) < datetime('now')"];
-  const params: unknown[] = [];
+export async function deleteExpiredIntelligence(source?: string): Promise<number> {
+  const conditions = ["expires_at IS NOT NULL", "expires_at < ?"];
+  const params: unknown[] = [new Date().toISOString()];
 
   if (source) {
     conditions.push("source = ?");
@@ -125,22 +124,23 @@ export function deleteExpiredIntelligence(source?: string): number {
   }
 
   const where = conditions.join(" AND ");
-  const result = raw.prepare(`DELETE FROM model_intelligence WHERE ${where}`).run(...params);
+  const result = await getAsyncDb()
+    .prepare(`DELETE FROM model_intelligence WHERE ${where}`)
+    .run(...params);
   return result.changes ?? 0;
 }
 
-export function deleteModelIntelligenceBySource(source: string): number {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
-  const result = raw.prepare(`DELETE FROM model_intelligence WHERE source = ?`).run(source);
+export async function deleteModelIntelligenceBySource(source: string): Promise<number> {
+  const result = await getAsyncDb()
+    .prepare(`DELETE FROM model_intelligence WHERE source = ?`)
+    .run(source);
   return result.changes ?? 0;
 }
 
-export function listModelIntelligence(filters?: {
+export async function listModelIntelligence(filters?: {
   source?: string;
   category?: string;
-}): ModelIntelligenceEntry[] {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
-
+}): Promise<ModelIntelligenceEntry[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
 
@@ -156,7 +156,9 @@ export function listModelIntelligence(filters?: {
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const sql = `SELECT * FROM model_intelligence ${where} ORDER BY model ASC, source ASC, category ASC`;
 
-  const rows = raw.prepare(sql).all(...params) as Record<string, unknown>[];
+  const rows = (await getAsyncDb()
+    .prepare(sql)
+    .all(...params)) as Record<string, unknown>[];
   return rows.map(rowToEntry);
 }
 
@@ -165,7 +167,7 @@ export function bulkUpsertModelIntelligence(
 ): number {
   if (entries.length === 0) return 0;
 
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const stmt = raw.prepare(
     `INSERT OR REPLACE INTO model_intelligence
        (model, source, category, score, elo_raw, confidence, synced_at, expires_at)

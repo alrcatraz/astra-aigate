@@ -4,7 +4,7 @@
 // types share the exact same x-relay-target / x-relay-path / x-relay-auth header spec; only the
 // deployment surface differs.
 import { randomUUID } from "crypto";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { backupDbFile } from "./backup";
 import type {
   JsonRecord,
@@ -66,7 +66,7 @@ async function clearLegacyProxyForAssignment(
   const scopeId = normalizeAssignmentScopeId(normalizedScope, assignment.scopeId);
   const level = toLegacyProxyLevel(normalizedScope);
 
-  const writeProxyConfig = db.prepare(
+  const writeProxyConfig = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('proxyConfig', ?, ?)"
   );
 
@@ -263,9 +263,9 @@ export async function listProxies(options?: {
   const includeSecrets = options?.includeSecrets === true;
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   let sql =
-    "SELECT id, name, type, host, port, username, password, region, notes, status, source, family, subscription_id, created_at, updated_at FROM proxy_registry ORDER BY datetime(updated_at) DESC, name ASC";
+    "SELECT id, name, type, host, port, username, password, region, notes, status, source, family, subscription_id, created_at, updated_at FROM proxy_registry ORDER BY updated_at DESC, name ASC";
   const params: unknown[] = [];
   if (limit !== undefined) {
     sql += " LIMIT ? OFFSET ?";
@@ -280,7 +280,7 @@ export async function listProxies(options?: {
 }
 
 export async function getProxyById(id: string, options?: { includeSecrets?: boolean }) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return getProxyRowById(db, id, options);
 }
 
@@ -313,7 +313,7 @@ async function getProxyRowByIdOrThrow(
 }
 
 export async function createProxy(payload: ProxyPayload) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = randomUUID();
   const now = new Date().toISOString();
 
@@ -341,7 +341,7 @@ export async function upsertProxy(payload: ProxyPayload): Promise<{
   proxy: ProxyRegistryRecord | null;
   action: "created" | "updated";
 }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const host = (payload.host || "").trim();
   const port = Number(payload.port);
   const username = (payload.username || "").trim();
@@ -360,7 +360,7 @@ export async function upsertProxy(payload: ProxyPayload): Promise<{
 }
 
 export async function updateProxy(id: string, payload: Partial<ProxyPayload>) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const existing = await getProxyById(id, { includeSecrets: true });
   if (!existing) return null;
 
@@ -375,7 +375,7 @@ export async function createProxyAndAssign(
   payload: ProxyPayload,
   assignment: ProxyAssignmentPayload
 ): Promise<ProxyMutationResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = randomUUID();
   const now = new Date().toISOString();
 
@@ -410,7 +410,7 @@ export async function updateProxyAndAssign(
   payload: Partial<ProxyPayload>,
   assignment: ProxyAssignmentPayload
 ): Promise<ProxyMutationResult | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
 
   const tx = db.transaction(async (): Promise<ProxyTransactionResult | null> => {
@@ -445,7 +445,7 @@ export async function updateProxyAndAssign(
 
 export async function getProxyAssignments(filters?: { proxyId?: string; scope?: string }) {
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
 
     if (filters?.proxyId) {
       return (
@@ -484,7 +484,7 @@ export async function getProxyAssignments(filters?: { proxyId?: string; scope?: 
 }
 
 export async function getProxyWhereUsed(proxyId: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (
     await db
       .prepare(
@@ -508,7 +508,7 @@ export async function assignProxyToScope(
 ): Promise<ProxyAssignmentRecord | null> {
   const normalizedScope = normalizeScope(scope);
   const normalizedScopeId = normalizeAssignmentScopeId(normalizedScope, scopeId);
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   if (!proxyId) {
     await db
@@ -561,7 +561,7 @@ export async function addProxyToScopePool(
     throw new Error("scopeId is required for non-global proxy assignments");
   }
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const proxy = await getProxyById(proxyId, { includeSecrets: true });
   if (!proxy) {
     const err = new Error(`Proxy not found: ${proxyId}`) as Error & { status?: number };
@@ -617,7 +617,7 @@ export async function removeProxyFromScopePool(
 ): Promise<boolean> {
   const normalizedScope = normalizeScope(scope);
   const normalizedScopeId = normalizeAssignmentScopeId(normalizedScope, scopeId);
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db
     .prepare("DELETE FROM proxy_assignments WHERE scope = ? AND scope_id IS ? AND proxy_id = ?")
     .run(normalizedScope, normalizedScopeId, proxyId);
@@ -644,7 +644,7 @@ export async function setScopeRotationStrategy(
   const rotationScopeId = normalizeRotationScopeId(normalizedScope, scopeId);
   const normalizedStrategy = normalizeRotationStrategy(strategy);
   const now = new Date().toISOString();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const stickyWindow =
     options?.stickyWindowMinutes !== undefined && Number.isFinite(options.stickyWindowMinutes)
@@ -677,7 +677,7 @@ export async function setScopeRotationStrategy(
 
 export async function deleteProxyById(id: string, options?: { force?: boolean }) {
   const force = options?.force === true;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const usage = await getProxyWhereUsed(id);
 
   if (!force && usage.count > 0) {
@@ -704,7 +704,7 @@ export async function deleteProxyById(id: string, options?: { force?: boolean })
 
 export async function migrateLegacyProxyConfigToRegistry(options?: { force?: boolean }) {
   const force = options?.force === true;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const existingCountRow = (await db
     .prepare("SELECT COUNT(*) AS cnt FROM proxy_registry")
@@ -775,7 +775,7 @@ export async function migrateLegacyProxyConfigToRegistry(options?: { force?: boo
 }
 
 export async function getProxyHealthStats(options?: { hours?: number }) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const hours = Math.max(1, Math.min(24 * 30, Number(options?.hours || 24)));
   const sinceIso = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
@@ -870,7 +870,7 @@ export async function bulkAssignProxyToScope(
 
 export async function resolveProxyForProvider(providerId: string) {
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     if (!isGlobalProxyEnabled(db)) return null;
 
     // Resolve by specificity across both storage backends. The GUI Custom tab

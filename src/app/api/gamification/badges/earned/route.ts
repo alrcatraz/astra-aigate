@@ -19,6 +19,6 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   const apiKeyId = new URL(request.url).searchParams.get("apiKeyId");
-  const badges = apiKeyId ? getBadges(apiKeyId) : getAllEarnedBadges();
+  const badges = apiKeyId ? await getBadges(apiKeyId) : await getAllEarnedBadges();
   return NextResponse.json({ badges }, { headers: CORS_HEADERS });
 }

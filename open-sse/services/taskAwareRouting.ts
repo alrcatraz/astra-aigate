@@ -293,9 +293,9 @@ export function classifyTask(body: Record<string, unknown>): TaskClassification 
  * Estimate how capable a model is on a continuous 0–150 scale, using both
  * registry-derived capabilities and heuristic name matching.
  */
-export function modelPowerScore(modelStr: string): number {
+export async function modelPowerScore(modelStr: string): Promise<number> {
   const id = `${modelStr ?? ""}`.toLowerCase();
-  const caps = getResolvedModelCapabilities(modelStr);
+  const caps = await getResolvedModelCapabilities(modelStr);
 
   let score = 35;
   if (caps.reasoning) score += 18;
@@ -333,14 +333,14 @@ const HARD_CAP_CHECKS = new Set(["vision"]);
  * Score a single model for a given task + capability requirements.
  * Higher score = better fit. Negative score = capability hard-miss.
  */
-export function scoreModelForTask(
+export async function scoreModelForTask(
   modelStr: string,
   task: TaskClassification = classifyTask({}),
   required: Set<string> = new Set()
-): number {
-  const caps = getResolvedModelCapabilities(modelStr);
+): Promise<number> {
+  const caps = await getResolvedModelCapabilities(modelStr);
   const target = TASK_TARGET_POWER[task.level];
-  const power = modelPowerScore(modelStr);
+  const power = await modelPowerScore(modelStr);
   let score = 100 - Math.abs(power - target);
 
   // Hard capability misses: drop score heavily so the model sorts to the back
@@ -374,15 +374,22 @@ export function scoreModelForTask(
  * Stable: ties keep original order. Identity-returns when no reordering needed
  * (avoids allocations on the common path). Never removes targets.
  */
-export function reorderByTaskWeight(
+export async function reorderByTaskWeight(
   targets: ResolvedComboTarget[],
   task: TaskClassification = classifyTask({}),
   required: Set<string> = new Set()
-): ResolvedComboTarget[] {
+): Promise<ResolvedComboTarget[]> {
   if (!Array.isArray(targets) || targets.length <= 1) return targets;
 
-  const reordered = targets
-    .map((t, i) => ({ t, i, score: scoreModelForTask(t.modelStr, task, required) }))
+  const reordered = (
+    await Promise.all(
+      targets.map(async (t, i) => ({
+        t,
+        i,
+        score: await scoreModelForTask(t.modelStr, task, required),
+      }))
+    )
+  )
     .sort((a, b) => b.score - a.score || a.i - b.i)
     .map((x) => x.t);
 

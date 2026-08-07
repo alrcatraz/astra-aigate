@@ -1003,6 +1003,33 @@ export function getDbDriver(): DbDriver {
 }
 
 /**
+ * PG-aware table existence check (single source of truth). SQLite uses
+ * `sqlite_master`; PostgreSQL uses `information_schema.tables`. Returns false
+ * on any read error so PG-mode code degrades to the "missing table" path
+ * (empty/fallback) instead of crashing on `relation does not exist`.
+ */
+export async function tableExists(tableName: string, db?: DatabaseAdapter): Promise<boolean> {
+  const adapter = db ?? getAsyncDb();
+  const driver = getDbDriver();
+  try {
+    if (driver === "postgres") {
+      const row = (await adapter
+        .prepare(
+          "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?"
+        )
+        .get(tableName)) as { table_name?: string } | undefined;
+      return row?.table_name === tableName;
+    }
+    const row = (await adapter
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(tableName)) as { name?: string } | undefined;
+    return row?.name === tableName;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Wrap the synchronous SQLite handle in the async DatabaseAdapter interface so
  * async call sites (usage, quota, settings) work identically in both driver
  * modes. Statements resolve immediately; transaction callbacks must stay

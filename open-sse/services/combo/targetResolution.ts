@@ -483,7 +483,7 @@ async function applyContinuityFilters(
       );
   let orderedTargets = sticky.targets;
   if (!cacheStrategyAffinityApplied) {
-    orderedTargets = orderTargetsByEvalScores(orderedTargets, config.evalRouting, log);
+    orderedTargets = await orderTargetsByEvalScores(orderedTargets, config.evalRouting, log);
   }
   // #8488 / #8494: fail closed when hard capability filters empty the pool.
   // Opt-in escape hatch: combo.config.compatFilterFailOpen OR settings.compatFilterFailOpen.
@@ -492,11 +492,11 @@ async function applyContinuityFilters(
     (settings as { compatFilterFailOpen?: unknown } | null | undefined)?.compatFilterFailOpen ===
       true;
   const preCompatTargets = orderedTargets;
-  orderedTargets = filterTargetsByRequestCompatibility(orderedTargets, body, log, undefined, {
+  orderedTargets = await filterTargetsByRequestCompatibility(orderedTargets, body, log, undefined, {
     failOpen: compatFilterFailOpen,
   });
   if (orderedTargets.length === 0 && preCompatTargets.length > 0) {
-    const exhaustion = describeCapabilityFilterExhaustion(preCompatTargets, body, combo.name);
+    const exhaustion = await describeCapabilityFilterExhaustion(preCompatTargets, body, combo.name);
     if (exhaustion) {
       // Match handleComboChat: only track failures under context-cache protection pins.
       const effectiveSessionId: string | null = combo.context_cache_protection
@@ -548,16 +548,16 @@ async function applyContinuityFilters(
  * ["smart","task","task-aware","task_aware","auto"]. Additive — does not affect any
  * of the other 15 strategies.
  */
-function applyTaskAwareOrdering(
+async function applyTaskAwareOrdering(
   deps: ResolveComboTargetPipelineDeps,
   orderedTargets: ResolvedComboTarget[],
   autoUsedExplicitRouter: boolean
-): ResolvedComboTarget[] {
+): Promise<ResolvedComboTarget[]> {
   const { strategy, body, log } = deps;
   if (!isTaskRoutingStrategy(strategy)) return orderedTargets;
   const task = classifyTask(body);
   const conversationCacheKey = getConversationCacheKey(body);
-  const taskReordered = reorderByTaskWeight(orderedTargets, task);
+  const taskReordered = await reorderByTaskWeight(orderedTargets, task);
   // #4945 regression guard: when an explicit auto router (lkgp/cost/…) pinned
   // orderedTargets[0], keep that primary choice and let task-aware refine only
   // the fallback tail — otherwise task weighting silently defeats the operator's
@@ -684,7 +684,7 @@ export async function resolveComboTargetPipeline(
   let orderedTargets =
     strategy === "weighted"
       ? weightedResolution?.orderedTargets || []
-      : resolveComboTargets(
+      : await resolveComboTargets(
           expandedCombo,
           expandedAllCombos,
           clampComboDepth(config.maxComboDepth)
@@ -692,7 +692,7 @@ export async function resolveComboTargetPipeline(
 
   orderedTargets = await applyRequestTagRouting(orderedTargets, body, log);
 
-  const overflow = getKnownContextOverflow(orderedTargets, body);
+  const overflow = await getKnownContextOverflow(orderedTargets, body);
   if (overflow) {
     return { earlyResponse: buildContextOverflowResponse(overflow, orderedTargets, log) };
   }
@@ -708,7 +708,11 @@ export async function resolveComboTargetPipeline(
 
   const continuity = await applyContinuityFilters(deps, ordering.orderedTargets);
   if ("earlyResponse" in continuity) return continuity;
-  orderedTargets = applyTaskAwareOrdering(deps, continuity.orderedTargets, autoUsedExplicitRouter);
+  orderedTargets = await applyTaskAwareOrdering(
+    deps,
+    continuity.orderedTargets,
+    autoUsedExplicitRouter
+  );
   orderedTargets = await applyPromptCacheStage(
     deps,
     orderedTargets,

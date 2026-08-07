@@ -37,14 +37,14 @@ export interface RuntimeSignals {
  * @param _runtimeSignals Optional upstream headers / signals (v1: ignored, reserved for future use).
  * @returns              The effective ProviderPlan (never throws).
  */
-export function resolvePlan(
+export async function resolvePlan(
   connectionId: string,
   provider: string,
   _runtimeSignals?: RuntimeSignals
-): ProviderPlan {
+): Promise<ProviderPlan> {
   // 1. Manual DB override
   try {
-    const dbPlan = getProviderPlan(connectionId);
+    const dbPlan = await getProviderPlan(connectionId);
     if (dbPlan && dbPlan.dimensions.length > 0) {
       return {
         connectionId: dbPlan.connectionId,

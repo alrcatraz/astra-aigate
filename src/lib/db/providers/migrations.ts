@@ -4,7 +4,7 @@
  * Split from provider.ts to keep the main CRUD file under the size ratchet.
  */
 
-import { getDbInstance, rowToCamel } from "../core";
+import { getAsyncDb, rowToCamel } from "../core";
 import { backupDbFile } from "../backup";
 import { migrateLegacyEncryptedString } from "../encryption";
 import { invalidateDbCache } from "../readCache";
@@ -26,9 +26,11 @@ interface DbLike {
  * Scans all connections and re-encrypts any fields using the old dynamic salt
  * so they use the new canonical static salt.
  */
-export function autoMigrateLegacyEncryptedConnections(): number {
-  const db = getDbInstance() as unknown as DbLike;
-  const rows = db.prepare("SELECT * FROM provider_connections").all();
+export async function autoMigrateLegacyEncryptedConnections(): Promise<number> {
+  const db = getAsyncDb();
+  const rows = (await db.prepare("SELECT * FROM provider_connections").all()) as Array<
+    Record<string, unknown>
+  >;
   let migratedCount = 0;
 
   for (const row of rows) {
@@ -58,16 +60,18 @@ export function autoMigrateLegacyEncryptedConnections(): number {
       // `encryptConnectionFields` in `_updateConnectionRow` will encrypt it AGAIN!
       // Let's modify the DB directly so we don't double encrypt.
 
-      db.prepare(
-        "UPDATE provider_connections SET api_key = @apiKey, id_token = @idToken, access_token = @accessToken, refresh_token = @refreshToken, updated_at = @updatedAt WHERE id = @id"
-      ).run({
-        id: camelRow.id,
-        apiKey: camelRow.apiKey ?? null,
-        idToken: camelRow.idToken ?? null,
-        accessToken: camelRow.accessToken ?? null,
-        refreshToken: camelRow.refreshToken ?? null,
-        updatedAt: new Date().toISOString(),
-      });
+      await db
+        .prepare(
+          "UPDATE provider_connections SET api_key = @apiKey, id_token = @idToken, access_token = @accessToken, refresh_token = @refreshToken, updated_at = @updatedAt WHERE id = @id"
+        )
+        .run({
+          id: camelRow.id,
+          apiKey: camelRow.apiKey ?? null,
+          idToken: camelRow.idToken ?? null,
+          accessToken: camelRow.accessToken ?? null,
+          refreshToken: camelRow.refreshToken ?? null,
+          updatedAt: new Date().toISOString(),
+        });
       migratedCount++;
     }
   }
@@ -86,7 +90,7 @@ export function autoMigrateLegacyEncryptedConnections(): number {
 export async function getGheCopilotHosts(): Promise<string[]> {
   const hosts = new Set<string>();
   try {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const rows = (await db
       .prepare(
         "SELECT provider_specific_data FROM provider_connections WHERE provider = 'ghe-copilot' AND is_active = 1"

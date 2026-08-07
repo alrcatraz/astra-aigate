@@ -83,7 +83,19 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
    `DB_DRIVER=postgres` + `DATABASE_URL`; async `DatabaseAdapter` interface
    (sync SQLite drivers wrapped), dialect translation centralized in the PG
    adapter so business modules stay driver-agnostic. SQLite→PG migration:
-   `scripts/migrate-sqlite-to-pg.ts` (idempotent, reconciles row counts)
+   `scripts/migrate-sqlite-to-pg.ts` (idempotent, reconciles row counts).
+   **PG-mode constraint (2026-08-06): all DB access must go through
+   `getAsyncDb()`** — synchronous `getDbInstance()` falls back to an in-memory
+   scratch DB in PG mode (reads empty, writes non-persistent). **Management
+   migration is complete (Aug 2026):** all management modules (services,
+   providers, key groups, evals, prompts, credit balance, gamification,
+   analytics, cache, etc.) now use the async `DatabaseAdapter` and the 95-page
+   dashboard surface is regression-tested green under `DB_DRIVER=postgres`
+   (Playwright, 79/95 clean; the remainder are feature-not-open routes, 403/404,
+   i18n warnings, or the separate-port live WebSocket — not code defects).
+   Keep ALL new DB modules async-first; never add a synchronous `db.prepare()`
+   call that returns a Promise consumed synchronously (`.map`/`for…of` on an
+   un-awaited result is the recurring PG runtime failure mode).
 9. MCP gateway (3.x): one server exposing MULTIPLE MCP endpoints (NOT a tool
    merge pool). Registry `mcp_servers` table; `kind` = pure connection
    semantics `builtin|stdio|http` (never a brand name). Preset group id

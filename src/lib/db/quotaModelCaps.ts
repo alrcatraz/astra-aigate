@@ -12,7 +12,8 @@
  * (Hard Rule #5).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,7 +62,7 @@ function rowToModelCap(row: ModelCapRow): ModelCap {
 }
 
 function getDb(): DbLike {
-  return getDbInstance() as unknown as DbLike;
+  return getAsyncDb() as unknown as DbLike;
 }
 
 // ---------------------------------------------------------------------------
@@ -72,28 +73,32 @@ function getDb(): DbLike {
  * Retrieve the cap for a specific (pool, key, model) triple.
  * Returns null if no cap is configured.
  */
-export function getModelCap(poolId: string, apiKeyId: string, model: string): ModelCap | null {
-  const row = getDb()
+export async function getModelCap(
+  poolId: string,
+  apiKeyId: string,
+  model: string
+): Promise<ModelCap | null> {
+  const row = (await getDb()
     .prepare<ModelCapRow>(
       `SELECT pool_id, api_key_id, model, cap_value, cap_unit
        FROM quota_allocation_model_caps
        WHERE pool_id = ? AND api_key_id = ? AND model = ?`
     )
-    .get(poolId, apiKeyId, model);
+    .get(poolId, apiKeyId, model)) as ModelCapRow | undefined;
   return row ? rowToModelCap(row) : null;
 }
 
 /**
  * List all model caps for a given (pool, key) pair.
  */
-export function listModelCaps(poolId: string, apiKeyId: string): ModelCap[] {
-  const rows = getDb()
+export async function listModelCaps(poolId: string, apiKeyId: string): Promise<ModelCap[]> {
+  const rows = (await getDb()
     .prepare<ModelCapRow>(
       `SELECT pool_id, api_key_id, model, cap_value, cap_unit
        FROM quota_allocation_model_caps
        WHERE pool_id = ? AND api_key_id = ?`
     )
-    .all(poolId, apiKeyId);
+    .all(poolId, apiKeyId)) as ModelCapRow[];
   return rows.map(rowToModelCap);
 }
 
@@ -101,15 +106,15 @@ export function listModelCaps(poolId: string, apiKeyId: string): ModelCap[] {
  * Insert or replace a model cap.
  * cap_value must be > 0 (enforced by DB CHECK constraint).
  */
-export function setModelCap(cap: ModelCap): void {
-  getDb()
+export async function setModelCap(cap: ModelCap): Promise<void> {
+  await getDb()
     .prepare(
       `INSERT INTO quota_allocation_model_caps
-         (pool_id, api_key_id, model, cap_value, cap_unit)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(pool_id, api_key_id, model) DO UPDATE SET
-         cap_value = excluded.cap_value,
-         cap_unit  = excluded.cap_unit`
+        (pool_id, api_key_id, model, cap_value, cap_unit)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(pool_id, api_key_id, model) DO UPDATE SET
+        cap_value = excluded.cap_value,
+        cap_unit  = excluded.cap_unit`
     )
     .run(cap.poolId, cap.apiKeyId, cap.model, cap.capValue, cap.capUnit);
 }
@@ -118,11 +123,15 @@ export function setModelCap(cap: ModelCap): void {
  * Remove the cap for a specific (pool, key, model) triple.
  * No-op if it does not exist.
  */
-export function deleteModelCap(poolId: string, apiKeyId: string, model: string): void {
-  getDb()
+export async function deleteModelCap(
+  poolId: string,
+  apiKeyId: string,
+  model: string
+): Promise<void> {
+  await getDb()
     .prepare(
       `DELETE FROM quota_allocation_model_caps
-       WHERE pool_id = ? AND api_key_id = ? AND model = ?`
+      WHERE pool_id = ? AND api_key_id = ? AND model = ?`
     )
     .run(poolId, apiKeyId, model);
 }

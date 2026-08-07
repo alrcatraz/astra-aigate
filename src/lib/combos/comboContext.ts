@@ -11,12 +11,12 @@
  */
 
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo";
-import { getCanonicalModelMetadata } from "@/lib/modelMetadataRegistry";
 import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { getModelSpec } from "@/shared/constants/modelSpecs";
 import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { getTokenLimit } from "@omniroute/open-sse/services/contextManager";
 import { buildAliasMaps, getComboTargetModelId } from "@/app/api/v1/models/catalogProviderMaps";
+import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 
 /* ─── helpers ───────────────────────────────────────────────── */
 
@@ -53,15 +53,23 @@ function getRegistryModel(
  *    exist in at least one known data source (matching the catalog behavior).
  *
  * Returns `undefined` when no known context window can be determined.
+ *
+ * Async: every capability/context source (getResolvedModelCapabilities,
+ * getSyncedCapability, getTokenLimit) is genuinely async (PostgreSQL-backed),
+ * so this function awaits them. Post-DB-async this is mandatory — calling the
+ * sync-broken getCanonicalModelMetadata() here crashed with "Cannot read
+ * properties of undefined (reading 'length')" because its internal
+ * getResolvedModelCapabilities() returned a Promise whose `.modalitiesInput`
+ * was read as if it were a real array.
  */
-export function computeComboContextLength(
+export async function computeComboContextLength(
   combo: {
     models?: unknown[];
     context_length?: number;
     name?: string;
   },
   allCombos: Array<{ models?: unknown[]; name?: string }>
-): number | undefined {
+): Promise<number | undefined> {
   // 1. Explicit context_length wins (user can override with a manual value).
   if (isPositiveFiniteNumber(combo.context_length)) {
     return combo.context_length;
@@ -83,48 +91,48 @@ export function computeComboContextLength(
   for (const target of targets) {
     // 3a. Strip the provider/alias prefix off `modelStr` BEFORE the canonical
     //     lookup. resolveNestedComboTargets() returns modelStr in "provider/model"
-    //     form (e.g. "glm/glm-5.2"), but getCanonicalModelMetadata()'s alias
-    //     lookup is keyed by the BARE registry id — passing the qualified string
-    //     straight through only matched the ~47 models with a curated
-    //     "provider/model" MODEL_SPECS alias, silently excluding the other
-    //     ~1,650 registry-only models from the min() calc below. Reusing the
-    //     catalog's own getComboTargetModelId() (catalogProviderMaps.ts) keeps
-    //     this resolution in lockstep with getComboTargetCatalogMetadata().
+    //     form (e.g. "glm/glm-5.2"), but the canonical-model lookup is keyed by
+    //     the BARE registry id — passing the qualified string straight through
+    //     only matched the ~47 models with a curated "provider/model" MODEL_SPECS
+    //     alias, silently excluding the other ~1,650 registry-only models from
+    //     the min() calc below. Reusing the catalog's own getComboTargetModelId()
+    //     (catalogProviderMaps.ts) keeps this resolution in lockstep with
+    //     getComboTargetCatalogMetadata().
     const resolvedTarget = getComboTargetModelId(aliasMaps, target);
     if (!resolvedTarget) continue;
 
-    // 3b. Source check — only count models that exist in at least one
-    //     known data source (provider registry, static spec, synced capability).
-    //     This matches the catalog's filter that excludes unregistered models
-    //     from combo calculations.
-    const canonicalMeta = getCanonicalModelMetadata({
+    // 3b. Resolve the canonical (bare) provider+model AND its sources through
+    //     the async capability layer. Awaiting is required — getResolvedModelCapabilities
+    //     shells out to the async DB for synced capabilities.
+    const resolved = await getResolvedModelCapabilities({
       provider: resolvedTarget.providerId,
       model: resolvedTarget.modelId,
     });
-    if (!canonicalMeta) continue;
+    const sourceProvider = resolved.provider || resolvedTarget.providerId;
+    const sourceModel = resolved.model || resolvedTarget.modelId;
 
-    const source = canonicalMeta.metadata?.source;
-    if (!source?.providerRegistry && !source?.staticSpec && !source?.syncedCapability) {
-      continue;
-    }
-
-    const providerId = canonicalMeta.provider || resolvedTarget.providerId;
-    const modelId = canonicalMeta.model || resolvedTarget.modelId;
+    // Source check — only count models that exist in at least one known data
+    // source (provider registry, static spec, synced capability). Matches the
+    // catalog's filter that excludes unregistered models from combo calc.
+    const [synced, spec, registryModel] = await Promise.all([
+      getSyncedCapability(sourceProvider, sourceModel),
+      Promise.resolve(getModelSpec(sourceModel)),
+      Promise.resolve(getRegistryModel(sourceProvider, sourceModel)),
+    ]);
+    if (!synced && !spec && !registryModel) continue;
 
     // 3c. Resolve window: synced → registry → spec → getTokenLimit
-    const synced = getSyncedCapability(providerId, modelId);
-    const spec = getModelSpec(modelId);
-    const registryModel = getRegistryModel(providerId, modelId);
+    const syncedCtx =
+      synced && isPositiveFiniteNumber(synced.limit_context) ? synced.limit_context : undefined;
+    const registryCtx =
+      registryModel && isPositiveFiniteNumber(registryModel.contextLength)
+        ? registryModel.contextLength
+        : undefined;
+    const specCtx =
+      spec && isPositiveFiniteNumber(spec.contextWindow) ? spec.contextWindow : undefined;
 
-    const syncedCtx = isPositiveFiniteNumber(synced?.limit_context)
-      ? (synced.limit_context as number)
-      : undefined;
-    const registryCtx = isPositiveFiniteNumber(registryModel?.contextLength)
-      ? registryModel.contextLength
-      : undefined;
-    const specCtx = isPositiveFiniteNumber(spec?.contextWindow) ? spec.contextWindow : undefined;
-
-    const targetCtx = syncedCtx ?? registryCtx ?? specCtx ?? getTokenLimit(providerId, modelId);
+    const targetCtx =
+      syncedCtx ?? registryCtx ?? specCtx ?? (await getTokenLimit(sourceProvider, sourceModel));
 
     if (isPositiveFiniteNumber(targetCtx)) {
       contextValues.push(targetCtx);

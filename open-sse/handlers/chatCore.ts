@@ -3184,7 +3184,7 @@ export async function handleChatCore({
   // ── Tier 2: Authoritative per-model/provider token-limit check (provider now resolved) ──
   if (apiKeyInfo?.id) {
     try {
-      const tokenBreach = checkTokenLimits(
+      const tokenBreach = await checkTokenLimits(
         apiKeyInfo.id,
         provider || undefined,
         model || undefined

@@ -21,7 +21,7 @@ import {
   toClientAntigravityQuotaModelId,
 } from "../../config/antigravityModelAliases.ts";
 import { isUserCallableAgyModelId } from "../../config/agyModels.ts";
-import { getDbInstance } from "@/lib/db/core";
+import { getDbInstance, getAsyncDb } from "@/lib/db/core";
 import {
   applyAntigravityClientProfileHeaders,
   getAntigravityClientProfile,
@@ -127,7 +127,7 @@ function getAntigravityLocalUsageUnits(
   const windowEnd = new Date(resetMs).toISOString();
 
   try {
-    const db = getDbInstance() as unknown as {
+    const db = getAsyncDb() as unknown as {
       prepare: (sql: string) => { get: (...params: unknown[]) => unknown };
     };
     const row = db
@@ -596,7 +596,7 @@ export async function getAntigravityUsage(
     const accountId: string = connectionId || "unknown";
 
     // Read cached credit balance (hydrated from DB on first access)
-    let creditBalance = getAntigravityRemainingCredits(accountId);
+    let creditBalance = await getAntigravityRemainingCredits(accountId);
 
     // Only an explicit refresh in always mode may proactively spend credits to discover
     // the balance. Automatic/scheduled refreshes must use the cached balance (if any)

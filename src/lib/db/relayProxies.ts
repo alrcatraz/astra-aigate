@@ -5,7 +5,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { rowToCamel } from "./core";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -104,10 +104,10 @@ function hashToken(token: string): string {
 export async function createRelayToken(
   input: CreateRelayTokenInput
 ): Promise<RelayTokenWithSecret> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = generateId();
   const rawToken = generateToken();
-  const tokenHash = hashToken(rawToken);
+  const tokenHash = await hashToken(rawToken);
   const now = Math.floor(Date.now() / 1000);
 
   const prefix = "rl_" + rawToken.slice(6, 14);
@@ -146,7 +146,7 @@ export async function createRelayToken(
 }
 
 export async function getRelayTokens(): Promise<RelayToken[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT * FROM relay_tokens ORDER BY created_at DESC")
     .all()) as RelayTokenRow[];
@@ -157,7 +157,7 @@ export async function getRelayTokens(): Promise<RelayToken[]> {
 }
 
 export async function getRelayToken(id: string): Promise<RelayToken | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM relay_tokens WHERE id = ?").get(id)) as
     RelayTokenRow | undefined;
   if (!row) return null;
@@ -167,7 +167,7 @@ export async function getRelayToken(id: string): Promise<RelayToken | null> {
 export async function getRelayTokenByHash(
   tokenHash: string
 ): Promise<(RelayToken & { rawToken?: string }) | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT * FROM relay_tokens WHERE token_hash = ? AND enabled = 1")
     .get(tokenHash)) as RelayTokenRow | undefined;
@@ -179,7 +179,7 @@ export async function updateRelayToken(
   id: string,
   updates: Partial<CreateRelayTokenInput>
 ): Promise<RelayToken | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = Math.floor(Date.now() / 1000);
   const sets: string[] = ["updated_at = ?"];
   const params: unknown[] = [now];
@@ -223,12 +223,12 @@ export async function updateRelayToken(
 }
 
 export async function deleteRelayToken(id: string): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM relay_tokens WHERE id = ?").run(id);
 }
 
 export async function toggleRelayToken(id: string, enabled: boolean): Promise<RelayToken | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = Math.floor(Date.now() / 1000);
   await db
     .prepare("UPDATE relay_tokens SET enabled = ?, updated_at = ? WHERE id = ?")
@@ -246,7 +246,7 @@ export async function checkRateLimit(
   remaining: number;
   resetIn: number;
 }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   let token = existingToken;
   if (!token) {
     const row = (await db.prepare("SELECT * FROM relay_tokens WHERE id = ?").get(tokenId)) as
@@ -306,7 +306,7 @@ export async function recordRelayUsage(
     userAgent?: string;
   }
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = Math.floor(Date.now() / 1000);
   const minuteWindow = Math.floor(now / 60) * 60;
 
@@ -355,7 +355,7 @@ export async function getRelayUsage(
   tokenId: string,
   since: number
 ): Promise<{ requestCount: number; totalCost: number }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       "SELECT COUNT(*) as request_count, COALESCE(SUM(cost), 0) as total_cost FROM relay_logs WHERE token_id = ? AND created_at >= ?"
@@ -365,7 +365,7 @@ export async function getRelayUsage(
 }
 
 export async function getRelayLogs(tokenId?: string, limit = 50): Promise<RelayLogRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   if (tokenId) {
     return (await db
       .prepare("SELECT * FROM relay_logs WHERE token_id = ? ORDER BY created_at DESC LIMIT ?")

@@ -3,7 +3,7 @@
  * CRUD operations for agent_bridge_state table.
  */
 
-import { getDbInstance } from "./core.ts";
+import { getDbInstance, getAsyncDb } from "./core.ts";
 import type { AgentBridgeStateRow } from "./_rowTypes.ts";
 
 // SQLite stores booleans as 0/1 integers
@@ -16,7 +16,7 @@ interface AgentBridgeStateDbRow {
   last_error: string | null;
 }
 
-function mapRow(row: AgentBridgeStateDbRow): AgentBridgeStateRow {
+async function mapRow(row: AgentBridgeStateDbRow): Promise<AgentBridgeStateRow> {
   return {
     agent_id: row.agent_id,
     dns_enabled: row.dns_enabled === 1,
@@ -28,40 +28,42 @@ function mapRow(row: AgentBridgeStateDbRow): AgentBridgeStateRow {
 }
 
 export async function getAllAgentBridgeStates(): Promise<AgentBridgeStateRow[]> {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const rows = (await db
     .prepare("SELECT * FROM agent_bridge_state ORDER BY agent_id ASC")
     .all()) as AgentBridgeStateDbRow[];
-  return rows.map(mapRow);
+  return await Promise.all(rows.map(mapRow));
 }
 
 export async function getAgentBridgeState(agentId: string): Promise<AgentBridgeStateRow | null> {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const row = (await db
     .prepare("SELECT * FROM agent_bridge_state WHERE agent_id = ?")
     .get(agentId)) as AgentBridgeStateDbRow | undefined;
   return row ? mapRow(row) : null;
 }
 
-export function upsertAgentBridgeState(
+export async function upsertAgentBridgeState(
   row: Partial<AgentBridgeStateRow> & { agent_id: string }
-): void {
-  const db = getDbInstance();
+): Promise<void> {
+  const db = getAsyncDb();
   const existing = getAgentBridgeState(row.agent_id);
 
   if (!existing) {
-    db.prepare(
-      `INSERT INTO agent_bridge_state
+    await db
+      .prepare(
+        `INSERT INTO agent_bridge_state
          (agent_id, dns_enabled, cert_trusted, setup_completed, last_started_at, last_error)
        VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(
-      row.agent_id,
-      row.dns_enabled !== undefined ? (row.dns_enabled ? 1 : 0) : 0,
-      row.cert_trusted !== undefined ? (row.cert_trusted ? 1 : 0) : 0,
-      row.setup_completed !== undefined ? (row.setup_completed ? 1 : 0) : 0,
-      row.last_started_at ?? null,
-      row.last_error ?? null
-    );
+      )
+      .run(
+        row.agent_id,
+        row.dns_enabled !== undefined ? (row.dns_enabled ? 1 : 0) : 0,
+        row.cert_trusted !== undefined ? (row.cert_trusted ? 1 : 0) : 0,
+        row.setup_completed !== undefined ? (row.setup_completed ? 1 : 0) : 0,
+        row.last_started_at ?? null,
+        row.last_error ?? null
+      );
   } else {
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
@@ -90,26 +92,30 @@ export function upsertAgentBridgeState(
     if (fields.length === 0) return;
 
     values.push(row.agent_id);
-    db.prepare(`UPDATE agent_bridge_state SET ${fields.join(", ")} WHERE agent_id = ?`).run(
-      ...values
-    );
+    await db
+      .prepare(`UPDATE agent_bridge_state SET ${fields.join(", ")} WHERE agent_id = ?`)
+      .run(...values);
   }
 }
 
-export function setLastStarted(agentId: string, ts: string): void {
-  const db = getDbInstance();
-  db.prepare(
-    `INSERT INTO agent_bridge_state (agent_id, last_started_at)
+export async function setLastStarted(agentId: string, ts: string): Promise<void> {
+  const db = getAsyncDb();
+  await db
+    .prepare(
+      `INSERT INTO agent_bridge_state (agent_id, last_started_at)
      VALUES (?, ?)
      ON CONFLICT(agent_id) DO UPDATE SET last_started_at = excluded.last_started_at`
-  ).run(agentId, ts);
+    )
+    .run(agentId, ts);
 }
 
-export function setLastError(agentId: string, err: string | null): void {
-  const db = getDbInstance();
-  db.prepare(
-    `INSERT INTO agent_bridge_state (agent_id, last_error)
+export async function setLastError(agentId: string, err: string | null): Promise<void> {
+  const db = getAsyncDb();
+  await db
+    .prepare(
+      `INSERT INTO agent_bridge_state (agent_id, last_error)
      VALUES (?, ?)
      ON CONFLICT(agent_id) DO UPDATE SET last_error = excluded.last_error`
-  ).run(agentId, err);
+    )
+    .run(agentId, err);
 }

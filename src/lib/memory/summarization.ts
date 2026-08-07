@@ -1,5 +1,5 @@
 import { Memory, MemoryType } from "./types";
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { deleteMemory, createMemory } from "./store";
 
 export interface SummarizationResult {
@@ -13,7 +13,7 @@ export async function summarizeMemories(
   sessionId?: string,
   maxTokens: number = 4000
 ): Promise<SummarizationResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const whereClause = sessionId
     ? "WHERE api_key_id = ? AND session_id = ?"
@@ -51,11 +51,9 @@ export async function summarizeMemories(
     const newTokens = estimateTokens(summary);
     tokensSaved += oldTokens - newTokens;
 
-    db.prepare("UPDATE memories SET content = ?, updated_at = ? WHERE id = ?").run(
-      summary,
-      new Date().toISOString(),
-      mem.id
-    );
+    await db
+      .prepare("UPDATE memories SET content = ?, updated_at = ? WHERE id = ?")
+      .run(summary, new Date().toISOString(), mem.id);
   }
 
   return {
@@ -143,7 +141,7 @@ export async function summarizeMemoriesOlderThan(
   days: number,
   dryRun: boolean
 ): Promise<SummarizeOlderThanResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 

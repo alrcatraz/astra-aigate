@@ -95,7 +95,7 @@ container.register("settings", () => {
 });
 
 container.register("db", () => {
-  return getDbInstance();
+  return getAsyncDb();
 });
 
 container.register("encryption", () => {

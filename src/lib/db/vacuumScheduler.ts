@@ -1,10 +1,10 @@
 import { DEFAULT_DATABASE_SETTINGS } from "@/types/databaseSettings";
 import { MAX_TIMER_TIMEOUT_MS } from "@/shared/utils/runtimeTimeouts";
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 // Direct `key_value` access — the existing `keyValueStore` helpers only exist
 // in test fixtures; the 3 production call sites (pricingSync, jsonMigration,
-// serviceModels) all use `getDbInstance().prepare(...).run()` directly. We
+// serviceModels) all use `getAsyncDb().prepare(...).run()` directly. We
 // follow the same convention to avoid introducing a new abstraction.
 const READ_KV_SQL = "SELECT value FROM key_value WHERE namespace = ? AND key = ? LIMIT 1";
 // The key_value table is (namespace, key, value) — no updated_at column
@@ -13,12 +13,12 @@ const READ_KV_SQL = "SELECT value FROM key_value WHERE namespace = ? AND key = ?
 const WRITE_KV_SQL = "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)";
 
 async function setKeyValue(namespace: string, key: string, value: string): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare(WRITE_KV_SQL).run(namespace, key, value);
 }
 
 async function getKeyValue(namespace: string, key: string): Promise<string | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare(READ_KV_SQL).get(namespace, key)) as { value: string } | undefined;
   return row?.value ?? null;
 }
@@ -92,7 +92,7 @@ function parseJsonSafe(raw: string | null): unknown {
 }
 
 async function readNamespace(namespace: string): Promise<Record<string, unknown>> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
     .all(namespace)) as Array<{ key: string; value: string | null }>;
@@ -264,7 +264,7 @@ export async function runNow(): Promise<{ success: boolean; durationMs: number; 
 
   const start = Date.now();
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     await db.exec("VACUUM");
     const duration = Date.now() - start;
     currentState.lastRunAt = start;

@@ -256,7 +256,7 @@ export async function runEvalSuiteAgainstTarget(input: {
   apiKeyId?: string;
   runGroupId?: string | null;
 }): Promise<PersistedEvalRun> {
-  const suite = getSuite(input.suiteId);
+  const suite = await getSuite(input.suiteId);
   if (!suite) {
     throw new Error(`Suite not found: ${input.suiteId}`);
   }
@@ -292,7 +292,7 @@ export async function runEvalSuiteAgainstTarget(input: {
     };
   }
 
-  const evaluated = runSuite(input.suiteId, outputs, caseMetrics);
+  const evaluated = await runSuite(input.suiteId, outputs, caseMetrics);
   return saveEvalRun({
     runGroupId: input.runGroupId || null,
     suiteId: evaluated.suiteId,

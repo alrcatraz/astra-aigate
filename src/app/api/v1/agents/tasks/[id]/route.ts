@@ -19,9 +19,9 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 const logger = pino({ name: "cloud-agents-api" });
 
 let _tableInit = false;
-function ensureTable() {
+async function ensureTable() {
   if (!_tableInit) {
-    createCloudAgentTaskTable();
+    await createCloudAgentTaskTable();
     _tableInit = true;
   }
 }
@@ -58,12 +58,12 @@ function cloudAgentCredentialsRequiredResponse(providerId: string, request: Next
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    ensureTable();
+    await ensureTable();
     const authError = await requireCloudAgentManagementAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
-    const task = getCloudAgentTaskById(id);
+    const task = await getCloudAgentTaskById(id);
 
     if (!task) {
       return NextResponse.json(
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (credentials) {
           const statusResult = await agent.getStatus(task.external_id, credentials);
 
-          updateCloudAgentTask(id, {
+          await updateCloudAgentTask(id, {
             status: statusResult.status,
             result: statusResult.result ? JSON.stringify(statusResult.result) : null,
             activities: JSON.stringify(statusResult.activities),
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    const updatedTask = getCloudAgentTaskById(id);
+    const updatedTask = await getCloudAgentTaskById(id);
 
     return NextResponse.json(
       {
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    ensureTable();
+    await ensureTable();
     const authError = await requireCloudAgentManagementAuth(request);
     if (authError) return authError;
 
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    const task = getCloudAgentTaskById(id);
+    const task = await getCloudAgentTaskById(id);
     if (!task) {
       return NextResponse.json(
         { error: "Task not found" },
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const credentials = await getCloudAgentCredentials(task.provider_id);
       if (!credentials) return cloudAgentCredentialsRequiredResponse(task.provider_id, request);
       await agent.approvePlan(task.external_id, credentials);
-      updateCloudAgentTask(id, { status: "running" });
+      await updateCloudAgentTask(id, { status: "running" });
     } else if (validated.action === "message") {
       if (!task.external_id) {
         return NextResponse.json(
@@ -172,12 +172,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const activity = await agent.sendMessage(task.external_id, validated.message, credentials);
       const activities: unknown[] = serializeCloudAgentTask(task).activities;
       activities.push(activity);
-      updateCloudAgentTask(id, { activities: JSON.stringify(activities) });
+      await updateCloudAgentTask(id, { activities: JSON.stringify(activities) });
     } else if (validated.action === "cancel") {
-      updateCloudAgentTask(id, { status: "cancelled" });
+      await updateCloudAgentTask(id, { status: "cancelled" });
     }
 
-    const updatedTask = getCloudAgentTaskById(id);
+    const updatedTask = await getCloudAgentTaskById(id);
     return NextResponse.json(
       { success: true, data: updatedTask ? serializeCloudAgentTask(updatedTask) : null },
       { headers: getCloudAgentCorsHeaders(request) }
@@ -200,12 +200,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    ensureTable();
+    await ensureTable();
     const authError = await requireCloudAgentManagementAuth(request);
     if (authError) return authError;
 
     const { id } = await params;
-    const task = getCloudAgentTaskById(id);
+    const task = await getCloudAgentTaskById(id);
     if (!task) {
       return NextResponse.json(
         { error: "Task not found" },
@@ -213,7 +213,7 @@ export async function DELETE(
       );
     }
 
-    deleteCloudAgentTask(id);
+    await deleteCloudAgentTask(id);
     return NextResponse.json({ success: true }, { headers: getCloudAgentCorsHeaders(request) });
   } catch (error) {
     return NextResponse.json(

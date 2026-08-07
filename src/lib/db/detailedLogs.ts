@@ -6,7 +6,7 @@
  * This module remains available for reading historical request_detail_logs rows.
  */
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance } from "./core";
+import { getAsyncDb, tableExists } from "./core";
 import { getSettings } from "./settings";
 import { isNoLog } from "../compliance/noLog";
 import {
@@ -40,11 +40,7 @@ async function requestDetailLogsTableExists(): Promise<boolean> {
     return requestDetailLogsTableExistsCache;
   }
 
-  const db = getDbInstance();
-  const row = (await db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'request_detail_logs'")
-    .get()) as { name?: string } | undefined;
-  requestDetailLogsTableExistsCache = Boolean(row?.name);
+  requestDetailLogsTableExistsCache = await tableExists("request_detail_logs");
   return requestDetailLogsTableExistsCache;
 }
 
@@ -69,7 +65,7 @@ export async function saveRequestDetailLog(entry: RequestDetailLog): Promise<voi
     Boolean(entry.no_log) || (entry.api_key_id ? isNoLog(entry.api_key_id) : false);
   if (noLogEnabled || !(await requestDetailLogsTableExists())) return;
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = entry.id ?? uuidv4();
   const timestamp = entry.timestamp ?? new Date().toISOString();
   const compactProviderResponse = compactStructuredStreamPayload(entry.provider_response);
@@ -103,7 +99,7 @@ export async function saveRequestDetailLog(entry: RequestDetailLog): Promise<voi
 /** Fetch detailed logs (latest first) */
 export async function getRequestDetailLogs(limit = 50, offset = 0): Promise<RequestDetailLog[]> {
   if (!(await requestDetailLogsTableExists())) return [];
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       `
@@ -120,7 +116,7 @@ export async function getRequestDetailLogs(limit = 50, offset = 0): Promise<Requ
 /** Get a single detailed log by ID */
 export async function getRequestDetailLogById(id: string): Promise<RequestDetailLog | null> {
   if (!(await requestDetailLogsTableExists())) return null;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM request_detail_logs WHERE id = ?").get(id)) as
     Record<string, unknown> | undefined;
   return row ? mapDetailedLogRow(row) : null;
@@ -131,7 +127,7 @@ export async function getRequestDetailLogByCallLogId(
   callLogId: string
 ): Promise<RequestDetailLog | null> {
   if (!(await requestDetailLogsTableExists())) return null;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       `
@@ -148,7 +144,7 @@ export async function getRequestDetailLogByCallLogId(
 /** Get total count of detailed logs */
 export async function getRequestDetailLogCount(): Promise<number> {
   if (!(await requestDetailLogsTableExists())) return 0;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT COUNT(*) as cnt FROM request_detail_logs").get()) as {
     cnt: number;
   };

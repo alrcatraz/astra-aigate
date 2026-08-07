@@ -19,7 +19,7 @@
 
 import { randomBytes, createHash } from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance, rowToCamel } from "./core";
+import { rowToCamel, getAsyncDb } from "./core";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export interface RegisteredKey {
@@ -90,12 +90,12 @@ export interface ListKeysOptions {
 // ── Register ─────────────────────────────────────────────────────────────────
 
 export async function createRegisteredKey(input: CreateKeyInput): Promise<RegisteredKeyWithSecret> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = uuidv4();
   const now = Math.floor(Date.now() / 1000);
 
   const rawKey = "astra-" + randomBytes(24).toString("hex");
-  const keyHash = createHash("sha256").update(rawKey).digest("hex");
+  const keyHash = await createHash("sha256").update(rawKey).digest("hex");
   const keyPrefix = rawKey.substring(0, 14);
 
   await db
@@ -176,7 +176,7 @@ function rowToCamelLocal(row: unknown): Record<string, unknown> {
 export async function listRegisteredKeys(
   options: ListKeysOptions = {}
 ): Promise<{ items: RegisteredKey[]; total: number }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const page = options.page ?? 1;
   const limit = options.limit ?? 20;
   const offset = (page - 1) * limit;
@@ -216,14 +216,14 @@ export async function listRegisteredKeys(
 // ── Get by ID ────────────────────────────────────────────────────────────────
 
 export async function getRegisteredKey(id: string): Promise<RegisteredKey | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM registered_keys WHERE id = ?").get(id)) as
     RegisteredKeyRow | undefined;
   return row ? mapRow(row) : null;
 }
 
 export async function getRegisteredKeyByHash(keyHash: string): Promise<RegisteredKey | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT * FROM registered_keys WHERE key_hash = ?")
     .get(keyHash)) as RegisteredKeyRow | undefined;
@@ -248,7 +248,7 @@ export async function updateRegisteredKey(
   const existing = await getRegisteredKey(id);
   if (!existing) return null;
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = Math.floor(Date.now() / 1000);
 
   const sets: string[] = [];
@@ -301,7 +301,7 @@ export async function toggleRegisteredKey(
   id: string,
   isActive: boolean
 ): Promise<RegisteredKey | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = Math.floor(Date.now() / 1000);
   await db
     .prepare("UPDATE registered_keys SET is_active = ?, updated_at = ? WHERE id = ?")
@@ -310,7 +310,7 @@ export async function toggleRegisteredKey(
 }
 
 export async function deleteRegisteredKey(id: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("DELETE FROM registered_keys WHERE id = ?").run(id);
   return (result.changes ?? 0) > 0;
 }
@@ -318,7 +318,7 @@ export async function deleteRegisteredKey(id: string): Promise<boolean> {
 // ── Usage tracking ───────────────────────────────────────────────────────────
 
 export async function recordRegisteredKeyUsage(keyHash: string): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = Math.floor(Date.now() / 1000);
   await db
     .prepare("UPDATE registered_keys SET last_used_at = ? WHERE key_hash = ?")
@@ -335,7 +335,7 @@ export interface RegisteredKeySummary {
 }
 
 export async function getRegisteredKeySummary(): Promise<RegisteredKeySummary> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const oneWeekAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
 
   const totalRow = (await db.prepare("SELECT count(*) as cnt FROM registered_keys").get()) as {
@@ -426,7 +426,7 @@ function generateRawKey(): string {
 /** Reset window counters if the tracking period has changed. */
 
 async function maybeResetWindow(
-  db: ReturnType<typeof getDbInstance>,
+  db: ReturnType<typeof getAsyncDb>,
   table: string,
   idField: string,
   idValue: string
@@ -456,7 +456,7 @@ async function maybeResetWindow(
  */
 
 export async function checkQuota(provider = "", accountId = ""): Promise<QuotaCheckResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const today = nowDay();
   const hour = nowHour();
 
@@ -559,7 +559,7 @@ export async function checkQuota(provider = "", accountId = ""): Promise<QuotaCh
 export async function issueRegisteredKey(
   params: IssueKeyParams
 ): Promise<RegisteredKeyWithSecret | { idempotencyConflict: true; existing: RegisteredKey }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const {
     name,
     provider = "",
@@ -585,7 +585,7 @@ export async function issueRegisteredKey(
 
   const rawKey = generateRawKey();
   const id = uuidv4();
-  const keyHash = hashKey(rawKey);
+  const keyHash = await hashKey(rawKey);
   const keyPrefix = rawKey.slice(0, 12); // "ork_" + 8 chars
 
   await db
@@ -654,7 +654,7 @@ export async function issueRegisteredKey(
  */
 
 export async function revokeRegisteredKey(id: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db
     .prepare(
       `
@@ -673,17 +673,17 @@ export async function revokeRegisteredKey(id: string): Promise<boolean> {
  */
 
 export async function validateRegisteredKey(rawKey: string): Promise<RegisteredKey | null> {
-  const db = getDbInstance();
-  const hash = hashKey(rawKey);
+  const db = await getAsyncDb();
+  const hash = await hashKey(rawKey);
   const row = (await db
     .prepare(
       `
     SELECT * FROM registered_keys
     WHERE key = ? AND is_active = 1
-      AND (expires_at IS NULL OR expires_at > datetime('now'))
+      AND (expires_at IS NULL OR expires_at > ?)
   `
     )
-    .get(hash)) as RegisteredKeyRow | undefined;
+    .get(hash, Date.now())) as RegisteredKeyRow | undefined;
   if (!row) return null;
 
   // Auto-reset budget windows if needed
@@ -715,7 +715,7 @@ export async function validateRegisteredKey(rawKey: string): Promise<RegisteredK
  */
 
 export async function incrementRegisteredKeyUsage(id: string): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `
@@ -733,7 +733,7 @@ export async function setProviderKeyLimit(
   provider: string,
   limits: Partial<Omit<ProviderKeyLimit, "provider" | "dailyIssued" | "hourlyIssued" | "updatedAt">>
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `
@@ -760,7 +760,7 @@ export async function setAccountKeyLimit(
   accountId: string,
   limits: Partial<Omit<AccountKeyLimit, "accountId" | "dailyIssued" | "hourlyIssued" | "updatedAt">>
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `
@@ -784,7 +784,7 @@ export async function setAccountKeyLimit(
 }
 
 export async function getProviderKeyLimit(provider: string): Promise<ProviderKeyLimit | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT * FROM provider_key_limits WHERE provider = ?")
     .get(provider)) as ProviderKeyLimitRow | undefined;
@@ -792,7 +792,7 @@ export async function getProviderKeyLimit(provider: string): Promise<ProviderKey
 }
 
 export async function getAccountKeyLimit(accountId: string): Promise<AccountKeyLimit | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT * FROM account_key_limits WHERE account_id = ?")
     .get(accountId)) as AccountKeyLimitRow | undefined;

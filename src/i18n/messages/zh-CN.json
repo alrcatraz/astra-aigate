@@ -1113,7 +1113,7 @@
     "settingsResilience": "弹性",
     "modelLockout": "模型锁定",
     "settingsAdvanced": "高级",
-    "omniProxySection": "AI Gate",
+    "omniProxySection": "OmniRoute",
     "quotaTracker": "提供者配额",
     "providerQuota": "提供者配额",
     "runtime": "运行时",

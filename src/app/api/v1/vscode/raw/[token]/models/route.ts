@@ -31,8 +31,10 @@ export async function GET(
   return Response.json(
     {
       ...catalog.body,
-      data: expandVscodeRawModels(catalog.body.data).map((model) =>
-        enrichModelForVscode(model, authorizedRequest, { preserveNativeId: true })
+      data: await Promise.all(
+        expandVscodeRawModels(catalog.body.data).map((model) =>
+          enrichModelForVscode(model, authorizedRequest, { preserveNativeId: true })
+        )
       ),
     },
     {

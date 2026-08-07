@@ -3,7 +3,7 @@
  * CRUD operations for webhook event subscriptions
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import crypto from "crypto";
 
 export type WebhookKind = "slack" | "telegram" | "discord" | "custom";
@@ -55,7 +55,7 @@ export async function getWebhooks(options?: { limit?: number; offset?: number })
   webhooks: Webhook[];
   total: number;
 }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
   let sql = "SELECT * FROM webhooks ORDER BY created_at DESC";
@@ -71,14 +71,14 @@ export async function getWebhooks(options?: { limit?: number; offset?: number })
 }
 
 export async function getWebhook(id: string): Promise<Webhook | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM webhooks WHERE id = ?").get(id)) as
     WebhookRow | undefined;
   return row ? rowToWebhook(row) : null;
 }
 
 export async function getEnabledWebhooks(): Promise<Webhook[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db.prepare("SELECT * FROM webhooks WHERE enabled = 1").all()) as WebhookRow[];
   return rows.map(rowToWebhook);
 }
@@ -91,7 +91,7 @@ export async function createWebhook(data: {
   kind?: WebhookKind;
   metadataEncrypted?: string | null;
 }): Promise<Webhook> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = crypto.randomUUID();
   const secret = data.secret || `whsec_${crypto.randomBytes(24).toString("hex")}`;
   const kind = data.kind || "custom";
@@ -126,7 +126,7 @@ export async function updateWebhook(
     metadataEncrypted: string | null;
   }>
 ): Promise<Webhook | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const existing = await getWebhook(id);
   if (!existing) return null;
 
@@ -171,7 +171,7 @@ export async function updateWebhook(
 }
 
 export async function deleteWebhook(id: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("DELETE FROM webhooks WHERE id = ?").run(id);
   return (result as any).changes > 0;
 }
@@ -181,7 +181,7 @@ export async function recordWebhookDelivery(
   status: number,
   success: boolean
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   if (success) {
     await db
       .prepare(
@@ -198,7 +198,7 @@ export async function recordWebhookDelivery(
 }
 
 export async function disableWebhooksWithHighFailures(threshold = 10): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db
     .prepare(`UPDATE webhooks SET enabled = 0 WHERE failure_count >= ? AND enabled = 1`)
     .run(threshold);

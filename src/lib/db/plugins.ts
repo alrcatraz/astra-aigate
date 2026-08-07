@@ -4,7 +4,7 @@
  * @module db/plugins
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { logger } from "../../../open-sse/utils/logger.ts";
 
 const log = logger("DB_PLUGINS");
@@ -86,7 +86,7 @@ function rowToPlugin(row: any): PluginRow {
 // ── CRUD ──
 
 export async function insertPlugin(input: PluginCreateInput): Promise<PluginRow> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
 
   await db
@@ -128,19 +128,19 @@ export async function insertPlugin(input: PluginCreateInput): Promise<PluginRow>
 }
 
 export async function getPluginById(id: string): Promise<PluginRow | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db.prepare("SELECT * FROM plugins WHERE id = ?").get(id);
   return row ? rowToPlugin(row) : null;
 }
 
 export async function getPluginByName(name: string): Promise<PluginRow | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db.prepare("SELECT * FROM plugins WHERE name = ?").get(name);
   return row ? rowToPlugin(row) : null;
 }
 
 export async function listPlugins(status?: PluginRow["status"]): Promise<PluginRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = status
     ? await db.prepare("SELECT * FROM plugins WHERE status = ? ORDER BY name").all(status)
     : await db.prepare("SELECT * FROM plugins ORDER BY name").all();
@@ -152,7 +152,7 @@ export async function updatePluginStatus(
   status: PluginRow["status"],
   errorMessage?: string
 ): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
   const activatedAt = status === "active" ? now : null;
 
@@ -177,7 +177,7 @@ export async function updatePluginConfig(
   name: string,
   config: Record<string, unknown>
 ): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
 
   const result = await db
@@ -188,7 +188,7 @@ export async function updatePluginConfig(
 }
 
 export async function deletePlugin(name: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("DELETE FROM plugins WHERE name = ?").run(name);
   if (result.changes > 0) {
     log.info("plugin.deleted", { name });
@@ -197,7 +197,7 @@ export async function deletePlugin(name: string): Promise<boolean> {
 }
 
 export async function pluginExists(name: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db.prepare("SELECT 1 FROM plugins WHERE name = ?").get(name);
   return !!row;
 }
@@ -230,7 +230,7 @@ export async function recordPluginExecution(
   success: boolean,
   errorMessage?: string
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `INSERT INTO plugin_analytics (plugin_name, hook, duration_ms, success, error_message)
@@ -243,7 +243,7 @@ export async function recordPluginExecution(
  * Return execution rows for a given plugin (most recent first).
  */
 export async function getPluginAnalytics(pluginName: string): Promise<PluginExecutionRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       `SELECT plugin_name, hook, duration_ms, success, error_message, created_at
@@ -268,7 +268,7 @@ export async function getPluginAnalytics(pluginName: string): Promise<PluginExec
 export async function getPluginAnalyticsSummary(
   pluginName: string
 ): Promise<PluginAnalyticsSummary> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       `SELECT

@@ -9,7 +9,7 @@
  * - probe history is bounded: the probe route prunes old health_logs rows
  */
 
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 import crypto from "crypto";
 import { encrypt, decrypt } from "./encryption";
 
@@ -115,7 +115,7 @@ export function slugifyServiceId(name: string): string {
 }
 
 export async function listServices(options?: { includeDisabled?: boolean }): Promise<Service[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const where = options?.includeDisabled ? "" : "WHERE enabled = 1";
   const rows = (await db
     .prepare(`SELECT * FROM services ${where} ORDER BY system DESC, created_at ASC`)
@@ -124,14 +124,14 @@ export async function listServices(options?: { includeDisabled?: boolean }): Pro
 }
 
 export async function getService(id: string): Promise<Service | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM services WHERE id = ?").get(id)) as
     ServiceRow | undefined;
   return row ? rowToService(row) : null;
 }
 
 export async function createService(input: ServiceInput): Promise<Service> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = input.id ?? slugifyServiceId(input.name);
   const now = new Date().toISOString();
   await db
@@ -168,7 +168,7 @@ export async function updateService(
   id: string,
   patch: Partial<ServiceInput>
 ): Promise<Service | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const existing = await getService(id);
   if (!existing) return null;
   // Raw ciphertext for untouched credentials — keeps the stored value stable
@@ -221,7 +221,7 @@ export async function updateService(
 }
 
 export async function deleteService(id: string): Promise<{ ok: boolean; error?: string }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const existing = await getService(id);
   if (!existing) return { ok: false, error: "not_found" };
   if (existing.system) return { ok: false, error: "system_protected" };
@@ -237,7 +237,7 @@ export async function recordProbe(
   latencyMs: number | null,
   error: string | null
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
   await db
     .prepare(
@@ -262,7 +262,7 @@ export async function recordProbe(
 
 /** Most recent health log entries (per service, newest first). */
 export async function listHealthLogs(serviceId: string, limit = 20): Promise<HealthLogEntry[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(`SELECT * FROM health_logs WHERE service_id = ? ORDER BY checked_at DESC LIMIT ?`)
     .all(serviceId, limit)) as unknown as HealthLogEntry[];

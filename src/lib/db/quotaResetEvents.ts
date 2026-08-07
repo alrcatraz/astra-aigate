@@ -1,4 +1,5 @@
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 
 interface StatementLike<TRow = unknown> {
   all: (...params: unknown[]) => TRow[];
@@ -103,14 +104,14 @@ function isPrimaryWeeklyWindow(windowKey: string): boolean {
   );
 }
 
-function getLatestSnapshotObservation(
+async function getLatestSnapshotObservation(
   connectionId: string,
   windowKey: string
-): QuotaObservation | null {
-  const db = getDbInstance() as unknown as DbLike;
+): Promise<QuotaObservation | null> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   try {
-    const row = db
-      .prepare<QuotaSnapshotObservationRow>(
+    const row = (await db
+      .prepare(
         `
         SELECT
           next_reset_at as nextResetAt,
@@ -123,7 +124,7 @@ function getLatestSnapshotObservation(
         LIMIT 1
       `
       )
-      .get(connectionId, windowKey);
+      .get(connectionId, windowKey)) as QuotaSnapshotObservationRow | undefined;
     if (!row) return null;
     return {
       resetAt: row.nextResetAt,
@@ -135,14 +136,17 @@ function getLatestSnapshotObservation(
   }
 }
 
-export function recordProviderQuotaResetEventIfChanged(input: ResetEventInput): void {
+export async function recordProviderQuotaResetEventIfChanged(
+  input: ResetEventInput
+): Promise<void> {
   if (!input.connectionId || !input.windowKey || !isPrimaryWeeklyWindow(input.windowKey)) return;
 
   const currentResetIso = parseResetIso(input.currentResetAt);
   if (!currentResetIso) return;
 
   const previous =
-    input.previousObservation ?? getLatestSnapshotObservation(input.connectionId, input.windowKey);
+    input.previousObservation ??
+    (await getLatestSnapshotObservation(input.connectionId, input.windowKey));
   const previousResetIso = parseResetIso(previous?.resetAt ?? null);
   if (!previousResetIso) return;
 
@@ -167,49 +171,51 @@ export function recordProviderQuotaResetEventIfChanged(input: ResetEventInput): 
   const windowStartedAt = resetMovedForward ? previousResetIso : observedAt;
 
   try {
-    const db = getDbInstance() as unknown as DbLike;
-    db.prepare(
-      `
+    const db = getAsyncDb() as unknown as DatabaseAdapter;
+    await db
+      .prepare(
+        `
       INSERT OR IGNORE INTO provider_quota_reset_events
         (provider, connection_id, window_key, window_started_at, window_resets_at,
          observed_at, previous_remaining_percentage, new_remaining_percentage,
          previous_used_percentage, new_used_percentage, raw_data)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
-    ).run(
-      input.provider,
-      input.connectionId,
-      input.windowKey,
-      windowStartedAt,
-      currentResetIso,
-      observedAt,
-      previousRemaining,
-      currentRemaining,
-      previousUsed,
-      currentUsed,
-      null
-    );
+      )
+      .run(
+        input.provider,
+        input.connectionId,
+        input.windowKey,
+        windowStartedAt,
+        currentResetIso,
+        observedAt,
+        previousRemaining,
+        currentRemaining,
+        previousUsed,
+        currentUsed,
+        null
+      );
   } catch (error: unknown) {
     if (error instanceof Error && error.message.includes("no such table")) return;
     throw error;
   }
 }
 
-function getRecordedQuotaWindowStartIso(
+async function getRecordedQuotaWindowStartIso(
   connectionId: string,
   targetResetAtIso: string,
   nowMs = Date.now()
-): string | null {
+): Promise<string | null> {
   if (!connectionId || !targetResetAtIso) return null;
   const targetDay = resetDay(targetResetAtIso);
   if (!targetDay) return null;
 
-  const db = getDbInstance() as unknown as DbLike;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const nowIso = new Date(nowMs).toISOString();
 
   try {
-    const rows = db
-      .prepare<ResetEventWindowRow>(
+    const rows = (await db
+      .prepare(
         `
         SELECT
           window_started_at as windowStartedAt,
@@ -223,7 +229,7 @@ function getRecordedQuotaWindowStartIso(
         ORDER BY observed_at DESC, id DESC
       `
       )
-      .all({ connectionId, nowIso });
+      .all({ connectionId, nowIso })) as ResetEventWindowRow[];
 
     for (const row of rows) {
       if (resetDay(row.windowResetsAt) === targetDay) {
@@ -237,21 +243,21 @@ function getRecordedQuotaWindowStartIso(
   }
 }
 
-function getObservedQuotaWindowStartIso(
+async function getObservedQuotaWindowStartIso(
   connectionId: string,
   targetResetAtIso: string,
   nowMs = Date.now()
-): { windowStartIso: string; resetDrop: boolean } | null {
+): Promise<{ windowStartIso: string; resetDrop: boolean } | null> {
   if (!connectionId || !targetResetAtIso) return null;
   const targetDay = resetDay(targetResetAtIso);
   if (!targetDay) return null;
 
-  const db = getDbInstance() as unknown as DbLike;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const nowIso = new Date(nowMs).toISOString();
 
   try {
-    const rows = db
-      .prepare<QuotaSnapshotWindowRow>(
+    const rows = (await db
+      .prepare(
         `
         SELECT
           next_reset_at as nextResetAt,
@@ -265,7 +271,7 @@ function getObservedQuotaWindowStartIso(
         ORDER BY created_at ASC, id ASC
       `
       )
-      .all({ connectionId, nowIso });
+      .all({ connectionId, nowIso })) as QuotaSnapshotWindowRow[];
 
     let firstObservedIso: string | null = null;
     let resetDropIso: string | null = null;
@@ -295,13 +301,13 @@ function getObservedQuotaWindowStartIso(
   }
 }
 
-export function getProviderQuotaWindowStart(
+export async function getProviderQuotaWindowStart(
   connectionId: string,
   targetResetAtIso: string,
   nowMs = Date.now()
-): ProviderQuotaWindowStart | null {
-  const recordedIso = getRecordedQuotaWindowStartIso(connectionId, targetResetAtIso, nowMs);
-  const observed = getObservedQuotaWindowStartIso(connectionId, targetResetAtIso, nowMs);
+): Promise<ProviderQuotaWindowStart | null> {
+  const recordedIso = await getRecordedQuotaWindowStartIso(connectionId, targetResetAtIso, nowMs);
+  const observed = await getObservedQuotaWindowStartIso(connectionId, targetResetAtIso, nowMs);
 
   if (!recordedIso && !observed) return null;
   if (!recordedIso && observed) {
@@ -325,10 +331,13 @@ export function getProviderQuotaWindowStart(
   return { windowStartIso: recordedIso!, source: "recorded_reset_event" };
 }
 
-export function getProviderQuotaWindowStartIso(
+export async function getProviderQuotaWindowStartIso(
   connectionId: string,
   targetResetAtIso: string,
   nowMs = Date.now()
-): string | null {
-  return getProviderQuotaWindowStart(connectionId, targetResetAtIso, nowMs)?.windowStartIso ?? null;
+): Promise<string | null> {
+  return (
+    (await getProviderQuotaWindowStart(connectionId, targetResetAtIso, nowMs))?.windowStartIso ??
+    null
+  );
 }

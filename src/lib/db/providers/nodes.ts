@@ -3,7 +3,8 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance, rowToCamel } from "../core";
+import { rowToCamel, getAsyncDb } from "../core";
+import type { DatabaseAdapter } from "../adapters/types";
 import { selectProviderNodeForConnection } from "../providerNodeSelect";
 import { backupDbFile } from "../backup";
 import { invalidateDbCache } from "../readCache";
@@ -20,7 +21,7 @@ interface DbLike {
 }
 
 export async function getProviderNodes(filter: JsonRecord = {}, limit?: number, offset?: number) {
-  const db = getDbInstance() as unknown as DbLike;
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
   let sql = "SELECT * FROM provider_nodes";
   const params: Record<string, unknown> = {};
 
@@ -35,11 +36,11 @@ export async function getProviderNodes(filter: JsonRecord = {}, limit?: number, 
     params.offset = offset ?? 0;
   }
 
-  return db.prepare(sql).all(params).map(rowToCamel);
+  return (await db.prepare(sql).all(params)).map(rowToCamel);
 }
 
-export function getProviderNodesCount(filter: JsonRecord = {}): number {
-  const db = getDbInstance() as unknown as DbLike;
+export async function getProviderNodesCount(filter: JsonRecord = {}): Promise<number> {
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
   let sql = "SELECT count(*) as cnt FROM provider_nodes";
   const params: Record<string, unknown> = {};
 
@@ -48,13 +49,13 @@ export function getProviderNodesCount(filter: JsonRecord = {}): number {
     params.type = filter.type;
   }
 
-  const row = db.prepare(sql).get(params) as { cnt: number };
+  const row = (await db.prepare(sql).get(params)) as { cnt: number };
   return row.cnt;
 }
 
 export async function getProviderNodeById(id: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  const row = db.prepare("SELECT * FROM provider_nodes WHERE id = ?").get(id);
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  const row = await db.prepare("SELECT * FROM provider_nodes WHERE id = ?").get(id);
   return row ? rowToCamel(row) : null;
 }
 
@@ -71,7 +72,7 @@ export async function resolveProviderNodeForConnection(idOrType: string) {
 }
 
 export async function createProviderNode(data: JsonRecord) {
-  const db = getDbInstance() as unknown as DbLike;
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
   const now = new Date().toISOString();
 
   const customHeadersJson = data.customHeaders ? JSON.stringify(data.customHeaders) : null;
@@ -117,8 +118,8 @@ export async function createProviderNode(data: JsonRecord) {
 }
 
 export async function updateProviderNode(id: string, data: JsonRecord) {
-  const db = getDbInstance() as unknown as DbLike;
-  const existing = db.prepare("SELECT * FROM provider_nodes WHERE id = ?").get(id);
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  const existing = await db.prepare("SELECT * FROM provider_nodes WHERE id = ?").get(id);
   if (!existing) return null;
 
   const merged: JsonRecord = {
@@ -182,11 +183,11 @@ export async function updateProviderNode(id: string, data: JsonRecord) {
 }
 
 export async function deleteProviderNode(id: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  const existing = db.prepare("SELECT * FROM provider_nodes WHERE id = ?").get(id);
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  const existing = await db.prepare("SELECT * FROM provider_nodes WHERE id = ?").get(id);
   if (!existing) return null;
 
-  db.prepare("DELETE FROM provider_nodes WHERE id = ?").run(id);
+  await db.prepare("DELETE FROM provider_nodes WHERE id = ?").run(id);
   backupDbFile("pre-write");
   invalidateDbCache("nodes");
   return rowToCamel(existing);

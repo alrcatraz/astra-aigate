@@ -24,20 +24,20 @@ export function toPositiveInteger(value: unknown): number | null {
   return normalized > 0 ? normalized : null;
 }
 
-export function resolveReasoningBufferedMaxTokens(
+export async function resolveReasoningBufferedMaxTokens(
   modelStr: string,
   currentMaxTokens: unknown,
   options: { enabled?: boolean } = {}
-): number | null {
+): Promise<number | null> {
   if (options.enabled === false) return null;
 
   const current = toPositiveInteger(currentMaxTokens);
   if (current === null) return null;
 
-  const capabilities = getResolvedModelCapabilities(modelStr);
+  const capabilities = await getResolvedModelCapabilities(modelStr);
   if (capabilities.supportsThinking !== true) return null;
 
-  const maxOutputTokens = toPositiveInteger(getExplicitModelOutputCap(modelStr));
+  const maxOutputTokens = toPositiveInteger(await getExplicitModelOutputCap(modelStr));
   if (maxOutputTokens === null) return null;
   if (current > maxOutputTokens) return maxOutputTokens;
 

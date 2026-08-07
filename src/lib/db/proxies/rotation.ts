@@ -7,7 +7,7 @@
 // generation counter (addProxyToScopePool, removeProxyFromScopePool,
 // setScopeRotationStrategy) stay in ../proxies.ts and import the pure helpers here.
 import { randomInt } from "crypto";
-import { getDbInstance } from "../core";
+import { getDbInstance, getAsyncDb } from "../core";
 import { pickByLatency } from "../proxyLatency";
 import type { JsonRecord, ProxyScope, ProxyRotationStrategy } from "./types";
 import { PROXY_ROTATION_STRATEGIES, DEFAULT_PROXY_ROTATION_STRATEGY } from "./types";
@@ -60,11 +60,11 @@ export function normalizeRotationStrategy(strategy: unknown): ProxyRotationStrat
 export async function getScopeProxyPool(scope: string, scopeId?: string | null) {
   const normalizedScope = normalizeScope(scope);
   const normalizedScopeId = normalizeAssignmentScopeId(normalizedScope, scopeId);
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (
     await db
       .prepare(
-        "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? AND scope_id IS ? ORDER BY position ASC, datetime(created_at) ASC, id ASC"
+        "SELECT id, proxy_id, scope, scope_id, position, created_at, updated_at FROM proxy_assignments WHERE scope = ? AND scope_id IS ? ORDER BY position ASC, created_at ASC, id ASC"
       )
       .all(normalizedScope, normalizedScopeId)
   ).map(mapAssignmentRow);
@@ -77,7 +77,7 @@ export async function getScopeRotationStrategy(
 ): Promise<ProxyRotationStrategy> {
   const normalizedScope = normalizeScope(scope);
   const rotationScopeId = normalizeRotationScopeId(normalizedScope, scopeId);
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT strategy FROM proxy_scope_rotation WHERE scope = ? AND scope_id IS ?")
     .get(normalizedScope, rotationScopeId)) as { strategy?: string } | undefined;
@@ -243,7 +243,7 @@ async function resolveScopePoolInternal(
 
 export async function resolveProxyForConnectionFromRegistry(connectionId: string) {
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
 
     const account = await resolveScopePoolInternal(db, "account", connectionId, {
       rotationScopeId: connectionId,
@@ -279,7 +279,7 @@ export async function resolveProxyForConnectionFromRegistry(connectionId: string
 
 export async function resolveProxyForScopeFromRegistry(scope: string, scopeId?: string | null) {
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     const normalizedScope = normalizeScope(scope);
 
     if (normalizedScope === "global") {

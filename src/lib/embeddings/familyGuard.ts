@@ -14,11 +14,11 @@ import { detectEmbeddingDimensionConflict } from "@omniroute/open-sse/config/emb
  * reports whether those targets span more than one known dimension, so the
  * caller can reject the request loudly instead of corrupting data on failover.
  */
-export function findEmbeddingComboDimensionConflict(
+export async function findEmbeddingComboDimensionConflict(
   combo: Parameters<typeof resolveComboTargets>[0],
   allCombos: Parameters<typeof resolveComboTargets>[1]
-): ReturnType<typeof detectEmbeddingDimensionConflict> {
-  const targets = resolveComboTargets(combo, allCombos);
-  const modelStrs = targets.map((t) => t.modelStr).filter(Boolean);
+): Promise<ReturnType<typeof detectEmbeddingDimensionConflict>> {
+  const targets = await resolveComboTargets(combo, allCombos);
+  const modelStrs = targets.map((t) => t.modelStr).filter(Boolean) as string[];
   return detectEmbeddingDimensionConflict(modelStrs);
 }

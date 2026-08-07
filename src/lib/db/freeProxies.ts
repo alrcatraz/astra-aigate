@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { backupDbFile } from "./backup";
 import type { FreeProxyItem, FreeProxySourceId } from "@/lib/freeProxyProviders/types";
 
@@ -56,7 +56,7 @@ function mapRow(row: unknown): FreeProxyRecord {
 export async function upsertFreeProxy(
   item: FreeProxyItem
 ): Promise<{ id: string; action: "created" | "updated" }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
 
   const existing = (await db
@@ -121,7 +121,7 @@ export async function listFreeProxies(options?: {
   limit?: number;
   offset?: number;
 }): Promise<FreeProxyRecord[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const params: unknown[] = [];
   let sql = "SELECT * FROM free_proxies WHERE 1=1";
 
@@ -182,7 +182,7 @@ export async function countFreeProxies(options?: {
   onlyNotInPool?: boolean;
   search?: string;
 }): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const params: unknown[] = [];
   let sql = "SELECT COUNT(*) AS count FROM free_proxies WHERE 1=1";
 
@@ -248,13 +248,13 @@ export async function listFreeProxiesBySource(
 }
 
 export async function getFreeProxyById(id: string): Promise<FreeProxyRecord | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db.prepare("SELECT * FROM free_proxies WHERE id = ?").get(id);
   return row ? mapRow(row) : null;
 }
 
 export async function markFreeProxyInPool(id: string, poolProxyId: string): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
   await db
     .prepare("UPDATE free_proxies SET in_pool = 1, pool_proxy_id = ?, updated_at = ? WHERE id = ?")
@@ -282,7 +282,7 @@ export async function promoteFreeProxyToPool(
     source: string;
   }
 ): Promise<string | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
   const newRegistryId = randomUUID();
 
@@ -323,14 +323,14 @@ export async function promoteFreeProxyToPool(
 }
 
 export async function deleteFreeProxy(id: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("DELETE FROM free_proxies WHERE id = ?").run(id);
   backupDbFile("pre-write");
   return result.changes > 0;
 }
 
 export async function clearFreeProxiesBySource(source: FreeProxySourceId): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db
     .prepare("DELETE FROM free_proxies WHERE source = ? AND in_pool = 0")
     .run(source);
@@ -349,7 +349,7 @@ export async function pruneStaleFreeProxies(
   source: FreeProxySourceId,
   activeKeys: ReadonlySet<string>
 ): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT id, host, port FROM free_proxies WHERE source = ? AND in_pool = 0")
     .all(source)) as Array<{ id: string; host: string; port: number }>;
@@ -379,7 +379,7 @@ const FREE_PROXY_SYNC_KEY = "last_sync_at";
  * so the route can echo it back. `at` is overridable for deterministic tests.
  */
 export async function recordFreeProxySync(at?: string): Promise<string> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const ts = at ?? new Date().toISOString();
   await db
     .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
@@ -398,7 +398,7 @@ async function getRecordedFreeProxySync(
 }
 
 export async function getFreeProxyStats(): Promise<FreeProxyStats> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const totals = (await db
     .prepare(
       `SELECT COUNT(*) as total,
@@ -437,7 +437,7 @@ export async function recordFreeProxySyncErrors(
   source: FreeProxySourceId,
   errors: string[]
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const at = new Date().toISOString();
   await db
     .prepare(
@@ -449,7 +449,7 @@ export async function recordFreeProxySyncErrors(
 
 /** Clear a source's stored sync error (called on a successful sync). */
 export async function clearFreeProxySyncErrors(source: FreeProxySourceId): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM free_proxy_sync_errors WHERE source = ?").run(source);
   backupDbFile("pre-write");
 }
@@ -460,7 +460,7 @@ export async function clearFreeProxySyncErrors(source: FreeProxySourceId): Promi
  * state.
  */
 export async function getFreeProxySyncErrors(): Promise<FreeProxySyncErrors> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT source, errors FROM free_proxy_sync_errors")
     .all()) as Array<{

@@ -18,7 +18,6 @@ import {
   getWindowUsage,
   incrementWindowTokens,
   getTokenLimitsForRequest,
-  logTokenLimitReset,
   type TokenLimit,
 } from "@/lib/localDb";
 
@@ -45,6 +44,9 @@ const CACHE_TTL_MS = 5_000;
 export function seedWindowUsageFromHistory(limit: TokenLimit, now = Date.now()): number {
   const { periodStartAt } = resetWindowIfElapsed(limit, now);
   const lowerBound = new Date(periodStartAt).toISOString();
+  // Sync handle: this runs on the enforcement hot path AND inside the
+  // synchronous better-sqlite3 transaction in recordTokenUsage (a transaction
+  // callback cannot await). The raw handle's prepare().get() is synchronous.
   const db = getDbInstance();
 
   // Canonical billable total = input + output + reasoning. tokens_cache_read and
@@ -189,15 +191,15 @@ export interface TokenLimitBreach {
  * @param provider  resolved upstream provider id (optional; "" matches no provider scope)
  * @param model     resolved model id (optional; "" matches no model scope)
  */
-export function checkTokenLimits(
+export async function checkTokenLimits(
   apiKeyId: string,
   provider = "",
   model = "",
   now = Date.now()
-): TokenLimitBreach | null {
+): Promise<TokenLimitBreach | null> {
   if (!apiKeyId) return null;
 
-  const limits = getTokenLimitsForRequest(apiKeyId, provider, model);
+  const limits = await getTokenLimitsForRequest(apiKeyId, provider, model);
   if (!limits || limits.length === 0) return null;
 
   let worst: TokenLimitBreach | null = null;
@@ -208,7 +210,7 @@ export function checkTokenLimits(
     if (!Number.isFinite(limitValue) || limitValue <= 0) continue;
 
     // Authoritative read (bypass the in-memory accelerator).
-    const tokensUsed = getCurrentWindowUsage(limit, now, true);
+    const tokensUsed = await getCurrentWindowUsage(limit, now, true);
     if (tokensUsed < limitValue) continue; // within budget
 
     const { windowStart, nextResetAt } = resetWindowIfElapsed(limit, now);
@@ -266,12 +268,19 @@ export function recordTokenUsage(
 
   // Schedule off the hot path; never await, never block the stream.
   Promise.resolve()
-    .then(() => {
+    .then(async () => {
       const now = Date.now();
-      const limits = getTokenLimitsForRequest(apiKeyId, provider || "", model || "");
+      const limits = await getTokenLimitsForRequest(apiKeyId, provider || "", model || "");
       if (!limits || limits.length === 0) return;
 
-      const db = getDbInstance();
+      // Raw synchronous handle: the per-window reset-detect + reset-log + atomic
+      // increment below runs inside a single better-sqlite3 transaction, whose
+      // callback MUST stay synchronous. getDbInstance() returns the unwrapped
+      // synchronous driver handle; the cast exposes the raw `inTransaction`
+      // flag that better-sqlite3 provides (absent from the async adapter type).
+      const db = getDbInstance() as ReturnType<typeof getDbInstance> & {
+        inTransaction: boolean;
+      };
       const applied: Array<{ limitId: string; windowStart: string; total: number }> = [];
 
       const tx = db.transaction(() => {
@@ -295,12 +304,19 @@ export function recordTokenUsage(
                  ORDER BY window_start DESC LIMIT 1`
               )
               .get(limit.id, windowStart) as
-              | { window_start?: string; tokens_used?: number }
-              | undefined;
+              { window_start?: string; tokens_used?: number } | undefined;
             const prevTokens =
               priorRow && typeof priorRow.tokens_used === "number" ? priorRow.tokens_used : 0;
             if (prevTokens > 0) {
-              logTokenLimitReset(limit.id, prevTokens, windowStart);
+              // Inline the reset-log insert on the sync handle: logTokenLimitReset
+              // became async (uses the async adapter) and cannot be awaited inside
+              // this synchronous better-sqlite3 transaction. Duplicating the single
+              // INSERT keeps the reset-log write atomic with the counter increments.
+              db.prepare(
+                `INSERT INTO api_key_token_limit_reset_logs
+                   (limit_id, reset_at, prev_tokens, window_start)
+                 VALUES (?, datetime('now'), ?, ?)`
+              ).run(limit.id, Math.max(0, Math.floor(prevTokens)), windowStart);
             }
 
             // Cold window with no counter row: seed from usage_history so the

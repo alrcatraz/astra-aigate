@@ -19,11 +19,7 @@ import { NextResponse } from "next/server";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { PlanUpsertSchema } from "@/shared/schemas/quota";
-import {
-  getProviderPlan,
-  upsertProviderPlan,
-  deleteProviderPlan,
-} from "@/lib/localDb";
+import { getProviderPlan, upsertProviderPlan, deleteProviderPlan } from "@/lib/localDb";
 import { resolvePlan } from "@/lib/quota/planResolver";
 import { resolveConnectionProvider } from "@/lib/quota/connectionProvider";
 import { logAuditEvent, getAuditRequestContext } from "@/lib/compliance/index";
@@ -40,14 +36,14 @@ export async function GET(request: Request, { params }: RouteParams): Promise<Re
     const { connectionId } = await params;
 
     // Try DB override first, then fall back to resolved plan (catalog/empty)
-    const dbPlan = getProviderPlan(connectionId);
+    const dbPlan = await getProviderPlan(connectionId);
     if (dbPlan) {
       return NextResponse.json({ plan: dbPlan });
     }
 
     // Resolve via catalog (may return empty plan)
     const provider = await resolveConnectionProvider(connectionId);
-    const plan = resolvePlan(connectionId, provider);
+    const plan = await resolvePlan(connectionId, provider);
     return NextResponse.json({ plan });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to get plan";
@@ -70,7 +66,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Re
     // Derive provider for the connection
     const provider = await resolveConnectionProvider(connectionId);
 
-    upsertProviderPlan(connectionId, provider, parsed.data.dimensions, "manual");
+    await upsertProviderPlan(connectionId, provider, parsed.data.dimensions, "manual");
 
     const ctx = getAuditRequestContext(request);
     logAuditEvent({
@@ -82,7 +78,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Re
     });
 
     // Return the stored plan
-    const plan = getProviderPlan(connectionId);
+    const plan = await getProviderPlan(connectionId);
     return NextResponse.json({ plan });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to upsert plan";
@@ -97,10 +93,10 @@ export async function DELETE(request: Request, { params }: RouteParams): Promise
   try {
     const { connectionId } = await params;
 
-    const existing = getProviderPlan(connectionId);
+    const existing = await getProviderPlan(connectionId);
     const provider = existing?.provider ?? (await resolveConnectionProvider(connectionId));
 
-    deleteProviderPlan(connectionId);
+    await deleteProviderPlan(connectionId);
 
     const ctx = getAuditRequestContext(request);
     logAuditEvent({

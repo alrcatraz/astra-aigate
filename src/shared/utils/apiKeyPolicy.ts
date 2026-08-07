@@ -586,11 +586,11 @@ function validateBudget(context: PolicyContext): Response | null {
   }
 }
 
-function validateTokenLimit(context: PolicyContext): Response | null {
+async function validateTokenLimit(context: PolicyContext): Promise<Response | null> {
   const { apiKeyInfo, modelStr } = context;
   if (!apiKeyInfo.id) return null;
   try {
-    const breach = checkTokenLimits(apiKeyInfo.id, undefined, modelStr ?? undefined);
+    const breach = await checkTokenLimits(apiKeyInfo.id, undefined, modelStr ?? undefined);
     if (!breach) return null;
     const scopeLabel =
       breach.scopeType === "global" ? "account" : `${breach.scopeType} "${breach.scopeValue}"`;
@@ -685,7 +685,7 @@ export async function enforceApiKeyPolicy(
 
   const budgetRejection = validateBudget(context);
   if (budgetRejection) return { apiKey, apiKeyInfo, rejection: budgetRejection };
-  const tokenRejection = validateTokenLimit(context);
+  const tokenRejection = await validateTokenLimit(context);
   if (tokenRejection) return { apiKey, apiKeyInfo, rejection: tokenRejection };
   const rateRejection = await validateRateLimitAndThrottle(context);
   if (rateRejection) return { apiKey, apiKeyInfo, rejection: rateRejection };

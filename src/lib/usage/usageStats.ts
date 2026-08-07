@@ -7,7 +7,7 @@
  * @module lib/usage/usageStats
  */
 
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { getApiKeys } from "../db/apiKeys";
 import { getPendingRequests } from "./usageHistory";
 import { getAccountDisplayName } from "@/lib/display/names";
@@ -98,7 +98,7 @@ function buildUsageSourceSql(aggregationEnabled: boolean) {
       COALESCE(service_tier, 'standard') as service_tier,
       1 as request_count
     FROM usage_history
-    WHERE DATE(timestamp) >= ?
+    WHERE substr(timestamp, 1, 10) >= ?
 
     UNION ALL
 
@@ -192,7 +192,7 @@ export async function getMonthlyProviderTokensForConnection(
   connectionId: string
 ): Promise<number> {
   if (!provider || !connectionId) return 0;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date();
   const monthStartIso = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
@@ -228,7 +228,7 @@ export async function getConnectionSpendUsdSinceAdded(
 ): Promise<{ costUsd: number; requests: number }> {
   if (!provider || !connectionId) return { costUsd: 0, requests: 0 };
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       `SELECT model,
@@ -279,10 +279,10 @@ export async function getConnectionSpendUsdSinceAdded(
  * Uses UNION of recent raw data and older aggregated data when aggregation is enabled.
  */
 export async function getUsageStats() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const aggregationEnabled = await isAggregationEnabled();
   const cutoffDate = aggregationEnabled ? await getRawDataCutoffDate() : null;
-  const sourceSql = buildUsageSourceSql(aggregationEnabled);
+  const sourceSql = await buildUsageSourceSql(aggregationEnabled);
   const sourceParams = aggregationEnabled && cutoffDate ? [cutoffDate, cutoffDate] : [];
 
   const { getProviderConnections } = await import("@/lib/localDb");
@@ -313,7 +313,7 @@ export async function getUsageStats() {
     // Stats can still be computed from usage_history when api_keys is unavailable.
   }
 
-  const pendingRequests = getPendingRequests();
+  const pendingRequests = await getPendingRequests();
 
   const stats: {
     totalRequests: number;
@@ -505,7 +505,7 @@ export async function getUsageStats() {
     const entryCost = await calculateAggregateCost(row);
 
     if (apiKeyId || apiKeyName) {
-      const key = getApiKeyStatsKey(apiKeyId, apiKeyName);
+      const key = await getApiKeyStatsKey(apiKeyId, apiKeyName);
       const displayName =
         (apiKeyId ? currentApiKeyNames.get(apiKeyId) : undefined) ||
         apiKeyName ||

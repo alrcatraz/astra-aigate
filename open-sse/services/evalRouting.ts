@@ -119,15 +119,18 @@ function buildCacheKey(targetIds: string[], config: EvalRoutingConfig): string {
   });
 }
 
-function getEvalRuns(targetIds: string[], config: EvalRoutingConfig): PersistedEvalRun[] {
+async function getEvalRuns(
+  targetIds: string[],
+  config: EvalRoutingConfig
+): Promise<PersistedEvalRun[]> {
   const now = Date.now();
   pruneEvalRoutingCache(now);
 
-  const cacheKey = buildCacheKey(targetIds, config);
+  const cacheKey = await buildCacheKey(targetIds, config);
   const cached = evalRoutingCache.get(cacheKey);
   if (cached && cached.expiresAt > now) return cached.runs;
 
-  const runs = listModelEvalRunsForRouting({
+  const runs = await listModelEvalRunsForRouting({
     targetIds,
     suiteIds: config.suiteIds,
     maxAgeHours: config.maxAgeHours,
@@ -185,11 +188,11 @@ function calculateTargetScore(
   };
 }
 
-export function orderTargetsByEvalScores<T extends EvalRoutingTarget>(
+export async function orderTargetsByEvalScores<T extends EvalRoutingTarget>(
   targets: T[],
   rawConfig: unknown,
   log: EvalRoutingLogger = {}
-): T[] {
+): Promise<T[]> {
   const config = normalizeEvalRoutingConfig(rawConfig);
   if (!config.enabled || targets.length <= 1) return targets;
 
@@ -199,7 +202,7 @@ export function orderTargetsByEvalScores<T extends EvalRoutingTarget>(
 
   let runs: PersistedEvalRun[];
   try {
-    runs = getEvalRuns(targetIds, config);
+    runs = await getEvalRuns(targetIds, config);
   } catch (error) {
     log.warn?.("COMBO", "Eval-driven routing skipped because eval history could not be loaded", {
       error: error instanceof Error ? error.message : String(error),

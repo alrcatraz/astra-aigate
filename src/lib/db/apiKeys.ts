@@ -446,7 +446,7 @@ export async function getApiKeys(limit?: number, offset?: number) {
     const sql = "SELECT * FROM api_keys ORDER BY created_at LIMIT ? OFFSET ?";
     rows = (await db.prepare(sql).all(limit, offset ?? 0)) as ApiKeyRow[];
   } else {
-    const stmt = getPreparedStatements(db);
+    const stmt = await getPreparedStatements(db);
     rows = await stmt.getAllKeys.all();
   }
   return rows.map((row) => {
@@ -557,7 +557,7 @@ export async function pickApiKeyForInternalUse(
 
 export async function getApiKeyById(id: string) {
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  const stmt = getPreparedStatements(db);
+  const stmt = await getPreparedStatements(db);
   const row = await stmt.getKeyById.get(id);
   if (!row) return null;
   const camelRow = toRecord(rowToCamel(row)) as ApiKeyView;
@@ -622,8 +622,8 @@ export async function createApiKey(name: string, machineId: string, scopes: stri
     scopes,
   };
 
-  const stmt = getPreparedStatements(db);
-  stmt.insertKey.run(
+  const stmt = await getPreparedStatements(db);
+  await stmt.insertKey.run(
     apiKey.id,
     apiKey.name,
     apiKey.key,
@@ -643,7 +643,7 @@ export async function createApiKey(name: string, machineId: string, scopes: stri
 
 export async function regenerateApiKey(id: string) {
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  const stmt = getPreparedStatements(db);
+  const stmt = await getPreparedStatements(db);
   const row = (await stmt.getKeyById.get(id)) as ApiKeyRow | undefined;
   if (!row) return null;
 
@@ -1066,7 +1066,7 @@ export async function updateApiKeyPermissions(
 
 export async function deleteApiKey(id: string) {
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  const stmt = getPreparedStatements(db);
+  const stmt = await getPreparedStatements(db);
   const row = (await stmt.getKeyById.get(id)) as ApiKeyRow | undefined;
   const result = await stmt.deleteKey.run(id);
 
@@ -1148,7 +1148,7 @@ export async function validateApiKey(key: string | null | undefined) {
 
   const now = Date.now();
   const hashedKey = await hashKey(key);
-  const cacheKey = hashedKey;
+  const cacheKey = await hashedKey;
 
   const cached = _keyValidationCache.get(cacheKey);
   if (cached && now - cached.timestamp < CACHE_TTL) {
@@ -1185,7 +1185,7 @@ export async function validateApiKey(key: string | null | undefined) {
   }
 
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  const stmt = getPreparedStatements(db);
+  const stmt = await getPreparedStatements(db);
   const row = (await stmt.validateKey.get(key, hashedKey)) as JsonRecord | undefined;
 
   if (!row) return false;
@@ -1316,7 +1316,7 @@ export async function getApiKeyMetadata(
   }
 
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  const stmt = getPreparedStatements(db);
+  const stmt = await getPreparedStatements(db);
   // NOTE: getAsyncDb() returns the async adapter wrapper (sqliteAsyncAdapter /
   // PG adapter) whose statement .get() is async — mirror validateApiKey's await.
   // Without it, `row` is a Promise: toRecord() yields an empty record, meta.id
@@ -1443,8 +1443,8 @@ export async function isModelAllowedForKey(
 
   // Check disableNonPublicModels flag
   if (disableNonPublicModels) {
-    const resolvedModelId = resolveModelAlias(modelId);
-    const effectiveModelId = resolvedModelId || modelId;
+    const resolvedModelId = await resolveModelAlias(modelId);
+    const effectiveModelId = (await resolvedModelId) || modelId;
 
     if (!hasClaudeCodeWildcardPermission(allowedModels, modelPermissionCandidates)) {
       const lookupTarget = await getPublishedModelLookupTarget(effectiveModelId);
@@ -1485,7 +1485,7 @@ export async function isModelAllowedForKey(
 
   // If key belongs to groups, also check group-level permissions
   if (metadata.id) {
-    const groupAccess = checkKeyModelAccess(metadata.id, modelId || "");
+    const groupAccess = await checkKeyModelAccess(metadata.id, modelId || "");
     if (!groupAccess.allowed) {
       allowed = false;
     }

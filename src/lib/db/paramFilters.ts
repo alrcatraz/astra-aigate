@@ -5,7 +5,7 @@
  * Follows the established key_value pattern from databaseSettings.ts.
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 const NAMESPACE = "provider_param_filters";
 
@@ -93,7 +93,7 @@ function toProviderParamFilter(raw: unknown): ProviderParamFilter | null {
 // ── Read ────────────────────────────────────────────────────────────────────
 
 async function readNamespace(namespace: string): Promise<Record<string, unknown>> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
     .all(namespace)) as Array<{ key: string; value: string }>;
@@ -144,11 +144,14 @@ export async function getParamFilterConfig(provider: string): Promise<ProviderPa
  * Upsert the entire param filter config for a provider.
  * Invalidates the in-memory cache.
  */
-export function setParamFilterConfig(provider: string, config: ProviderParamFilter): void {
+export async function setParamFilterConfig(
+  provider: string,
+  config: ProviderParamFilter
+): Promise<void> {
   if (!toNormalizedString(provider)) return;
 
-  const db = getDbInstance();
-  const stmt = db.prepare(
+  const db = await getAsyncDb();
+  const stmt = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
   );
 
@@ -168,11 +171,11 @@ export function setParamFilterConfig(provider: string, config: ProviderParamFilt
  * Delete the param filter config for a provider.
  * Resets to no filtering for that provider.
  */
-export function deleteParamFilterConfig(provider: string): void {
+export async function deleteParamFilterConfig(provider: string): Promise<void> {
   if (!toNormalizedString(provider)) return;
 
-  const db = getDbInstance();
-  const stmt = db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?");
+  const db = await getAsyncDb();
+  const stmt = await db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?");
   stmt.run(NAMESPACE, provider);
   bumpCacheGeneration();
 }

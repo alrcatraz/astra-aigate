@@ -250,7 +250,10 @@ const TERMINAL_CONNECTION_STATUSES = new Set(["credits_exhausted", "banned", "ex
  * quota lockout (model lockout, `open-sse/services/accountFallback.ts`) is a
  * deferred Phase 3 and is intentionally NOT consulted here.
  */
-export function isProviderUsable(connections: ConnectionState[], now: number = Date.now()): boolean {
+export function isProviderUsable(
+  connections: ConnectionState[],
+  now: number = Date.now()
+): boolean {
   return connections.some((conn) => {
     const status = (conn.testStatus || "").trim().toLowerCase();
     if (TERMINAL_CONNECTION_STATUSES.has(status)) return false;
@@ -314,7 +317,7 @@ export async function computeFreeProviderRankings(
   opts: FreeProviderRankingFilterOptions = {}
 ): Promise<FreeProviderRanking[]> {
   const freeProviders = getFreeProviders();
-  const intelligenceEntries = listModelIntelligence({
+  const intelligenceEntries = await listModelIntelligence({
     source: "arena_elo",
     category: category || undefined,
   });

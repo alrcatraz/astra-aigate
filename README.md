@@ -38,10 +38,16 @@ Built on [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT): LLM provi
 ## Quick Start
 
 ```bash
-# Run the prebuilt image on the target host (IPv4 only):
-podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astra-aigate:latest
+# Pull the published image from GHCR (tagged releases, e.g. v0.3.0):
+podman pull ghcr.io/alrcatraz/astra-aigate:latest
+# Run it on the target host (IPv4 only):
+podman run -d --name astra-aigate --env-file .env -p <port>:20128 ghcr.io/alrcatraz/astra-aigate:latest
 # Open http://<host>:<port> — first login uses INITIAL_PASSWORD from .env
 ```
+
+Images are built automatically by GitHub Actions (`build-image.yml`) on release
+tags (`v*` → `:vX.Y.Z` + `:latest`) and `development` pushes (`:development`);
+a local build with the multi-stage Dockerfile is equivalent.
 
 If you use a dual-stack network (IPv4/IPv6), or expose the gateway as a
 public service, add dual-stack support with the following guidance. The
@@ -71,6 +77,14 @@ with PostgreSQL instead of SQLite. The schema is created automatically on a
 fresh database; migrate an existing SQLite deployment with
 `scripts/migrate-sqlite-to-pg.ts`. In containers, reach the host database via
 `host.containers.internal` (see the dual-stack note above).
+
+> **PG mode status (Aug 2026):** PostgreSQL is a production-verified path, not
+> experimental. All management pages and the quota/analytics/gamification
+> surfaces have been regression-tested under `DB_DRIVER=postgres` with
+> Playwright (95 pages scanned; the management surface is clean). The sole
+> caveat is live-dashboard WebSocket (`LIVE_WS_PORT`) which is served on a
+> separate port that must be exposed in the container for `combos/live` and
+> `compression/live`. SQLite remains the zero-ops default.
 
 ## Tech Stack
 
@@ -196,6 +210,12 @@ podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astr
 替代 SQLite 作为网关存储。新库自动建表；迁移现有 SQLite 数据用
 `scripts/migrate-sqlite-to-pg.ts`。容器内访问宿主数据库须用
 `host.containers.internal`（见上文双栈说明）。
+
+> **PG 模式状态（2026-08）：** PostgreSQL 已是生产验证通路而非实验。整个管理面
+> 与 quota/analytics/gamification 页面均在 `DB_DRIVER=postgres` 下用 Playwright
+> 做过 95 页回归，管理面干净。唯一注意点：live-dashboard WebSocket
+> （`LIVE_WS_PORT`）跑在独立端口上，容器需额外暴露该端口 `combos/live` 与
+> `compression/live` 才能用。SQLite 仍是零运维默认。
 
 ## 技术栈
 

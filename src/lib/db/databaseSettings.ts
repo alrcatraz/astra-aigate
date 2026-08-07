@@ -3,7 +3,13 @@ import fs from "node:fs";
 import { DEFAULT_DATABASE_SETTINGS, type DatabaseSettings } from "@/types/databaseSettings";
 
 import { backupDbFile } from "./backup";
-import { DATA_DIR, SQLITE_FILE, applyDatabaseOptimizationSettings, getDbInstance } from "./core";
+import {
+  DATA_DIR,
+  SQLITE_FILE,
+  applyDatabaseOptimizationSettings,
+  getDbInstance,
+  getAsyncDb,
+} from "./core";
 import { invalidateDbCache } from "./readCache";
 import { getDatabaseStats } from "./stats";
 import { getState as getVacuumSchedulerState, refreshVacuumScheduler } from "./vacuumScheduler";
@@ -110,7 +116,7 @@ function normalizeOptimizationSettings(settings: UserDatabaseSettings) {
 }
 
 async function readNamespace(namespace: string): Promise<Record<string, unknown>> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
     .all(namespace)) as Array<{ key: string; value: string }>;
@@ -193,7 +199,7 @@ function getWalSizeBytes(): number {
 }
 
 async function getSchemaVersion(): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   try {
     const row = (await db
@@ -207,7 +213,7 @@ async function getSchemaVersion(): Promise<number> {
 
 async function getFreelistCount(): Promise<number> {
   try {
-    return (await getDbInstance().pragma("freelist_count", { simple: true })) as number;
+    return (await getAsyncDb().pragma("freelist_count", { simple: true })) as number;
   } catch {
     return 0;
   }
@@ -215,7 +221,7 @@ async function getFreelistCount(): Promise<number> {
 
 async function getIntegrityCheck(): Promise<"ok" | "error" | null> {
   try {
-    const result = (await getDbInstance().pragma("quick_check", { simple: true })) as string;
+    const result = (await getAsyncDb().pragma("quick_check", { simple: true })) as string;
     return result === "ok" ? "ok" : "error";
   } catch {
     return null;
@@ -241,7 +247,7 @@ export async function getUserDatabaseSettings(): Promise<UserDatabaseSettings> {
 
 export async function getDatabaseSettings(): Promise<DatabaseSettings> {
   const dbStats = await getDatabaseStats();
-  const vacuumState = getVacuumSchedulerState();
+  const vacuumState = await getVacuumSchedulerState();
 
   return {
     ...(await getUserDatabaseSettings()),
@@ -267,7 +273,7 @@ export async function updateDatabaseSettings(
   updates: Partial<UserDatabaseSettings>
 ): Promise<UserDatabaseSettings> {
   const nextSettings = await getUserDatabaseSettings();
-  const optimizationUpdated = updates.optimization !== undefined;
+  const optimizationUpdated = (await updates.optimization) !== undefined;
 
   for (const section of DATABASE_SETTINGS_SECTIONS) {
     if (updates[section] !== undefined) {
@@ -276,7 +282,7 @@ export async function updateDatabaseSettings(
   }
   normalizeOptimizationSettings(nextSettings);
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const insert = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
   );
@@ -284,7 +290,7 @@ export async function updateDatabaseSettings(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', ?, ?)"
   );
 
-  const requestedLogs = updates.logs as Partial<UserDatabaseSettings["logs"]> | undefined;
+  const requestedLogs = (await updates.logs) as Partial<UserDatabaseSettings["logs"]> | undefined;
   const pipelineEnabled = requestedLogs?.callLogPipelineEnabled;
   const detailedEnabled = requestedLogs?.detailedLogsEnabled;
 

@@ -87,7 +87,7 @@ import {
   clampMcpAccessibilityConfig,
   type McpAccessibilityConfig,
 } from "../services/compression/engines/mcpAccessibility/constants.ts";
-import { getDbInstance } from "../../src/lib/db/core.ts";
+import { getDbInstance, getAsyncDb } from "../../src/lib/db/core.ts";
 import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
@@ -121,7 +121,7 @@ type JsonRecord = Record<string, unknown>;
 
 function readMcpDescriptionCompressionEnabled(): boolean {
   try {
-    const row = getDbInstance()
+    const row = getAsyncDb()
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get("compression", "mcpDescriptionCompressionEnabled") as { value?: string } | undefined;
     if (!row?.value) return true;
@@ -133,7 +133,7 @@ function readMcpDescriptionCompressionEnabled(): boolean {
 
 function readMcpAccessibilityConfig(): McpAccessibilityConfig {
   try {
-    const row = getDbInstance()
+    const row = getAsyncDb()
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get("compression", "mcpAccessibility") as { value?: string } | undefined;
     if (!row?.value) return { ...DEFAULT_MCP_ACCESSIBILITY_CONFIG };

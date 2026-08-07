@@ -14,7 +14,7 @@ const logger = pino({ name: "provider-metrics-api" });
  */
 export async function GET() {
   try {
-    const rows = getProviderMetrics();
+    const rows = await getProviderMetrics();
 
     const metrics: Record<
       string,
@@ -66,8 +66,7 @@ export async function GET() {
       // Only flag as errorProvider if the provider's MOST RECENT request was itself
       // a failure. A provider with a historical lastErrorAt but a recent success
       // (lastStatus 2xx/3xx) must not be shown as currently errored (#3619).
-      const isCurrentlyInError =
-        lastStatus !== null && (lastStatus < 200 || lastStatus >= 400);
+      const isCurrentlyInError = lastStatus !== null && (lastStatus < 200 || lastStatus >= 400);
       const errorTs = isCurrentlyInError && lastErrorAt ? Date.parse(lastErrorAt) : 0;
       if (Number.isFinite(errorTs) && errorTs > errorProviderTs) {
         errorProvider = provider;

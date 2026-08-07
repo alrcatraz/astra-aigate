@@ -138,7 +138,7 @@ export async function executeProviderDiscovery(task: A2ATask): Promise<ProviderD
       .map((connection) => connection.provider as string)
   );
   const breakers = new Map(
-    getAllCircuitBreakerStatuses().map((breaker: CircuitBreakerLike) => [
+    (await getAllCircuitBreakerStatuses()).map((breaker: CircuitBreakerLike) => [
       breaker.name || "",
       breaker,
     ])

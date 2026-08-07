@@ -118,8 +118,8 @@ function isBackgroundServicesDisabled(): boolean {
 }
 
 async function ensureSecrets(): Promise<void> {
-  let getPersistedSecret = (_key: string): string | null => null;
-  let persistSecret = (_key: string, _value: string): void => {};
+  let getPersistedSecret = async (_key: string): Promise<string | null> => null;
+  let persistSecret = async (_key: string, _value: string): Promise<void> => {};
 
   try {
     ({ getPersistedSecret, persistSecret } = await import("@/lib/db/secrets"));
@@ -132,26 +132,26 @@ async function ensureSecrets(): Promise<void> {
   }
 
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === "") {
-    const persisted = getPersistedSecret("jwtSecret");
+    const persisted = await getPersistedSecret("jwtSecret");
     if (persisted) {
       process.env.JWT_SECRET = persisted;
       console.log("[STARTUP] JWT_SECRET restored from persistent store");
     } else {
       const generated = toBase64(getRandomBytes(48));
       process.env.JWT_SECRET = generated;
-      persistSecret("jwtSecret", generated);
+      await persistSecret("jwtSecret", generated);
       console.log("[STARTUP] JWT_SECRET auto-generated and persisted (random 64-char secret)");
     }
   }
 
   if (!process.env.API_KEY_SECRET || process.env.API_KEY_SECRET.trim() === "") {
-    const persisted = getPersistedSecret("apiKeySecret");
+    const persisted = await getPersistedSecret("apiKeySecret");
     if (persisted) {
       process.env.API_KEY_SECRET = persisted;
     } else {
       const generated = toHex(getRandomBytes(32));
       process.env.API_KEY_SECRET = generated;
-      persistSecret("apiKeySecret", generated);
+      await persistSecret("apiKeySecret", generated);
       console.log(
         "[STARTUP] API_KEY_SECRET auto-generated and persisted (random 64-char hex secret)"
       );

@@ -35,7 +35,11 @@ export function getOmpCredentials(providerId: string) {
   }
 }
 
-export function saveOmpCredentials(providerId: string, apiKey: string, baseUrl: string) {
+export async function saveOmpCredentials(
+  providerId: string,
+  apiKey: string,
+  baseUrl: string
+): Promise<void> {
   const dbPath = getOmpDbPath();
   const db = new Database(dbPath, databaseOptions());
 
@@ -53,7 +57,7 @@ export function saveOmpCredentials(providerId: string, apiKey: string, baseUrl: 
   db.close();
 }
 
-export function deleteOmpCredentials(providerId: string) {
+export async function deleteOmpCredentials(providerId: string): Promise<void> {
   const dbPath = getOmpDbPath();
   const db = new Database(dbPath, databaseOptions());
   db.prepare("DELETE FROM auth_credentials WHERE provider = ?").run(providerId);

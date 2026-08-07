@@ -1,8 +1,12 @@
 import { getComboById, getCombos } from "@/lib/db/combos";
-import { getDbInstance } from "@/lib/db/core";
+import { getAsyncDb } from "@/lib/db/core";
+import type { DatabaseAdapter } from "@/lib/db/adapters/types";
 import { getQuotaSnapshots } from "@/lib/db/quotaSnapshots";
 import { getComboMetrics } from "@omniroute/open-sse/services/comboMetrics.ts";
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo.ts";
+
+// ─── Async DB access helper ────────────────────────────────────────────────
+
 import type {
   ComboRecord,
   ComboHealthMetrics,
@@ -236,13 +240,13 @@ function buildConnectionHealth(
   };
 }
 
-function buildUsageSkew(
+async function buildUsageSkew(
   comboName: string,
   comboModels: string[],
   since: string
-): ComboHealthMetrics["usageSkew"] {
-  const db = getDbInstance();
-  const rows = db
+): Promise<ComboHealthMetrics["usageSkew"]> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const rows = (await db
     .prepare(
       `SELECT
          model,
@@ -253,7 +257,7 @@ function buildUsageSkew(
          AND timestamp >= ?
        GROUP BY model`
     )
-    .all(comboName, since) as ModelUsageRow[];
+    .all(comboName, since)) as ModelUsageRow[];
 
   const usageByModel = new Map<string, { requests: number; tokens: number }>();
   for (const model of comboModels) {
@@ -292,9 +296,12 @@ function buildUsageSkew(
   };
 }
 
-function buildPerformance(comboName: string, since: string): ComboHealthMetrics["performance"] {
-  const db = getDbInstance();
-  const row = db
+async function buildPerformance(
+  comboName: string,
+  since: string
+): Promise<ComboHealthMetrics["performance"]> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const row = (await db
     .prepare(
       `SELECT
          COUNT(*) as totalRequests,
@@ -304,7 +311,7 @@ function buildPerformance(comboName: string, since: string): ComboHealthMetrics[
        WHERE combo_name = ?
          AND timestamp >= ?`
     )
-    .get(comboName, since) as PerformanceRow | undefined;
+    .get(comboName, since)) as PerformanceRow | undefined;
 
   const totalRequests = toSafeNumber(row?.totalRequests);
   const successCount = toSafeNumber(row?.successCount);
@@ -317,9 +324,14 @@ function buildPerformance(comboName: string, since: string): ComboHealthMetrics[
   };
 }
 
-function buildQuotaHealth(providers: string[], since: string): ComboHealthMetrics["quotaHealth"] {
-  const providerHealth = providers.map((provider) =>
-    buildProviderHealth(provider, getQuotaSnapshots({ provider, since }))
+async function buildQuotaHealth(
+  providers: string[],
+  since: string
+): Promise<ComboHealthMetrics["quotaHealth"]> {
+  const providerHealth = await Promise.all(
+    providers.map(async (provider) =>
+      buildProviderHealth(provider, await getQuotaSnapshots({ provider, since }))
+    )
   );
 
   const worstRemainingPct =
@@ -336,12 +348,12 @@ function buildQuotaHealth(providers: string[], since: string): ComboHealthMetric
   };
 }
 
-function getHistoricalTargetMetrics(
+async function getHistoricalTargetMetrics(
   comboName: string,
   since: string
-): Map<string, HistoricalTargetMetricView> {
-  const db = getDbInstance();
-  const rows = db
+): Promise<Map<string, HistoricalTargetMetricView>> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const rows = (await db
     .prepare(
       `WITH target_logs AS (
          SELECT
@@ -394,7 +406,7 @@ function getHistoricalTargetMetrics(
        LEFT JOIN latest_metrics ON latest_metrics.executionKey = aggregate_metrics.executionKey
        ORDER BY aggregate_metrics.executionKey ASC`
     )
-    .all(comboName, since) as HistoricalTargetAggregateRow[];
+    .all(comboName, since)) as HistoricalTargetAggregateRow[];
 
   const metrics = new Map<string, HistoricalTargetMetricView>();
   for (const row of rows) {
@@ -417,83 +429,86 @@ function getHistoricalTargetMetrics(
   return metrics;
 }
 
-function buildTargetHealth(
+async function buildTargetHealth(
   comboName: string,
   targets: ResolvedComboTargetView[],
   since: string
-): NonNullable<ComboHealthMetrics["targetHealth"]> {
+): Promise<NonNullable<ComboHealthMetrics["targetHealth"]>> {
   const comboMetrics = getComboMetrics(comboName);
-  const historicalMetrics = getHistoricalTargetMetrics(comboName, since);
+  const historicalMetrics = await getHistoricalTargetMetrics(comboName, since);
 
-  return targets.map((target) => {
-    const historicalMetric =
-      historicalMetrics.get(target.executionKey) || historicalMetrics.get(target.stepId) || null;
-    const runtimeMetric =
-      historicalMetric === null
-        ? ((comboMetrics?.byTarget?.[target.executionKey] ||
-            comboMetrics?.byTarget?.[target.stepId] ||
-            null) as RuntimeTargetMetricView | null)
-        : null;
+  return await Promise.all(
+    targets.map(async (target) => {
+      const historicalMetric =
+        historicalMetrics.get(target.executionKey) || historicalMetrics.get(target.stepId) || null;
+      const runtimeMetric =
+        historicalMetric === null
+          ? ((comboMetrics?.byTarget?.[target.executionKey] ||
+              comboMetrics?.byTarget?.[target.stepId] ||
+              null) as RuntimeTargetMetricView | null)
+          : null;
 
-    let quotaRemainingPct: number | null = null;
-    let quotaIsExhausted: boolean | null = null;
-    let quotaTrend: "improving" | "stable" | "declining" | null = null;
-    let quotaScope: "connection" | "provider" | "none" = "none";
+      let quotaRemainingPct: number | null = null;
+      let quotaIsExhausted: boolean | null = null;
+      let quotaTrend: "improving" | "stable" | "declining" | null = null;
+      let quotaScope: "connection" | "provider" | "none" = "none";
 
-    if (target.connectionId) {
-      const connectionHealth = buildConnectionHealth(
-        target.provider,
-        target.connectionId,
-        getQuotaSnapshots({
+      if (target.connectionId) {
+        const connectionSnapshots = await getQuotaSnapshots({
           provider: target.provider,
           connectionId: target.connectionId,
           since,
-        })
-      );
-      if (connectionHealth) {
-        quotaRemainingPct = connectionHealth.remainingPct;
-        quotaIsExhausted = connectionHealth.isExhausted;
-        quotaTrend = connectionHealth.trend;
-        quotaScope = "connection";
+        });
+        const connectionHealth = buildConnectionHealth(
+          target.provider,
+          target.connectionId,
+          connectionSnapshots
+        );
+        if (connectionHealth) {
+          quotaRemainingPct = connectionHealth.remainingPct;
+          quotaIsExhausted = connectionHealth.isExhausted;
+          quotaTrend = connectionHealth.trend;
+          quotaScope = "connection";
+        }
       }
-    }
 
-    if (quotaScope === "none") {
-      const providerSnapshots = getQuotaSnapshots({ provider: target.provider, since });
-      const providerHealth = buildProviderHealth(target.provider, providerSnapshots);
-      if (providerSnapshots.length > 0) {
-        quotaRemainingPct = providerHealth.remainingPct;
-        quotaIsExhausted = providerHealth.isExhausted;
-        quotaTrend = providerHealth.trend;
-        quotaScope = "provider";
+      if (quotaScope === "none") {
+        const providerSnapshots = await getQuotaSnapshots({ provider: target.provider, since });
+        const providerHealth = buildProviderHealth(target.provider, providerSnapshots);
+        if (providerSnapshots.length > 0) {
+          quotaRemainingPct = providerHealth.remainingPct;
+          quotaIsExhausted = providerHealth.isExhausted;
+          quotaTrend = providerHealth.trend;
+          quotaScope = "provider";
+        }
       }
-    }
 
-    return {
-      executionKey: target.executionKey,
-      stepId: target.stepId,
-      model: target.modelStr,
-      provider: target.provider,
-      connectionId: target.connectionId,
-      label: target.label,
-      requests: toSafeNumber(historicalMetric?.requests ?? runtimeMetric?.requests),
-      successRate: toSafeNumber(historicalMetric?.successRate ?? runtimeMetric?.successRate),
-      avgLatencyMs: toSafeNumber(historicalMetric?.avgLatencyMs ?? runtimeMetric?.avgLatencyMs),
-      lastStatus: historicalMetric?.lastStatus ?? runtimeMetric?.lastStatus ?? null,
-      lastUsedAt: historicalMetric?.lastUsedAt ?? runtimeMetric?.lastUsedAt ?? null,
-      quotaRemainingPct,
-      quotaIsExhausted,
-      quotaTrend,
-      quotaScope,
-    };
-  });
+      return {
+        executionKey: target.executionKey,
+        stepId: target.stepId,
+        model: target.modelStr,
+        provider: target.provider,
+        connectionId: target.connectionId,
+        label: target.label,
+        requests: toSafeNumber(historicalMetric?.requests ?? runtimeMetric?.requests),
+        successRate: toSafeNumber(historicalMetric?.successRate ?? runtimeMetric?.successRate),
+        avgLatencyMs: toSafeNumber(historicalMetric?.avgLatencyMs ?? runtimeMetric?.avgLatencyMs),
+        lastStatus: historicalMetric?.lastStatus ?? runtimeMetric?.lastStatus ?? null,
+        lastUsedAt: historicalMetric?.lastUsedAt ?? runtimeMetric?.lastUsedAt ?? null,
+        quotaRemainingPct,
+        quotaIsExhausted,
+        quotaTrend,
+        quotaScope,
+      };
+    })
+  );
 }
 
-function buildComboHealth(
+async function buildComboHealth(
   combo: ComboRecord,
   since: string,
   allCombos: ComboRecord[]
-): ComboHealthMetrics | null {
+): Promise<ComboHealthMetrics | null> {
   const comboId = typeof combo.id === "string" ? combo.id : "";
   const comboName = typeof combo.name === "string" ? combo.name : "";
   if (!comboId || !comboName) return null;
@@ -510,10 +525,10 @@ function buildComboHealth(
         ? combo.strategy
         : "priority",
     models,
-    targetHealth: buildTargetHealth(comboName, targets, since),
-    quotaHealth: buildQuotaHealth(providers, since),
-    usageSkew: buildUsageSkew(comboName, models, since),
-    performance: buildPerformance(comboName, since),
+    targetHealth: await buildTargetHealth(comboName, targets, since),
+    quotaHealth: await buildQuotaHealth(providers, since),
+    usageSkew: await buildUsageSkew(comboName, models, since),
+    performance: await buildPerformance(comboName, since),
   };
 }
 
@@ -523,7 +538,7 @@ export async function buildComboHealthResponse(opts: {
   now?: number;
   combos?: ComboRecord[];
 }): Promise<ComboHealthResponse> {
-  const since = getRangeStartIso(opts.range, opts.now);
+  const since = await getRangeStartIso(opts.range, opts.now);
   const allCombos = opts.combos ?? ((await getCombos()) as ComboRecord[]);
   let combos: ComboRecord[] = [];
 
@@ -536,10 +551,12 @@ export async function buildComboHealthResponse(opts: {
     combos = allCombos;
   }
 
+  const builtCombos = await Promise.all(
+    combos.map((combo) => buildComboHealth(combo, since, allCombos))
+  );
+
   return {
     timeRange: opts.range,
-    combos: combos
-      .map((combo) => buildComboHealth(combo, since, allCombos))
-      .filter((combo): combo is ComboHealthMetrics => combo !== null),
+    combos: builtCombos.filter((combo): combo is ComboHealthMetrics => combo !== null),
   };
 }

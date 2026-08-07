@@ -1,11 +1,11 @@
 /** db/models/aliases.ts — model alias CRUD (modelAliases namespace). */
 
-import { getDbInstance } from "../core";
+import { getAsyncDb } from "../core";
 import { backupDbFile } from "../backup";
 import { getKeyValue } from "./shared";
 
 export async function getModelAliases() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'modelAliases'")
     .all();
@@ -19,7 +19,7 @@ export async function getModelAliases() {
 }
 
 export async function setModelAlias(alias: string, model: unknown) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('modelAliases', ?, ?)"
   ).run(alias, JSON.stringify(model));
@@ -27,8 +27,8 @@ export async function setModelAlias(alias: string, model: unknown) {
 }
 
 export async function deleteModelAlias(alias: string) {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = 'modelAliases' AND key = ?").run(alias);
+  const db = await getAsyncDb();
+  await db.prepare("DELETE FROM key_value WHERE namespace = 'modelAliases' AND key = ?").run(alias);
   backupDbFile("pre-write");
 }
 

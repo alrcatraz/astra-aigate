@@ -1,4 +1,4 @@
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import type { PendingRequestDetail } from "./usageHistory";
 
 const COMPLETED_DETAIL_TTL_MS = 120_000;
@@ -55,10 +55,11 @@ export function maybeEnrichCompletedDetail(updated: PendingRequestDetail, connec
     try {
       const missingProvider =
         updated.providerResponse === undefined || updated.providerResponse === null;
-      const missingClient = updated.clientResponse === undefined || updated.clientResponse === null;
+      const missingClient =
+        (await updated.clientResponse) === undefined || updated.clientResponse === null;
       if (!missingProvider && !missingClient) return;
 
-      const db = getDbInstance();
+      const db = await getAsyncDb();
       const sinceIso = new Date(Date.now() - 30_000).toISOString();
       const rows = (await db
         .prepare(
@@ -68,7 +69,7 @@ export function maybeEnrichCompletedDetail(updated: PendingRequestDetail, connec
       for (const row of rows) {
         if (!row.artifact_relpath) continue;
         const { readCallArtifact } = await import("./callLogArtifacts");
-        const art = readCallArtifact(row.artifact_relpath);
+        const art = await readCallArtifact(row.artifact_relpath);
         if (art.state !== "ready" || !art.artifact) continue;
         const pipeline = art.artifact.pipeline as
           { providerResponse?: unknown; clientResponse?: unknown } | undefined;

@@ -9,7 +9,7 @@
  * - `auth_secret` is encrypted at rest via encryption.ts (encrypt/decrypt)
  */
 
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 import { encrypt, decrypt } from "./encryption";
 import crypto from "crypto";
 
@@ -97,7 +97,7 @@ export async function listMcpServers(options?: {
   includeDisabled?: boolean;
   groupId?: string;
 }): Promise<McpServer[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (!options?.includeDisabled) clauses.push("enabled = 1");
@@ -113,14 +113,14 @@ export async function listMcpServers(options?: {
 }
 
 export async function getMcpServer(id: string): Promise<McpServer | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM mcp_servers WHERE id = ?").get(id)) as
     McpServerRow | undefined;
   return row ? rowToMcpServer(row) : null;
 }
 
 export async function createMcpServer(input: McpServerInput): Promise<McpServer> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = input.id ?? slugifyMcpServerId(input.name);
   const now = new Date().toISOString();
   await db
@@ -156,7 +156,7 @@ export async function updateMcpServer(
   id: string,
   patch: Partial<McpServerInput>
 ): Promise<McpServer | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const existing = await getMcpServer(id);
   if (!existing) return null;
 
@@ -194,7 +194,7 @@ export async function setMcpServerEnabled(id: string, enabled: boolean): Promise
 
 /** Delete a custom (non-system) registration. System presets are refuse-to-delete. */
 export async function deleteMcpServer(id: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const existing = await getMcpServer(id);
   if (!existing) return false;
   if (existing.system)

@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     const aggregateByParam = searchParams.get("aggregateBy");
     const aggregateBy = aggregateByParam === "connection" ? "connection" : "provider";
 
-    const data = getAggregatedSnapshots({
+    const data = await getAggregatedSnapshots({
       provider: providerParam || undefined,
       since,
       bucketMinutes,

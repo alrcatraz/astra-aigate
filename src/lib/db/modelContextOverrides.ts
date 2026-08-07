@@ -1,4 +1,4 @@
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
 
 /**
@@ -65,7 +65,7 @@ export function getModelContextOverrideRecord(
   const key = normalizeKey(provider, modelId);
   if (!key) return null;
   try {
-    const row = ((getDbInstance() as SqliteAdapter).raw as RawSyncDb)
+    const row = ((getAsyncDb() as SqliteAdapter).raw as RawSyncDb)
       .prepare(
         "SELECT provider, model_id, real_context, source, refreshed_at " +
           "FROM model_context_overrides WHERE provider = ? AND model_id = ?"
@@ -101,7 +101,7 @@ export function setModelContextOverride(
   if (!key || !isPositiveInteger(realContext)) return false;
   const normalizedSource: ModelContextOverrideSource =
     source === "auto:discovery" ? "auto:discovery" : "manual";
-  getDbInstance()
+  getAsyncDb()
     .prepare(
       "INSERT OR REPLACE INTO model_context_overrides " +
         "(provider, model_id, real_context, source, refreshed_at) " +
@@ -118,7 +118,7 @@ export async function removeModelContextOverride(
 ): Promise<boolean> {
   const key = normalizeKey(provider, modelId);
   if (!key) return false;
-  const info = await getDbInstance()
+  const info = await getAsyncDb()
     .prepare("DELETE FROM model_context_overrides WHERE provider = ? AND model_id = ?")
     .run(key.provider, key.modelId);
   return info.changes > 0;
@@ -127,7 +127,7 @@ export async function removeModelContextOverride(
 /** All overrides, newest refresh first. Never throws. */
 export async function listModelContextOverrides(): Promise<ModelContextOverride[]> {
   try {
-    const rows = (await getDbInstance()
+    const rows = (await getAsyncDb()
       .prepare(
         "SELECT provider, model_id, real_context, source, refreshed_at " +
           "FROM model_context_overrides ORDER BY refreshed_at DESC"

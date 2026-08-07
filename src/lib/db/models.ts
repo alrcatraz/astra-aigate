@@ -49,7 +49,7 @@ export async function getCustomModels(providerId?: string) {
     const row = await db
       .prepare("SELECT value FROM key_value WHERE namespace = 'customModels' AND key = ?")
       .get(providerId);
-    const value = getKeyValue(row).value;
+    const value = await getKeyValue(row).value;
     return value ? JSON.parse(value) : [];
   }
   const rows = await db
@@ -107,7 +107,7 @@ export async function addCustomModel(
   const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'customModels' AND key = ?")
     .get(providerId);
-  const value = getKeyValue(row).value;
+  const value = await getKeyValue(row).value;
   const models = value ? JSON.parse(value) : [];
 
   const exists = models.find((m: JsonRecord) => m.id === modelId);
@@ -252,7 +252,7 @@ export async function deleteImportedCustomModels(providerId: string): Promise<st
   const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'customModels' AND key = ?")
     .get(providerId);
-  const value = getKeyValue(row).value;
+  const value = await getKeyValue(row).value;
   if (!value) return [];
 
   const parsed = JSON.parse(value);
@@ -292,7 +292,7 @@ export async function removeCustomModel(providerId: string, modelId: string) {
     .get(providerId);
   if (!row) return false;
 
-  const value = getKeyValue(row).value;
+  const value = await getKeyValue(row).value;
   if (!value) return false;
   const models = JSON.parse(value);
   const before = models.length;
@@ -430,7 +430,7 @@ export async function getSyncedAvailableModelsForConnection(
   const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
     .get(key);
-  const value = getKeyValue(row).value;
+  const value = await getKeyValue(row).value;
   if (!value) return [];
   try {
     const models = JSON.parse(value);
@@ -679,7 +679,7 @@ export async function cleanupProviderModelsAfterConnectionDelete(
     providerId,
     connectionId
   );
-  const remainingConnections = getProviderConnectionsCount({ provider: providerId });
+  const remainingConnections = await getProviderConnectionsCount({ provider: providerId });
   const removedImportedModelIds =
     remainingConnections === 0 ? await deleteImportedCustomModels(providerId) : [];
 
@@ -756,7 +756,7 @@ export async function updateCustomModel(
     .get(providerId);
   if (!row) return null;
 
-  const value = getKeyValue(row).value;
+  const value = await getKeyValue(row).value;
   if (!value) return null;
 
   const models = JSON.parse(value);
@@ -807,7 +807,7 @@ export async function updateCustomModel(
   }
 
   if (Object.prototype.hasOwnProperty.call(updates, "upstreamHeaders")) {
-    const uh = updates.upstreamHeaders;
+    const uh = await updates.upstreamHeaders;
     if (uh === null || uh === undefined) {
       delete next.upstreamHeaders;
     } else if (typeof uh === "object" && !Array.isArray(uh)) {
@@ -833,7 +833,7 @@ async function getCustomModelRow(providerId: string, modelId: string): Promise<J
   const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'customModels' AND key = ?")
     .get(providerId);
-  const value = getKeyValue(row).value;
+  const value = await getKeyValue(row).value;
   if (!value) return null;
   try {
     const models = JSON.parse(value) as unknown;
@@ -1025,7 +1025,7 @@ export async function setModelIsHidden(
   }
 
   const list = await readCompatList(providerId);
-  const idx = list.findIndex((e) => e.id === modelId);
+  const idx = await list.findIndex((e) => e.id === modelId);
   if (hidden) {
     const prev = idx >= 0 ? list[idx] : { id: modelId };
     const next: ModelCompatOverride = { ...prev, id: modelId, isHidden: true };
@@ -1038,7 +1038,7 @@ export async function setModelIsHidden(
   if (idx < 0) return;
   if (Object.keys(list[idx]).length <= 1) {
     // Only `id` left; drop the entry entirely.
-    const filtered = list.filter((_, i) => i !== idx);
+    const filtered = await list.filter((_, i) => i !== idx);
     await writeCompatList(providerId, filtered);
     return;
   }
@@ -1077,7 +1077,7 @@ export async function getModelUpstreamExtraHeaders(
 
   const base: Record<string, string> = {};
   if (m) {
-    const fromModel = readUpstreamFromJsonRecord(m, "upstreamHeaders");
+    const fromModel = await readUpstreamFromJsonRecord(m, "upstreamHeaders");
     if (fromModel) Object.assign(base, fromModel);
     if (protocol) {
       const pc = (m.compatByProtocol as CompatByProtocolMap | undefined)?.[protocol];

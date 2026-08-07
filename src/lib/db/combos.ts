@@ -257,11 +257,11 @@ export async function updateCombo(id: string, data: JsonRecord) {
   // Invalidate stale context-cache pins when combo targets change.
   // Without this, sessions pinned to removed models keep routing there forever.
   if (data.models !== undefined) {
-    const cleared = clearSessionModelHistoryForCombo(currentName);
+    const cleared = await clearSessionModelHistoryForCombo(currentName);
     if (cleared > 0) {
       // Also clear under the new name if the combo was renamed
       if (nextName !== currentName) {
-        clearSessionModelHistoryForCombo(nextName);
+        await clearSessionModelHistoryForCombo(nextName);
       }
     }
   }

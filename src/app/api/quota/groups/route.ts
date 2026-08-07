@@ -24,7 +24,7 @@ export async function GET(request: Request): Promise<Response> {
   if (authError) return authError;
 
   try {
-    const groups = listGroups();
+    const groups = await listGroups();
     return NextResponse.json({ groups });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to list groups";
@@ -43,7 +43,7 @@ export async function POST(request: Request): Promise<Response> {
       return NextResponse.json(buildErrorBody(400, parsed.error.message), { status: 400 });
     }
 
-    const group = createGroup(parsed.data.name);
+    const group = await createGroup(parsed.data.name);
     return NextResponse.json({ group }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create group";

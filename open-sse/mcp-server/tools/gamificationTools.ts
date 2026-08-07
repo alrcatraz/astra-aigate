@@ -48,8 +48,8 @@ export const gamificationTools = [
         await import("../../../src/lib/gamification/xp");
       const { getStreak } = await import("../../../src/lib/gamification/streaks");
 
-      const xp = getXp(args.apiKeyId);
-      const badges = getBadges(args.apiKeyId);
+      const xp = await getXp(args.apiKeyId);
+      const badges = await getBadges(args.apiKeyId);
       const streak = await getStreak(args.apiKeyId);
       const level = xp ? calculateLevel(xp.totalXp) : 1;
 
@@ -76,11 +76,11 @@ export const gamificationTools = [
       const { getBadgeDefinitions, getBadges } = await import("../../../src/lib/db/gamification");
 
       if (args.apiKeyId) {
-        const badges = getBadges(args.apiKeyId);
+        const badges = await getBadges(args.apiKeyId);
         return { earned: badges };
       }
 
-      const definitions = getBadgeDefinitions(args.category);
+      const definitions = await getBadgeDefinitions(args.category);
       return { definitions };
     },
   },

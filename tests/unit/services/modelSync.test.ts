@@ -55,7 +55,7 @@ describe("syncServiceModels", () => {
     const count = await syncServiceModels("tool-success", "http://127.0.0.1:20130", "nr_test");
 
     assert.equal(count, 2);
-    const stored = getServiceModels("tool-success");
+    const stored = await getServiceModels("tool-success");
     // Pruning marks available=true; count includes only current sync (no prior state).
     const available = stored.filter((m) => m.available !== false);
     assert.equal(available.length, 2);
@@ -73,7 +73,7 @@ describe("syncServiceModels", () => {
 
     await syncServiceModels("9router-prefix-test", "http://127.0.0.1:20130", "nr_test");
 
-    const stored = getServiceModels("9router-prefix-test");
+    const stored = await getServiceModels("9router-prefix-test");
     const available = stored.filter((m) => m.available !== false);
     assert.equal(available.length, 2);
     assert.equal(
@@ -95,7 +95,7 @@ describe("syncServiceModels", () => {
 
     await syncServiceModels("9router", "http://127.0.0.1:20130", "nr_test");
 
-    const stored = getServiceModels("9router");
+    const stored = await getServiceModels("9router");
     const available = stored.filter((m) => m.available !== false);
     assert.equal(available.length, 1);
     assert.equal(
@@ -112,7 +112,7 @@ describe("syncServiceModels", () => {
 
     await syncServiceModels("9router-getmodels-test", "http://127.0.0.1:20130", "nr_test");
 
-    const stored = getServiceModels("9router-getmodels-test");
+    const stored = await getServiceModels("9router-getmodels-test");
     assert.ok(
       stored.every((m) => m.id.startsWith("9router-getmodels-test/")),
       "all returned model ids must start with tool name prefix"

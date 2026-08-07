@@ -199,7 +199,7 @@ export async function applyStrategyOrdering(
       `Reset-window ordering: ${orderedTargets[0]?.modelStr}${orderedTargets[0]?.connectionId ? ` (${orderedTargets[0].connectionId})` : ""} first`
     );
   } else if (strategy === "context-optimized") {
-    orderedTargets = sortTargetsByContextSize(orderedTargets);
+    orderedTargets = await sortTargetsByContextSize(orderedTargets);
     log.info("COMBO", `Context-optimized ordering: largest first (${orderedTargets[0]?.modelStr})`);
   } else if (strategy === "cache-optimized") {
     if (resolvePromptCacheAffinityKey(body)) {

@@ -11,7 +11,8 @@
  * @module lib/db/cliToolState
  */
 
-import { getDbInstance, isBuildPhase, isCloud } from "./core";
+import { getDbInstance, isBuildPhase, isCloud, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -47,27 +48,25 @@ function toRecord(value: unknown): JsonRecord | null {
 /**
  * Save last-configured timestamp for a CLI tool.
  */
-export function saveCliToolLastConfigured(
+export async function saveCliToolLastConfigured(
   toolId: string,
   timestamp: string = new Date().toISOString()
-): void {
+): Promise<void> {
   if (isBuildPhase || isCloud) return;
-  const db = getDbInstance() as unknown as DbLike;
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    "cliToolLastConfig",
-    toolId,
-    JSON.stringify(timestamp)
-  );
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run("cliToolLastConfig", toolId, JSON.stringify(timestamp));
 }
 
 /**
  * Get last-configured timestamp for a CLI tool.
  * @returns ISO timestamp string or null if never configured.
  */
-export function getCliToolLastConfigured(toolId: string): string | null {
+export async function getCliToolLastConfigured(toolId: string): Promise<string | null> {
   if (isBuildPhase || isCloud) return null;
-  const db = getDbInstance() as unknown as DbLike;
-  const row = db
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get("cliToolLastConfig", toolId);
   if (!row) return null;
@@ -79,12 +78,12 @@ export function getCliToolLastConfigured(toolId: string): string | null {
  * Get all CLI tool last-configured timestamps.
  * @returns Record<toolId, ISO timestamp>
  */
-export function getAllCliToolLastConfigured(): Record<string, string> {
+export async function getAllCliToolLastConfigured(): Promise<Record<string, string>> {
   if (isBuildPhase || isCloud) return {};
-  const db = getDbInstance() as unknown as DbLike;
-  const rows = db
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
-    .all("cliToolLastConfig") as KeyValueRow[];
+    .all("cliToolLastConfig")) as KeyValueRow[];
   const result: Record<string, string> = {};
   for (const row of rows) {
     const parsed = parseJsonValue(row.value);
@@ -98,13 +97,12 @@ export function getAllCliToolLastConfigured(): Record<string, string> {
 /**
  * Delete last-configured timestamp for a CLI tool.
  */
-export function deleteCliToolLastConfigured(toolId: string): void {
+export async function deleteCliToolLastConfigured(toolId: string): Promise<void> {
   if (isBuildPhase || isCloud) return;
-  const db = getDbInstance() as unknown as DbLike;
-  db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(
-    "cliToolLastConfig",
-    toolId
-  );
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  await db
+    .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
+    .run("cliToolLastConfig", toolId);
 }
 
 // ──────────────── Initial Config Snapshot ────────────────
@@ -114,20 +112,21 @@ export function deleteCliToolLastConfigured(toolId: string): void {
  * Only saves if no snapshot exists yet (first-time only).
  * @returns true if saved, false if snapshot already exists.
  */
-export function saveCliToolInitialConfig(toolId: string, config: JsonRecord): boolean {
+export async function saveCliToolInitialConfig(
+  toolId: string,
+  config: JsonRecord
+): Promise<boolean> {
   if (isBuildPhase || isCloud) return false;
-  const db = getDbInstance() as unknown as DbLike;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   // Only save if not already stored
-  const existing = db
+  const existing = await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get("cliToolInitialConfig", toolId);
   if (existing) return false;
 
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    "cliToolInitialConfig",
-    toolId,
-    JSON.stringify(config)
-  );
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run("cliToolInitialConfig", toolId, JSON.stringify(config));
   return true;
 }
 
@@ -135,10 +134,10 @@ export function saveCliToolInitialConfig(toolId: string, config: JsonRecord): bo
  * Get the initial config snapshot for a CLI tool.
  * @returns Config object or null if no snapshot exists.
  */
-export function getCliToolInitialConfig(toolId: string): JsonRecord | null {
+export async function getCliToolInitialConfig(toolId: string): Promise<JsonRecord | null> {
   if (isBuildPhase || isCloud) return null;
-  const db = getDbInstance() as unknown as DbLike;
-  const row = db
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get("cliToolInitialConfig", toolId);
   if (!row) return null;
@@ -149,11 +148,10 @@ export function getCliToolInitialConfig(toolId: string): JsonRecord | null {
 /**
  * Delete the initial config snapshot for a CLI tool.
  */
-export function deleteCliToolInitialConfig(toolId: string): void {
+export async function deleteCliToolInitialConfig(toolId: string): Promise<void> {
   if (isBuildPhase || isCloud) return;
-  const db = getDbInstance() as unknown as DbLike;
-  db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(
-    "cliToolInitialConfig",
-    toolId
-  );
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  await db
+    .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
+    .run("cliToolInitialConfig", toolId);
 }

@@ -18,7 +18,7 @@
  * Every write is best-effort: a DB hiccup here must never break the request
  * it is instrumenting (mirrors src/lib/db/pluginMetrics.ts).
  */
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 const NAMESPACE = "ccDiscoveryMetrics";
 const TOTAL_KEY = "req:total";
@@ -40,7 +40,7 @@ function incrementCounter(key: string): void {
   // never lose a count the way a read-then-write pair would. `value` is TEXT, so
   // CAST it to INTEGER for the arithmetic; an absent row starts at '1' via the
   // INSERT branch, and a non-numeric prior value CASTs to 0 → 1 on update.
-  getDbInstance()
+  getAsyncDb()
     .prepare(
       `INSERT INTO key_value (namespace, key, value) VALUES (?, ?, '1')
        ON CONFLICT(namespace, key)
@@ -83,7 +83,7 @@ export function incrementCcDiscoveryHitCount(): void {
  */
 export async function getCcDiscoveryMetrics(): Promise<CcDiscoveryMetrics> {
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     const rows = (await db
       .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
       .all(NAMESPACE)) as Array<{ key?: unknown; value?: unknown }>;

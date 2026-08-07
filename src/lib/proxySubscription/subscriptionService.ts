@@ -20,7 +20,7 @@
  *     reported but not routed.
  */
 import { randomUUID } from "crypto";
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { backupDbFile } from "../db/backup";
 import {
   addProxiesToScopePool,
@@ -140,17 +140,17 @@ function mapSubscriptionRow(row: unknown): ProxySubscriptionRecord {
 // ───────────────────────────── CRUD ─────────────────────────────
 
 export async function listSubscriptions(): Promise<ProxySubscriptionRecord[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = db
     .prepare(
-      "SELECT id, name, url, enabled, mode, rule_providers, local_core_endpoint, update_interval_minutes, last_fetched_at, status, error, last_nodes, last_error_at, consecutive_failures, created_at, updated_at FROM proxy_subscriptions ORDER BY datetime(updated_at) DESC, name ASC"
+      "SELECT id, name, url, enabled, mode, rule_providers, local_core_endpoint, update_interval_minutes, last_fetched_at, status, error, last_nodes, last_error_at, consecutive_failures, created_at, updated_at FROM proxy_subscriptions ORDER BY updated_at DESC, name ASC"
     )
     .all();
   return rows.map(mapSubscriptionRow);
 }
 
 export async function getSubscriptionById(id: string): Promise<ProxySubscriptionRecord | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = db
     .prepare(
       "SELECT id, name, url, enabled, mode, rule_providers, local_core_endpoint, update_interval_minutes, last_fetched_at, status, error, last_nodes, last_error_at, consecutive_failures, created_at, updated_at FROM proxy_subscriptions WHERE id = ?"
@@ -165,23 +165,25 @@ export async function createSubscription(
   const id = randomUUID();
   const now = new Date().toISOString();
   const enabled = payload.enabled === true ? 1 : 0;
-  const db = getDbInstance();
-  db.prepare(
-    `INSERT INTO proxy_subscriptions
+  const db = await getAsyncDb();
+  await db
+    .prepare(
+      `INSERT INTO proxy_subscriptions
       (id, name, url, enabled, mode, rule_providers, local_core_endpoint, update_interval_minutes, status, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'empty', ?, ?)`
-  ).run(
-    id,
-    payload.name,
-    payload.url,
-    enabled,
-    payload.mode || "global",
-    payload.ruleProviders ? JSON.stringify(payload.ruleProviders) : null,
-    payload.localCoreEndpoint || null,
-    payload.updateIntervalMinutes || 60,
-    now,
-    now
-  );
+    )
+    .run(
+      id,
+      payload.name,
+      payload.url,
+      enabled,
+      payload.mode || "global",
+      payload.ruleProviders ? JSON.stringify(payload.ruleProviders) : null,
+      payload.localCoreEndpoint || null,
+      payload.updateIntervalMinutes || 60,
+      now,
+      now
+    );
   const created = (await getSubscriptionById(id))!;
   if (created.enabled) {
     await syncSubscription(id);
@@ -196,7 +198,7 @@ export async function updateSubscription(
 ): Promise<ProxySubscriptionRecord | null> {
   const existing = await getSubscriptionById(id);
   if (!existing) return null;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const name = payload.name ?? existing.name;
   const url = payload.url ?? existing.url;
   const mode = payload.mode ?? existing.mode;
@@ -213,21 +215,23 @@ export async function updateSubscription(
   const enabled =
     payload.enabled !== undefined ? (payload.enabled ? 1 : 0) : existing.enabled ? 1 : 0;
 
-  db.prepare(
-    `UPDATE proxy_subscriptions
+  await db
+    .prepare(
+      `UPDATE proxy_subscriptions
        SET name = ?, url = ?, enabled = ?, mode = ?, rule_providers = ?, local_core_endpoint = ?, update_interval_minutes = ?, updated_at = ?
      WHERE id = ?`
-  ).run(
-    name,
-    url,
-    enabled,
-    mode,
-    ruleProviders ? JSON.stringify(ruleProviders) : null,
-    localCoreEndpoint || null,
-    updateIntervalMinutes,
-    now,
-    id
-  );
+    )
+    .run(
+      name,
+      url,
+      enabled,
+      mode,
+      ruleProviders ? JSON.stringify(ruleProviders) : null,
+      localCoreEndpoint || null,
+      updateIntervalMinutes,
+      now,
+      id
+    );
 
   const updated = (await getSubscriptionById(id))!;
 
@@ -264,7 +268,7 @@ export async function setSubscriptionEnabled(
 export async function deleteSubscription(id: string): Promise<boolean> {
   await unapplySubscription(id);
   // Remove subscription-sourced proxy rows (force-clears their assignments).
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = db
     .prepare("SELECT id FROM proxy_registry WHERE subscription_id = ?")
     .all(id) as Array<{ id: string }>;
@@ -275,7 +279,7 @@ export async function deleteSubscription(id: string): Promise<boolean> {
       // ignore individual failures
     }
   }
-  const res = db.prepare("DELETE FROM proxy_subscriptions WHERE id = ?").run(id);
+  const res = await db.prepare("DELETE FROM proxy_subscriptions WHERE id = ?").run(id);
   await recomputeProxyEnabled();
   return res.changes > 0;
 }
@@ -421,7 +425,7 @@ async function syncSubscriptionUnsafe(id: string): Promise<SyncResult> {
   }
 
   const parsed: ParsedSubscription = parseSubscription(body);
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const keptIds: string[] = [];
   let warning: string | null = null;
@@ -602,20 +606,22 @@ async function updateSubscriptionStatus(
   lastErrorAt: string | null,
   consecutiveFailures: number
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
-  db.prepare(
-    `UPDATE proxy_subscriptions SET status = ?, error = ?, last_nodes = ?, last_fetched_at = ?, last_error_at = ?, consecutive_failures = ?, updated_at = ? WHERE id = ?`
-  ).run(
-    status,
-    error,
-    lastNodes ? JSON.stringify(lastNodes) : null,
-    now,
-    lastErrorAt,
-    consecutiveFailures,
-    now,
-    id
-  );
+  await db
+    .prepare(
+      `UPDATE proxy_subscriptions SET status = ?, error = ?, last_nodes = ?, last_fetched_at = ?, last_error_at = ?, consecutive_failures = ?, updated_at = ? WHERE id = ?`
+    )
+    .run(
+      status,
+      error,
+      lastNodes ? JSON.stringify(lastNodes) : null,
+      now,
+      lastErrorAt,
+      consecutiveFailures,
+      now,
+      id
+    );
 }
 
 /** Bind the subscription's synced proxy pool into the target scope(s). */
@@ -623,14 +629,14 @@ export async function applySubscription(id: string): Promise<void> {
   const sub = await getSubscriptionById(id);
   if (!sub || !sub.enabled) return;
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = db
     .prepare("SELECT id FROM proxy_registry WHERE subscription_id = ? AND status != 'error'")
     .all(id) as Array<{ id: string }>;
   const ids = rows.map((r) => r.id);
   if (ids.length === 0) return;
 
-  const targets = resolveTargetScopes(sub);
+  const targets = await resolveTargetScopes(sub);
   for (const t of targets) {
     // Add the whole subscription pool to this scope in one batched, idempotent
     // write (preserves any manual proxies already in the pool).
@@ -642,7 +648,7 @@ export async function applySubscription(id: string): Promise<void> {
 
 /** Remove the subscription's proxies from their bound scope(s). */
 export async function unapplySubscription(id: string): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = db
     .prepare("SELECT id FROM proxy_registry WHERE subscription_id = ?")
     .all(id) as Array<{ id: string }>;
@@ -669,7 +675,7 @@ export async function unapplySubscription(id: string): Promise<void> {
 // ───────────────────────────── proxyEnabled flag ─────────────────────────────
 
 async function hasNonSubscriptionGlobalProxy(): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = db
     .prepare(
       "SELECT 1 FROM proxy_assignments a JOIN proxy_registry p ON p.id = a.proxy_id WHERE a.scope = 'global' AND (p.subscription_id IS NULL OR p.subscription_id = '') LIMIT 1"
@@ -679,7 +685,7 @@ async function hasNonSubscriptionGlobalProxy(): Promise<boolean> {
 }
 
 async function recomputeProxyEnabled(): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   // Must check for an ACTUALLY BOUND subscription proxy, not just an enabled
   // subscription row: unapplySubscription() detaches proxy_assignments without
   // touching `enabled`, so a bare `enabled = 1` check would leave the flag
@@ -700,10 +706,12 @@ async function recomputeProxyEnabled(): Promise<void> {
 }
 
 async function setProxyEnabledFlag(value: boolean): Promise<void> {
-  const db = getDbInstance();
-  db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'proxyEnabled', ?)"
-  ).run(JSON.stringify(value));
+  const db = await getAsyncDb();
+  await db
+    .prepare(
+      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'proxyEnabled', ?)"
+    )
+    .run(JSON.stringify(value));
   bumpProxyConfigGeneration();
 }
 

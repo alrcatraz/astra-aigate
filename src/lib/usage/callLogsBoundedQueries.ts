@@ -1,4 +1,4 @@
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 
 // #5618 — node:sqlite's StatementSync.all() materializes the ENTIRE result set as
 // JS objects at once. On a large storage.sqlite (~170 MB+) an unbounded
@@ -13,9 +13,9 @@ const CALL_LOG_QUERY_PAGE = 5000;
  * LIMIT/OFFSET so a huge table never loads into memory in one `.all()`.
  */
 export async function collectReferencedArtifacts(): Promise<Set<string>> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const referenced = new Set<string>();
-  const stmt = db.prepare(
+  const stmt = await db.prepare(
     "SELECT artifact_relpath FROM call_logs WHERE artifact_relpath IS NOT NULL LIMIT ? OFFSET ?"
   );
   for (let offset = 0; ; offset += CALL_LOG_QUERY_PAGE) {
@@ -39,7 +39,7 @@ export async function selectCallLogIdsBefore(
   cutoff: string,
   limit = CALL_LOG_QUERY_PAGE
 ): Promise<string[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT id FROM call_logs WHERE timestamp < ? ORDER BY timestamp ASC LIMIT ?")
     .all(cutoff, limit)) as Array<{ id: string }>;

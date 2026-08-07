@@ -29,7 +29,7 @@ export async function GET(request: Request, { params }: RouteParams): Promise<Re
 
   try {
     const { id } = await params;
-    const pool = getPool(id);
+    const pool = await getPool(id);
     if (!pool) {
       return NextResponse.json(buildErrorBody(404, "Pool not found"), { status: 404 });
     }
@@ -57,7 +57,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
     const exclusivePresent = body !== null && typeof body === "object" && "exclusive" in body;
     const prevApiKeyIds: string[] = [];
     if (exclusivePresent) {
-      const existingPool = getPool(id);
+      const existingPool = await getPool(id);
       if (existingPool) {
         for (const alloc of existingPool.allocations) {
           prevApiKeyIds.push(alloc.apiKeyId);
@@ -73,9 +73,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
     // helpers. Without the pre-update removal, a group/provider switch would leave
     // orphan qtSd/ combos a quota key still sees. Guarded + non-fatal.
     const combosNeedResync =
-      body !== null &&
-      typeof body === "object" &&
-      ("connectionIds" in body || "groupId" in body);
+      body !== null && typeof body === "object" && ("connectionIds" in body || "groupId" in body);
     if (combosNeedResync) {
       try {
         const { removeQuotaCombosForPool } = await import("@/lib/quota/quotaCombos");
@@ -85,7 +83,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
       }
     }
 
-    const pool = updatePool(id, parsed.data);
+    const pool = await updatePool(id, parsed.data);
     if (!pool) {
       return NextResponse.json(buildErrorBody(404, "Pool not found"), { status: 404 });
     }
@@ -106,7 +104,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
         id,
         prevApiKeyIds,
         nextApiKeyIds,
-        parsed.data.exclusive ?? false,
+        parsed.data.exclusive ?? false
       );
     }
 
@@ -132,7 +130,7 @@ export async function DELETE(request: Request, { params }: RouteParams): Promise
 
   try {
     const { id } = await params;
-    const existed = deletePool(id);
+    const existed = await deletePool(id);
     if (!existed) {
       return NextResponse.json(buildErrorBody(404, "Pool not found"), { status: 404 });
     }

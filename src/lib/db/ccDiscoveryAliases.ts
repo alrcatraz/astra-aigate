@@ -21,7 +21,7 @@
  */
 
 import { getFeatureFlagOverride } from "./featureFlags";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 const NAMESPACE = "ccDiscoveryAliases";
 const FLAG_KEY = "EXPOSE_CC_DISCOVERY_ALIASES";
@@ -36,7 +36,7 @@ function modelKey(providerId: string, modelId: string): string {
   return `model:${providerId}/${modelId}`;
 }
 
-function parseSetting(value: string | undefined): CcAliasSetting {
+async function parseSetting(value: string | undefined): Promise<CcAliasSetting> {
   if (value === "on" || value === "off") return value;
   return null;
 }
@@ -46,11 +46,11 @@ function parseSetting(value: string | undefined): CcAliasSetting {
  * wins over the global flag. `null`/`undefined` means "inherit" from the
  * next level down.
  */
-export function resolveCcAliasEnabled(opts: {
+export async function resolveCcAliasEnabled(opts: {
   model?: CcAliasSetting;
   provider?: CcAliasSetting;
   global: boolean;
-}): boolean {
+}): Promise<boolean> {
   if (opts.model === "on") return true;
   if (opts.model === "off") return false;
   if (opts.provider === "on") return true;
@@ -59,54 +59,53 @@ export function resolveCcAliasEnabled(opts: {
 }
 
 export async function getCcAliasProviderSetting(providerId: string): Promise<CcAliasSetting> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(NAMESPACE, providerKey(providerId))) as { value: string } | undefined;
   return parseSetting(row?.value);
 }
 
-export function setCcAliasProviderSetting(providerId: string, v: CcAliasSetting): void {
-  const db = getDbInstance();
+export async function setCcAliasProviderSetting(
+  providerId: string,
+  v: CcAliasSetting
+): Promise<void> {
+  const db = await getAsyncDb();
   const key = providerKey(providerId);
   if (v === null) {
-    db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
+    await db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
     return;
   }
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    NAMESPACE,
-    key,
-    v
-  );
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run(NAMESPACE, key, v);
 }
 
 export async function getCcAliasModelSetting(
   providerId: string,
   modelId: string
 ): Promise<CcAliasSetting> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(NAMESPACE, modelKey(providerId, modelId))) as { value: string } | undefined;
   return parseSetting(row?.value);
 }
 
-export function setCcAliasModelSetting(
+export async function setCcAliasModelSetting(
   providerId: string,
   modelId: string,
   v: CcAliasSetting
-): void {
-  const db = getDbInstance();
+): Promise<void> {
+  const db = await getAsyncDb();
   const key = modelKey(providerId, modelId);
   if (v === null) {
-    db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
+    await db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
     return;
   }
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    NAMESPACE,
-    key,
-    v
-  );
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run(NAMESPACE, key, v);
 }
 
 /**
@@ -117,7 +116,7 @@ export async function getCcAliasSettingsBulk(): Promise<{
   providers: Map<string, "on" | "off">;
   models: Map<string, "on" | "off">;
 }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
     .all(NAMESPACE)) as Array<{ key: string; value: string }>;
@@ -126,7 +125,7 @@ export async function getCcAliasSettingsBulk(): Promise<{
   const models = new Map<string, "on" | "off">();
 
   for (const row of rows) {
-    const setting = parseSetting(row.value);
+    const setting = await parseSetting(row.value);
     if (setting === null) continue;
     if (row.key.startsWith("provider:")) {
       providers.set(row.key.slice("provider:".length), setting);

@@ -8,7 +8,8 @@
  * Import getDbInstance from ./core (Hard Rule #5).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 // Phase B2: auto-mint/prune quotaShared-* combos when pool allocations change.
 // Imported lazily (dynamic import in the hook) to avoid circular-dependency
 // risk between db/ and quota/ modules. The import is fire-and-forget; combo
@@ -105,23 +106,23 @@ interface DbLike {
 }
 
 function getDb(): DbLike {
-  return getDbInstance() as unknown as DbLike;
+  return getAsyncDb() as unknown as DbLike;
 }
 
 /**
  * Asserts that all connections in the list belong to the same provider.
  * Throws if mixed providers are detected. No-op when list has 0 or 1 entry.
- * Uses a single DISTINCT query against provider_connections (sync — better-sqlite3).
+ * Uses a single DISTINCT query against provider_connections.
  */
-function assertSingleProvider(connectionIds: string[]): void {
+async function assertSingleProvider(connectionIds: string[]): Promise<void> {
   if (!connectionIds || connectionIds.length <= 1) return;
   const db = getDb();
   const placeholders = connectionIds.map(() => "?").join(",");
-  const rows = db
+  const rows = (await db
     .prepare<{
       provider: string;
     }>(`SELECT DISTINCT provider FROM provider_connections WHERE id IN (${placeholders})`)
-    .all(...connectionIds);
+    .all(...connectionIds)) as Array<{ provider: string }>;
   const providers = rows.map((r) => r.provider).filter(Boolean);
   if (new Set(providers).size > 1) {
     throw new Error(
@@ -176,12 +177,12 @@ interface PoolConnectionRow {
   connection_id: string;
 }
 
-function getConnectionIds(poolId: string, fallbackConnectionId: string): string[] {
-  const rows = getDb()
+async function getConnectionIds(poolId: string, fallbackConnectionId: string): Promise<string[]> {
+  const rows = (await getDb()
     .prepare<PoolConnectionRow>(
       "SELECT connection_id FROM quota_pool_connections WHERE pool_id = ? ORDER BY created_at ASC"
     )
-    .all(poolId);
+    .all(poolId)) as PoolConnectionRow[];
   if (rows.length > 0) {
     return rows.map((r) => r.connection_id);
   }
@@ -189,11 +190,11 @@ function getConnectionIds(poolId: string, fallbackConnectionId: string): string[
   return fallbackConnectionId ? [fallbackConnectionId] : [];
 }
 
-function rowToPool(row: PoolRow, allocations: PoolAllocation[]): QuotaPool {
+async function rowToPool(row: PoolRow, allocations: PoolAllocation[]): Promise<QuotaPool> {
   return {
     id: row.id,
     connectionId: row.connection_id,
-    connectionIds: getConnectionIds(row.id, row.connection_id),
+    connectionIds: await getConnectionIds(row.id, row.connection_id),
     name: row.name,
     groupId: row.group_id || "group-demo",
     createdAt: row.created_at,
@@ -201,18 +202,18 @@ function rowToPool(row: PoolRow, allocations: PoolAllocation[]): QuotaPool {
   };
 }
 
-function batchBuildPools(rows: PoolRow[]): QuotaPool[] {
+async function batchBuildPools(rows: PoolRow[]): Promise<QuotaPool[]> {
   if (rows.length === 0) return [];
   const poolIds = rows.map((r) => r.id);
   const ph = poolIds.map(() => "?").join(",");
   const db = getDb();
 
   // Batch allocations: 1 query for all pools
-  const allocRows = db
+  const allocRows = (await db
     .prepare<AllocationRow>(
       `SELECT pool_id, api_key_id, weight, cap_value, cap_unit, policy FROM quota_allocations WHERE pool_id IN (${ph})`
     )
-    .all(...poolIds);
+    .all(...poolIds)) as AllocationRow[];
   const allocsByPool = new Map<string, AllocationRow[]>();
   for (const row of allocRows) {
     const list = allocsByPool.get(row.pool_id);
@@ -224,11 +225,11 @@ function batchBuildPools(rows: PoolRow[]): QuotaPool[] {
   }
 
   // Batch connections: 1 query for all pools
-  const connRows = db
+  const connRows = (await db
     .prepare<{ pool_id: string; connection_id: string }>(
       `SELECT pool_id, connection_id FROM quota_pool_connections WHERE pool_id IN (${ph}) ORDER BY created_at ASC`
     )
-    .all(...poolIds);
+    .all(...poolIds)) as Array<{ pool_id: string; connection_id: string }>;
   const connsByPool = new Map<string, string[]>();
   for (const row of connRows) {
     const list = connsByPool.get(row.pool_id);
@@ -250,12 +251,12 @@ function batchBuildPools(rows: PoolRow[]): QuotaPool[] {
   }));
 }
 
-function getAllocations(poolId: string): PoolAllocation[] {
-  const rows = getDb()
+async function getAllocations(poolId: string): Promise<PoolAllocation[]> {
+  const rows = (await getDb()
     .prepare<AllocationRow>(
       "SELECT pool_id, api_key_id, weight, cap_value, cap_unit, policy FROM quota_allocations WHERE pool_id = ?"
     )
-    .all(poolId);
+    .all(poolId)) as AllocationRow[];
   return rows.map(rowToAllocation);
 }
 
@@ -271,7 +272,11 @@ function makeId(): string {
  * List all quota pools that belong to a specific group.
  * Returns an empty array when no pools match the given groupId.
  */
-export function getPoolsByGroup(groupId: string, limit?: number, offset?: number): QuotaPool[] {
+export async function getPoolsByGroup(
+  groupId: string,
+  limit?: number,
+  offset?: number
+): Promise<QuotaPool[]> {
   let sql =
     "SELECT id, connection_id, name, group_id, created_at FROM quota_pools WHERE group_id = ? ORDER BY created_at ASC";
   const params: unknown[] = [groupId];
@@ -283,19 +288,19 @@ export function getPoolsByGroup(groupId: string, limit?: number, offset?: number
       params.push(offset);
     }
   }
-  const rows = getDb()
+  const rows = (await getDb()
     .prepare<PoolRow>(sql)
-    .all(...params);
+    .all(...params)) as PoolRow[];
   return batchBuildPools(rows);
 }
 
 /**
  * List all quota pools with their allocations.
  */
-export function listPools(options?: { limit?: number; offset?: number }): {
+export async function listPools(options?: { limit?: number; offset?: number }): Promise<{
   items: QuotaPool[];
   total: number;
-} {
+}> {
   const limit = options?.limit;
   const offset = options?.offset;
   let sql =
@@ -309,26 +314,26 @@ export function listPools(options?: { limit?: number; offset?: number }): {
       params.push(offset);
     }
   }
-  const rows = getDb()
+  const rows = (await getDb()
     .prepare<PoolRow>(sql)
-    .all(...params);
-  const totalRow = getDb().prepare("SELECT count(*) as cnt FROM quota_pools").get() as {
+    .all(...params)) as PoolRow[];
+  const totalRow = (await getDb().prepare("SELECT count(*) as cnt FROM quota_pools").get()) as {
     cnt: number;
   };
-  return { items: batchBuildPools(rows), total: totalRow.cnt };
+  return { items: await batchBuildPools(rows), total: totalRow.cnt };
 }
 
 /**
  * Get a single pool by id, or null if not found.
  */
-export function getPool(id: string): QuotaPool | null {
-  const row = getDb()
+export async function getPool(id: string): Promise<QuotaPool | null> {
+  const row = (await getDb()
     .prepare<PoolRow>(
       "SELECT id, connection_id, name, group_id, created_at FROM quota_pools WHERE id = ?"
     )
-    .get(id);
+    .get(id)) as PoolRow | undefined;
   if (!row) return null;
-  return batchBuildPools([row])[0];
+  return (await batchBuildPools([row]))[0];
 }
 
 /**
@@ -336,7 +341,7 @@ export function getPool(id: string): QuotaPool | null {
  * When `connectionIds` is provided, its first element becomes the primary connection_id.
  * When omitted, defaults to [connectionId].
  */
-export function createPool(input: PoolCreate): QuotaPool {
+export async function createPool(input: PoolCreate): Promise<QuotaPool> {
   const id = makeId();
   const now = new Date().toISOString();
 
@@ -349,14 +354,14 @@ export function createPool(input: PoolCreate): QuotaPool {
 
   // Guard: a pool must use a single provider.
   if (input.connectionIds && input.connectionIds.length > 1) {
-    assertSingleProvider(input.connectionIds);
+    await assertSingleProvider(input.connectionIds);
   }
 
   const groupId = input.groupId || "group-demo";
 
   const database = getDb();
-  const doCreate = database.transaction(() => {
-    database
+  const doCreate = database.transaction(async () => {
+    await database
       .prepare(
         "INSERT INTO quota_pools (id, connection_id, name, group_id, created_at) VALUES (?, ?, ?, ?, ?)"
       )
@@ -366,7 +371,7 @@ export function createPool(input: PoolCreate): QuotaPool {
       "INSERT OR IGNORE INTO quota_pool_connections (pool_id, connection_id) VALUES (?, ?)"
     );
     for (const connId of members) {
-      insertConn.run(id, connId);
+      await insertConn.run(id, connId);
     }
 
     if (input.allocations && input.allocations.length > 0) {
@@ -375,7 +380,7 @@ export function createPool(input: PoolCreate): QuotaPool {
          VALUES (?, ?, ?, ?, ?, ?)`
       );
       for (const alloc of input.allocations) {
-        insertAlloc.run(
+        await insertAlloc.run(
           id,
           alloc.apiKeyId,
           alloc.weight,
@@ -386,9 +391,9 @@ export function createPool(input: PoolCreate): QuotaPool {
       }
     }
   });
-  doCreate();
+  await doCreate();
 
-  const result = rowToPool(
+  const result = await rowToPool(
     {
       id,
       connection_id: primaryConnectionId,
@@ -396,7 +401,7 @@ export function createPool(input: PoolCreate): QuotaPool {
       group_id: groupId,
       created_at: now,
     },
-    getAllocations(id)
+    await getAllocations(id)
   );
 
   // Phase B2: fire-and-forget combo sync; failures are logged but never thrown.
@@ -411,55 +416,59 @@ export function createPool(input: PoolCreate): QuotaPool {
  * When `connectionIds` is provided, the join table is replaced atomically and
  * connection_id (primary) is synced to connectionIds[0].
  */
-export function updatePool(id: string, input: PoolUpdate): QuotaPool | null {
+export async function updatePool(id: string, input: PoolUpdate): Promise<QuotaPool | null> {
   const database = getDb();
-  const existing = database
+  const existing = (await database
     .prepare<PoolRow>(
       "SELECT id, connection_id, name, group_id, created_at FROM quota_pools WHERE id = ?"
     )
-    .get(id);
+    .get(id)) as PoolRow | undefined;
   if (!existing) return null;
 
   // Guard: a pool must use a single provider.
   if (input.connectionIds && input.connectionIds.length > 1) {
-    assertSingleProvider(input.connectionIds);
+    await assertSingleProvider(input.connectionIds);
   }
 
-  const doUpdate = database.transaction(() => {
+  const doUpdate = database.transaction(async () => {
     if (input.name !== undefined) {
-      database.prepare("UPDATE quota_pools SET name = ? WHERE id = ?").run(input.name, id);
+      await database.prepare("UPDATE quota_pools SET name = ? WHERE id = ?").run(input.name, id);
       existing.name = input.name;
     }
 
     if (input.groupId !== undefined) {
-      database.prepare("UPDATE quota_pools SET group_id = ? WHERE id = ?").run(input.groupId, id);
+      await database
+        .prepare("UPDATE quota_pools SET group_id = ? WHERE id = ?")
+        .run(input.groupId, id);
       existing.group_id = input.groupId;
     }
 
     if (input.connectionIds !== undefined && input.connectionIds.length > 0) {
       const newPrimary = input.connectionIds[0];
       // Replace join rows.
-      database.prepare("DELETE FROM quota_pool_connections WHERE pool_id = ?").run(id);
+      await database.prepare("DELETE FROM quota_pool_connections WHERE pool_id = ?").run(id);
       const insertConn = database.prepare(
         "INSERT OR IGNORE INTO quota_pool_connections (pool_id, connection_id) VALUES (?, ?)"
       );
       for (const connId of input.connectionIds) {
-        insertConn.run(id, connId);
+        await insertConn.run(id, connId);
       }
       // Sync primary column.
-      database.prepare("UPDATE quota_pools SET connection_id = ? WHERE id = ?").run(newPrimary, id);
+      await database
+        .prepare("UPDATE quota_pools SET connection_id = ? WHERE id = ?")
+        .run(newPrimary, id);
       existing.connection_id = newPrimary;
     }
 
     if (input.allocations !== undefined) {
       // Inline the allocation upsert inside the transaction (avoids nested transaction).
-      database.prepare("DELETE FROM quota_allocations WHERE pool_id = ?").run(id);
+      await database.prepare("DELETE FROM quota_allocations WHERE pool_id = ?").run(id);
       const insertAlloc = database.prepare(
         `INSERT INTO quota_allocations (pool_id, api_key_id, weight, cap_value, cap_unit, policy)
          VALUES (?, ?, ?, ?, ?, ?)`
       );
       for (const alloc of input.allocations) {
-        insertAlloc.run(
+        await insertAlloc.run(
           id,
           alloc.apiKeyId,
           alloc.weight,
@@ -470,9 +479,9 @@ export function updatePool(id: string, input: PoolUpdate): QuotaPool | null {
       }
     }
   });
-  doUpdate();
+  await doUpdate();
 
-  const result = rowToPool(existing, getAllocations(id));
+  const result = await rowToPool(existing, await getAllocations(id));
 
   // Phase B2: fire-and-forget combo sync; failures are logged but never thrown.
   void syncQuotaCombosGuarded(id);
@@ -485,16 +494,16 @@ export function updatePool(id: string, input: PoolUpdate): QuotaPool | null {
  * Also removes join rows in quota_pool_connections.
  * Returns true if a row was deleted, false if not found.
  */
-export function deletePool(id: string): boolean {
+export async function deletePool(id: string): Promise<boolean> {
   // Phase B2: remove quota combos BEFORE deleting the pool row so that
   // removeQuotaCombosForPool can still resolve the pool name → slug.
   void removeQuotaCombosGuarded(id);
 
   const database = getDb();
-  const doDelete = database.transaction(() => {
-    database.prepare("DELETE FROM quota_pool_connections WHERE pool_id = ?").run(id);
+  const doDelete = database.transaction(async () => {
+    await database.prepare("DELETE FROM quota_pool_connections WHERE pool_id = ?").run(id);
     // Prune this pool id from every key's allowed_quotas JSON array.
-    database
+    await database
       .prepare(
         `UPDATE api_keys SET allowed_quotas = COALESCE(
          (SELECT json_group_array(value) FROM json_each(api_keys.allowed_quotas) WHERE value != ?),
@@ -505,7 +514,7 @@ export function deletePool(id: string): boolean {
       .run(id, id);
     return database.prepare("DELETE FROM quota_pools WHERE id = ?").run(id);
   });
-  const result = doDelete();
+  const result = await doDelete();
   return result.changes > 0;
 }
 
@@ -545,7 +554,10 @@ export function deletePool(id: string): boolean {
  *
  * Runs atomically: all pool writes are inside a single SQLite transaction.
  */
-export function upsertAllocations(poolId: string, allocations: PoolAllocation[]): void {
+export async function upsertAllocations(
+  poolId: string,
+  allocations: PoolAllocation[]
+): Promise<void> {
   const database = getDb();
 
   // Normalize: when all weights are 0, distribute equally so the pool is usable
@@ -561,33 +573,33 @@ export function upsertAllocations(poolId: string, allocations: PoolAllocation[])
 
   // Resolve the target pool's group so we can propagate to siblings.
   // Defensive: fall back to [poolId] (single-pool semantics) if pool not found.
-  const targetPool = database
+  const targetPool = (await database
     .prepare<PoolRow>(
       "SELECT id, connection_id, name, group_id, created_at FROM quota_pools WHERE id = ?"
     )
-    .get(poolId);
+    .get(poolId)) as PoolRow | undefined;
 
   // Collect all pools in the group (includes the target pool itself).
   // If the pool has no group or is not found, default to writing only poolId.
   let poolIdsInGroup: string[] = [poolId];
   if (targetPool?.group_id) {
-    const groupRows = database
+    const groupRows = (await database
       .prepare<{ id: string }>("SELECT id FROM quota_pools WHERE group_id = ?")
-      .all(targetPool.group_id);
+      .all(targetPool.group_id)) as Array<{ id: string }>;
     if (groupRows.length > 0) {
       poolIdsInGroup = groupRows.map((r) => r.id);
     }
   }
 
-  const doUpsert = database.transaction(() => {
+  const doUpsert = database.transaction(async () => {
     const insert = database.prepare(
       `INSERT INTO quota_allocations (pool_id, api_key_id, weight, cap_value, cap_unit, policy)
        VALUES (?, ?, ?, ?, ?, ?)`
     );
     for (const pid of poolIdsInGroup) {
-      database.prepare("DELETE FROM quota_allocations WHERE pool_id = ?").run(pid);
+      await database.prepare("DELETE FROM quota_allocations WHERE pool_id = ?").run(pid);
       for (const alloc of normalizedAllocations) {
-        insert.run(
+        await insert.run(
           pid,
           alloc.apiKeyId,
           alloc.weight,
@@ -598,7 +610,7 @@ export function upsertAllocations(poolId: string, allocations: PoolAllocation[])
       }
     }
   });
-  doUpsert();
+  await doUpsert();
 
   // Phase B2: fire-and-forget combo sync for the target pool only; failures are
   // logged but never thrown. Sibling pools' combos are synced on their own lifecycle.
@@ -609,15 +621,15 @@ export function upsertAllocations(poolId: string, allocations: PoolAllocation[])
  * List all allocations across all pools where apiKeyId is assigned.
  * Returns pairs of { poolId, allocation }.
  */
-export function listAllocationsForApiKey(
+export async function listAllocationsForApiKey(
   apiKeyId: string
-): Array<{ poolId: string; allocation: PoolAllocation }> {
-  const rows = getDb()
+): Promise<Array<{ poolId: string; allocation: PoolAllocation }>> {
+  const rows = (await getDb()
     .prepare<AllocationRow>(
       `SELECT pool_id, api_key_id, weight, cap_value, cap_unit, policy
        FROM quota_allocations
        WHERE api_key_id = ?`
     )
-    .all(apiKeyId);
+    .all(apiKeyId)) as AllocationRow[];
   return rows.map((row) => ({ poolId: row.pool_id, allocation: rowToAllocation(row) }));
 }

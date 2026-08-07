@@ -8,10 +8,7 @@ import {
   CLIPROXY_DEFAULT_PORT,
 } from "./installers/cliproxy";
 import { resolveSpawnArgs as muxSpawnArgs, MUX_DEFAULT_PORT } from "./installers/mux";
-import {
-  resolveSpawnArgs as bifrostSpawnArgs,
-  BIFROST_DEFAULT_PORT,
-} from "./installers/bifrost";
+import { resolveSpawnArgs as bifrostSpawnArgs, BIFROST_DEFAULT_PORT } from "./installers/bifrost";
 import { getOrCreateApiKey } from "./apiKey";
 import { scheduleServiceModelSync, stopServiceModelSync } from "./modelSync";
 import type { ServiceStatus } from "./types";
@@ -132,7 +129,7 @@ export async function bootstrapEmbeddedServices(): Promise<void> {
         scheduleServiceModelSync(cfg.tool, baseUrl, apiKey);
       } else if (status.state === "stopped" || status.state === "error") {
         stopServiceModelSync(cfg.tool);
-        markAllUnavailable(cfg.tool);
+        markAllUnavailable(cfg.tool).catch(() => {});
       }
     });
 

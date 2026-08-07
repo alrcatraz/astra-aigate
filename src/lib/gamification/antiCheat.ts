@@ -4,7 +4,7 @@
  * @module lib/gamification/antiCheat
  */
 
-import { getDbInstance } from "../db/core";
+import { getAsyncDb } from "../db/core";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,27 +19,25 @@ interface AnomalyFlag {
   zScore: number;
 }
 
-// ─── Statement / DB helpers (match gamification.ts pattern) ──────────────────
-
-interface StatementLike<TRow = unknown> {
-  all: (...params: unknown[]) => TRow[];
-  get: (...params: unknown[]) => TRow | undefined;
-  run: (...params: unknown[]) => { changes: number };
-}
-
-interface DbLike {
-  prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
-}
-
-function db(): DbLike {
-  return getDbInstance() as unknown as DbLike;
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const MAX_XP_PER_WINDOW = 1000;
 const ANOMALY_Z_THRESHOLD = 3;
+const ANOMALY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * SQLite `datetime('now', '-1 hour')` produces the canonical `YYYY-MM-DD
+ * HH:MM:SS` (UTC) text that `xp_audit_log.created_at` stores. Reproduce that
+ * exact text in JS so the `created_at > ?` comparison stays a text-to-text
+ * comparison in BOTH drivers. Postgres' dialect rewrites `datetime('now', ...)`
+ * to `NOW() - INTERVAL` (a timestamptz), which breaks against the TEXT
+ * `created_at` column (`operator does not exist: text > timestamp with time
+ * zone`) — passing the cutoff as a plain text parameter avoids that entirely.
+ */
+function anomalyWindowCutoff(): string {
+  return new Date(Date.now() - ANOMALY_WINDOW_MS).toISOString().slice(0, 19).replace("T", " ");
+}
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -73,17 +71,18 @@ export async function validateScoreChange(
  * Get flagged anomalies for admin review.
  */
 export async function getAnomalies(): Promise<AnomalyFlag[]> {
-  const d = db();
+  const d = getAsyncDb();
+  const cutoff = anomalyWindowCutoff();
 
-  const rows = d
+  const rows = (await d
     .prepare(
       `SELECT api_key_id, SUM(xp_earned) AS hourly_total
        FROM xp_audit_log
-       WHERE created_at > datetime('now', '-1 hour')
+       WHERE created_at > ?
        GROUP BY api_key_id
-       HAVING hourly_total > 1000`
+       HAVING SUM(xp_earned) > 1000`
     )
-    .all() as Array<{ api_key_id: string; hourly_total: number }>;
+    .all(cutoff)) as Array<{ api_key_id: string; hourly_total: number }>;
 
   const results: AnomalyFlag[] = [];
   for (const r of rows) {
@@ -104,17 +103,18 @@ export async function getAnomalies(): Promise<AnomalyFlag[]> {
  * Returns null if insufficient data.
  */
 async function computeZScore(apiKeyId: string): Promise<number | null> {
-  const d = db();
+  const d = getAsyncDb();
+  const cutoff = anomalyWindowCutoff();
 
-  const userRow = d
+  const userRow = (await d
     .prepare(
       `SELECT COALESCE(SUM(xp_earned), 0) AS total
        FROM xp_audit_log
-       WHERE api_key_id = ? AND created_at > datetime('now', '-1 hour')`
+       WHERE api_key_id = ? AND created_at > ?`
     )
-    .get(apiKeyId) as { total: number };
+    .get(apiKeyId, cutoff)) as { total: number };
 
-  const statsRow = d
+  const statsRow = (await d
     .prepare(
       `SELECT AVG(hourly_total) AS mean,
               CASE WHEN AVG(hourly_total) = 0 THEN 1
@@ -123,11 +123,11 @@ async function computeZScore(apiKeyId: string): Promise<number | null> {
        FROM (
          SELECT api_key_id, SUM(xp_earned) AS hourly_total
          FROM xp_audit_log
-         WHERE created_at > datetime('now', '-1 hour')
+         WHERE created_at > ?
          GROUP BY api_key_id
        )`
     )
-    .get() as { mean: number; variance: number } | undefined;
+    .get(cutoff)) as { mean: number; variance: number } | undefined;
 
   if (!statsRow || statsRow.variance <= 0) return null;
 
@@ -139,14 +139,14 @@ async function computeZScore(apiKeyId: string): Promise<number | null> {
  * Get total XP earned in the last N milliseconds.
  */
 async function getRecentXp(apiKeyId: string, windowMs: number): Promise<number> {
-  const d = db();
+  const d = getAsyncDb();
   const since = new Date(Date.now() - windowMs).toISOString();
 
-  const row = d
+  const row = (await d
     .prepare(
       "SELECT COALESCE(SUM(xp_earned), 0) AS total FROM xp_audit_log WHERE api_key_id = ? AND created_at > ?"
     )
-    .get(apiKeyId, since) as { total: number };
+    .get(apiKeyId, since)) as { total: number };
 
   return row.total;
 }

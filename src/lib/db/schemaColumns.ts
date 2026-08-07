@@ -5,7 +5,7 @@
  * files up to the current column set (ALTER TABLE … ADD COLUMN, guarded by PRAGMA
  * table_info) plus the small introspection utilities they build on. Each takes the db
  * handle explicitly — no module state — so they live as a co-located leaf that core.ts
- * calls during getDbInstance() bootstrap. Behavior-preserving move.
+ * calls during getAsyncDb() bootstrap. Behavior-preserving move.
  */
 
 import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
@@ -285,9 +285,27 @@ export async function hasColumn(
 }
 
 export async function hasTable(db: SqliteDatabase, tableName: string): Promise<boolean> {
-  return Boolean(
-    await db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName)
-  );
+  // PG-aware — PostgreSQL has no sqlite_master; query information_schema instead.
+  // Mirrors the shared `tableExists` helper in core.ts (schemaColumns is a leaf
+  // imported by core during bootstrap, so it can't import core back).
+  const driver = process.env.DB_DRIVER?.trim().toLowerCase();
+  try {
+    if (driver === "postgres") {
+      const row = (await db
+        .prepare(
+          "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?"
+        )
+        .get(tableName)) as { table_name?: string } | undefined;
+      return row?.table_name === tableName;
+    }
+    return Boolean(
+      await db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(tableName)
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function quoteIdentifier(identifier: string): string {

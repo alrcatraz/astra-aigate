@@ -54,7 +54,7 @@ export async function syncServiceModels(
         id: m.id.startsWith(`${tool}/`) ? m.id : `${tool}/${m.id}`,
       }));
 
-    saveServiceModels(tool, models);
+    await saveServiceModels(tool, models);
     await updateVersionManagerTool(tool, { lastSyncAt: new Date().toISOString() });
 
     console.log(`[ModelSync:${tool}] synced ${models.length} model(s)`);

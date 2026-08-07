@@ -61,24 +61,25 @@ export function getKnownContextLimit(
   return limits.length > 0 ? Math.min(...limits) : null;
 }
 
-
 /**
  * Return a hard context-overflow decision only when every target has a known
  * context limit and every one of those limits is too small for the request.
  * Unknown metadata deliberately keeps the legacy fail-open behavior.
  */
-export function getKnownContextOverflow(
+export async function getKnownContextOverflow(
   targets: ResolvedComboTarget[],
   body: Record<string, unknown>
-): KnownContextOverflow | null {
+): Promise<KnownContextOverflow | null> {
   if (targets.length === 0) return null;
   const requirements = deriveRequestCompatibilityRequirements(body);
   if (requirements.requiredContextTokens <= 0) return null;
 
-  const limits = targets.map((target) =>
-    getKnownContextLimit(
-      getResolvedModelCapabilities(target.modelStr),
-      requirements.requestedOutputTokens
+  const limits = await Promise.all(
+    targets.map(async (target) =>
+      getKnownContextLimit(
+        await getResolvedModelCapabilities(target.modelStr),
+        requirements.requestedOutputTokens
+      )
     )
   );
   if (limits.some((limit) => limit === null)) return null;

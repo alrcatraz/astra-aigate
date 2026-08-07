@@ -5,7 +5,7 @@
  * @module lib/usage/aggregateHistory
  */
 
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { getUserDatabaseSettings } from "../db/databaseSettings";
 
 interface AggregationResult {
@@ -26,7 +26,7 @@ export async function rollupDailyUsage(
   fromDate: string,
   toDate: string
 ): Promise<AggregationResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const result: AggregationResult = {
     processed: 0,
@@ -41,14 +41,14 @@ export async function rollupDailyUsage(
       SELECT 
         provider,
         COALESCE(json_extract(raw_data, '$.model'), 'unknown') as model,
-        DATE(created_at) as date,
+        substr(created_at, 1, 10) as date,
         COUNT(*) as total_requests,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.input_tokens') AS INTEGER)), 0) as total_input_tokens,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.output_tokens') AS INTEGER)), 0) as total_output_tokens,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.cost') AS REAL)), 0.0) as total_cost
       FROM quota_snapshots
-      WHERE DATE(created_at) >= ? AND DATE(created_at) <= ?
-      GROUP BY provider, model, DATE(created_at)
+      WHERE substr(created_at, 1, 10) >= ? AND substr(created_at, 1, 10) <= ?
+      GROUP BY provider, model, substr(created_at, 1, 10)
       ON CONFLICT(provider, model, date) DO UPDATE SET
         total_requests = excluded.total_requests,
         total_input_tokens = excluded.total_input_tokens,
@@ -56,7 +56,7 @@ export async function rollupDailyUsage(
         total_cost = excluded.total_cost
     `;
 
-    const stmt = db.prepare(aggregateQuery);
+    const stmt = await db.prepare(aggregateQuery);
     const runResult = await stmt.run(fromDate, toDate);
 
     result.processed = runResult.changes;
@@ -83,7 +83,7 @@ export async function rollupHourlyQuota(
   fromDate: string,
   toDate: string
 ): Promise<AggregationResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const result: AggregationResult = {
     processed: 0,
@@ -98,14 +98,14 @@ export async function rollupHourlyQuota(
       SELECT 
         provider,
         COALESCE(json_extract(raw_data, '$.model'), 'unknown') as model,
-        datetime(strftime('%Y-%m-%d %H:00:00', created_at)) as date_hour,
+        strftime('%Y-%m-%d %H:00:00', created_at) as date_hour,
         COUNT(*) as total_requests,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.input_tokens') AS INTEGER)), 0) as total_input_tokens,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.output_tokens') AS INTEGER)), 0) as total_output_tokens,
         COALESCE(SUM(CAST(json_extract(raw_data, '$.cost') AS REAL)), 0.0) as total_cost
       FROM quota_snapshots
       WHERE created_at >= ? AND created_at <= ?
-      GROUP BY provider, model, datetime(strftime('%Y-%m-%d %H:00:00', created_at))
+      GROUP BY provider, model, strftime('%Y-%m-%d %H:00:00', created_at)
       ON CONFLICT(provider, model, date_hour) DO UPDATE SET
         total_requests = excluded.total_requests,
         total_input_tokens = excluded.total_input_tokens,
@@ -113,7 +113,7 @@ export async function rollupHourlyQuota(
         total_cost = excluded.total_cost
     `;
 
-    const stmt = db.prepare(aggregateQuery);
+    const stmt = await db.prepare(aggregateQuery);
     const runResult = await stmt.run(fromDate, toDate);
 
     result.processed = runResult.changes;
@@ -142,7 +142,7 @@ export async function rollupHourlyQuota(
  * @returns Aggregation result with counts
  */
 export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<AggregationResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const result: AggregationResult = {
     processed: 0,
@@ -156,7 +156,7 @@ export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<
       SELECT
         LOWER(provider) as provider,
         LOWER(model) as model,
-        DATE(timestamp) as date,
+        substr(timestamp, 1, 10) as date,
         COUNT(*) as total_requests,
         COALESCE(SUM(tokens_input), 0) as total_input_tokens,
         COALESCE(SUM(tokens_output), 0) as total_output_tokens,
@@ -165,14 +165,14 @@ export async function rollupUsageHistoryBeforeDate(beforeDate: string): Promise<
       WHERE timestamp < ?
         AND provider IS NOT NULL AND provider != ''
         AND model IS NOT NULL AND model != ''
-      GROUP BY LOWER(provider), LOWER(model), DATE(timestamp)
+      GROUP BY LOWER(provider), LOWER(model), substr(timestamp, 1, 10)
       ON CONFLICT(provider, model, date) DO UPDATE SET
         total_requests = daily_usage_summary.total_requests + excluded.total_requests,
         total_input_tokens = daily_usage_summary.total_input_tokens + excluded.total_input_tokens,
         total_output_tokens = daily_usage_summary.total_output_tokens + excluded.total_output_tokens
     `;
 
-    const stmt = db.prepare(aggregateQuery);
+    const stmt = await db.prepare(aggregateQuery);
     const runResult = await stmt.run(beforeDate);
 
     result.processed = runResult.changes;

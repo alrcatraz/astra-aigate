@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const provider = await getCcAliasProviderSetting(id);
 
-    const { models: allModels } = getCcAliasSettingsBulk();
+    const { models: allModels } = await getCcAliasSettingsBulk();
     const prefix = `${id}/`;
     const models: Record<string, "on" | "off"> = {};
     for (const [key, value] of allModels) {

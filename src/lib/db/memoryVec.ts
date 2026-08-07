@@ -9,7 +9,7 @@
  *   - `memories.needs_reindex`: flag for lazy backfill of missing/stale vectors
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 // ──────────────── Types ────────────────
 
@@ -28,7 +28,7 @@ export interface MemoryVecMeta {
  * an in-memory test DB that ran without the migration file).
  */
 export async function getMemoryVecMeta(): Promise<MemoryVecMeta> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       "SELECT active_dim, embedding_signature, last_reset_at, vec_loaded FROM memory_vec_meta WHERE id = 1"
@@ -65,7 +65,7 @@ export async function getMemoryVecMeta(): Promise<MemoryVecMeta> {
  * (e.g. called before or during migration on a test DB).
  */
 export async function setMemoryVecMeta(meta: Partial<MemoryVecMeta>): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   // Read current values first so we can merge (partial update pattern).
   const current = await getMemoryVecMeta();
@@ -91,7 +91,7 @@ export async function setMemoryVecMeta(meta: Partial<MemoryVecMeta>): Promise<vo
  * Mark a single memory as needing reindex (or clear the flag).
  */
 export async function markMemoryNeedsReindex(id: string, needs: boolean): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("UPDATE memories SET needs_reindex = ? WHERE id = ?").run(needs ? 1 : 0, id);
 }
 
@@ -100,7 +100,7 @@ export async function markMemoryNeedsReindex(id: string, needs: boolean): Promis
  * Returns the number of rows affected.
  */
 export async function markAllMemoriesNeedReindex(): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("UPDATE memories SET needs_reindex = 1").run();
   return result.changes;
 }
@@ -112,7 +112,7 @@ export async function markAllMemoriesNeedReindex(): Promise<number> {
 export async function getMemoryReindexQueue(
   limit: number
 ): Promise<Array<{ id: string; content: string; key: string }>> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `SELECT id, content, COALESCE(key, '') AS key
@@ -128,7 +128,7 @@ export async function getMemoryReindexQueue(
  * Count how many memories currently have needs_reindex = 1.
  */
 export async function countMemoryReindexPending(): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT COUNT(*) AS cnt FROM memories WHERE needs_reindex = 1")
     .get()) as { cnt: number };

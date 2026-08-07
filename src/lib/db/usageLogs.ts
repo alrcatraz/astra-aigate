@@ -8,7 +8,7 @@
  * Sliced out of #3500 (usage_logs cluster, slice 4).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 // ---------------------------------------------------------------------------
 // Auto-routing analytics
@@ -23,7 +23,7 @@ export interface AutoRoutingTotalResult {
  * Matches model = 'auto' OR model LIKE 'auto/%'.
  */
 export async function getAutoRoutingTotalCount(): Promise<AutoRoutingTotalResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       `
@@ -49,7 +49,7 @@ export interface AutoRoutingVariantRow {
  *   other       → 'other' (should not occur given the WHERE clause)
  */
 export async function getAutoRoutingVariantBreakdown(): Promise<AutoRoutingVariantRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -78,7 +78,7 @@ export interface AutoRoutingTopProviderRow {
  * Returns the top 10 providers used for auto/ prefix model requests.
  */
 export async function getAutoRoutingTopProviders(): Promise<AutoRoutingTopProviderRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `

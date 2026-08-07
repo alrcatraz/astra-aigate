@@ -247,13 +247,13 @@ export default function ReasoningCacheTab() {
           icon="speed"
           label={t("reasoningReplayRate")}
           value={stats.replayRate}
-          sub={`${totalLookups.toLocaleString()} lookups`}
+          sub={`${(totalLookups ?? 0).toLocaleString()} lookups`}
           accent="text-emerald-500"
         />
         <StatCard
           icon="replay"
           label={t("reasoningReplays")}
-          value={stats.replays.toLocaleString()}
+          value={(stats.replays ?? 0).toLocaleString()}
           sub={t("reasoningBehaviorReplay")}
           accent="text-cyan-400"
         />
@@ -261,14 +261,14 @@ export default function ReasoningCacheTab() {
           icon="text_fields"
           label={t("reasoningCharsCached")}
           value={formatChars(stats.totalChars)}
-          sub={`${stats.totalChars.toLocaleString()} chars`}
+          sub={`${(stats.totalChars ?? 0).toLocaleString()} chars`}
           accent="text-purple-400"
         />
         <StatCard
           icon="error_outline"
           label={t("reasoningMisses")}
-          value={stats.misses.toLocaleString()}
-          sub={`${stats.hits.toLocaleString()} hits`}
+          value={(stats.misses ?? 0).toLocaleString()}
+          sub={`${(stats.hits ?? 0).toLocaleString()} hits`}
           accent="text-red-400"
         />
       </div>
@@ -297,7 +297,7 @@ export default function ReasoningCacheTab() {
                     <tr key={prov} className="border-b border-border/15 last:border-b-0">
                       <td className="px-4 py-3 font-medium text-text-main">{prov}</td>
                       <td className="px-4 py-3 tabular-nums text-text-main">
-                        {d.entries.toLocaleString()}
+                        {(d.entries ?? 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-purple-400">
                         {formatChars(d.chars)}
@@ -347,10 +347,10 @@ export default function ReasoningCacheTab() {
                     <tr key={mdl} className="border-b border-border/15 last:border-b-0">
                       <td className="px-4 py-3 font-medium text-text-main">{mdl}</td>
                       <td className="px-4 py-3 tabular-nums text-text-main">
-                        {d.entries.toLocaleString()}
+                        {(d.entries ?? 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-cyan-400">
-                        {avgChars.toLocaleString()}
+                        {(avgChars ?? 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-purple-400">
                         {formatChars(d.chars)}
@@ -400,7 +400,7 @@ export default function ReasoningCacheTab() {
                       {entry.model}
                     </div>
                     <div className="text-sm tabular-nums text-purple-400">
-                      {entry.charCount.toLocaleString()}
+                      {(entry.charCount ?? 0).toLocaleString()}
                     </div>
                     <div className="text-sm text-text-muted">{timeAgo(entry.createdAt)}</div>
                     <button
@@ -454,7 +454,7 @@ export default function ReasoningCacheTab() {
                         <span>
                           {t("reasoningChars")}:{" "}
                           <span className="text-purple-400">
-                            {entry.charCount.toLocaleString()}
+                            {(entry.charCount ?? 0).toLocaleString()}
                           </span>
                         </span>
                       </div>

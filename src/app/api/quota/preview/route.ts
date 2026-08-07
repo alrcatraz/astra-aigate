@@ -53,7 +53,7 @@ export async function GET(request: Request): Promise<Response> {
     const { apiKeyId, poolId, estimatedTokens, estimatedUsd, estimatedRequests } = parsed.data;
 
     // Resolve pool to get connectionId and provider
-    const pool = getPool(poolId);
+    const pool = await getPool(poolId);
     if (!pool) {
       return NextResponse.json(buildErrorBody(404, "Pool not found"), { status: 404 });
     }

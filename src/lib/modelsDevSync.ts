@@ -17,7 +17,7 @@
  * Opt-in via MODELS_DEV_SYNC_ENABLED=true (default: false).
  */
 
-import { getDbInstance } from "./db/core";
+import { getDbInstance, getAsyncDb } from "./db/core";
 import type { RawSyncDb, SqliteAdapter } from "./db/adapters/types";
 import { invalidateDbCache } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
@@ -197,8 +197,8 @@ function mapCapabilityRecord(record: Record<string, unknown>): ModelCapabilityEn
 /**
  * Read synced pricing from `models_dev_pricing` namespace.
  */
-export function getModelsDevPricing(): PricingByProvider {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+export async function getModelsDevPricing(): Promise<PricingByProvider> {
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const rows = raw
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'models_dev_pricing'")
     .all();
@@ -220,10 +220,10 @@ export function getModelsDevPricing(): PricingByProvider {
 /**
  * Save synced pricing to `models_dev_pricing` namespace (full replace).
  */
-export function saveModelsDevPricing(data: PricingByProvider): void {
-  const db = getDbInstance();
-  const del = db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'");
-  const insert = db.prepare(
+export async function saveModelsDevPricing(data: PricingByProvider): Promise<void> {
+  const db = getAsyncDb();
+  const del = await db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'");
+  const insert = await db.prepare(
     "INSERT INTO key_value (namespace, key, value) VALUES ('models_dev_pricing', ?, ?)"
   );
   const tx = db.transaction(() => {
@@ -240,9 +240,9 @@ export function saveModelsDevPricing(data: PricingByProvider): void {
 /**
  * Clear all models.dev synced pricing data.
  */
-export function clearModelsDevPricing(): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'").run();
+export async function clearModelsDevPricing(): Promise<void> {
+  const db = getAsyncDb();
+  await db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'").run();
   backupDbFile("pre-write");
   invalidateDbCache("pricing");
 }
@@ -254,7 +254,7 @@ export function clearModelsDevPricing(): void {
  * Call this before any capability operations.
  */
 export function ensureCapabilitiesTable(): void {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   db.exec(`
     CREATE TABLE IF NOT EXISTS model_capabilities (
       provider TEXT NOT NULL,
@@ -285,7 +285,10 @@ export function ensureCapabilitiesTable(): void {
 /**
  * Read synced capabilities from `model_capabilities` table.
  */
-export function getSyncedCapabilities(provider?: string, modelId?: string): CapabilitiesByProvider {
+export async function getSyncedCapabilities(
+  provider?: string,
+  modelId?: string
+): Promise<CapabilitiesByProvider> {
   if (cachedCapabilitiesLoadedAll) {
     if (!provider) {
       return cachedCapabilities || {};
@@ -299,7 +302,7 @@ export function getSyncedCapabilities(provider?: string, modelId?: string): Capa
     return providerCaps?.[modelId] ? { [provider]: { [modelId]: providerCaps[modelId] } } : {};
   }
 
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   ensureCapabilitiesTable();
 
   let query = "SELECT * FROM model_capabilities";
@@ -349,10 +352,10 @@ const SYNCED_CAPABILITY_FALLBACK_ALIASES: Record<string, string[]> = {
   "opencode-go": ["opencode-zen"],
 };
 
-export function getSyncedCapability(
+export async function getSyncedCapability(
   provider: string,
   modelId: string
-): ModelCapabilityEntry | null {
+): Promise<ModelCapabilityEntry | null> {
   if (!provider || !modelId) return null;
 
   // Fast path: every provider is in the in-memory cache, skip SQLite entirely.
@@ -371,9 +374,9 @@ export function getSyncedCapability(
   }
 
   // Cold path: hit SQLite. Prepare the statement once, reuse for every alias.
-  const db = getDbInstance();
+  const db = getAsyncDb();
   ensureCapabilitiesTable();
-  const stmt = db.prepare(
+  const stmt = await db.prepare(
     "SELECT * FROM model_capabilities WHERE provider = ? AND model_id = ? LIMIT 1"
   );
   const lookupDb = (p: string): ModelCapabilityEntry | null => {
@@ -399,12 +402,12 @@ export function getSyncedCapability(
 /**
  * Save synced capabilities to `model_capabilities` table (full replace).
  */
-export function saveModelsDevCapabilities(data: CapabilitiesByProvider): void {
-  const db = getDbInstance();
+export async function saveModelsDevCapabilities(data: CapabilitiesByProvider): Promise<void> {
+  const db = getAsyncDb();
   ensureCapabilitiesTable();
 
-  const del = db.prepare("DELETE FROM model_capabilities");
-  const insert = db.prepare(`
+  const del = await db.prepare("DELETE FROM model_capabilities");
+  const insert = await db.prepare(`
     INSERT INTO model_capabilities (
       provider, model_id, tool_call, reasoning, attachment, structured_output,
       temperature, modalities_input, modalities_output, knowledge_cutoff,
@@ -452,10 +455,10 @@ export function saveModelsDevCapabilities(data: CapabilitiesByProvider): void {
 /**
  * Clear all synced capability data.
  */
-export function clearModelsDevCapabilities(): void {
-  const db = getDbInstance();
+export async function clearModelsDevCapabilities(): Promise<void> {
+  const db = getAsyncDb();
   ensureCapabilitiesTable();
-  db.prepare("DELETE FROM model_capabilities").run();
+  await db.prepare("DELETE FROM model_capabilities").run();
   backupDbFile("pre-write");
   cachedCapabilities = {};
   cachedCapabilitiesLoadedAll = true;

@@ -480,6 +480,10 @@ export function anyUpstreamHeadersBadge(
 
 export function buildCompatMap(rows: CompatModelRow[]): CompatModelMap {
   const m = new Map<string, CompatModelRow>();
+  // Guard against undefined/partial data (async hydration races): when the
+  // provider detail models haven't loaded yet, treat as empty rather than
+  // crashing the render with "not iterable".
+  if (!Array.isArray(rows)) return m;
   for (const r of rows) if (r.id) m.set(r.id, r);
   return m;
 }

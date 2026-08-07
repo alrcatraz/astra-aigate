@@ -1,12 +1,19 @@
 import { getCostSummary } from "@/domain/costRules";
 import { getApiKeys } from "@/lib/db/apiKeys";
-import { getDbInstance } from "@/lib/db/core";
+import { getDbInstance, getAsyncDb } from "@/lib/db/core";
+import type { RawSyncDb } from "@/lib/db/adapters/types";
 import { getAllProviderLimitsCache, getProviderLimitsCache } from "@/lib/db/providerLimits";
 import { getProviderQuotaWindowStart } from "@/lib/db/quotaResetEvents";
 import { calculateCost } from "@/lib/usage/costCalculator";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const RECORDED_COST_MATCH_TOLERANCE_MS = 30_000;
+
+// Sync view of the shared DB singleton (see featureFlags.ts for the same
+// pattern). This reader sits in the synchronous call stack.
+function syncDb(): RawSyncDb {
+  return getAsyncDb() as unknown as RawSyncDb;
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -115,14 +122,14 @@ function parseResetAt(value: unknown, nowMs: number): number | null {
   return parsed;
 }
 
-function getProviderWindowStart(
+async function getProviderWindowStart(
   connectionId: string | null,
   resetMs: number,
   nowMs: number
-): { startMs: number; source: ProviderWindowCostBreakdown["windowStartSource"] } | null {
+): Promise<{ startMs: number; source: ProviderWindowCostBreakdown["windowStartSource"] } | null> {
   if (!connectionId) return null;
   const resetIso = new Date(resetMs).toISOString();
-  const start = getProviderQuotaWindowStart(connectionId, resetIso, nowMs);
+  const start = await getProviderQuotaWindowStart(connectionId, resetIso, nowMs);
   if (!start) return null;
   const startMs = Date.parse(start.windowStartIso);
   if (!Number.isFinite(startMs)) return null;
@@ -161,11 +168,11 @@ function scoreWeeklyQuota(name: string): number {
   return score;
 }
 
-function selectWeeklyWindow(
+async function selectWeeklyWindow(
   provider: string,
   connectionId: string | null,
   nowMs: number
-): {
+): Promise<{
   startMs: number;
   resetMs: number | null;
   source: ProviderWindowCostBreakdown["windowSource"];
@@ -173,7 +180,7 @@ function selectWeeklyWindow(
   quotaUsedPercent: number | null;
   quotaRemainingPercent: number | null;
   windowStartSource: ProviderWindowCostBreakdown["windowStartSource"];
-} {
+}> {
   const cacheEntries = connectionId
     ? [[connectionId, getProviderLimitsCache(connectionId)] as const]
     : Object.entries(getAllProviderLimitsCache());
@@ -216,7 +223,7 @@ function selectWeeklyWindow(
   }
 
   if (selected) {
-    const providerWindowStart = getProviderWindowStart(
+    const providerWindowStart = await getProviderWindowStart(
       selected.connectionId,
       selected.resetMs,
       nowMs
@@ -301,8 +308,8 @@ function getRecordedCostsByApiKey(
       untilMs: untilMs + RECORDED_COST_MATCH_TOLERANCE_MS,
     };
     const placeholders = appendNamedPlaceholders(params, "apiKey", apiKeyIds);
-    const rows = getDbInstance()
-      .prepare<RecordedCostRow>(
+    const rows = syncDb()
+      .prepare(
         `
         SELECT
           id as rowId,
@@ -316,7 +323,7 @@ function getRecordedCostsByApiKey(
         ORDER BY api_key_id ASC, timestamp ASC, rowid ASC
       `
       )
-      .all(params);
+      .all(params) as RecordedCostRow[];
 
     const byApiKey = new Map<string, RecordedCostRow[]>();
     for (const row of rows) {
@@ -366,7 +373,7 @@ async function getUsageRowCostUsd(
   usedRecordedRows: Set<number>
 ): Promise<number> {
   const usageTimestampMs = Date.parse(row.timestamp ?? "");
-  const recordedCost = findClosestRecordedCost(
+  const recordedCost = await findClosestRecordedCost(
     row.apiKeyId ? recordedCostsByApiKey.get(row.apiKeyId) : undefined,
     usageTimestampMs,
     usedRecordedRows
@@ -398,7 +405,7 @@ export async function getProviderWindowCostBreakdown({
 }): Promise<ProviderWindowCostBreakdown> {
   const providerKey = provider.trim().toLowerCase();
   const nowMs = Number.isFinite(now) ? now : Date.now();
-  const window = selectWeeklyWindow(providerKey, connectionId, nowMs);
+  const window = await selectWeeklyWindow(providerKey, connectionId, nowMs);
   const windowStartAt = new Date(window.startMs).toISOString();
   const windowResetAt = window.resetMs ? new Date(window.resetMs).toISOString() : null;
   const nowIso = new Date(nowMs).toISOString();
@@ -423,7 +430,7 @@ export async function getProviderWindowCostBreakdown({
     params.connectionId = connectionId;
   }
 
-  const usageRows = getDbInstance()
+  const usageRows = await getAsyncDb()
     .prepare<UsageCostRow>(
       `
       SELECT
@@ -448,7 +455,7 @@ export async function getProviderWindowCostBreakdown({
     .all(params);
 
   const currentApiKeyNames = await getCurrentApiKeyNames();
-  const recordedCostsByApiKey = getRecordedCostsByApiKey(
+  const recordedCostsByApiKey = await getRecordedCostsByApiKey(
     uniqueApiKeyIds(usageRows),
     window.startMs,
     nowMs
@@ -475,7 +482,7 @@ export async function getProviderWindowCostBreakdown({
       let limitPeriod: string | null = null;
       let budgetResetAt: string | null = null;
       if (apiKeyId) {
-        const summary = getCostSummary(apiKeyId);
+        const summary = await getCostSummary(apiKeyId);
         if (summary.activeLimitUsd > 0) {
           limitUsd = summary.activeLimitUsd;
           limitPeriod = summary.resetInterval;

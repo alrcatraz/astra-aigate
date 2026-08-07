@@ -1,4 +1,4 @@
-import { getDbInstance } from "../../src/lib/db/core.ts";
+import { getDbInstance, getAsyncDb } from "../../src/lib/db/core.ts";
 import type { RawSyncDb, SqliteAdapter } from "../../src/lib/db/adapters/types.ts";
 
 const MAX_SIGNATURES = 1000;
@@ -121,7 +121,7 @@ async function maybePrunePersistedSignatures(db: ReturnType<typeof getDbInstance
   }
 
   if (keysToDelete.size === 0) return;
-  const remove = db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?");
+  const remove = await db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?");
   const tx = db.transaction(async (keys: string[]) => {
     for (const key of keys) await remove.run(NAMESPACE, key);
   });
@@ -140,7 +140,7 @@ export async function storeGeminiThoughtSignature(toolCallId: unknown, signature
   });
 
   try {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     await db
       .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
       .run(
@@ -162,7 +162,7 @@ export function getGeminiThoughtSignature(toolCallId: unknown) {
   if (entry) return entry.signature;
 
   try {
-    const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+    const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
     const row = raw
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get(NAMESPACE, toolCallId) as { value: string } | undefined;
@@ -308,12 +308,12 @@ export function resolveGeminiThoughtSignature(
   return persisted;
 }
 
-export function clearGeminiThoughtSignatures() {
+export async function clearGeminiThoughtSignatures() {
   signatures.clear();
   signatureCacheMode = "enabled";
   try {
-    const db = getDbInstance();
-    db.prepare("DELETE FROM key_value WHERE namespace = ?").run(NAMESPACE);
+    const db = getAsyncDb();
+    await db.prepare("DELETE FROM key_value WHERE namespace = ?").run(NAMESPACE);
   } catch (error) {
     warnPersistenceError("clear", error);
   }

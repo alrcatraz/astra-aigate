@@ -168,11 +168,16 @@ export async function resolveAutoStrategyOrder(
       : []
   );
   if (estimatedInputTokens > 0) {
-    const filteredByContext = eligibleTargets.filter((target) => {
-      const limit = getModelContextLimitForModelString(target.modelStr);
-      if (limit === null || limit === undefined) return true; // unknown — include to be safe
-      return limit >= estimatedInputTokens;
-    });
+    const contextKept = await Promise.all(
+      eligibleTargets.map(async (target) => {
+        const limit = await getModelContextLimitForModelString(target.modelStr);
+        return {
+          target,
+          keep: limit === null || limit === undefined || limit >= estimatedInputTokens,
+        };
+      })
+    );
+    const filteredByContext = contextKept.filter((e) => e.keep).map((e) => e.target);
     if (filteredByContext.length > 0) {
       log.debug?.(
         "COMBO",

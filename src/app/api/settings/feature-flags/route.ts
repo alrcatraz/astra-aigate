@@ -143,7 +143,7 @@ export async function PUT(request: NextRequest) {
     const previousSource = prevFlag?.source ?? "default";
 
     if (value === undefined) {
-      removeFeatureFlagOverride(key);
+      await removeFeatureFlagOverride(key);
     } else {
       setFeatureFlagOverride(key, value);
     }
@@ -180,7 +180,7 @@ export async function DELETE(request: NextRequest) {
     const overrides = getFeatureFlagOverrides();
     const count = Object.keys(overrides).length;
 
-    clearAllFeatureFlagOverrides();
+    await clearAllFeatureFlagOverrides();
 
     return NextResponse.json({
       cleared: count,

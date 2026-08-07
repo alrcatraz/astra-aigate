@@ -2,10 +2,10 @@
  * db/settings/cacheMetrics.ts — Cache control metrics (computed from usage_history on-the-fly).
  */
 
-import { getDbInstance } from "../core";
+import { getDbInstance, getAsyncDb } from "../core";
 
 export async function getCacheMetrics() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   try {
     // Aggregate totals from usage_history
@@ -54,7 +54,7 @@ export async function getCacheMetrics() {
       FROM usage_history
       WHERE provider IS NOT NULL
       GROUP BY provider
-      HAVING cachedRequests > 0
+      HAVING SUM(CASE WHEN tokens_cache_read > 0 OR tokens_cache_creation > 0 THEN 1 ELSE 0 END) > 0
     `
       )
       .all()) as Array<{
@@ -184,7 +184,7 @@ export interface CacheTrendPoint {
 }
 
 export async function getCacheTrend(hours = 24): Promise<CacheTrendPoint[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   try {
     const rows = (await db

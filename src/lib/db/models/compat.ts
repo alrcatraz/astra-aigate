@@ -1,6 +1,6 @@
 /** db/models/compat.ts — model-compat overrides (normalizeToolCallId, per-protocol flags, upstream headers). */
 
-import { getDbInstance } from "../core";
+import { getAsyncDb } from "../core";
 import { backupDbFile } from "../backup";
 import {
   MODEL_COMPAT_PROTOCOL_KEYS,
@@ -121,11 +121,11 @@ export type ModelCompatOverride = {
 };
 
 export async function readCompatList(providerId: string): Promise<ModelCompatOverride[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(MODEL_COMPAT_NAMESPACE, providerId);
-  const value = getKeyValue(row).value;
+  const value = await getKeyValue(row).value;
   if (!value) return [];
   try {
     const parsed = JSON.parse(value);
@@ -139,7 +139,7 @@ export async function writeCompatList(
   providerId: string,
   list: ModelCompatOverride[]
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   if (list.length === 0) {
     await db
       .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
@@ -181,7 +181,7 @@ export async function mergeModelCompatOverride(
   patch: ModelCompatPatch
 ): Promise<void> {
   const list = await readCompatList(providerId);
-  const idx = list.findIndex((e) => e.id === modelId);
+  const idx = await list.findIndex((e) => e.id === modelId);
   const prev = idx >= 0 ? { ...list[idx] } : { id: modelId };
   const next: ModelCompatOverride = { ...prev, id: modelId };
   if ("normalizeToolCallId" in patch) {
@@ -209,7 +209,7 @@ export async function mergeModelCompatOverride(
       else next.upstreamHeaders = s;
     }
   }
-  const filtered = list.filter((e) => e.id !== modelId);
+  const filtered = await list.filter((e) => e.id !== modelId);
   const hasPreserveFlag = Object.prototype.hasOwnProperty.call(next, "preserveOpenAIDeveloperRole");
   const hasTopUpstream = next.upstreamHeaders && Object.keys(next.upstreamHeaders).length > 0;
   if ("isHidden" in patch) {
@@ -246,7 +246,7 @@ export async function removeModelCompatOverride(
   modelId: string
 ): Promise<void> {
   const list = await readCompatList(providerId);
-  const filtered = list.filter((e) => e.id !== modelId);
+  const filtered = await list.filter((e) => e.id !== modelId);
   if (filtered.length === list.length) return;
   await writeCompatList(providerId, filtered);
 }

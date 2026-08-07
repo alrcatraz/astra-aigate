@@ -2,7 +2,7 @@
 // average latency observed in `proxy_logs` over a trailing window. Extracted
 // from proxies.ts to keep that frozen god-file under its line-count cap
 // (imported directly by src/lib/db/proxies.ts, anti-barrel, #6798).
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 
 const PROXY_LATENCY_WINDOW_HOURS = parseInt(process.env.PROXY_LATENCY_WINDOW_HOURS ?? "3", 10);
 
@@ -14,7 +14,7 @@ type LatencyLogRow = {
 
 // Builds a `"host:port" -> avg_latency_ms` map from proxy_logs rows recorded
 // within the trailing PROXY_LATENCY_WINDOW_HOURS window.
-async function buildLatencyMap(db: ReturnType<typeof getDbInstance>): Promise<Map<string, number>> {
+async function buildLatencyMap(db: ReturnType<typeof getAsyncDb>): Promise<Map<string, number>> {
   const sinceIso = new Date(Date.now() - PROXY_LATENCY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
   const latencyRows = (await db
@@ -39,7 +39,7 @@ async function buildLatencyMap(db: ReturnType<typeof getDbInstance>): Promise<Ma
 // with no logged latency are treated as -1 (best/first) so untested proxies
 // still get a chance to be selected and gather data.
 export async function pickByLatency<T>(
-  db: ReturnType<typeof getDbInstance>,
+  db: ReturnType<typeof getAsyncDb>,
   candidates: T[]
 ): Promise<T> {
   const latencyMap = await buildLatencyMap(db);

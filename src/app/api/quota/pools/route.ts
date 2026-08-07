@@ -29,7 +29,7 @@ export async function GET(request: Request): Promise<Response> {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.has("limit") ? Number(searchParams.get("limit")) : undefined;
     const offset = searchParams.has("offset") ? Number(searchParams.get("offset")) : 0;
-    const result = listPools(limit !== undefined ? { limit, offset } : undefined);
+    const result = await listPools(limit !== undefined ? { limit, offset } : undefined);
     return NextResponse.json({ pools: result.items, total: result.total });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to list pools";
@@ -48,7 +48,7 @@ export async function POST(request: Request): Promise<Response> {
       return NextResponse.json(buildErrorBody(400, parsed.error.message), { status: 400 });
     }
 
-    const pool = createPool(parsed.data);
+    const pool = await createPool(parsed.data);
     const ctx = getAuditRequestContext(request);
     logAuditEvent({
       action: "quota.pool.created",

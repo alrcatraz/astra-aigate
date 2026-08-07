@@ -1,5 +1,5 @@
 import type { RawSyncDb, SqliteAdapter } from "@/lib/db/adapters/types";
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 
 // #2650: extracted from compliance/index.ts to break the
 // callLogs.ts → compliance/index.ts → callLogs.ts cycle that deadlocks
@@ -7,7 +7,7 @@ import { getDbInstance } from "../db/core";
 
 function getDb(): SqliteAdapter | null {
   try {
-    return getDbInstance();
+    return getAsyncDb();
   } catch {
     return null;
   }
@@ -54,7 +54,7 @@ function ensureNoLogColumn(db: SqliteAdapter): boolean {
   return hasNoLogColumn;
 }
 
-function readNoLogFromDb(apiKeyId: string): boolean {
+async function readNoLogFromDb(apiKeyId: string): Promise<boolean> {
   const db = getDb();
   if (!db || !apiKeyId) return false;
   if (!ensureNoLogColumn(db)) return false;
@@ -65,7 +65,7 @@ function readNoLogFromDb(apiKeyId: string): boolean {
   }
 
   try {
-    const row = db.prepare("SELECT no_log FROM api_keys WHERE id = ?").get(apiKeyId) as
+    const row = (await db.prepare("SELECT no_log FROM api_keys WHERE id = ?").get(apiKeyId)) as
       { no_log?: number } | undefined;
     const value = Boolean(row && Number(row.no_log) === 1);
     noLogDbCache.set(apiKeyId, { value, timestamp: Date.now() });
@@ -75,11 +75,11 @@ function readNoLogFromDb(apiKeyId: string): boolean {
   }
 }
 
-export function isNoLog(apiKeyId: string): boolean {
+export async function isNoLog(apiKeyId: string): Promise<boolean> {
   if (!apiKeyId) return false;
   if (noLogKeys.has(apiKeyId)) return true;
 
-  const persistedNoLog = readNoLogFromDb(apiKeyId);
+  const persistedNoLog = await readNoLogFromDb(apiKeyId);
   if (persistedNoLog) {
     noLogKeys.add(apiKeyId);
   }

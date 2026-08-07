@@ -8,7 +8,7 @@
  * @module lib/db/playgroundPresets
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { randomUUID } from "node:crypto";
 
 // TODO(F1-merge): swap to import from "@/shared/schemas/playground" after F1 lands
@@ -64,7 +64,7 @@ export async function listPlaygroundPresets(options?: {
   items: PlaygroundPresetListItem[];
   total: number;
 }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
   let sql = "SELECT * FROM playground_presets ORDER BY created_at DESC";
@@ -84,7 +84,7 @@ export async function listPlaygroundPresets(options?: {
  * Returns a single preset by id, or null when not found.
  */
 export async function getPlaygroundPreset(id: string): Promise<PlaygroundPresetListItem | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT * FROM playground_presets WHERE id = ? LIMIT 1")
     .get(id)) as PlaygroundPresetRow | undefined;
@@ -103,7 +103,7 @@ export async function createPlaygroundPreset(input: {
   system: string | null | undefined;
   params: Record<string, unknown>;
 }): Promise<PlaygroundPresetListItem> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = randomUUID();
   const params_json = JSON.stringify(input.params ?? {});
   const system = input.system ?? null;
@@ -133,7 +133,7 @@ export async function updatePlaygroundPreset(
     params: Record<string, unknown>;
   }>
 ): Promise<PlaygroundPresetListItem | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   // Verify row exists before building the dynamic UPDATE
   const existing = await getPlaygroundPreset(id);
@@ -181,7 +181,7 @@ export async function updatePlaygroundPreset(
  * Returns true when a row was deleted, false when the id did not exist.
  */
 export async function deletePlaygroundPreset(id: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("DELETE FROM playground_presets WHERE id = ?").run(id);
   return result.changes > 0;
 }

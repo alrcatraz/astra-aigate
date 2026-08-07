@@ -9,7 +9,7 @@
  * @module lib/compliance
  */
 
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import type { SqliteAdapter } from "@/lib/db/adapters/types";
 import { getClientIpFromRequest } from "../ipUtils";
 import {
@@ -27,7 +27,7 @@ import { HIGH_LEVEL_ACTIONS } from "@/lib/audit/highLevelActions";
 /** @returns {SqliteAdapter | null} */
 function getDb() {
   try {
-    return getDbInstance();
+    return getAsyncDb();
   } catch {
     return null;
   }
@@ -232,6 +232,20 @@ type AuditLogQuery = {
   params: string[];
 };
 
+/**
+ * Normalise a filter timestamp to the same `YYYY-MM-DD HH:MM:SS` (UTC) form that
+ * SQLite's `datetime(?)` produces, so the stored `audit_log.timestamp` (also in
+ * that format) compares correctly on both SQLite and PostgreSQL via plain text
+ * comparison. Replaces the SQLite-only `datetime(timestamp) >= datetime(?)`
+ * predicate, which mis-translates to `to_timestamp(...)` in PG mode.
+ */
+function toNormalizedTimestamp(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  const date = parsed.toISOString();
+  return `${date.slice(0, 10)} ${date.slice(11, 13)}:${date.slice(14, 16)}:${date.slice(17, 19)}`;
+}
+
 function buildAuditLogQuery(filter: AuditLogFilter = {}): AuditLogQuery {
   const conditions: string[] = [];
   const params: string[] = [];
@@ -250,12 +264,12 @@ function buildAuditLogQuery(filter: AuditLogFilter = {}): AuditLogQuery {
   addLikeFilter("request_id", filter.requestId);
 
   if (filter.from) {
-    conditions.push("datetime(timestamp) >= datetime(?)");
-    params.push(filter.from);
+    conditions.push("timestamp >= ?");
+    params.push(toNormalizedTimestamp(filter.from));
   }
   if (filter.to) {
-    conditions.push("datetime(timestamp) <= datetime(?)");
-    params.push(filter.to);
+    conditions.push("timestamp <= ?");
+    params.push(toNormalizedTimestamp(filter.to));
   }
 
   // B7: level=high filter — restrict to HIGH_LEVEL_ACTIONS via parameterized IN clause
@@ -311,7 +325,7 @@ export function getAuditRequestContext(request?: {
  * Initialize the audit_log table.
  */
 export async function initAuditLog() {
-  const db = getDb();
+  const db = await getDb();
   if (!db) return;
 
   await ensureAuditLogSchema(db);
@@ -339,7 +353,7 @@ export async function logAuditEvent(entry: {
   requestId?: string;
   createdAt?: string;
 }) {
-  const db = getDb();
+  const db = await getDb();
   if (!db) return;
 
   try {
@@ -352,7 +366,7 @@ export async function logAuditEvent(entry: {
         : entry.details && typeof entry.details === "object"
           ? entry.details
           : null;
-    const stmt = db.prepare(
+    const stmt = await db.prepare(
       `INSERT INTO audit_log (
         timestamp,
         action,
@@ -395,7 +409,7 @@ export async function logAuditEvent(entry: {
  * @returns {Array<{ id: number, timestamp: string, action: string, actor: string, target: string, details: any, ip_address: string }>}
  */
 export async function getAuditLog(filter: AuditLogFilter = {}): Promise<AuditLogEntry[]> {
-  const db = getDb();
+  const db = await getDb();
   if (!db) return [];
 
   await ensureAuditLogSchema(db);
@@ -414,7 +428,7 @@ export async function getAuditLog(filter: AuditLogFilter = {}): Promise<AuditLog
 }
 
 export async function countAuditLog(filter: AuditLogFilter = {}) {
-  const db = getDb();
+  const db = await getDb();
   if (!db) return 0;
 
   await ensureAuditLogSchema(db);
@@ -463,11 +477,11 @@ export function getRetentionDays() {
  * }}
  */
 export async function cleanupExpiredLogs() {
-  const db = getDb();
-  const appRetentionDays = getAppLogRetentionDays();
-  const callRetentionDays = getCallLogRetentionDays();
-  const callLogsMaxRows = getCallLogsTableMaxRows();
-  const proxyLogsMaxRows = getProxyLogsTableMaxRows();
+  const db = await getDb();
+  const appRetentionDays = await getAppLogRetentionDays();
+  const callRetentionDays = await getCallLogRetentionDays();
+  const callLogsMaxRows = await getCallLogsTableMaxRows();
+  const proxyLogsMaxRows = await getProxyLogsTableMaxRows();
 
   if (!db) {
     return {
@@ -492,8 +506,8 @@ export async function cleanupExpiredLogs() {
   // usage_history before the dashboard-based runAutoCleanup() could run. We now honor the
   // dashboard retention per table when the operator did not set the env var, while still
   // letting an explicit env var win (and falling back to env for non-DB deployments).
-  const callOverride = getCallLogRetentionDaysOverride();
-  const appOverride = getAppLogRetentionDaysOverride();
+  const callOverride = await getCallLogRetentionDaysOverride();
+  const appOverride = await getAppLogRetentionDaysOverride();
   let dbRetention: { usageHistory: number; callLogs: number; mcpAudit: number } | null = null;
   try {
     const r = (await getUserDatabaseSettings()).retention;

@@ -12,7 +12,8 @@
  * Part of: Group B — Quota Sharing Engine (plan 22, frente F2).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -29,7 +30,7 @@ interface DbLike {
 }
 
 function getDb(): DbLike {
-  return getDbInstance() as unknown as DbLike;
+  return getAsyncDb() as unknown as DbLike;
 }
 
 interface BucketRow {
@@ -67,17 +68,17 @@ export interface ConsumptionEvent {
 /**
  * Read the consumed value for a single bucket. Returns 0 if no row exists.
  */
-export function getBucket(
+export async function getBucket(
   apiKeyId: string,
   dimensionKey: string,
   bucketIndex: number
-): number {
-  const row = getDb()
+): Promise<number> {
+  const row = (await getDb()
     .prepare<BucketRow>(
       `SELECT consumed FROM quota_consumption
-       WHERE api_key_id = ? AND dimension_key = ? AND bucket_index = ?`
+      WHERE api_key_id = ? AND dimension_key = ? AND bucket_index = ?`
     )
-    .get(apiKeyId, dimensionKey, bucketIndex);
+    .get(apiKeyId, dimensionKey, bucketIndex)) as BucketRow | undefined;
   return row?.consumed ?? 0;
 }
 
@@ -92,14 +93,14 @@ export function getBucket(
  * @param delta         Amount to add (positive number).
  * @param nowMs         Current epoch milliseconds (used for updated_at).
  */
-export function incrementBucket(
+export async function incrementBucket(
   apiKeyId: string,
   dimensionKey: string,
   bucketIndex: number,
   delta: number,
   nowMs: number
-): void {
-  getDb()
+): Promise<void> {
+  await getDb()
     .prepare(
       `INSERT INTO quota_consumption (api_key_id, dimension_key, bucket_index, consumed, updated_at)
        VALUES (?, ?, ?, ?, ?)
@@ -120,26 +121,26 @@ export function incrementBucket(
  * @param currentBucket The current bucket index (floor(nowMs / windowMs)).
  * @returns             { curr, prev } — both default to 0 when row is absent.
  */
-export function getPair(
+export async function getPair(
   apiKeyId: string,
   dimensionKey: string,
   currentBucket: number
-): { curr: number; prev: number } {
+): Promise<{ curr: number; prev: number }> {
   const prevBucket = currentBucket - 1;
 
-  const currRow = getDb()
+  const currRow = (await getDb()
     .prepare<BucketRow>(
       `SELECT consumed FROM quota_consumption
-       WHERE api_key_id = ? AND dimension_key = ? AND bucket_index = ?`
+      WHERE api_key_id = ? AND dimension_key = ? AND bucket_index = ?`
     )
-    .get(apiKeyId, dimensionKey, currentBucket);
+    .get(apiKeyId, dimensionKey, currentBucket)) as BucketRow | undefined;
 
-  const prevRow = getDb()
+  const prevRow = (await getDb()
     .prepare<BucketRow>(
       `SELECT consumed FROM quota_consumption
-       WHERE api_key_id = ? AND dimension_key = ? AND bucket_index = ?`
+      WHERE api_key_id = ? AND dimension_key = ? AND bucket_index = ?`
     )
-    .get(apiKeyId, dimensionKey, prevBucket);
+    .get(apiKeyId, dimensionKey, prevBucket)) as BucketRow | undefined;
 
   return {
     curr: currRow?.consumed ?? 0,
@@ -168,12 +169,15 @@ interface ConsumptionRow {
  * @param limit   Maximum rows to return (caller should clamp; default 50).
  * @returns       Array of ConsumptionEvent (may be empty if no data yet).
  */
-export function listConsumptionForPool(poolId: string, limit: number): ConsumptionEvent[] {
+export async function listConsumptionForPool(
+  poolId: string,
+  limit: number
+): Promise<ConsumptionEvent[]> {
   const safeLimit = Math.max(1, Math.min(limit, 500));
   // dimension_key format: "<poolId>:<unit>:<window>"
   // The LIKE pattern uses "%" — escape literal "%" or "_" in poolId defensively.
   const prefix = poolId.replace(/[%_\\]/g, "\\$&") + ":%";
-  const rows = getDb()
+  const rows = (await getDb()
     .prepare<ConsumptionRow>(
       `SELECT api_key_id, dimension_key, bucket_index, consumed, updated_at
        FROM quota_consumption
@@ -181,7 +185,7 @@ export function listConsumptionForPool(poolId: string, limit: number): Consumpti
        ORDER BY updated_at DESC
        LIMIT ?`
     )
-    .all(prefix, safeLimit);
+    .all(prefix, safeLimit)) as ConsumptionRow[];
 
   return rows.map((r) => {
     const parts = r.dimension_key.split(":");
@@ -220,31 +224,31 @@ interface BucketPairRow {
  * @param dimensionKey   "<poolId>:<unit>:<window>" string — same format as consume/peek.
  * @param currentBucket  floor(nowMs / windowMs) — caller must pass the same value.
  */
-export function sumPoolDimension(
+export async function sumPoolDimension(
   dimensionKey: string,
   currentBucket: number
-): { currTotal: number; prevTotal: number } {
+): Promise<{ currTotal: number; prevTotal: number }> {
   const prevBucket = currentBucket - 1;
 
   interface SumRow {
     total: number;
   }
 
-  const currRow = getDb()
+  const currRow = (await getDb()
     .prepare<SumRow>(
       `SELECT COALESCE(SUM(consumed), 0) AS total
        FROM quota_consumption
        WHERE dimension_key = ? AND bucket_index = ?`
     )
-    .get(dimensionKey, currentBucket);
+    .get(dimensionKey, currentBucket)) as SumRow | undefined;
 
-  const prevRow = getDb()
+  const prevRow = (await getDb()
     .prepare<SumRow>(
       `SELECT COALESCE(SUM(consumed), 0) AS total
        FROM quota_consumption
        WHERE dimension_key = ? AND bucket_index = ?`
     )
-    .get(dimensionKey, prevBucket);
+    .get(dimensionKey, prevBucket)) as SumRow | undefined;
 
   return {
     currTotal: currRow?.total ?? 0,
@@ -266,8 +270,8 @@ export function sumPoolDimension(
  * @param maxUpdatedAtMs Epoch ms threshold (exclusive lower bound for kept rows).
  * @returns              Number of rows deleted.
  */
-export function gcOlderThan(maxUpdatedAtMs: number): number {
-  const result = getDb()
+export async function gcOlderThan(maxUpdatedAtMs: number): Promise<number> {
+  const result = await getDb()
     .prepare("DELETE FROM quota_consumption WHERE updated_at < ?")
     .run(maxUpdatedAtMs);
   return result.changes;

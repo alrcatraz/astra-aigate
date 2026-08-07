@@ -13,6 +13,21 @@ const shouldPersistToDisk = !isCloud && !isBuildPhase;
 
 const MAX_IN_MEMORY_ENTRIES = 200;
 
+/**
+ * Synchronous view of the SQLite handle used by this (not-yet-migrated) module.
+ * `getDbInstance()` is typed as the async `DatabaseAdapter`, so cast to a
+ * minimal sync interface — proxy logging runs on the request hot path (sync)
+ * and must not await.
+ */
+interface ProxyLoggerSyncStmt {
+  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
+  get(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+}
+interface ProxyLoggerSyncDb {
+  prepare(sql: string): ProxyLoggerSyncStmt;
+}
+
 interface ProxyInfo {
   type: string;
   host: string;
@@ -63,7 +78,7 @@ const proxyLogs: ProxyLogEntry[] = [];
 function loadFromDb() {
   if (!shouldPersistToDisk) return;
   try {
-    const db = getDbInstance();
+    const db = getDbInstance() as unknown as ProxyLoggerSyncDb;
     const rows = db
       .prepare("SELECT * FROM proxy_logs ORDER BY timestamp DESC LIMIT ?")
       .all(MAX_IN_MEMORY_ENTRIES) as any[];
@@ -142,7 +157,7 @@ export function logProxyEvent(entry: ProxyLogInput) {
   // 2. Persist to SQLite
   if (shouldPersistToDisk) {
     try {
-      const db = getDbInstance();
+      const db = getDbInstance() as unknown as ProxyLoggerSyncDb;
       db.prepare(
         `INSERT INTO proxy_logs (id, timestamp, status, proxy_type, proxy_host, proxy_port,
           level, level_id, provider, target_url, public_ip, latency_ms, error,
@@ -231,7 +246,7 @@ export function clearProxyLogs() {
 
   if (shouldPersistToDisk) {
     try {
-      const db = getDbInstance();
+      const db = getDbInstance() as unknown as ProxyLoggerSyncDb;
       db.prepare("DELETE FROM proxy_logs").run();
     } catch (err: any) {
       console.warn("[proxyLogger] Failed to clear DB:", err.message);
