@@ -643,7 +643,7 @@ export function providerCircuitOpenResponse(
       headers: {
         "Content-Type": "application/json",
         "Retry-After": String(retryAfterSec),
-        "X-AI Gate-Provider-Breaker": "open",
+        "X-AI-Gate-Provider-Breaker": "open",
       },
     }
   );

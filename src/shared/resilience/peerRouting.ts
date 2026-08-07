@@ -2,7 +2,7 @@ const DEFAULT_MAX_PEER_HOPS = 4;
 const MAX_TRACE_HEADER_LENGTH = 2048;
 const INSTANCE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
 
-export const OMNIROUTE_PEER_TRACE_HEADER = "X-AI Gate-Peer-Trace";
+export const OMNIROUTE_PEER_TRACE_HEADER = "X-AI-Gate-Peer-Trace";
 
 type HeaderSource = Headers | Record<string, unknown> | null | undefined;
 type PeerEnvironment = {

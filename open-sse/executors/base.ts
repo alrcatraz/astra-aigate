@@ -968,12 +968,12 @@ export class BaseExecutor {
           // A header value applies only when the corresponding body field is
           // not already set; "off" force-strips the field.
           const headerEffort = (
-            clientHeaders?.["x-omniroute-effort"] ?? clientHeaders?.["X-AI Gate-Effort"]
+            clientHeaders?.["x-omniroute-effort"] ?? clientHeaders?.["X-AI-Gate-Effort"]
           )
             ?.trim()
             .toLowerCase();
           const headerThinking = (
-            clientHeaders?.["x-omniroute-thinking"] ?? clientHeaders?.["X-AI Gate-Thinking"]
+            clientHeaders?.["x-omniroute-thinking"] ?? clientHeaders?.["X-AI-Gate-Thinking"]
           )
             ?.trim()
             .toLowerCase();

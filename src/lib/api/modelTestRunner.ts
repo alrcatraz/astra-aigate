@@ -135,12 +135,12 @@ export function buildInternalChatRequest(
       "Content-Type": "application/json",
       // Reuse the existing strict-mode internal bypass for live health checks.
       "X-Internal-Test": "combo-health-check",
-      "X-AI Gate-No-Cache": "true",
+      "X-AI-Gate-No-Cache": "true",
       // #6240: a connection test must be clean — never let the operator's globally-enabled
       // Output Styles (e.g. "Ultra terse") leak a system prompt into a test-model call.
-      "X-AI Gate-Compression": "off",
+      "X-AI-Gate-Compression": "off",
       "X-Request-Id": `model-test-${randomUUID()}`,
-      ...(connectionId ? { "X-AI Gate-Connection": connectionId } : {}),
+      ...(connectionId ? { "X-AI-Gate-Connection": connectionId } : {}),
     },
     body: JSON.stringify(testBody),
     signal,
@@ -157,10 +157,10 @@ export function buildInternalRerankRequest(
     headers: {
       "Content-Type": "application/json",
       "X-Internal-Test": "combo-health-check",
-      "X-AI Gate-No-Cache": "true",
-      "X-AI Gate-Compression": "off",
+      "X-AI-Gate-No-Cache": "true",
+      "X-AI-Gate-Compression": "off",
       "X-Request-Id": `model-test-${randomUUID()}`,
-      ...(connectionId ? { "X-AI Gate-Connection": connectionId } : {}),
+      ...(connectionId ? { "X-AI-Gate-Connection": connectionId } : {}),
     },
     body: JSON.stringify(testBody),
     signal,

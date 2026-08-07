@@ -57,7 +57,7 @@ export type PersistAttemptLogsContext = {
   noLogEnabled: unknown;
   correlationId?: string | null;
   modelPinned?: boolean;
-  /** #8249: caller-supplied X-AI Gate-Session-Id header, only set when the header was
+  /** #8249: caller-supplied X-AI-Gate-Session-Id header, only set when the header was
    * explicitly present (never synthesized from skillRequestId) — persisted as call_logs.session_tag
    * for per-session cost attribution. */
   sessionTag?: string | null;

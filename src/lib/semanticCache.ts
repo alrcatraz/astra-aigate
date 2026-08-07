@@ -7,7 +7,7 @@
  * Two-tier: in-memory LRU (fast) + SQLite (persistent across restarts).
  *
  * Cache key = SHA-256(model + normalized messages + temperature + top_p)
- * Bypass: X-AI Gate-No-Cache: true
+ * Bypass: X-AI-Gate-No-Cache: true
  *
  * @module lib/semanticCache
  */
