@@ -1,4 +1,5 @@
 import { normalizeComboStep } from "@/lib/combos/steps";
+import { tableExists } from "./core";
 
 import type { SqliteAdapter } from "./adapters/types";
 type SqliteDatabase = SqliteAdapter;
@@ -85,10 +86,9 @@ function isFiniteNumber(value: unknown): boolean {
 }
 
 async function hasRows(db: SqliteDatabase, table: string): Promise<boolean> {
-  const row = (await db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .get(table)) as { name?: string } | undefined;
-  return row?.name === table;
+  // PG-aware existence check (shared helper delegates to information_schema in
+  // PG mode; bare sqlite_master does not exist there).
+  return tableExists(table, db);
 }
 
 async function hasProviderConnection(db: SqliteDatabase, connectionId: string): Promise<boolean> {

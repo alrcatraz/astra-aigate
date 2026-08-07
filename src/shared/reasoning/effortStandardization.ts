@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Standardization layer for the canonical `effort` + `thinking` request params (#6241).
  *
- * OmniRoute already has a mature, per-provider reasoning-mapping pipeline: the translators
+ * AI Gate already has a mature, per-provider reasoning-mapping pipeline: the translators
  * consume `reasoning_effort` / `reasoning.effort` / `thinking` and fan them out to the
  * Anthropic thinking blocks, Gemini `thinkingConfig`, xAI `reasoning.effort`, and the
  * Responses API. This module is a THIN normalization layer on top of that plumbing — it

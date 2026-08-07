@@ -3,7 +3,7 @@
  *
  * Extracted from services/usage.ts (god-file decomposition): the Xiaomi MiMo family —
  * Xiaomi exposes plan usage only behind the console session cookie (the API key
- * cannot reach the `tokenPlan/usage` endpoint), so OmniRoute self-tracks the
+ * cannot reach the `tokenPlan/usage` endpoint), so AI Gate self-tracks the
  * tokens it routed to the connection in the current UTC month (from usage_history)
  * and compares them to the known Token Plan monthly limit. Depends only on the
  * sibling scalar/quota leaves + the usageStats dynamic import — no host coupling
@@ -22,10 +22,10 @@ const XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT = 4_100_000_000;
  *
  * Xiaomi exposes plan usage only behind the console session cookie (the API key
  * cannot reach the `tokenPlan/usage` endpoint), so there is no upstream usage
- * API to call. Instead we count the tokens OmniRoute itself routed to this
+ * API to call. Instead we count the tokens AI Gate itself routed to this
  * connection in the current UTC month (from `usage_history`) and compare them
  * to the known Token Plan monthly limit. This reflects only traffic that went
- * through OmniRoute, not the provider's own dashboard figure.
+ * through AI Gate, not the provider's own dashboard figure.
  */
 export async function getXiaomiMimoUsage(connectionId: string) {
   if (!connectionId) {
@@ -40,7 +40,7 @@ export async function getXiaomiMimoUsage(connectionId: string) {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
     ).toISOString();
     return {
-      plan: "Xiaomi MiMo Token Plan (OmniRoute-tracked)",
+      plan: "Xiaomi MiMo Token Plan (AI Gate-tracked)",
       quotas: {
         monthly: createQuotaFromUsage(used, total, resetAt),
       },

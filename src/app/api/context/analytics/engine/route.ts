@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     const daysParam = url.searchParams.get("days");
     const days = daysParam ? Math.max(1, Math.floor(Number(daysParam))) || 7 : 7;
 
-    const result = getPerEngineAnalytics(engineId, days);
+    const result = await getPerEngineAnalytics(engineId, days);
 
     return NextResponse.json(result);
   } catch (err: unknown) {

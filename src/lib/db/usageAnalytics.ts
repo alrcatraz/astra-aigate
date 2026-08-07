@@ -9,7 +9,7 @@
  * Sliced out of #3500 (usage_history / daily_usage_summary cluster).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import type { AnalyticsParams } from "./usageAnalytics/sources";
 
 export { buildUnifiedSource, buildPresetUnifiedSource } from "./usageAnalytics/sources";
@@ -47,7 +47,7 @@ export async function getUsageSummary(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<UsageSummaryRow> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       `
@@ -101,18 +101,18 @@ export async function getDailyUsage(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<DailyUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
       SELECT
-        DATE(timestamp) as date,
+        substr(timestamp, 1, 10) as date,
         COALESCE(SUM(requests), 0) as requests,
         COALESCE(SUM(tokens_input), 0) as promptTokens,
         COALESCE(SUM(tokens_output), 0) as completionTokens,
         COALESCE(SUM(tokens_input + tokens_output), 0) as totalTokens
       FROM ${unifiedSource} AS _u
-      GROUP BY DATE(timestamp)
+      GROUP BY substr(timestamp, 1, 10)
       ORDER BY date ASC
     `
     )
@@ -140,12 +140,12 @@ export async function getDailyCostRows(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<DailyCostRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
       SELECT
-        DATE(timestamp) as date,
+        substr(timestamp, 1, 10) as date,
         LOWER(provider) as provider,
         LOWER(model) as model,
         COALESCE(NULLIF(service_tier, ''), 'standard') as serviceTier,
@@ -155,7 +155,7 @@ export async function getDailyCostRows(
         COALESCE(SUM(tokens_cache_creation), 0) as cacheCreationTokens,
         COALESCE(SUM(tokens_reasoning), 0) as reasoningTokens
       FROM ${unifiedSource} AS _u
-      GROUP BY DATE(timestamp), LOWER(provider), LOWER(model), serviceTier
+      GROUP BY substr(timestamp, 1, 10), LOWER(provider), LOWER(model), serviceTier
       ORDER BY date ASC
     `
     )
@@ -181,16 +181,16 @@ export async function getHeatmapRows(
   heatmapConditions: string[],
   params: AnalyticsParams
 ): Promise<HeatmapRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
       SELECT
-        DATE(timestamp) as date,
+        substr(timestamp, 1, 10) as date,
         COALESCE(SUM(tokens_input + tokens_output), 0) as totalTokens
       FROM usage_history
       WHERE ${heatmapConditions.join(" AND ")}
-      GROUP BY DATE(timestamp)
+      GROUP BY substr(timestamp, 1, 10)
       ORDER BY date ASC
     `
     )
@@ -222,7 +222,7 @@ export async function getModelUsageRows(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<ModelUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -268,7 +268,7 @@ export async function getProviderCostRows(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<ProviderCostRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -307,7 +307,7 @@ export async function getProviderUsageRows(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<ProviderUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -352,7 +352,7 @@ export async function getAccountCostRows(
   whereClause: string,
   params: AnalyticsParams
 ): Promise<AccountCostRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -414,7 +414,7 @@ export async function getAccountUsageRows(
   whereClause: string,
   params: AnalyticsParams
 ): Promise<AccountUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -480,7 +480,13 @@ export async function getAccountUsageRows(
       FROM account_events
       LEFT JOIN selected_labels
         ON selected_labels.account_key = account_events.resolved_account_key
-      GROUP BY accountKey
+      GROUP BY
+        accountKey,
+        COALESCE(
+          NULLIF(TRIM(selected_labels.account_label), ''),
+          NULLIF(TRIM(account_events.connection_id), ''),
+          'unknown'
+        )
       ORDER BY requests DESC
       LIMIT 50
     `
@@ -515,7 +521,7 @@ export async function getApiKeyUsageRows(
   apiKeyWhereClause: string,
   params: AnalyticsParams
 ): Promise<ApiKeyUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -562,7 +568,7 @@ export async function getServiceTierUsageRows(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<ServiceTierUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -604,7 +610,7 @@ export async function getApiKeyMetadataRows(
   apiKeyWhereClause: string,
   params: AnalyticsParams
 ): Promise<ApiKeyMetadataRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -638,7 +644,7 @@ export async function getWeeklyPatternRows(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<WeeklyPatternRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -649,12 +655,12 @@ export async function getWeeklyPatternRows(
         COALESCE(SUM(totalTokens), 0) as totalTokens
       FROM (
         SELECT
-          DATE(timestamp) as date,
+          substr(timestamp, 1, 10) as date,
           strftime('%w', timestamp) as dayOfWeek,
           COALESCE(SUM(requests), 0) as requests,
           COALESCE(SUM(tokens_input + tokens_output), 0) as totalTokens
         FROM ${unifiedSource} AS _u
-        GROUP BY DATE(timestamp), strftime('%w', timestamp)
+        GROUP BY substr(timestamp, 1, 10), strftime('%w', timestamp)
       )
       GROUP BY dayOfWeek
       ORDER BY dayOfWeek ASC
@@ -684,7 +690,7 @@ export async function getPresetCostModelRows(
   presetUnifiedSource: string,
   params: AnalyticsParams
 ): Promise<PresetCostModelRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -736,12 +742,12 @@ export interface EndpointUsageParams {
  * NULL endpoints fold into the 'unknown' bucket so legacy rows stay visible.
  *
  * Inspired by decolua/9router#152 (byEndpoint aggregation), reshaped for the
- * OmniRoute SQLite schema + analytics conventions.
+ * AI Gate SQLite schema + analytics conventions.
  */
 export async function getEndpointUsageRows(
   params: EndpointUsageParams = {}
 ): Promise<EndpointUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const conditions: string[] = [];
   const bind: Record<string, unknown> = {};
   if (params.sinceIso) {
@@ -803,19 +809,19 @@ export async function getProviderDailyUsageRows(
   unifiedSource: string,
   params: AnalyticsParams
 ): Promise<ProviderDailyUsageRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
       SELECT
-        DATE(timestamp) as date,
+        substr(timestamp, 1, 10) as date,
         LOWER(provider) as provider,
         COUNT(*) as requests,
         COALESCE(SUM(tokens_input), 0) as promptTokens,
         COALESCE(SUM(tokens_output), 0) as completionTokens,
         COALESCE(SUM(tokens_input + tokens_output), 0) as totalTokens
       FROM ${unifiedSource} AS _u
-      GROUP BY DATE(timestamp), LOWER(provider)
+      GROUP BY substr(timestamp, 1, 10), LOWER(provider)
       ORDER BY date DESC, requests DESC
     `
     )
@@ -831,7 +837,7 @@ export async function getProviderDailyUsageRows(
  * Only called when `?includeHistory=true` is explicitly requested.
  */
 export async function getAllUsageHistory(): Promise<Record<string, unknown>[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db.prepare("SELECT * FROM usage_history").all()) as Record<string, unknown>[];
 }
 
@@ -839,7 +845,7 @@ export async function getAllUsageHistory(): Promise<Record<string, unknown>[]> {
  * Returns all rows from `domain_cost_history` for backup export.
  */
 export async function getAllDomainCostHistory(): Promise<Record<string, unknown>[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db.prepare("SELECT * FROM domain_cost_history").all()) as Record<string, unknown>[];
 }
 
@@ -847,6 +853,6 @@ export async function getAllDomainCostHistory(): Promise<Record<string, unknown>
  * Returns all rows from `domain_budgets` for backup export.
  */
 export async function getAllDomainBudgets(): Promise<Record<string, unknown>[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db.prepare("SELECT * FROM domain_budgets").all()) as Record<string, unknown>[];
 }

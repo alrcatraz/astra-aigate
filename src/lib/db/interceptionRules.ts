@@ -8,7 +8,7 @@
  * rule > undefined (caller falls back to the existing native-bypass defaults).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 const NAMESPACE = "interception_rules";
 
@@ -17,9 +17,9 @@ const NAMESPACE = "interception_rules";
 export type FetchInterceptionBackend = "firecrawl" | "jina" | "tavily";
 
 export interface ModelInterceptionRule {
-  /** true = route through OmniRoute's /v1/search; false = force native passthrough. */
+  /** true = route through AI Gate's /v1/search; false = force native passthrough. */
   interceptSearch?: boolean;
-  /** true = route through OmniRoute's /v1/web/fetch; false = force native passthrough. */
+  /** true = route through AI Gate's /v1/web/fetch; false = force native passthrough. */
   interceptFetch?: boolean;
   fetchBackend?: FetchInterceptionBackend;
   fetchProxyUrl?: string;
@@ -107,7 +107,7 @@ function toProviderInterceptionRules(raw: unknown): ProviderInterceptionRules | 
 // ── Read ────────────────────────────────────────────────────────────────────
 
 async function readNamespace(namespace: string): Promise<Record<string, unknown>> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
     .all(namespace)) as Array<{ key: string; value: string }>;
@@ -146,12 +146,15 @@ export async function getInterceptionRules(
 }
 
 /** Upsert the entire interception rule set for a provider. Invalidates the cache. */
-export function setInterceptionRules(provider: string, rules: ProviderInterceptionRules): void {
+export async function setInterceptionRules(
+  provider: string,
+  rules: ProviderInterceptionRules
+): Promise<void> {
   const normalizedProvider = toNormalizedString(provider);
   if (!normalizedProvider) return;
 
-  const db = getDbInstance();
-  const stmt = db.prepare(
+  const db = await getAsyncDb();
+  const stmt = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
   );
 
@@ -168,15 +171,14 @@ export function setInterceptionRules(provider: string, rules: ProviderIntercepti
 }
 
 /** Delete the interception rules for a provider. Resets that provider to default behavior. */
-export function deleteInterceptionRules(provider: string): void {
+export async function deleteInterceptionRules(provider: string): Promise<void> {
   const normalizedProvider = toNormalizedString(provider);
   if (!normalizedProvider) return;
 
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(
-    NAMESPACE,
-    normalizedProvider
-  );
+  const db = await getAsyncDb();
+  await db
+    .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
+    .run(NAMESPACE, normalizedProvider);
   invalidateCache();
 }
 

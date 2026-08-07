@@ -826,14 +826,14 @@ export default function ProvidersPage() {
             </h2>
             <p className="text-sm text-text-muted mt-2 max-w-md">
               {t("addFirstProviderDesc") ||
-                "Connect an AI provider to start routing requests through OmniRoute. You can use free providers, API keys, or OAuth accounts."}
+                "Connect an AI provider to start routing requests through AI Gate. You can use free providers, API keys, or OAuth accounts."}
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               <Button icon="add" onClick={() => router.push("/dashboard/providers/new")}>
                 {providerText(t, "onboardingWizard", "Provider Onboarding Wizard")}
               </Button>
               <a
-                href="https://github.com/diegosouzapw/OmniRoute#-documentation"
+                href="https://github.com/diegosouzapw/AI Gate#-documentation"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors"

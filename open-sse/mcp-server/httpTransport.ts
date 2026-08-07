@@ -1,23 +1,37 @@
 /**
- * MCP HTTP Transport Layer — session-aware handlers for SSE and Streamable HTTP.
+ * MCP HTTP Transport Layer — session-aware handlers for SSE and Streamable HTTP,
+ * keyed by gateway endpoint (/api/mcp/servers/[id]/{sse,stream}).
  *
  * Runs the MCP server **inside** the Next.js process so it can be toggled
  * from the dashboard without requiring `omniroute --mcp`.
  *
+ * Endpoint model (gateway mode):
+ *   - builtin endpoints expose a locally-registered tool domain
+ *     (aigate-omniroute=all / aigate-mcp=mcp_* / aigate-infra=none)
+ *   - stdio/http endpoints forward to a downstream MCP server through a
+ *     per-endpoint bridge (bridge.ts); downstream tools are registered on
+ *     the local server as forwarding handlers.
+ *
  * Transport modes:
- *   - SSE:             GET /api/mcp/sse (event stream)  +  POST /api/mcp/sse (messages)
- *   - Streamable HTTP: POST /api/mcp/stream (messages)  +  GET /api/mcp/stream (SSE stream)  +  DELETE /api/mcp/stream (session end)
+ *   - SSE:             GET {endpoint}/sse (event stream)  +  POST {endpoint}/sse (messages)
+ *   - Streamable HTTP: POST {endpoint}/stream (messages)  +  GET {endpoint}/stream (SSE stream)  +  DELETE {endpoint}/stream (session end)
  */
 
 import { randomUUID } from "node:crypto";
-import { createMcpServer } from "./server.ts";
+import { createMcpServer, type McpToolDomain } from "./server.ts";
 import { resolveMcpCallerAuthInfo, withMcpHttpAuthContext } from "./httpAuthContext.ts";
+import { scopeMatches } from "./scopeEnforcement.ts";
+import {
+  closeBridge,
+  getBridgeStatus,
+  getOrCreateBridge,
+  registerDownstreamTools,
+  type McpBridgeStatus,
+  type McpEndpointBridge,
+} from "./bridge.ts";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-
-let _sseServer: McpServer | null = null;
-let _sseTransport: WebStandardStreamableHTTPServerTransport | null = null;
-let _sseStartedAt: number | null = null;
+import { getMcpServer, type McpServer as McpServerRow } from "@/lib/db/mcpServers";
 
 type StreamableSession = {
   sessionId: string;
@@ -27,17 +41,34 @@ type StreamableSession = {
   lastActivityAt: number;
 };
 
-const _streamableSessions = new Map<string, StreamableSession>();
+type EndpointRuntime = {
+  id: string;
+  row: McpServerRow;
+  domain: McpToolDomain;
+  sse: {
+    server: McpServer;
+    transport: WebStandardStreamableHTTPServerTransport;
+    startedAt: number;
+  } | null;
+  streamableSessions: Map<string, StreamableSession>;
+  bridge: McpEndpointBridge | null;
+  ready: boolean;
+  error: string | null;
+};
+
+const _endpoints = new Map<string, EndpointRuntime>();
 
 const MCP_SESSION_IDLE_MS = 5 * 60 * 1000;
 
 const _mcpSessionSweep = setInterval(() => {
   const now = Date.now();
-  for (const [sessionId, session] of _streamableSessions) {
-    if (now - session.lastActivityAt > MCP_SESSION_IDLE_MS) {
-      try {
-        closeStreamableSession(sessionId);
-      } catch {}
+  for (const endpoint of _endpoints.values()) {
+    for (const [sessionId, session] of endpoint.streamableSessions) {
+      if (now - session.lastActivityAt > MCP_SESSION_IDLE_MS) {
+        try {
+          closeStreamableSession(endpoint.id, sessionId);
+        } catch {}
+      }
     }
   }
 }, 60_000);
@@ -45,66 +76,129 @@ if (typeof _mcpSessionSweep === "object" && "unref" in _mcpSessionSweep) {
   (_mcpSessionSweep as { unref?: () => void }).unref?.();
 }
 
-function closeSseTransport(): void {
-  if (_sseTransport) {
-    try {
-      _sseTransport.close();
-    } catch {
-      // ignore shutdown errors
-    }
-  }
-  _sseServer = null;
-  _sseTransport = null;
-  _sseStartedAt = null;
+/**
+ * Tool domain for the built-in gateway entries. Anything not listed here
+ * defaults to "all" (incl. user-created builtin entries).
+ */
+const BUILTIN_DOMAINS: Record<string, McpToolDomain> = {
+  "aigate-omniroute": "all",
+  "aigate-mcp": "mcp",
+  "aigate-infra": "none",
+};
+
+function domainFor(row: McpServerRow): McpToolDomain {
+  if (row.kind === "builtin") return BUILTIN_DOMAINS[row.id] ?? "all";
+  return "all";
 }
 
-function closeStreamableSession(sessionId: string): void {
-  const session = _streamableSessions.get(sessionId);
-  if (!session) {
-    return;
+async function ensureEndpointRuntime(id: string): Promise<EndpointRuntime> {
+  const existing = _endpoints.get(id);
+  if (existing?.ready) return existing;
+
+  const row = await getMcpServer(id);
+  if (!row) {
+    throw new Error(`MCP server not found: ${id}`);
   }
 
+  const runtime: EndpointRuntime = {
+    id,
+    row,
+    domain: domainFor(row),
+    sse: null,
+    streamableSessions: new Map(),
+    bridge: null,
+    ready: false,
+    error: null,
+  };
+  _endpoints.set(id, runtime);
+
+  // stdio/http endpoints need their downstream bridge up before any local
+  // server is exposed, so tools/list answers are complete on first contact.
+  if (row.kind !== "builtin") {
+    try {
+      runtime.bridge = await getOrCreateBridge(row);
+    } catch (error) {
+      runtime.error =
+        error instanceof Error ? error.message : "Failed to connect downstream MCP server";
+      runtime.ready = true; // ready-but-error: sessions return a clear 503.
+      return runtime;
+    }
+  }
+
+  runtime.ready = true;
+  return runtime;
+}
+
+function closeSseTransport(endpointId: string): void {
+  const endpoint = _endpoints.get(endpointId);
+  if (!endpoint?.sse) return;
+  try {
+    endpoint.sse.transport.close();
+  } catch {
+    // ignore shutdown errors
+  }
+  endpoint.sse = null;
+}
+
+function closeStreamableSession(endpointId: string, sessionId: string): void {
+  const session = _endpoints.get(endpointId)?.streamableSessions.get(sessionId);
+  if (!session) return;
   try {
     session.transport.close();
   } catch {
     // ignore shutdown errors
   }
-  _streamableSessions.delete(sessionId);
+  _endpoints.get(endpointId)?.streamableSessions.delete(sessionId);
 }
 
 function closeAllStreamableSessions(): void {
-  for (const sessionId of _streamableSessions.keys()) {
-    closeStreamableSession(sessionId);
+  for (const endpoint of _endpoints.values()) {
+    for (const sessionId of endpoint.streamableSessions.keys()) {
+      closeStreamableSession(endpoint.id, sessionId);
+    }
   }
 }
 
-function ensureSseServer(): {
+/** Create the local server for an endpoint with its tool set populated. */
+function createEndpointServer(runtime: EndpointRuntime): McpServer {
+  const server = createMcpServer(runtime.domain);
+  if (runtime.row.kind !== "builtin" && runtime.bridge?.status === "ready") {
+    // Downstream tools were fetched during ensureEndpointRuntime; register them
+    // as forwarding handlers so tools/list is complete before first contact.
+    registerDownstreamTools(server, runtime.bridge);
+  }
+  return server;
+}
+
+function ensureSseServer(runtime: EndpointRuntime): {
   server: McpServer;
   transport: WebStandardStreamableHTTPServerTransport;
 } {
-  if (_sseServer && _sseTransport) {
-    return { server: _sseServer, transport: _sseTransport };
+  if (runtime.sse) {
+    return runtime.sse;
   }
 
   closeAllStreamableSessions();
 
-  _sseServer = createMcpServer();
-  _sseTransport = new WebStandardStreamableHTTPServerTransport({
+  const server = createEndpointServer(runtime);
+  const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
-  _sseStartedAt = Date.now();
+  runtime.sse = { server, transport, startedAt: Date.now() };
 
-  void _sseServer.connect(_sseTransport);
+  void server.connect(transport);
 
-  console.log("[MCP] HTTP transport started (sse)");
-  return { server: _sseServer, transport: _sseTransport };
+  console.log(`[MCP] HTTP transport started (sse:${runtime.id})`);
+  return runtime.sse;
 }
 
-function createStreamableSession(): StreamableSession {
-  closeSseTransport();
+function createStreamableSession(runtime: EndpointRuntime): StreamableSession {
+  if (runtime.sse) {
+    closeSseTransport(runtime.id);
+  }
 
   const sessionId = randomUUID();
-  const server = createMcpServer();
+  const server = createEndpointServer(runtime);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => sessionId,
   });
@@ -117,8 +211,8 @@ function createStreamableSession(): StreamableSession {
   };
 
   void server.connect(transport);
-  _streamableSessions.set(sessionId, session);
-  console.log(`[MCP] HTTP transport started (streamable-http:${sessionId})`);
+  runtime.streamableSessions.set(sessionId, session);
+  console.log(`[MCP] HTTP transport started (streamable-http:${runtime.id}:${sessionId})`);
   return session;
 }
 
@@ -150,6 +244,38 @@ async function handleRequestWithAuthInfo(
 ): Promise<Response> {
   const authInfo = await resolveMcpCallerAuthInfo(request);
   return transport.handleRequest(request, { authInfo });
+}
+
+/**
+ * Endpoint-level scope gate (Phase 3.6): a registry row with a non-null
+ * `required_scope` (e.g. the aigate-mcp management endpoint's `admin:mcp`)
+ * only accepts callers whose API-key scopes (or the OMNIROUTE_MCP_SCOPES env
+ * fallback) match — exact, `*`, or `prefix*` per scopeMatches(). Rows without
+ * a required_scope are open at the endpoint layer; their tools are still gated
+ * individually via withScopeEnforcement().
+ */
+export async function checkEndpointScopeAccess(
+  row: McpServerRow,
+  request: Request
+): Promise<Response | null> {
+  if (!row.required_scope) return null;
+
+  const authInfo = await resolveMcpCallerAuthInfo(request);
+  const envScopes = (process.env.OMNIROUTE_MCP_SCOPES || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const callerScopes = authInfo?.scopes ?? envScopes;
+
+  if (callerScopes.some((granted) => scopeMatches(granted, row.required_scope!))) {
+    return null;
+  }
+
+  return errorResponse(
+    `Insufficient scopes for MCP endpoint ${row.id}: required ${row.required_scope}`,
+    -32001,
+    403
+  );
 }
 
 function errorResponse(message: string, code: number, status = 400): Response {
@@ -200,11 +326,26 @@ function withSessionHeader(response: Response, sessionId: string): Response {
   });
 }
 
-async function handleStreamableRequest(request: Request): Promise<Response> {
+async function handleStreamableRequest(request: Request, endpointId: string): Promise<Response> {
   const sessionId = request.headers.get("mcp-session-id");
 
+  const runtime = await ensureEndpointRuntime(endpointId);
+  if (runtime.error) {
+    return new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: `Downstream unavailable: ${runtime.error}` },
+        id: null,
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const access = await checkEndpointScopeAccess(runtime.row, request);
+  if (access) return access;
+
   if (sessionId) {
-    const session = _streamableSessions.get(sessionId);
+    const session = runtime.streamableSessions.get(sessionId);
     if (!session) {
       // MCP spec (2025-03-26 / 2025-11-25, Session Management): once a session is
       // terminated/unknown, the server MUST respond with HTTP 404 Not Found so the
@@ -216,14 +357,14 @@ async function handleStreamableRequest(request: Request): Promise<Response> {
       // initialization rather than hard-failing with 404. This avoids requiring users
       // to manually restart their MCP client after every server restart.
       if (await isInitializeRequest(request)) {
-        const newSession = createStreamableSession();
+        const newSession = createStreamableSession(runtime);
         try {
           const response = await withMcpHttpAuthContext(request, () =>
             handleRequestWithAuthInfo(newSession.transport, request)
           );
           return withSessionHeader(response, newSession.sessionId);
         } catch (err) {
-          closeStreamableSession(newSession.sessionId);
+          closeStreamableSession(runtime.id, newSession.sessionId);
           console.error("[MCP] Streamable HTTP error during stale-session recovery:", err);
           return new Response(JSON.stringify({ error: "MCP transport error" }), {
             status: 500,
@@ -240,13 +381,13 @@ async function handleStreamableRequest(request: Request): Promise<Response> {
         handleRequestWithAuthInfo(session.transport, request)
       );
       if (request.method === "DELETE") {
-        closeStreamableSession(sessionId);
+        closeStreamableSession(runtime.id, sessionId);
       }
       return withSessionHeader(response, sessionId);
     } catch (err) {
       console.error("[MCP] Streamable HTTP error:", err);
       if (request.method === "DELETE") {
-        closeStreamableSession(sessionId);
+        closeStreamableSession(runtime.id, sessionId);
       }
       return new Response(JSON.stringify({ error: "MCP transport error" }), {
         status: 500,
@@ -259,7 +400,7 @@ async function handleStreamableRequest(request: Request): Promise<Response> {
     return errorResponse("Bad Request: Mcp-Session-Id header is required", -32000);
   }
 
-  const session = createStreamableSession();
+  const session = createStreamableSession(runtime);
 
   try {
     const response = await withMcpHttpAuthContext(request, () =>
@@ -267,7 +408,7 @@ async function handleStreamableRequest(request: Request): Promise<Response> {
     );
     return withSessionHeader(response, session.sessionId);
   } catch (err) {
-    closeStreamableSession(session.sessionId);
+    closeStreamableSession(runtime.id, session.sessionId);
     console.error("[MCP] Streamable HTTP error:", err);
     return new Response(JSON.stringify({ error: "MCP transport error" }), {
       status: 500,
@@ -277,20 +418,38 @@ async function handleStreamableRequest(request: Request): Promise<Response> {
 }
 
 /**
- * Handle Streamable HTTP requests (POST / GET / DELETE).
- * Used by the Next.js route at /api/mcp/stream.
+ * Handle Streamable HTTP requests (POST / GET / DELETE) for one gateway endpoint.
+ * Used by the Next.js route at /api/mcp/servers/[id]/stream.
  */
-export async function handleMcpStreamableHTTP(request: Request): Promise<Response> {
-  return protectMcpSseResponse(request, await handleStreamableRequest(request));
+export async function handleMcpStreamableHTTP(
+  request: Request,
+  endpointId: string
+): Promise<Response> {
+  return protectMcpSseResponse(request, await handleStreamableRequest(request, endpointId));
 }
 
 /**
- * Handle SSE requests.
+ * Handle SSE requests for one gateway endpoint.
  * SSE transport is implemented via Streamable HTTP transport with GET for SSE stream
  * and POST for messages (the Streamable HTTP transport supports both patterns).
  */
-export async function handleMcpSSE(request: Request): Promise<Response> {
-  const { transport } = ensureSseServer();
+export async function handleMcpSSE(request: Request, endpointId: string): Promise<Response> {
+  const runtime = await ensureEndpointRuntime(endpointId);
+  if (runtime.error) {
+    return new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: `Downstream unavailable: ${runtime.error}` },
+        id: null,
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const access = await checkEndpointScopeAccess(runtime.row, request);
+  if (access) return access;
+
+  const { transport } = ensureSseServer(runtime);
 
   try {
     const response = await withMcpHttpAuthContext(request, () =>
@@ -311,20 +470,43 @@ export function getMcpHttpStatus(): {
   transport: string | null;
   startedAt: number | null;
   uptime: string | null;
+  endpoints: Array<{
+    id: string;
+    kind: string;
+    ready: boolean;
+    error: string | null;
+    bridge: string;
+    tools: number;
+  }>;
 } {
-  const streamableStartedAt =
-    _streamableSessions.size > 0
-      ? Math.min(...Array.from(_streamableSessions.values(), (session) => session.startedAt))
-      : null;
-  const startedAt = streamableStartedAt ?? _sseStartedAt;
-  const transport = _streamableSessions.size > 0 ? "streamable-http" : _sseTransport ? "sse" : null;
-  const online = transport !== null;
+  const startedAts: number[] = [];
+  let transport: string | null = null;
+  const endpoints = Array.from(_endpoints.values()).map((runtime) => {
+    if (runtime.sse) {
+      startedAts.push(runtime.sse.startedAt);
+      transport = "sse";
+    }
+    for (const session of runtime.streamableSessions.values()) {
+      startedAts.push(session.startedAt);
+      transport = "streamable-http";
+    }
+    return {
+      id: runtime.id,
+      kind: runtime.row.kind,
+      ready: runtime.ready,
+      error: runtime.error,
+      bridge: runtime.bridge ? getBridgeStatus(runtime.id) : "n/a",
+      tools: runtime.bridge?.tools.length ?? 0,
+    };
+  });
 
+  const startedAt = startedAts.length > 0 ? Math.min(...startedAts) : null;
   return {
-    online,
+    online: transport !== null,
     transport,
     startedAt,
     uptime: startedAt ? `${Math.floor((Date.now() - startedAt) / 1000)}s` : null,
+    endpoints,
   };
 }
 
@@ -336,11 +518,75 @@ export function isMcpHttpTransportReady(
 }
 
 export function shutdownMcpHttp(): void {
-  closeSseTransport();
+  for (const endpointId of _endpoints.keys()) {
+    closeSseTransport(endpointId);
+    if (_endpoints.get(endpointId)?.bridge) {
+      void closeBridge(endpointId);
+    }
+  }
   closeAllStreamableSessions();
+  _endpoints.clear();
   console.log("[MCP] HTTP transport shutdown");
 }
 
 export function isMcpHttpActive(): boolean {
-  return _sseTransport !== null || _streamableSessions.size > 0;
+  return Array.from(_endpoints.values()).some(
+    (endpoint) => endpoint.sse !== null || endpoint.streamableSessions.size > 0
+  );
+}
+
+export interface McpEndpointProbe {
+  id: string;
+  kind: string;
+  domain: McpToolDomain | null;
+  ready: boolean;
+  error: string | null;
+  bridge: McpBridgeStatus | "idle" | "n/a";
+  tools: number;
+}
+
+/**
+ * Force materialisation of an endpoint runtime and report its state.
+ * Used by the management UI "test connection" action: stdio/http endpoints
+ * get their downstream bridge connected here, so the probe doubles as a
+ * connectivity check. Builtin endpoints are always ready (local server).
+ */
+export async function probeMcpEndpoint(endpointId: string): Promise<McpEndpointProbe> {
+  let runtime: EndpointRuntime;
+  try {
+    runtime = await ensureEndpointRuntime(endpointId);
+  } catch (error) {
+    // Unknown/never-registered id: report a structured failure instead of throwing,
+    // so the management API can 200-with-error (UI shows "entry not found").
+    return {
+      id: endpointId,
+      kind: "unknown",
+      domain: null,
+      ready: false,
+      error: error instanceof Error ? error.message : "MCP server not found",
+      bridge: "error",
+      tools: 0,
+    };
+  }
+  const builtin = runtime.row.kind === "builtin";
+  // Probe reports connectivity, not the ready-but-error server semantics used
+  // by sessions (which stay up to answer 503). A downstream failure surfaces as
+  // ready=false + bridge="error" so the UI "test connection" turns red.
+  const probeReady = builtin ? true : runtime.error === null && runtime.bridge !== null;
+  const bridgeState: McpEndpointProbe["bridge"] = builtin
+    ? "n/a"
+    : runtime.bridge
+      ? getBridgeStatus(runtime.id)
+      : runtime.error
+        ? "error"
+        : "connecting";
+  return {
+    id: runtime.id,
+    kind: runtime.row.kind,
+    domain: builtin ? runtime.domain : null,
+    ready: probeReady,
+    error: runtime.error,
+    bridge: bridgeState,
+    tools: runtime.bridge?.tools.length ?? 0,
+  };
 }

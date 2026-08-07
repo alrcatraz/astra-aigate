@@ -744,12 +744,14 @@ export default function SystemStorageTab() {
           </div>
           <div className="p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02]">
             <p className="text-xs text-text-muted mb-1">{t("storagePageCount")}</p>
-            <p className="text-sm font-semibold">{dbSettings.stats.pageCount.toLocaleString()}</p>
+            <p className="text-sm font-semibold">
+              {(dbSettings.stats.pageCount ?? 0).toLocaleString()}
+            </p>
           </div>
           <div className="p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02]">
             <p className="text-xs text-text-muted mb-1">{t("storageFreelistCount")}</p>
             <p className="text-sm font-semibold">
-              {dbSettings.stats.freelistCount.toLocaleString()}
+              {(dbSettings.stats.freelistCount ?? 0).toLocaleString()}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02]">

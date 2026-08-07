@@ -1,6 +1,6 @@
 import { getSyncedAvailableModelsByConnection } from "@/lib/db/models";
 import { getProviderConnections } from "@/lib/db/providers";
-import { getDbInstance } from "@/lib/db/core";
+import { getAsyncDb } from "@/lib/db/core";
 import { getAllCircuitBreakerStatuses } from "@/shared/utils/circuitBreaker";
 import { getAllModelLockouts } from "@omniroute/open-sse/services/accountFallback";
 import { getWebSessionPoolHealth } from "@omniroute/open-sse/services/webSessionPoolHealth";
@@ -206,14 +206,14 @@ function maxIso(left: string | null, right: string | null): string | null {
   return Date.parse(right) > Date.parse(left) ? right : left;
 }
 
-function queryCallLogTargetStats(
+async function queryCallLogTargetStats(
   cutoff: string,
   providerFilter: string | null
-): CallLogTargetStats[] {
-  const db = getDbInstance();
+): Promise<CallLogTargetStats[]> {
+  const db = getAsyncDb();
   const providerClause = providerFilter ? "AND c.provider = @provider" : "";
   const params = providerFilter ? { cutoff, provider: providerFilter } : { cutoff };
-  const rows = db
+  const rows = (await db
     .prepare(
       `WITH log_targets AS (
         SELECT
@@ -280,7 +280,7 @@ function queryCallLogTargetStats(
       FROM ranked
       GROUP BY provider, connectionId, model`
     )
-    .all(params) as JsonRecord[];
+    .all(params)) as JsonRecord[];
 
   return rows.map((row) => {
     const connectionId = toString(row.connectionId);
@@ -352,7 +352,7 @@ export async function buildProviderHealthMatrix(
     getProviderConnections(providerFilter ? { provider: providerFilter } : {}),
     getAllCircuitBreakerStatuses(),
     getAllModelLockouts(),
-    Promise.resolve(queryCallLogTargetStats(cutoff, providerFilter)),
+    queryCallLogTargetStats(cutoff, providerFilter),
   ]);
 
   const connectionRows = (connections as JsonRecord[]).filter((connection) => {
@@ -582,7 +582,7 @@ export async function buildProviderHealthMatrix(
     }
   }
 
-  const poolReport = getWebSessionPoolHealth(providerFilter ?? undefined);
+  const poolReport = await getWebSessionPoolHealth(providerFilter ?? undefined);
 
   return {
     checkedAt,

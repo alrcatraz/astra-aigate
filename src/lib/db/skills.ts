@@ -5,7 +5,7 @@
  * route handlers never contain raw SQL (Hard Rule #5).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 // ──────────────── Allowed patch columns ────────────────
 //
@@ -37,8 +37,8 @@ export interface SkillPatch {
  *
  * @returns number of rows changed (0 if skill not found, 1 if updated).
  */
-export function updateSkill(id: string, patch: SkillPatch): number {
-  const db = getDbInstance();
+export async function updateSkill(id: string, patch: SkillPatch): Promise<number> {
+  const db = await getAsyncDb();
 
   const setClauses: string[] = [];
   const params: unknown[] = [];
@@ -59,6 +59,6 @@ export function updateSkill(id: string, patch: SkillPatch): number {
 
   // updateSkill returns a number but the adapter is async — fire-and-forget
   // is acceptable here because the result isn't used synchronously upstream.
-  db.prepare(`UPDATE skills SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
+  await db.prepare(`UPDATE skills SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
   return 1; // optimistic: assume 1 row updated
 }

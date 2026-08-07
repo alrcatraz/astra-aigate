@@ -227,31 +227,200 @@ function rewriteDdl(sql: string): string {
   return out;
 }
 
-/** Rewrite time functions to PG equivalents. */
+/**
+ * Find the range of a function call with balanced parentheses, given the
+ * position of the opening paren. Returns { inner, end } where `inner` is the
+ * substring between the parens and `end` is the index just past the closing
+ * paren. Skips string literals so parens inside strings are not mistaken for
+ * the terminator. Returns null when unbalanced / EOF.
+ */
+function findBalancedParen(sql: string, open: number): { inner: string; end: number } | null {
+  let depth = 0;
+  let quote: "'" | '"' | "`" | null = null;
+  for (let i = open; i < sql.length; i++) {
+    const ch = sql[i];
+    if (quote) {
+      if (ch === quote) {
+        if (sql[i + 1] === quote) {
+          i++; // doubled quote escape
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") {
+      depth++;
+      continue;
+    }
+    if (ch === ")") {
+      depth--;
+      if (depth === 0) {
+        return { inner: sql.slice(open + 1, i), end: i + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+/** Split comma-separated args, respecting nested parens and string literals. */
+function splitTopLevelArgs(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote: "'" | '"' | "`" | null = null;
+  let cur = "";
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote) {
+      cur += ch;
+      if (ch === quote) {
+        if (s[i + 1] === quote) {
+          cur += s[++i];
+        } else {
+          quote = null;
+        }
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === "(") {
+      depth++;
+      cur += ch;
+      continue;
+    }
+    if (ch === ")") {
+      depth--;
+      cur += ch;
+      continue;
+    }
+    if (ch === "," && depth === 0) {
+      out.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+/** Convert SQLite time modifiers ('-1 hour', '+30 minutes', 'unixepoch', ...) to a PG INTERVAL suffix. */
+function intervalModifier(mods: string): string {
+  const singular: Array<[string, string]> = [
+    ["millisecond", "milliseconds"],
+    ["second", "seconds"],
+    ["minute", "minutes"],
+    ["hour", "hours"],
+    ["day", "days"],
+    ["week", "weeks"],
+    ["month", "months"],
+    ["year", "years"],
+  ];
+  for (const m of mods.split(",")) {
+    const t = m.trim().replace(/['"]/g, "");
+    const match = /^([+-]?\d+)\s+([a-zA-Z]+)$/.exec(t);
+    if (match) {
+      const unit = match[2].toLowerCase();
+      const sig = singular.find(([s]) => unit === s || unit === s + "s");
+      if (sig) {
+        const sign = match[1].startsWith("-") ? "-" : "+";
+        const amount = match[1].replace(/^[+-]/, "");
+        return `${sign} INTERVAL '${amount} ${sig[1]}'`;
+      }
+    }
+  }
+  return "+ INTERVAL '1 hour'";
+}
+
+/** Rewrite a single `datetime(...)` call to its PG equivalent. */
+function rewriteDatetimeCall(inner: string): string {
+  const args = splitTopLevelArgs(inner);
+  const first = (args[0] ?? "").trim();
+  if (/^['"]?now['"]?$/i.test(first)) {
+    if (args.length > 1) {
+      return `NOW() ${intervalModifier(args.slice(1).join(", "))}`;
+    }
+    return "NOW()";
+  }
+  // datetime(<expr>) / datetime(<expr>, 'unixepoch') → to_timestamp(<first>).
+  // Recursively rewrite time fns nested inside the argument.
+  return `to_timestamp(${rewriteTimeFns(first)})`;
+}
+
+/**
+ * Cast an arbitrary SQL expression to a timestamptz so EXTRACT / to_char
+ * receive a timestamp. Text ISO strings parse fine; real timestamptz columns
+ * pass through the identity cast harmlessly.
+ */
+function argToTimestamptz(expr: string): string {
+  const t = expr.trim();
+  if (!t) return t;
+  return `(${t})::timestamptz`;
+}
+
+/** Rewrite time functions (datetime / strftime / unixepoch) using balanced-paren matching. */
 function rewriteTimeFns(sql: string): string {
-  let out = sql;
-  // unixepoch('now') and unixepoch(<expr>)
-  out = out.replace(/unixepoch\s*\(\s*'now'\s*\)/gi, "(EXTRACT(EPOCH FROM NOW()))");
-  out = out.replace(/unixepoch\s*\(/gi, "(EXTRACT(EPOCH FROM ");
-  // datetime('now') → NOW(); datetime(<expr>) → to_timestamp(<expr>)
-  out = out.replace(/datetime\s*\(\s*'now'\s*\)/gi, "NOW()");
-  out = out.replace(/datetime\s*\(\s*([^)]*?)\s*\)/gi, (match, inner: string) => {
-    const arg = inner.trim();
-    // Strip modifier arguments like 'utc' — unsupported, keep first arg.
-    const first = arg.split(/,\s*/)[0];
-    return `to_timestamp(${first})`;
-  });
-  // strftime('%s', <expr>) → EXTRACT(EPOCH FROM <expr>)
-  out = out.replace(/strftime\s*\(\s*'%s'\s*,\s*([^)]*?)\s*\)/gi, "EXTRACT(EPOCH FROM $1)");
-  // strftime('<fmt>', <expr>) → to_char(<expr> AT TIME ZONE 'UTC', '<pg fmt>')
-  // <expr> may be a TEXT column (ISO-8601 strings in SQLite); PG's
-  // AT TIME ZONE needs a timestamptz, so cast explicitly. ISO strings are
-  // parsed fine; real timestamptz columns pass through the cast harmlessly.
-  out = out.replace(
-    /strftime\s*\(\s*'([^']*)'\s*,\s*([^)]*?)\s*\)/gi,
-    (match: string, fmt: string, expr: string) =>
-      `to_char((${expr.trim()})::timestamptz AT TIME ZONE 'UTC', '${sqliteStrftimeToPg(fmt)}')`
-  );
+  let out = "";
+  let i = 0;
+  while (i < sql.length) {
+    const rest = sql.slice(i);
+    // unixepoch('now') / unixepoch(<expr>)
+    const ue = /^unixepoch\s*\(/i.exec(rest);
+    if (ue) {
+      const open = i + ue[0].length - 1;
+      const b = findBalancedParen(sql, open);
+      if (b) {
+        const inner = b.inner.trim();
+        out +=
+          inner.toLowerCase() === "'now'"
+            ? "(EXTRACT(EPOCH FROM NOW()))"
+            : `(EXTRACT(EPOCH FROM ${argToTimestamptz(rewriteTimeFns(inner))}))`;
+        i = b.end;
+        continue;
+      }
+    }
+    // strftime('<fmt>', <expr>)
+    const sf = /^strftime\s*\(/i.exec(rest);
+    if (sf) {
+      const open = i + sf[0].length - 1;
+      const b = findBalancedParen(sql, open);
+      if (b) {
+        const parts = splitTopLevelArgs(b.inner);
+        const fmt = (parts[0] ?? "").trim().replace(/^'|'$/g, "");
+        const expr = rewriteTimeFns((parts[1] ?? "").trim());
+        if (fmt === "%s") {
+          out += `(EXTRACT(EPOCH FROM ${argToTimestamptz(expr)}))`;
+        } else if (fmt !== "") {
+          out += `to_char(${argToTimestamptz(expr)} AT TIME ZONE 'UTC', '${sqliteStrftimeToPg(fmt)}')`;
+        } else {
+          out += sql.slice(i, b.end);
+        }
+        i = b.end;
+        continue;
+      }
+    }
+    // datetime(...)
+    const dt = /^datetime\s*\(/i.exec(rest);
+    if (dt) {
+      const open = i + dt[0].length - 1;
+      const b = findBalancedParen(sql, open);
+      if (b) {
+        out += rewriteDatetimeCall(b.inner);
+        i = b.end;
+        continue;
+      }
+    }
+    out += sql[i];
+    i++;
+  }
   return out;
 }
 
@@ -312,8 +481,26 @@ export function translateSqliteToPostgres(
     "replace(gen_random_uuid()::text, '-', '')"
   );
   out = out.replace(/randomblob\s*\(/gi, "gen_random_uuid()::text /* randomblob */");
+  // SQLite NULL-safe `IS ?` / `IS NOT ?` comparisons are rejected by PG
+  // (`x IS $2` is a syntax error — PG only accepts IS NULL/TRUE/FALSE/UNKNOWN).
+  out = rewriteIsParam(out);
   out = rewritePlaceholders(out);
   return out;
+}
+
+/**
+ * Rewrite SQLite NULL-safe `IS ?` / `IS NOT ?` to PostgreSQL equivalents.
+ * SQLite's `IS` accepts an arbitrary right-hand operand, so `x IS ?` means
+ * "x equals the param OR both are NULL". PostgreSQL's IS only accepts
+ * NULL/TRUE/FALSE/UNKNOWN, so `x IS ?` would be a `syntax error at or near
+ * "$N"`. Replace with `IS NOT DISTINCT FROM ?` / `IS DISTINCT FROM ?` to keep
+ * identical semantics. Must run before rewritePlaceholders so the `?` still
+ * receives its positional number (e.g. `scope_id IS $2` in the proxy layer).
+ */
+function rewriteIsParam(sql: string): string {
+  return sql.replace(/\bIS\s+(NOT\s+)?\?/gi, (_m: string, notFlag: string | undefined) =>
+    notFlag ? "IS DISTINCT FROM ?" : "IS NOT DISTINCT FROM ?"
+  );
 }
 
 /**

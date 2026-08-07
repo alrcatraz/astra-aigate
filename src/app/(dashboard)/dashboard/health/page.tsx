@@ -379,7 +379,9 @@ export default function HealthPage() {
             </div>
             <span className="text-sm text-text-muted">{t("uptime")}</span>
           </div>
-          <p className="text-xl font-semibold text-text-main">{formatUptime(system.uptime)}</p>
+          <p className="text-xl font-semibold text-text-main">
+            {formatUptime(system?.uptime ?? 0)}
+          </p>
         </Card>
 
         <Card className="p-4">
@@ -389,9 +391,11 @@ export default function HealthPage() {
             </div>
             <span className="text-sm text-text-muted">{t("version")}</span>
           </div>
-          <p className="text-xl font-semibold text-text-main">v{system.version}</p>
+          <p className="text-xl font-semibold text-text-main">
+            v{system?.version ?? t("notAvailable")}
+          </p>
           <p className="text-xs text-text-muted mt-1">
-            {t("nodeVersion", { version: system.nodeVersion })}
+            {t("nodeVersion", { version: system?.nodeVersion ?? t("notAvailable") })}
           </p>
         </Card>
 
@@ -403,11 +407,11 @@ export default function HealthPage() {
             <span className="text-sm text-text-muted">{t("memoryRss")}</span>
           </div>
           <p className="text-xl font-semibold text-text-main">
-            {formatBytes(system.memoryUsage?.rss || 0)}
+            {formatBytes(system?.memoryUsage?.rss || 0)}
           </p>
           <p className="text-xs text-text-muted mt-1">
-            {t("heap")}: {formatBytes(system.memoryUsage?.heapUsed || 0)} /{" "}
-            {formatBytes(system.memoryUsage?.heapTotal || 0)}
+            {t("heap")}: {formatBytes(system?.memoryUsage?.heapUsed || 0)} /{" "}
+            {formatBytes(system?.memoryUsage?.heapTotal || 0)}
           </p>
         </Card>
 

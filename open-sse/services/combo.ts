@@ -582,7 +582,7 @@ export async function handleComboChat({
     config,
     comboTargetTimeoutMs,
     reasoningTokenBufferEnabled,
-  } = phaseComboSetup(comboCtx);
+  } = await phaseComboSetup(comboCtx);
   body = comboCtx.body;
 
   const handleSingleModelWithTimeout = buildTargetTimeoutRunner({
@@ -748,7 +748,7 @@ export async function handleComboChat({
     combo,
     config,
     body,
-    resolveShadowTargets(combo, config, allCombos),
+    await resolveShadowTargets(combo, config, allCombos),
     handleSingleModel,
     isModelAvailable,
     strategy,
@@ -1134,9 +1134,9 @@ export async function handleComboChat({
             relayOptions?.sessionId &&
             !(body as Record<string, unknown>)?.[SKIP_UNIVERSAL_HANDOFF_FLAG]
           ) {
-            const lastModel = getLastSessionModel(relayOptions.sessionId, combo.name);
+            const lastModel = await getLastSessionModel(relayOptions.sessionId, combo.name);
             if (lastModel && lastModel !== modelStr) {
-              const existingHandoff = getHandoff(relayOptions.sessionId, combo.name);
+              const existingHandoff = await getHandoff(relayOptions.sessionId, combo.name);
               attemptBody = injectUniversalHandoffBody(
                 attemptBody, // Use the cloned body to maintain isolation
                 lastModel,
@@ -1153,7 +1153,7 @@ export async function handleComboChat({
           {
             const bodyRecord = attemptBody as Record<string, unknown>;
             const currentMaxTokens = toPositiveInteger(bodyRecord.max_tokens);
-            const bufferedMaxTokens = resolveReasoningBufferedMaxTokens(
+            const bufferedMaxTokens = await resolveReasoningBufferedMaxTokens(
               modelStr,
               bodyRecord.max_tokens,
               { enabled: reasoningTokenBufferEnabled }
@@ -1177,7 +1177,7 @@ export async function handleComboChat({
           // Success — validate response quality before returning
           if (result.ok) {
             const selectedConnectionId =
-              result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
+              result.headers?.get("X-AI Gate-Selected-Connection-Id") ||
               result.headers?.get("x-omniroute-selected-connection-id") ||
               undefined;
             const effectiveConnectionId = selectedConnectionId || target.connectionId || "";
@@ -1341,7 +1341,7 @@ export async function handleComboChat({
               relayOptions?.sessionId &&
               !(body as Record<string, unknown>)?.[SKIP_UNIVERSAL_HANDOFF_FLAG]
             ) {
-              const prevModel = getLastSessionModel(relayOptions.sessionId, combo.name);
+              const prevModel = await getLastSessionModel(relayOptions.sessionId, combo.name);
               recordSessionModelUsage(
                 relayOptions.sessionId,
                 combo.name,
@@ -1622,7 +1622,7 @@ export async function handleComboChat({
           // to the exponential-backoff / synthetic-default paths).
           const lockoutHintVerified = lockoutHintMs > 0;
           const selectedConnectionId =
-            result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
+            result.headers?.get("X-AI Gate-Selected-Connection-Id") ||
             result.headers?.get("x-omniroute-selected-connection-id") ||
             undefined;
           const targetWithConnection = selectedConnectionId
@@ -2218,8 +2218,12 @@ async function handleRoundRobinCombo({
     clampComboDepth(config.maxComboDepth)
   );
   const tagFilteredTargets = await applyRequestTagRouting(orderedTargets, body, log);
-  const evalRankedTargets = orderTargetsByEvalScores(tagFilteredTargets, config.evalRouting, log);
-  const knownContextOverflow = getKnownContextOverflow(evalRankedTargets, body);
+  const evalRankedTargets = await orderTargetsByEvalScores(
+    tagFilteredTargets,
+    config.evalRouting,
+    log
+  );
+  const knownContextOverflow = await getKnownContextOverflow(evalRankedTargets, body);
   if (knownContextOverflow) {
     return errorResponseWithComboDiagnostics(
       400,
@@ -2243,7 +2247,7 @@ async function handleRoundRobinCombo({
     (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
     (settings as { compatFilterFailOpen?: unknown } | null | undefined)?.compatFilterFailOpen ===
       true;
-  let filteredTargets = filterTargetsByRequestCompatibility(
+  let filteredTargets = await filterTargetsByRequestCompatibility(
     evalRankedTargets,
     body,
     log,
@@ -2255,14 +2259,14 @@ async function handleRoundRobinCombo({
   // BEFORE availability is known; if every compat-kept target then turns out to be
   // runtime-unavailable, we must reconsider these before returning 503, instead of
   // permanently dropping a compat-rejected-but-healthy provider.
-  const compatRejectedTargets = computeCompatRejectedTargets(
+  const compatRejectedTargets = await computeCompatRejectedTargets(
     evalRankedTargets,
     filteredTargets,
     body
   );
   let modelCount = filteredTargets.length;
   if (modelCount === 0) {
-    const exhaustion = describeCapabilityFilterExhaustion(
+    const exhaustion = await describeCapabilityFilterExhaustion(
       evalRankedTargets,
       body,
       rrExpandedCombo?.name || combo?.name
@@ -2288,7 +2292,7 @@ async function handleRoundRobinCombo({
     combo,
     config,
     body,
-    resolveShadowTargets(combo, config, allCombos),
+    await resolveShadowTargets(combo, config, allCombos),
     handleSingleModel,
     isModelAvailable,
     "round-robin",
@@ -2542,7 +2546,7 @@ async function handleRoundRobinCombo({
         {
           const bodyRecord = attemptBody as Record<string, unknown>;
           const currentMaxTokens = toPositiveInteger(bodyRecord.max_tokens);
-          const bufferedMaxTokens = resolveReasoningBufferedMaxTokens(
+          const bufferedMaxTokens = await resolveReasoningBufferedMaxTokens(
             modelStr,
             bodyRecord.max_tokens,
             { enabled: reasoningTokenBufferEnabled }
@@ -2593,7 +2597,7 @@ async function handleRoundRobinCombo({
             // so release the sticky pin here rather than on the next turn.
             {
               const rrSelectedConnectionId =
-                result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
+                result.headers?.get("X-AI Gate-Selected-Connection-Id") ||
                 result.headers?.get("x-omniroute-selected-connection-id") ||
                 undefined;
               releaseStickyPinOnFailure(
@@ -2631,7 +2635,7 @@ async function handleRoundRobinCombo({
           recordedAttempts++;
 
           const selectedConnectionId =
-            result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
+            result.headers?.get("X-AI Gate-Selected-Connection-Id") ||
             result.headers?.get("x-omniroute-selected-connection-id") ||
             undefined;
           const effectiveConnectionId = selectedConnectionId || target.connectionId || "";
@@ -2796,7 +2800,7 @@ async function handleRoundRobinCombo({
         );
         const { cooldownMs } = fallbackResult;
         const selectedConnectionId =
-          result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
+          result.headers?.get("X-AI Gate-Selected-Connection-Id") ||
           result.headers?.get("x-omniroute-selected-connection-id") ||
           undefined;
         const targetWithConnection = selectedConnectionId

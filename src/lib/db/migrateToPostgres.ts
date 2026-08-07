@@ -289,6 +289,18 @@ export async function migrateSqliteToPostgres(options: {
         if (count !== migrated) {
           report.warnings.push(`${table}: expected ${count} rows, migrated ${migrated}`);
         }
+        // After copying rows with their explicit SQLite ids, advance the PG
+        // serial sequence past the max migrated id — otherwise the first
+        // runtime auto-increment INSERT would reuse a low id already owned by
+        // a migrated row → "duplicate key value violates unique constraint
+        // \"<table>_pkey\"" (observed on usage_history).
+        try {
+          await syncSerialSequence(pg, table);
+        } catch (err) {
+          report.warnings.push(
+            `${table}: could not sync serial sequence — ${(err as Error).message.slice(0, 120)}`
+          );
+        }
       } catch (err) {
         report.tablesSkipped.push(table);
         report.warnings.push(
@@ -352,4 +364,54 @@ async function insertBatch(
   for (const row of rows) {
     await pg.prepare(sql).run(...cols.map((c) => row[c]));
   }
+}
+
+/**
+ * Advance a table's serial/BIGSERIAL/id sequence past the migrated max id so
+ * that the app's auto-increment INSERTs (which omit the pk and rely on the
+ * sequence default) never collide with rows copied from SQLite (which carry
+ * their explicit rowids).
+ *
+ * insertBatch() preserves the SQLite autoincrement ids verbatim, but a freshly
+ * created BIGSERIAL sequence is left at its initial value (`nextval` would
+ * start from 1). Without syncing, the first runtime insert would reuse a low
+ * id already owned by a migrated row — surfacing in production as
+ * `duplicate key value violates unique constraint "<table>_pkey"` (observed
+ * on `usage_history` after a SQLite→PG migration).
+ *
+ * Only single-column integer primary keys are handled; composite / text PKs
+ * have no serial sequence and are a no-op.
+ */
+async function syncSerialSequence(pg: DatabaseAdapter, table: string): Promise<void> {
+  const pkRows = (await pg
+    .prepare(
+      `SELECT kcu.column_name AS column_name
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+          AND tc.constraint_schema = kcu.constraint_schema
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+          AND tc.table_schema = 'public'
+          AND tc.table_name = ?
+        ORDER BY kcu.ordinal_position`
+    )
+    .all(table)) as Array<{ column_name: string }>;
+
+  if (pkRows.length !== 1) return; // no single-column PK → nothing to sync
+  const pk = pkRows[0]!.column_name;
+
+  const seqRow = (await pg
+    .prepare(`SELECT pg_get_serial_sequence('public."${table}"', '${pk}') AS seq`)
+    .get()) as { seq: string | null } | undefined;
+  if (!seqRow?.seq) return; // pk is not backed by a serial sequence
+
+  const maxRow = (await pg.prepare(`SELECT MAX("${pk}") AS max_val FROM "${table}"`).get()) as
+    { max_val: string | number | null } | undefined;
+  const maxVal =
+    maxRow?.max_val === null || maxRow?.max_val === undefined ? 0 : Number(maxRow.max_val);
+  if (Number.isNaN(maxVal)) return;
+
+  // setval(seq, max_val, is_called=false) → next nextval() returns max_val + 1.
+  await pg.prepare(`SELECT setval($1, $2, false)`).run(seqRow.seq, maxVal + 1);
 }

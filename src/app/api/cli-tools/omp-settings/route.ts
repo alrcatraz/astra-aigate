@@ -86,10 +86,7 @@ export async function GET(request: Request) {
       configPath: getOmpModelsYmlPath(),
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(error) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(error) } }, { status: 500 });
   }
 }
 
@@ -131,19 +128,16 @@ export async function POST(request: Request) {
     await fs.writeFile(getOmpModelsYmlPath(), yamlDump(modelsYml, { lineWidth: -1 }), "utf-8");
 
     // 2. Write auth_credentials — so omp sees omniroute as "logged in"
-    saveOmpCredentials(PROVIDER_ID, keyRef, normalizedBaseUrl);
+    await saveOmpCredentials(PROVIDER_ID, keyRef, normalizedBaseUrl);
 
     return NextResponse.json({
       success: true,
       message:
-        "Oh My Pi settings applied! Run omp and all OmniRoute models appear under omniroute in /model.",
+        "Oh My Pi settings applied! Run omp and all AI Gate models appear under omniroute in /model.",
       configPath: getOmpModelsYmlPath(),
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(error) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(error) } }, { status: 500 });
   }
 }
 
@@ -165,16 +159,13 @@ export async function DELETE(request: Request) {
     }
 
     // 2. Remove from auth_credentials
-    deleteOmpCredentials(PROVIDER_ID);
+    await deleteOmpCredentials(PROVIDER_ID);
 
     return NextResponse.json({
       success: true,
-      message: "OmniRoute removed from Oh My Pi",
+      message: "AI Gate removed from Oh My Pi",
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(error) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(error) } }, { status: 500 });
   }
 }

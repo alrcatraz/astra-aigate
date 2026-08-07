@@ -10,7 +10,7 @@
  * Opt-in via PRICING_SYNC_ENABLED=true (default: false).
  */
 
-import { getDbInstance } from "./db/core";
+import { getDbInstance, getAsyncDb } from "./db/core";
 import type { RawSyncDb, SqliteAdapter } from "./db/adapters/types";
 import { invalidateDbCache } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
@@ -98,7 +98,7 @@ const SYNC_SOURCES = (process.env.PRICING_SYNC_SOURCES || "litellm")
 const LITELLM_PRICING_URL =
   "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 
-// ─── Provider mapping: LiteLLM provider → OmniRoute aliases ─────
+// ─── Provider mapping: LiteLLM provider → AI Gate aliases ─────
 
 const LITELLM_PROVIDER_MAP: Record<string, string[]> = {
   openai: ["openai", "cx"],
@@ -150,9 +150,9 @@ export async function fetchLiteLLMPricing(): Promise<Record<string, LiteLLMModel
 }
 
 /**
- * Transform LiteLLM raw data → OmniRoute PricingByProvider format.
+ * Transform LiteLLM raw data → AI Gate PricingByProvider format.
  *
- * Conversion: cost_per_token × 1_000_000 → $/1M tokens (OmniRoute format).
+ * Conversion: cost_per_token × 1_000_000 → $/1M tokens (AI Gate format).
  * Ingests both chat (token) AND non-token modes (image / audio / rerank /
  * video / embedding). Token pricing is scaled to $/1M; non-token fields
  * (per-image, per-second, per-character, search-unit, …) are carried through
@@ -208,7 +208,7 @@ export function transformToOmniRoute(raw: Record<string, LiteLLMModelInfo>): Pri
     const slashIdx = modelKey.indexOf("/");
     const modelName = slashIdx >= 0 ? modelKey.slice(slashIdx + 1) : modelKey;
 
-    // Map to OmniRoute providers
+    // Map to AI Gate providers
     const litellmProvider = info.litellm_provider || "";
     const omniRouteProviders = LITELLM_PROVIDER_MAP[litellmProvider];
 
@@ -236,8 +236,8 @@ function toRecord(value: unknown): Record<string, unknown> {
 /**
  * Read synced pricing from `pricing_synced` namespace.
  */
-export function getSyncedPricing(): PricingByProvider {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+export async function getSyncedPricing(): Promise<PricingByProvider> {
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const rows = raw
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'pricing_synced'")
     .all();
@@ -259,10 +259,10 @@ export function getSyncedPricing(): PricingByProvider {
 /**
  * Save synced pricing to `pricing_synced` namespace (full replace).
  */
-export function saveSyncedPricing(data: PricingByProvider): void {
-  const db = getDbInstance();
-  const del = db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'");
-  const insert = db.prepare(
+export async function saveSyncedPricing(data: PricingByProvider): Promise<void> {
+  const db = getAsyncDb();
+  const del = await db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'");
+  const insert = await db.prepare(
     "INSERT INTO key_value (namespace, key, value) VALUES ('pricing_synced', ?, ?)"
   );
   const tx = db.transaction(() => {
@@ -279,9 +279,9 @@ export function saveSyncedPricing(data: PricingByProvider): void {
 /**
  * Clear all synced pricing data.
  */
-export function clearSyncedPricing(): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'").run();
+export async function clearSyncedPricing(): Promise<void> {
+  const db = getAsyncDb();
+  await db.prepare("DELETE FROM key_value WHERE namespace = 'pricing_synced'").run();
   backupDbFile("pre-write");
   invalidateDbCache("pricing");
 }
@@ -299,7 +299,7 @@ const SYNC_STATUS_NAMESPACE = "pricing_sync_status";
 const SYNC_STATUS_KEY = "last_sync";
 
 function readPersistedSyncStatus(): { lastSyncTime: string; lastSyncModelCount: number } | null {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const row = db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(SYNC_STATUS_NAMESPACE, SYNC_STATUS_KEY);
@@ -319,16 +319,18 @@ function readPersistedSyncStatus(): { lastSyncTime: string; lastSyncModelCount: 
   }
 }
 
-function writePersistedSyncStatus(lastSync: string, modelCount: number): void {
-  const db = getDbInstance();
-  db.prepare(
-    "INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?) " +
-      "ON CONFLICT(namespace, key) DO UPDATE SET value = excluded.value"
-  ).run(
-    SYNC_STATUS_NAMESPACE,
-    SYNC_STATUS_KEY,
-    JSON.stringify({ lastSyncTime: lastSync, lastSyncModelCount: modelCount })
-  );
+async function writePersistedSyncStatus(lastSync: string, modelCount: number): Promise<void> {
+  const db = getAsyncDb();
+  await db
+    .prepare(
+      "INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?) " +
+        "ON CONFLICT(namespace, key) DO UPDATE SET value = excluded.value"
+    )
+    .run(
+      SYNC_STATUS_NAMESPACE,
+      SYNC_STATUS_KEY,
+      JSON.stringify({ lastSyncTime: lastSync, lastSyncModelCount: modelCount })
+    );
 }
 
 // ─── Main sync function ─────────────────────────────────

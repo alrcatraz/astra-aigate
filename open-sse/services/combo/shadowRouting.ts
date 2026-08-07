@@ -44,11 +44,11 @@ function normalizeShadowRoutingConfig(config: Record<string, unknown>): ShadowRo
   };
 }
 
-export function resolveShadowTargets(
+export async function resolveShadowTargets(
   combo: ComboLike,
   config: Record<string, unknown>,
   allCombos: ComboCollectionLike
-): ResolvedComboTarget[] {
+): Promise<ResolvedComboTarget[]> {
   const shadowConfig = normalizeShadowRoutingConfig(config);
   if (!shadowConfig.enabled || shadowConfig.targets.length === 0) return [];
   if (shadowConfig.sampleRate <= 0 || secureRandomFloat() > shadowConfig.sampleRate) return [];
@@ -58,7 +58,9 @@ export function resolveShadowTargets(
     name: `${combo.name}:shadow`,
     models: shadowConfig.targets,
   };
-  return resolveNestedComboTargets(shadowCombo, allCombos, new Set([combo.name]), 0, ["shadow"])
+  return (
+    await resolveNestedComboTargets(shadowCombo, allCombos, new Set([combo.name]), 0, ["shadow"])
+  )
     .slice(0, shadowConfig.maxTargets)
     .map((target) => ({
       ...target,

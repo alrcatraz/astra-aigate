@@ -1,4 +1,4 @@
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 
 export interface ApiKeyContextSource {
   apiKeyId: string;
@@ -34,7 +34,7 @@ export async function getApiKeyContextSource(
   sourceType: string
 ): Promise<(ApiKeyContextSource & { enabled: true }) | null> {
   if (!apiKeyId) return null;
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       "SELECT * FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ? AND enabled = 1"
@@ -49,7 +49,7 @@ export async function setApiKeyContextSource(
   sourceType: string,
   config: { token?: string; baseUrl?: string; vaultPath?: string; enabled?: boolean }
 ): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const existing = (await db
     .prepare("SELECT * FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ?")
     .get(apiKeyId, sourceType)) as ContextSourceRow | undefined;
@@ -91,16 +91,18 @@ export async function setApiKeyContextSource(
   }
 }
 
-export function deleteApiKeyContextSource(apiKeyId: string, sourceType: string): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ?").run(
-    apiKeyId,
-    sourceType
-  );
+export async function deleteApiKeyContextSource(
+  apiKeyId: string,
+  sourceType: string
+): Promise<void> {
+  const db = await getAsyncDb();
+  await db
+    .prepare("DELETE FROM api_key_context_sources WHERE api_key_id = ? AND source_type = ?")
+    .run(apiKeyId, sourceType);
 }
 
 export async function listApiKeyContextSources(apiKeyId: string): Promise<ApiKeyContextSource[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT * FROM api_key_context_sources WHERE api_key_id = ?")
     .all(apiKeyId)) as ContextSourceRow[];

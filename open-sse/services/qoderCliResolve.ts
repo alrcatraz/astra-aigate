@@ -6,7 +6,7 @@
  *
  * The bare `"qodercli"` name does not resolve on Windows, where npm installs the
  * CLI as a `qodercli.cmd` wrapper under `%APPDATA%\npm` (a user-PATH directory)
- * that `spawn` cannot find with `shell:false` and an unenriched env. OmniRoute
+ * that `spawn` cannot find with `shell:false` and an unenriched env. AI Gate
  * already has a Windows-aware resolver for this exact tool in `cliRuntime.ts`, so
  * we reuse it: `getCliRuntimeStatus("qoder")` returns an absolute `.cmd`/`.exe`
  * `commandPath`, and `shouldUseShellForCommand()` tells us whether it needs cmd.exe.
@@ -112,7 +112,7 @@ export function buildQoderCliNotFoundHint(runError: string): string {
     /* best-effort — the path list is only advisory for the error message */
   }
   return (
-    `Qoder CLI (qodercli) was not found on the OmniRoute host (${runError}).` +
+    `Qoder CLI (qodercli) was not found on the AI Gate host (${runError}).` +
     searchedHint +
     " Install it from https://qoder.com, or set CLI_QODER_BIN to the absolute path " +
     "of the qodercli binary (e.g. %APPDATA%\\npm\\qodercli.cmd on Windows). " +

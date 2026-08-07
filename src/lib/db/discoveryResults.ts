@@ -9,7 +9,7 @@
  * See `_tasks/features-v3.8.42/gaps/DISCOVERY_TOOL_DESIGN.md` for the design.
  */
 
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 
 export type DiscoveryMethod = "free_tier" | "web_cookie" | "auto_register" | "trial" | "public_api";
 export type DiscoveryAuthType = "none" | "cookie" | "api_key" | "oauth";
@@ -82,7 +82,7 @@ function rowToResult(row: DiscoveryRow): DiscoveryResult {
  * duplicating it. Returns the persisted row (with its id).
  */
 export async function upsertDiscoveryResult(result: DiscoveryResult): Promise<DiscoveryResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const models = result.models ? JSON.stringify(result.models) : null;
   await db
     .prepare(
@@ -126,7 +126,7 @@ export async function upsertDiscoveryResult(result: DiscoveryResult): Promise<Di
  * findings first.
  */
 export async function getDiscoveryResults(providerId?: string): Promise<DiscoveryResult[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = providerId
     ? ((await db
         .prepare(
@@ -140,7 +140,7 @@ export async function getDiscoveryResults(providerId?: string): Promise<Discover
 }
 
 export async function getDiscoveryResultById(id: number): Promise<DiscoveryResult | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM discovery_results WHERE id = ?").get(id)) as
     DiscoveryRow | undefined;
   return row ? rowToResult(row) : null;
@@ -151,7 +151,7 @@ export async function getDiscoveryResultById(id: number): Promise<DiscoveryResul
  * or null if no row with that id exists.
  */
 export async function markVerified(id: number): Promise<DiscoveryResult | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const info = await db
     .prepare(
       "UPDATE discovery_results SET status = 'verified', verified_at = datetime('now') WHERE id = ?"
@@ -166,7 +166,7 @@ export async function markVerified(id: number): Promise<DiscoveryResult | null> 
  * found.
  */
 export async function deleteDiscoveryResult(id: number): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const info = await db.prepare("DELETE FROM discovery_results WHERE id = ?").run(id);
   return info.changes > 0;
 }

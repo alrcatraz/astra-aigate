@@ -300,7 +300,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     // Collect descriptions maintaining original order. A failed describe yields
     // `null` so the original image is preserved downstream (#4012) — replacing it
     // with an "(unavailable)" stub silently destroyed images for vision-capable
-    // upstreams whose capability OmniRoute couldn't prove from the registry.
+    // upstreams whose capability AI Gate couldn't prove from the registry.
     const descriptions: (string | null)[] = results.map((result, i) => {
       if (result.status === "fulfilled") {
         return result.value;

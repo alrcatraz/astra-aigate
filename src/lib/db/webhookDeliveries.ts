@@ -1,4 +1,4 @@
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 export interface WebhookDelivery {
@@ -28,13 +28,13 @@ export async function insertDelivery(opts: {
   error?: string | null;
   payloadSnapshot?: string | null;
 }): Promise<void> {
-  const db = getDbInstance();
-  const insertStmt = db.prepare(
+  const db = await getAsyncDb();
+  const insertStmt = await db.prepare(
     `INSERT INTO webhook_deliveries
        (webhook_id, event_type, status, http_status, latency_ms, error, payload_snapshot)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   );
-  const rotateStmt = db.prepare(
+  const rotateStmt = await db.prepare(
     `DELETE FROM webhook_deliveries
      WHERE webhook_id = ?
        AND id NOT IN (
@@ -67,7 +67,7 @@ export async function getDeliveries(
   webhookId: string,
   limit: number
 ): Promise<WebhookDeliverySafe[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `SELECT id, webhook_id, event_type, status, http_status, latency_ms, error, created_at

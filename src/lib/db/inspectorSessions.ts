@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import type { InspectorSessionRow } from "./_rowTypes";
 import { InterceptedRequestSchema } from "../../mitm/inspector/types";
 import type { InterceptedRequest } from "../../mitm/inspector/types";
@@ -35,34 +35,34 @@ function mapSessionRow(row: InspectorSessionDbRow): InspectorSessionRow {
   };
 }
 
-export function createSession(opts?: { name?: string; profile?: "llm" | "custom" | "all" }): {
-  id: string;
-  started_at: string;
-} {
-  const db = getDbInstance();
+export async function createSession(opts?: {
+  name?: string;
+  profile?: "llm" | "custom" | "all";
+}): Promise<{ id: string; started_at: string }> {
+  const db = await getAsyncDb();
   const id = randomUUID();
   const started_at = new Date().toISOString();
 
-  db.prepare(
-    `INSERT INTO inspector_sessions (id, name, started_at, profile) VALUES (?, ?, ?, ?)`
-  ).run(id, opts?.name ?? null, started_at, opts?.profile ?? null);
+  await db
+    .prepare(`INSERT INTO inspector_sessions (id, name, started_at, profile) VALUES (?, ?, ?, ?)`)
+    .run(id, opts?.name ?? null, started_at, opts?.profile ?? null);
 
   return { id, started_at };
 }
 
-export function stopSession(id: string): void {
-  const db = getDbInstance();
+export async function stopSession(id: string): Promise<void> {
+  const db = await getAsyncDb();
   const ended_at = new Date().toISOString();
-  db.prepare("UPDATE inspector_sessions SET ended_at = ? WHERE id = ?").run(ended_at, id);
+  await db.prepare("UPDATE inspector_sessions SET ended_at = ? WHERE id = ?").run(ended_at, id);
 }
 
-export function renameSession(id: string, name: string): void {
-  const db = getDbInstance();
-  db.prepare("UPDATE inspector_sessions SET name = ? WHERE id = ?").run(name, id);
+export async function renameSession(id: string, name: string): Promise<void> {
+  const db = await getAsyncDb();
+  await db.prepare("UPDATE inspector_sessions SET name = ? WHERE id = ?").run(name, id);
 }
 
 export async function listSessions(): Promise<InspectorSessionRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT * FROM inspector_sessions ORDER BY started_at DESC")
     .all()) as InspectorSessionDbRow[];
@@ -70,14 +70,14 @@ export async function listSessions(): Promise<InspectorSessionRow[]> {
 }
 
 export async function getSession(id: string): Promise<InspectorSessionRow | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db.prepare("SELECT * FROM inspector_sessions WHERE id = ?").get(id)) as
     InspectorSessionDbRow | undefined;
   return row ? mapSessionRow(row) : null;
 }
 
 export async function appendSessionRequest(sessionId: string, payload: string): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   let insertedSeq = 0;
 
   const runTransaction = db.transaction(async () => {
@@ -108,7 +108,7 @@ export async function appendSessionRequest(sessionId: string, payload: string): 
 export async function getSessionRequests(
   sessionId: string
 ): Promise<Array<{ seq: number; payload: string }>> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       "SELECT seq, payload FROM inspector_session_requests WHERE session_id = ? ORDER BY seq ASC"
@@ -117,10 +117,10 @@ export async function getSessionRequests(
   return rows.map((r) => ({ seq: r.seq, payload: r.payload }));
 }
 
-export function deleteSession(id: string): void {
-  const db = getDbInstance();
+export async function deleteSession(id: string): Promise<void> {
+  const db = await getAsyncDb();
   // Cascade via FK ON DELETE CASCADE for inspector_session_requests
-  db.prepare("DELETE FROM inspector_sessions WHERE id = ?").run(id);
+  await db.prepare("DELETE FROM inspector_sessions WHERE id = ?").run(id);
 }
 
 /**

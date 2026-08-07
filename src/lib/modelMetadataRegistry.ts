@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import { parseModel } from "@omniroute/open-sse/services/model.ts";
 import { getModelInfo } from "@/sse/services/model";
 import { getModelAliases } from "@/lib/db/models";
-import {
-  getResolvedModelCapabilities,
-  isNonChatCatalogSurface,
-} from "@/lib/modelCapabilities";
+import { getResolvedModelCapabilities, isNonChatCatalogSurface } from "@/lib/modelCapabilities";
 import {
   getAuthoritativeContextWindow,
   getAuthoritativeProviderContextWindow,
@@ -184,14 +181,14 @@ export function getCatalogDiagnosticsHeaders(
   };
 }
 
-export function getCanonicalModelMetadata(input: {
+export async function getCanonicalModelMetadata(input: {
   provider?: string | null;
   model?: string | null;
-}): CanonicalModelMetadata | null {
+}): Promise<CanonicalModelMetadata | null> {
   const modelId = asNonEmptyString(input.model);
   if (!modelId) return null;
 
-  const resolved = getResolvedModelCapabilities({
+  const resolved = await getResolvedModelCapabilities({
     provider: input.provider || null,
     model: modelId,
   });
@@ -200,9 +197,9 @@ export function getCanonicalModelMetadata(input: {
   const registryModel = getRegistryModel(providerAlias || provider, resolved.model || modelId);
   const staticSpec = getModelSpec(resolved.model || modelId);
   const syncedCapability =
-    provider && resolved.model ? getSyncedCapability(provider, resolved.model) : null;
+    provider && resolved.model ? await getSyncedCapability(provider, resolved.model) : null;
   const canonicalStaticAlias = resolveStaticModelAlias(resolved.model || modelId);
-  const modalities = buildModalities(
+  const modalities = await buildModalities(
     resolved.modalitiesInput,
     resolved.modalitiesOutput,
     resolved.supportsVision
@@ -261,10 +258,10 @@ export function getCanonicalModelMetadata(input: {
   };
 }
 
-function resolveCatalogPricing(
+async function resolveCatalogPricing(
   provider: string | null,
   model: string | null
-): Record<string, number> | null {
+): Promise<Record<string, number> | null> {
   if (!provider || !model) return null;
 
   const findInsensitive = <T>(
@@ -282,7 +279,7 @@ function resolveCatalogPricing(
 
   // Prefer models.dev synced pricing when present; fall back to hardcoded defaults.
   try {
-    const modelsDev = getModelsDevPricing() as Record<
+    const modelsDev = (await getModelsDevPricing()) as Record<
       string,
       Record<string, Record<string, number>>
     >;
@@ -327,10 +324,10 @@ function resolveCatalogPricing(
   return null;
 }
 
-export function enrichCatalogModelEntry<T extends JsonRecord>(
+export async function enrichCatalogModelEntry<T extends JsonRecord>(
   entry: T,
   input?: { provider?: string | null; model?: string | null }
-): T {
+): Promise<T> {
   const provider =
     input?.provider ||
     (typeof entry.owned_by === "string" && entry.owned_by !== "combo" ? entry.owned_by : null);
@@ -344,7 +341,7 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
       return id;
     })();
 
-  const metadata = getCanonicalModelMetadata({ provider, model });
+  const metadata = await getCanonicalModelMetadata({ provider, model });
   if (!metadata) return entry;
 
   const nextEntry: JsonRecord = { ...entry };
@@ -544,10 +541,10 @@ export async function resolveModelAliasLookup(
         providerAlias,
         model: modelInfo.model,
         target: explicitTarget,
-        metadata: getCanonicalModelMetadata({
+        metadata: await getCanonicalModelMetadata({
           provider: modelInfo.provider,
           model: modelInfo.model,
-        })!,
+        }).then((m) => m)!,
       },
     };
   }
@@ -577,10 +574,10 @@ export async function resolveModelAliasLookup(
         providerAlias,
         model: modelInfo.model,
         target: `${providerAlias}/${modelInfo.model}`,
-        metadata: getCanonicalModelMetadata({
+        metadata: await getCanonicalModelMetadata({
           provider: modelInfo.provider,
           model: modelInfo.model,
-        })!,
+        }).then((m) => m)!,
       },
     };
   }
@@ -610,7 +607,7 @@ export async function resolveModelAliasLookup(
   }
 
   const match = candidates[0];
-  const metadata = getCanonicalModelMetadata({
+  const metadata = await getCanonicalModelMetadata({
     provider: match.provider,
     model: match.model,
   });

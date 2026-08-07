@@ -9,7 +9,7 @@
  * @see Issue #1628
  */
 
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
 import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
 
 // ──────────────── Types ────────────────
@@ -41,15 +41,15 @@ function toUnixEpochSeconds(dateMs: number): number {
   return Math.floor(dateMs / 1000);
 }
 
-const EXPIRES_AT_EPOCH_SQL = `COALESCE(
-  CASE
-    WHEN typeof(expires_at) IN ('integer', 'real') THEN CAST(expires_at AS INTEGER)
-    WHEN typeof(expires_at) = 'text' AND expires_at <> '' AND expires_at NOT GLOB '*[^0-9]*'
-      THEN CAST(expires_at AS INTEGER)
-    ELSE unixepoch(expires_at)
-  END,
-  0
-)`;
+// expires_at is INTEGER epoch-seconds. The old expression ran SQLite-only
+// functions (typeof/GLOB/unixepoch) and mis-translated to PG (to_timestamp on
+// a numeric column) — replaced with a plain numeric comparison that works on
+// both drivers. COALESCE keeps the "no expiry = 0 = expired" reads consistent.
+const EXPIRES_AT_EPOCH_SQL = "COALESCE(expires_at, 0)";
+
+function nowEpochSeconds(): number {
+  return toUnixEpochSeconds(Date.now());
+}
 
 function epochSecondsToIso(value: number | string): string {
   const text = String(value);
@@ -85,7 +85,7 @@ export async function setReasoningCache(
   if (reasoning.length > MAX_ENTRY_BYTES) {
     reasoning = reasoning.slice(0, MAX_ENTRY_BYTES);
   }
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const expiresAt = toUnixEpochSeconds(Date.now() + ttlMs);
   const charCount = reasoning.length;
 
@@ -105,13 +105,14 @@ export async function setReasoningCache(
 export function getReasoningCache(
   toolCallId: string
 ): { reasoning: string; provider: string; model: string } | null {
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const row = raw
     .prepare(
       `SELECT reasoning, provider, model FROM reasoning_cache
-       WHERE tool_call_id = ? AND ${EXPIRES_AT_EPOCH_SQL} > unixepoch('now')`
+      WHERE tool_call_id = ? AND ${EXPIRES_AT_EPOCH_SQL} > ?`
     )
-    .get(toolCallId) as { reasoning: string; provider: string; model: string } | undefined;
+    .get(toolCallId, nowEpochSeconds()) as
+    { reasoning: string; provider: string; model: string } | undefined;
 
   return row ?? null;
 }
@@ -120,7 +121,7 @@ export function getReasoningCache(
  * Delete a specific reasoning cache entry.
  */
 export async function deleteReasoningCache(toolCallId: string): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db
     .prepare(`DELETE FROM reasoning_cache WHERE tool_call_id = ?`)
     .run(toolCallId);
@@ -131,10 +132,10 @@ export async function deleteReasoningCache(toolCallId: string): Promise<number> 
  * Delete all expired entries. Returns count of rows removed.
  */
 export async function cleanupExpiredReasoning(): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db
-    .prepare(`DELETE FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} <= unixepoch('now')`)
-    .run();
+    .prepare(`DELETE FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} <= ?`)
+    .run(nowEpochSeconds());
   return result.changes;
 }
 
@@ -143,7 +144,7 @@ export async function cleanupExpiredReasoning(): Promise<number> {
  * Returns count of rows removed.
  */
 export async function clearAllReasoningCache(provider?: string): Promise<number> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   if (provider) {
     const result = await db.prepare(`DELETE FROM reasoning_cache WHERE provider = ?`).run(provider);
     return result.changes;
@@ -158,24 +159,24 @@ export async function clearAllReasoningCache(provider?: string): Promise<number>
  * Get aggregate statistics for the reasoning cache.
  */
 export async function getReasoningCacheStats(): Promise<ReasoningCacheStats> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   // Total counts
   const totals = (await db
     .prepare(
       `SELECT COUNT(*) as total_entries, COALESCE(SUM(char_count), 0) as total_chars
-       FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} > unixepoch('now')`
+       FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} > ?`
     )
-    .get()) as { total_entries: number; total_chars: number };
+    .get(nowEpochSeconds())) as { total_entries: number; total_chars: number };
 
   // By provider
   const providerRows = (await db
     .prepare(
       `SELECT provider, COUNT(*) as entries, COALESCE(SUM(char_count), 0) as chars
-       FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} > unixepoch('now')
+       FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} > ?
        GROUP BY provider ORDER BY entries DESC`
     )
-    .all()) as { provider: string; entries: number; chars: number }[];
+    .all(nowEpochSeconds())) as { provider: string; entries: number; chars: number }[];
 
   const byProvider: Record<string, { entries: number; chars: number }> = {};
   for (const row of providerRows) {
@@ -186,10 +187,10 @@ export async function getReasoningCacheStats(): Promise<ReasoningCacheStats> {
   const modelRows = (await db
     .prepare(
       `SELECT model, COUNT(*) as entries, COALESCE(SUM(char_count), 0) as chars
-       FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} > unixepoch('now')
-       GROUP BY model ORDER BY entries DESC`
+      FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} > ?
+      GROUP BY model ORDER BY entries DESC`
     )
-    .all()) as { model: string; entries: number; chars: number }[];
+    .all(nowEpochSeconds())) as { model: string; entries: number; chars: number }[];
 
   const byModel: Record<string, { entries: number; chars: number }> = {};
   for (const row of modelRows) {
@@ -200,16 +201,16 @@ export async function getReasoningCacheStats(): Promise<ReasoningCacheStats> {
   const oldest = (await db
     .prepare(
       `SELECT created_at FROM reasoning_cache
-       WHERE ${EXPIRES_AT_EPOCH_SQL} > unixepoch('now') ORDER BY created_at ASC LIMIT 1`
+      WHERE ${EXPIRES_AT_EPOCH_SQL} > ? ORDER BY created_at ASC LIMIT 1`
     )
-    .get()) as { created_at: string } | undefined;
+    .get(nowEpochSeconds())) as { created_at: string } | undefined;
 
   const newest = (await db
     .prepare(
       `SELECT created_at FROM reasoning_cache
-       WHERE ${EXPIRES_AT_EPOCH_SQL} > unixepoch('now') ORDER BY created_at DESC LIMIT 1`
+      WHERE ${EXPIRES_AT_EPOCH_SQL} > ? ORDER BY created_at DESC LIMIT 1`
     )
-    .get()) as { created_at: string } | undefined;
+    .get(nowEpochSeconds())) as { created_at: string } | undefined;
 
   return {
     totalEntries: totals.total_entries,
@@ -234,12 +235,12 @@ export async function getReasoningCacheEntries(
     model?: string;
   } = {}
 ): Promise<ReasoningCacheEntry[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const limit = Math.min(opts.limit ?? 50, 200);
   const offset = opts.offset ?? 0;
 
-  const conditions: string[] = [`${EXPIRES_AT_EPOCH_SQL} > unixepoch('now')`];
-  const params: unknown[] = [];
+  const conditions: string[] = [`${EXPIRES_AT_EPOCH_SQL} > ?`];
+  const params: unknown[] = [nowEpochSeconds()];
 
   if (opts.provider) {
     conditions.push("provider = ?");

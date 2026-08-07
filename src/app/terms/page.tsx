@@ -77,7 +77,7 @@ export default function TermsPage() {
           <p>
             {t("questionsVisit")}{" "}
             <a
-              href="https://github.com/diegosouzapw/OmniRoute"
+              href="https://github.com/diegosouzapw/AI Gate"
               className="text-primary hover:underline"
               target="_blank"
               rel="noopener noreferrer"

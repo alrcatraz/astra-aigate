@@ -8,7 +8,7 @@
  * Sliced out of #3500 (semantic_cache cluster, slice 4).
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -51,7 +51,7 @@ const VALID_SORT_COLUMNS = ["created_at", "expires_at", "hit_count", "tokens_sav
 export async function listSemanticCacheEntries(
   opts: SemanticCacheListOptions
 ): Promise<SemanticCacheListResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const { page, limit, search, model, sortBy, sortOrder } = opts;
   const offset = (page - 1) * limit;
 
@@ -99,7 +99,7 @@ export interface DeleteSemanticCacheBySignatureResult {
 export async function deleteSemanticCacheBySignature(
   signature: string
 ): Promise<DeleteSemanticCacheBySignatureResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM semantic_cache WHERE signature = ?").run(signature);
   return { deleted: 1 };
 }
@@ -115,7 +115,7 @@ export interface DeleteSemanticCacheByModelResult {
 export async function deleteSemanticCacheByModel(
   model: string
 ): Promise<DeleteSemanticCacheByModelResult> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("DELETE FROM semantic_cache WHERE model = ?").run(model);
   return { deleted: result.changes };
 }

@@ -537,7 +537,7 @@ async function resolveModelByProviderInference(modelId: string, extendedContext:
   const providers = getInferredProvidersForModel(modelId, activeSyncedProviders);
   const nonOpenAIProviders = providers.filter((p) => p !== "openai");
 
-  // Bare model IDs from Codex CLI do not preserve OmniRoute's `cx/` prefix.
+  // Bare model IDs from Codex CLI do not preserve AI Gate's `cx/` prefix.
   // Route overlapping models through Codex only for Codex-only installations;
   // when OpenAI is also active, preserve the historical OpenAI default below.
   // Models advertised only by an active synced Codex catalog still reach the
@@ -600,7 +600,9 @@ async function resolveModelByProviderInference(modelId: string, extendedContext:
 
   // Canonicalize candidates (deduplicate alias providers pointing to the same provider ID)
   const canonicalCandidates = Array.from(
-    new Set(candidatesToUse.map((p) => resolveProviderAlias(p)).filter((p): p is string => p !== null))
+    new Set(
+      candidatesToUse.map((p) => resolveProviderAlias(p)).filter((p): p is string => p !== null)
+    )
   );
 
   // Filter candidates by active connections configured in the database

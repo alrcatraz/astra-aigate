@@ -228,7 +228,7 @@ function mergeHeadersCaseInsensitive(
 
 /**
  * #8000: DuckDuckGo's free Duck.ai lineup churns and the catalog fell behind. Map every
- * retired id OmniRoute historically advertised to the current wire id served by
+ * retired id AI Gate historically advertised to the current wire id served by
  * `duckchat/v1/models` (captured 2026-07-22) — a retired/unknown `model` yields a 400
  * `ERR_BAD_REQUEST` from `duckchat/v1/chat`. Current free wire ids: gpt-5.4-mini,
  * gpt-5.4-nano, claude-haiku-4-5, mistral-small-2603, tinfoil/gpt-oss-120b, tinfoil/gemma4-31b.

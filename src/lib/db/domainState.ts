@@ -10,7 +10,7 @@
  * @module lib/db/domainState
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
 
 type JsonRecord = Record<string, unknown>;
@@ -75,7 +75,7 @@ function toNumber(value: unknown, fallback = 0): number {
 function ensureBudgetSchema() {
   if (_budgetSchemaChecked) return;
 
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const columns = raw.prepare("PRAGMA table_info(domain_budgets)").all() as JsonRecord[];
   const columnNames = new Set(
     columns
@@ -134,7 +134,7 @@ function ensureBudgetSchema() {
  * @param {Array<{provider: string, priority: number, enabled: boolean}>} chain
  */
 export async function saveFallbackChain(model: string, chain: FallbackChainEntry[]) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare("INSERT OR REPLACE INTO domain_fallback_chains (model, chain) VALUES (?, ?)")
     .run(model, JSON.stringify(chain));
@@ -146,7 +146,7 @@ export async function saveFallbackChain(model: string, chain: FallbackChainEntry
  * @returns {Array<{provider: string, priority: number, enabled: boolean}> | null}
  */
 export async function loadFallbackChain(model: string): Promise<FallbackChainEntry[] | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db
     .prepare("SELECT chain FROM domain_fallback_chains WHERE model = ?")
     .get(model);
@@ -159,7 +159,7 @@ export async function loadFallbackChain(model: string): Promise<FallbackChainEnt
  * @returns {Record<string, Array<{provider: string, priority: number, enabled: boolean}>>}
  */
 export async function loadAllFallbackChains() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT model, chain FROM domain_fallback_chains")
     .all()) as JsonRecord[];
@@ -180,7 +180,7 @@ export async function loadAllFallbackChains() {
  * @returns {boolean}
  */
 export async function deleteFallbackChain(model: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const info = await db.prepare("DELETE FROM domain_fallback_chains WHERE model = ?").run(model);
   return info.changes > 0;
 }
@@ -189,7 +189,7 @@ export async function deleteFallbackChain(model: string) {
  * Delete all fallback chains.
  */
 export async function deleteAllFallbackChains() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM domain_fallback_chains").run();
 }
 
@@ -202,7 +202,7 @@ export async function deleteAllFallbackChains() {
  */
 export async function saveBudget(apiKeyId: string, config: Partial<BudgetConfigRecord>) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `INSERT OR REPLACE INTO domain_budgets (
@@ -242,7 +242,7 @@ export async function saveBudget(apiKeyId: string, config: Partial<BudgetConfigR
  */
 export async function loadBudget(apiKeyId: string): Promise<BudgetConfigRecord | null> {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db.prepare("SELECT * FROM domain_budgets WHERE api_key_id = ?").get(apiKeyId);
   const record = asRecord(row);
   if (!row) return null;
@@ -269,7 +269,7 @@ export async function loadBudget(apiKeyId: string): Promise<BudgetConfigRecord |
  */
 export async function loadAllBudgets() {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT * FROM domain_budgets ORDER BY api_key_id")
     .all()) as JsonRecord[];
@@ -306,7 +306,7 @@ export async function loadAllBudgets() {
  */
 export async function saveBudgetResetLog(entry: BudgetResetLogRecord) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `INSERT INTO domain_budget_reset_logs
@@ -332,7 +332,7 @@ export async function saveBudgetResetLog(entry: BudgetResetLogRecord) {
  */
 export async function loadBudgetResetLogs(apiKeyId: string, limit = 10) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       `SELECT id, api_key_id, reset_interval, previous_spend, reset_at, next_reset_at, period_start, period_end
@@ -369,7 +369,7 @@ export async function loadBudgetResetLogs(apiKeyId: string, limit = 10) {
  */
 export async function deleteBudget(apiKeyId: string) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM domain_budgets WHERE api_key_id = ?").run(apiKeyId);
   await db.prepare("DELETE FROM domain_budget_reset_logs WHERE api_key_id = ?").run(apiKeyId);
 }
@@ -384,7 +384,7 @@ export async function deleteBudget(apiKeyId: string) {
  */
 export async function saveCostEntry(apiKeyId: string, cost: number, timestamp = Date.now()) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare("INSERT INTO domain_cost_history (api_key_id, cost, timestamp) VALUES (?, ?, ?)")
     .run(apiKeyId, cost, timestamp);
@@ -396,8 +396,8 @@ export async function batchSaveCostEntries(
   await ensureBudgetSchema();
   if (!Array.isArray(entries) || entries.length === 0) return;
 
-  const db = getDbInstance();
-  const stmt = db.prepare(
+  const db = await getAsyncDb();
+  const stmt = await db.prepare(
     "INSERT INTO domain_cost_history (api_key_id, cost, timestamp) VALUES (?, ?, ?)"
   );
   const tx = db.transaction(
@@ -413,7 +413,7 @@ export async function batchSaveCostEntries(
 
 export function loadCostTotal(apiKeyId: string, sinceTimestamp: number): number {
   ensureBudgetSchema();
-  const raw = (getDbInstance() as SqliteAdapter).raw as RawSyncDb;
+  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const row = raw
     .prepare(
       "SELECT COALESCE(SUM(cost), 0) AS total FROM domain_cost_history WHERE api_key_id = ? AND timestamp >= ?"
@@ -430,7 +430,7 @@ export function loadCostTotal(apiKeyId: string, sinceTimestamp: number): number 
  */
 export async function loadCostEntries(apiKeyId: string, sinceTimestamp: number) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return db
     .prepare(
       "SELECT cost, timestamp FROM domain_cost_history WHERE api_key_id = ? AND timestamp >= ? ORDER BY timestamp"
@@ -451,7 +451,7 @@ export async function loadCostEntriesInRange(
   untilTimestamp: number
 ) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return db
     .prepare(
       `SELECT cost, timestamp
@@ -469,7 +469,7 @@ export async function loadCostEntriesInRange(
  */
 export async function cleanOldCostEntries(olderThanTimestamp: number) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const info = await db
     .prepare("DELETE FROM domain_cost_history WHERE timestamp < ?")
     .run(olderThanTimestamp);
@@ -482,7 +482,7 @@ export async function cleanOldCostEntries(olderThanTimestamp: number) {
  */
 export async function deleteCostEntries(apiKeyId: string) {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM domain_cost_history WHERE api_key_id = ?").run(apiKeyId);
 }
 
@@ -491,7 +491,7 @@ export async function deleteCostEntries(apiKeyId: string) {
  */
 export async function deleteAllCostData() {
   await ensureBudgetSchema();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM domain_cost_history").run();
   await db.prepare("DELETE FROM domain_budgets").run();
   await db.prepare("DELETE FROM domain_budget_reset_logs").run();
@@ -505,7 +505,7 @@ export async function deleteAllCostData() {
  * @param {{ attempts: number[], lockedUntil: number|null }} state
  */
 export async function saveLockoutState(identifier: string, state: LockoutStateRecord) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `INSERT OR REPLACE INTO domain_lockout_state (identifier, attempts, locked_until)
@@ -520,7 +520,7 @@ export async function saveLockoutState(identifier: string, state: LockoutStateRe
  * @returns {{ attempts: number[], lockedUntil: number|null } | null}
  */
 export async function loadLockoutState(identifier: string): Promise<LockoutStateRecord | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db
     .prepare("SELECT * FROM domain_lockout_state WHERE identifier = ?")
     .get(identifier);
@@ -539,7 +539,7 @@ export async function loadLockoutState(identifier: string): Promise<LockoutState
  * @param {string} identifier
  */
 export async function deleteLockoutState(identifier: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM domain_lockout_state WHERE identifier = ?").run(identifier);
 }
 
@@ -548,7 +548,7 @@ export async function deleteLockoutState(identifier: string) {
  * @returns {Array<{identifier: string, lockedUntil: number}>}
  */
 export async function loadAllLockedIdentifiers() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = Date.now();
   const rows = (await db
     .prepare(
@@ -575,7 +575,7 @@ export async function loadAllLockedIdentifiers() {
  * @param {{ state: string, failureCount: number, lastFailureTime: number|null, options?: object }} cbState
  */
 export async function saveCircuitBreakerState(name: string, cbState: CircuitBreakerStateRecord) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db
     .prepare(
       `INSERT OR REPLACE INTO domain_circuit_breakers (name, state, failure_count, last_failure_time, options)
@@ -598,7 +598,7 @@ export async function saveCircuitBreakerState(name: string, cbState: CircuitBrea
 export async function loadCircuitBreakerState(
   name: string
 ): Promise<CircuitBreakerStateRecord | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = await db.prepare("SELECT * FROM domain_circuit_breakers WHERE name = ?").get(name);
   if (!row) return null;
   const record = asRecord(row);
@@ -616,7 +616,7 @@ export async function loadCircuitBreakerState(
  * @returns {Array<{name: string, state: string, failureCount: number, lastFailureTime: number|null}>}
  */
 export async function loadAllCircuitBreakerStates() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare("SELECT name, state, failure_count, last_failure_time FROM domain_circuit_breakers")
     .all()) as JsonRecord[];
@@ -639,7 +639,7 @@ export async function loadAllCircuitBreakerStates() {
  * @param {string} name
  */
 export async function deleteCircuitBreakerState(name: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM domain_circuit_breakers WHERE name = ?").run(name);
 }
 
@@ -647,6 +647,6 @@ export async function deleteCircuitBreakerState(name: string) {
  * Delete all circuit breaker states.
  */
 export async function deleteAllCircuitBreakerStates() {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   await db.prepare("DELETE FROM domain_circuit_breakers").run();
 }

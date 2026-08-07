@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { getBudgetWindow, type BudgetResetInterval } from "@/domain/costRules";
 
 export type TokenLimitScopeType = "model" | "provider" | "global";
@@ -77,7 +77,7 @@ function normalizeResetInterval(value: unknown): BudgetResetInterval {
 
 function ensureSchema() {
   if (_schemaChecked) return;
-  const db = getDbInstance();
+  const db = getAsyncDb();
   db.exec(`
     CREATE TABLE IF NOT EXISTS api_key_token_limits (
       id              TEXT PRIMARY KEY,
@@ -138,7 +138,7 @@ function rowToTokenLimit(row: unknown): TokenLimit {
  */
 export async function upsertTokenLimit(input: UpsertTokenLimitInput): Promise<TokenLimit> {
   ensureSchema();
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const scopeType = normalizeScopeType(input.scopeType);
   const scopeValue = scopeType === "global" ? "" : (input.scopeValue ?? "").trim();
   const resetInterval = normalizeResetInterval(input.resetInterval);
@@ -182,7 +182,7 @@ export async function upsertTokenLimit(input: UpsertTokenLimitInput): Promise<To
 /** List all token limits for an API key (ordered most-specific first: model, provider, global). */
 export async function listTokenLimits(apiKeyId: string): Promise<TokenLimit[]> {
   ensureSchema();
-  const db = getDbInstance();
+  const db = getAsyncDb();
   return (
     await db
       .prepare(
@@ -205,7 +205,7 @@ export async function getTokenLimitsForRequest(
   model: string
 ): Promise<TokenLimit[]> {
   ensureSchema();
-  const db = getDbInstance();
+  const db = getAsyncDb();
   return (
     await db
       .prepare(
@@ -225,7 +225,7 @@ export async function getTokenLimitsForRequest(
 /** Delete a token limit by id (counters + reset logs cascade in app code below). */
 export async function deleteTokenLimit(id: string): Promise<boolean> {
   ensureSchema();
-  const db = getDbInstance();
+  const db = getAsyncDb();
   // FK pragma is OFF in this build; delete dependents explicitly.
   await db.prepare("DELETE FROM api_key_token_counters WHERE limit_id = ?").run(id);
   await db.prepare("DELETE FROM api_key_token_limit_reset_logs WHERE limit_id = ?").run(id);
@@ -257,7 +257,7 @@ export function resetWindowIfElapsed(limit: TokenLimit, now = Date.now()): Token
  */
 export function getWindowUsage(limit: TokenLimit, now = Date.now()): number {
   ensureSchema();
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const { windowStart } = resetWindowIfElapsed(limit, now);
   const row = db
     .prepare(
@@ -278,7 +278,7 @@ export function incrementWindowTokens(
   tokens: number
 ): number {
   ensureSchema();
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const delta = Math.max(0, Math.floor(toNumber(tokens)));
   const row = db
     .prepare(
@@ -294,11 +294,17 @@ export function incrementWindowTokens(
 }
 
 /** Append a window-reset audit log row. */
-export function logTokenLimitReset(limitId: string, prevTokens: number, windowStart: string): void {
+export async function logTokenLimitReset(
+  limitId: string,
+  prevTokens: number,
+  windowStart: string
+): Promise<void> {
   ensureSchema();
-  const db = getDbInstance();
-  db.prepare(
-    `INSERT INTO api_key_token_limit_reset_logs (limit_id, reset_at, prev_tokens, window_start)
+  const db = getAsyncDb();
+  await db
+    .prepare(
+      `INSERT INTO api_key_token_limit_reset_logs (limit_id, reset_at, prev_tokens, window_start)
      VALUES (?, datetime('now'), ?, ?)`
-  ).run(limitId, Math.max(0, Math.floor(toNumber(prevTokens))), windowStart);
+    )
+    .run(limitId, Math.max(0, Math.floor(toNumber(prevTokens))), windowStart);
 }

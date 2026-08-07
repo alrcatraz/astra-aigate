@@ -32,7 +32,7 @@ const STREAMING_RESPONSE_HEADER_DENYLIST = new Set([
 
 /**
  * Keep upstream-derived headers comfortably below common reverse-proxy response-header limits.
- * This budget includes each header name, separator, value, and trailing CRLF. OmniRoute's own
+ * This budget includes each header name, separator, value, and trailing CRLF. AI Gate's own
  * response metadata and framework/security headers are added separately.
  */
 export const MAX_FORWARDED_UPSTREAM_RESPONSE_HEADER_BYTES = 768;
@@ -76,7 +76,7 @@ function getForwardingPriority(headerName: string): number {
  * `x-middleware-next`, `x-middleware-override-headers`,
  * `x-middleware-set-cookie`, and the `x-middleware-request-*` family.
  *
- * If OmniRoute re-emits those headers from an App Router route handler, Next
+ * If AI Gate re-emits those headers from an App Router route handler, Next
  * 16's `app-route` runtime
  * interprets `x-middleware-rewrite` as a `NextResponse.rewrite()` call and
  * throws `NextResponse.rewrite() was used in a app route handler` — turning a

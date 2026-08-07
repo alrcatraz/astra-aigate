@@ -43,7 +43,7 @@ async function testFetch(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "User-Agent": "OmniRoute-Webhook/1.0",
+        "User-Agent": "AI Gate-Webhook/1.0",
         ...headers,
       },
       body: JSON.stringify(body),
@@ -81,14 +81,14 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
   try {
     const { id } = await params;
-    const webhook = getWebhook(id);
+    const webhook = await getWebhook(id);
     if (!webhook) {
       return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
     }
 
     const kind = webhook.kind ?? "custom";
     const testData = {
-      message: "Test webhook delivery from OmniRoute",
+      message: "Test webhook delivery from AI Gate",
       webhookId: webhook.id,
     };
     const testPayload = { event: "test.ping", timestamp: new Date().toISOString(), data: testData };

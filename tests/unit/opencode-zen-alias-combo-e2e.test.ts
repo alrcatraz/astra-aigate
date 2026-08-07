@@ -141,8 +141,8 @@ describe("opencode-zen ↔ opencode alias fix (end-to-end)", () => {
     assert.equal(cap?.limit_context, 400000);
   });
 
-  it("getCanonicalModelMetadata({provider:'opencode', model:'big-pickle'}) returns full metadata", () => {
-    const md = registry.getCanonicalModelMetadata({
+  it("getCanonicalModelMetadata({provider:'opencode', model:'big-pickle'}) returns full metadata", async () => {
+    const md = await registry.getCanonicalModelMetadata({
       provider: "opencode",
       model: "big-pickle",
     });
@@ -159,7 +159,7 @@ describe("opencode-zen ↔ opencode alias fix (end-to-end)", () => {
     assert.equal(md?.metadata.source.syncedCapability, true);
   });
 
-  it("combo of 4 opencode/* targets computes context_length = min(known) = 200000", () => {
+  it("combo of 4 opencode/* targets computes context_length = min(known) = 200000", async () => {
     // Simulate the "Opencode FREE Omni" combo: 4 targets, all under
     // provider "opencode". The min of the 4 known contexts (200k, 400k,
     // 200k, 200k) is 200000 — NOT 128000, NOT null.
@@ -176,7 +176,7 @@ describe("opencode-zen ↔ opencode alias fix (end-to-end)", () => {
     //   3. min of known contextLength values
     const contexts: number[] = [];
     for (const target of targets) {
-      const md = registry.getCanonicalModelMetadata({
+      const md = await registry.getCanonicalModelMetadata({
         provider: target.providerId,
         model: target.modelId,
       });

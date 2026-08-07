@@ -11,7 +11,7 @@ import { listSessions, createSession } from "@/lib/db/inspectorSessions";
 
 export async function GET(): Promise<Response> {
   try {
-    const sessions = listSessions();
+    const sessions = await listSessions();
     return Response.json({ sessions });
   } catch (err) {
     const msg = sanitizeErrorMessage(err);

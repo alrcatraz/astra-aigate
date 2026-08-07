@@ -22,6 +22,7 @@ import type { KeyStatus, KeyType } from "./apiManagerPageUtils";
 import { readActiveOnlyPreference, writeActiveOnlyPreference } from "./apiManagerPageStorage";
 import { buildApiKeyCreateScopes, mergeApiKeyPermissionScopes } from "./apiManagerScopes";
 import { SELF_ACCOUNT_QUOTA_SCOPE, SELF_USAGE_SCOPE } from "@/shared/constants/selfServiceScopes";
+import { MCP_ADMIN_SCOPE, MCP_READ_SCOPE, MCP_WRITE_SCOPE } from "@/shared/constants/mcpScopes";
 import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { hasProviderQuotaBypassScope } from "@/shared/constants/apiKeyPolicyScopes";
 import { UsageLimitSettings } from "./components/UsageLimitSettings";
@@ -214,9 +215,19 @@ export default function ApiManagerPageClient() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyManageEnabled, setNewKeyManageEnabled] = useState(false);
+  const [newKeyMcpAdminEnabled, setNewKeyMcpAdminEnabled] = useState(false);
+  const [newKeyMcpReadEnabled, setNewKeyMcpReadEnabled] = useState(false);
+  const [newKeyMcpWriteEnabled, setNewKeyMcpWriteEnabled] = useState(false);
   const [newKeySelfUsageEnabled, setNewKeySelfUsageEnabled] = useState(true);
   const [newKeyAccountQuotaEnabled, setNewKeyAccountQuotaEnabled] = useState(false);
   const [newKeyAllowUsageCommand, setNewKeyAllowUsageCommand] = useState(false);
+  const [proxiedServices, setProxiedServices] = useState<
+    {
+      id: string;
+      name: string;
+    }[]
+  >([]);
+  const [newKeyServiceScopes, setNewKeyServiceScopes] = useState<Record<string, boolean>>({});
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
@@ -260,6 +271,35 @@ export default function ApiManagerPageClient() {
     fetchCombos();
     fetchConnections();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial dashboard load only
+
+  // Proxied services once — shared by the create-form Service Access section
+  // and the edit PermissionsModal (svc:<id> scopes).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/services")
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((data) => {
+        if (cancelled) return;
+        setProxiedServices(
+          (
+            (data?.services ?? []) as Array<{
+              id: string;
+              proxied: boolean;
+              enabled: boolean;
+              name: string;
+            }>
+          )
+            .filter((s) => s.proxied && s.enabled)
+            .map((s) => ({ id: s.id, name: s.name }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setProxiedServices([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!showAddModal || !nameError) return;
@@ -624,6 +664,12 @@ export default function ApiManagerPageClient() {
             manageEnabled: newKeyManageEnabled,
             selfUsageEnabled: newKeySelfUsageEnabled,
             selfAccountQuotaEnabled: newKeyAccountQuotaEnabled,
+            mcpAdminEnabled: newKeyMcpAdminEnabled,
+            mcpReadEnabled: newKeyMcpReadEnabled,
+            mcpWriteEnabled: newKeyMcpWriteEnabled,
+            serviceScopes: Object.entries(newKeyServiceScopes)
+              .filter(([, enabled]) => enabled)
+              .map(([id]) => `svc:${id}`),
           }),
           allowUsageCommand: newKeyAllowUsageCommand,
         }),
@@ -635,9 +681,13 @@ export default function ApiManagerPageClient() {
         await fetchData();
         setNewKeyName("");
         setNewKeyManageEnabled(false);
+        setNewKeyMcpAdminEnabled(false);
+        setNewKeyMcpReadEnabled(false);
+        setNewKeyMcpWriteEnabled(false);
         setNewKeySelfUsageEnabled(true);
         setNewKeyAccountQuotaEnabled(false);
         setNewKeyAllowUsageCommand(false);
+        setNewKeyServiceScopes({});
         setShowAddModal(false);
       } else {
         setCreateError(extractApiErrorMessage(data, t("failedCreateKey")));
@@ -1441,6 +1491,108 @@ export default function ApiManagerPageClient() {
               {newKeyManageEnabled ? tc("enabled") : tc("disabled")}
             </button>
           </div>
+          {/* MCP Gateway Access */}
+          <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium text-text-main">{t("mcpAccess")}</p>
+              <p className="text-xs text-text-muted">{t("mcpAccessDesc")}</p>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-text-main">{t("mcpAdmin")}</p>
+                <p className="text-xs text-text-muted">{t("mcpAdminDesc")}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={newKeyMcpAdminEnabled}
+                onClick={() => setNewKeyMcpAdminEnabled((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                  newKeyMcpAdminEnabled
+                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+                {newKeyMcpAdminEnabled ? tc("enabled") : tc("disabled")}
+              </button>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-text-main">{t("mcpRead")}</p>
+                <p className="text-xs text-text-muted">{t("mcpReadDesc")}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={newKeyMcpReadEnabled}
+                onClick={() => setNewKeyMcpReadEnabled((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                  newKeyMcpReadEnabled
+                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">visibility</span>
+                {newKeyMcpReadEnabled ? tc("enabled") : tc("disabled")}
+              </button>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-text-main">{t("mcpWrite")}</p>
+                <p className="text-xs text-text-muted">{t("mcpWriteDesc")}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={newKeyMcpWriteEnabled}
+                onClick={() => setNewKeyMcpWriteEnabled((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                  newKeyMcpWriteEnabled
+                    ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                    : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">edit_square</span>
+                {newKeyMcpWriteEnabled ? tc("enabled") : tc("disabled")}
+              </button>
+            </div>
+          </div>
+          {proxiedServices.length > 0 && (
+            <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-text-main">{t("serviceAccess")}</p>
+                <p className="text-xs text-text-muted">{t("serviceAccessDesc")}</p>
+              </div>
+              {proxiedServices.map((svc) => (
+                <div key={svc.id} className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm text-text-main">{svc.name}</p>
+                    <p className="text-xs font-mono text-text-muted">svc:{svc.id}</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={newKeyServiceScopes[svc.id] === true}
+                    onClick={() =>
+                      setNewKeyServiceScopes((prev) => ({
+                        ...prev,
+                        [svc.id]: !(prev[svc.id] === true),
+                      }))
+                    }
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                      newKeyServiceScopes[svc.id]
+                        ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30"
+                        : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">hub</span>
+                    {newKeyServiceScopes[svc.id] ? tc("enabled") : tc("disabled")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
             <div className="flex flex-col gap-1">
               <p className="text-sm font-medium text-text-main">{t("selfServiceVisibility")}</p>
@@ -1598,6 +1750,7 @@ export default function ApiManagerPageClient() {
           searchModel={searchModel}
           onSearchChange={setSearchModel}
           onSave={handleUpdatePermissions}
+          proxiedServices={proxiedServices}
         />
       )}
     </div>
@@ -1618,6 +1771,7 @@ const PermissionsModal = memo(function PermissionsModal({
   searchModel,
   onSearchChange,
   onSave,
+  proxiedServices,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -1629,6 +1783,7 @@ const PermissionsModal = memo(function PermissionsModal({
   allConnections: ProviderConnection[];
   searchModel: string;
   onSearchChange: (v: string) => void;
+  proxiedServices: { id: string; name: string }[];
   onSave: (
     name: string,
     models: string[],
@@ -1690,6 +1845,27 @@ const PermissionsModal = memo(function PermissionsModal({
   const [manageEnabled, setManageEnabled] = useState(
     Array.isArray(apiKey?.scopes) && apiKey.scopes.includes("manage")
   );
+  const [mcpAdminEnabled, setMcpAdminEnabled] = useState(
+    Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(MCP_ADMIN_SCOPE)
+  );
+  const [mcpReadEnabled, setMcpReadEnabled] = useState(
+    Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(MCP_READ_SCOPE)
+  );
+  const [mcpWriteEnabled, setMcpWriteEnabled] = useState(
+    Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(MCP_WRITE_SCOPE)
+  );
+  const [serviceScopesEnabled, setServiceScopesEnabled] = useState<Record<string, boolean>>({});
+
+  // Initialise Service Access toggles from the key's existing svc:* scopes
+  // whenever the proxied-services list (fetched once by the parent) or the
+  // edited key changes.
+  useEffect(() => {
+    const initial: Record<string, boolean> = {};
+    for (const s of proxiedServices) {
+      initial[s.id] = Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(`svc:${s.id}`);
+    }
+    setServiceScopesEnabled(initial);
+  }, [proxiedServices, apiKey]);
   const [selfUsageEnabled, setSelfUsageEnabled] = useState(
     Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(SELF_USAGE_SCOPE)
   );
@@ -1935,6 +2111,12 @@ const PermissionsModal = memo(function PermissionsModal({
         selfUsageEnabled,
         selfAccountQuotaEnabled,
         bypassProviderQuotaPolicyEnabled,
+        mcpAdminEnabled,
+        mcpReadEnabled,
+        mcpWriteEnabled,
+        serviceScopes: Object.entries(serviceScopesEnabled)
+          .filter(([, enabled]) => enabled)
+          .map(([id]) => `svc:${id}`),
       }),
       allowAllEndpoints ? [] : selectedEndpoints,
       streamDefaultMode,
@@ -1966,6 +2148,10 @@ const PermissionsModal = memo(function PermissionsModal({
     selfUsageEnabled,
     selfAccountQuotaEnabled,
     bypassProviderQuotaPolicyEnabled,
+    mcpAdminEnabled,
+    mcpReadEnabled,
+    mcpWriteEnabled,
+    serviceScopesEnabled,
     scheduleEnabled,
     scheduleFrom,
     scheduleUntil,
@@ -2501,6 +2687,108 @@ const PermissionsModal = memo(function PermissionsModal({
             {manageEnabled ? tc("enabled") : tc("disabled")}
           </button>
         </div>
+        {/* MCP Gateway Access */}
+        <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium text-text-main">{t("mcpAccess")}</p>
+            <p className="text-xs text-text-muted">{t("mcpAccessDesc")}</p>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-text-main">{t("mcpAdmin")}</p>
+              <p className="text-xs text-text-muted">{t("mcpAdminDesc")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mcpAdminEnabled}
+              onClick={() => setMcpAdminEnabled((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                mcpAdminEnabled
+                  ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+              {mcpAdminEnabled ? tc("enabled") : tc("disabled")}
+            </button>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-text-main">{t("mcpRead")}</p>
+              <p className="text-xs text-text-muted">{t("mcpReadDesc")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mcpReadEnabled}
+              onClick={() => setMcpReadEnabled((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                mcpReadEnabled
+                  ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">visibility</span>
+              {mcpReadEnabled ? tc("enabled") : tc("disabled")}
+            </button>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm text-text-main">{t("mcpWrite")}</p>
+              <p className="text-xs text-text-muted">{t("mcpWriteDesc")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mcpWriteEnabled}
+              onClick={() => setMcpWriteEnabled((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                mcpWriteEnabled
+                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                  : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">edit_square</span>
+              {mcpWriteEnabled ? tc("enabled") : tc("disabled")}
+            </button>
+          </div>
+        </div>
+        {proxiedServices.length > 0 && (
+          <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium text-text-main">{t("serviceAccess")}</p>
+              <p className="text-xs text-text-muted">{t("serviceAccessDesc")}</p>
+            </div>
+            {proxiedServices.map((svc) => (
+              <div key={svc.id} className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm text-text-main">{svc.name}</p>
+                  <p className="text-xs font-mono text-text-muted">svc:{svc.id}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={serviceScopesEnabled[svc.id] === true}
+                  onClick={() =>
+                    setServiceScopesEnabled((prev) => ({
+                      ...prev,
+                      [svc.id]: !(prev[svc.id] === true),
+                    }))
+                  }
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+                    serviceScopesEnabled[svc.id]
+                      ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30"
+                      : "bg-black/5 dark:bg-white/5 text-text-muted border border-border"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[14px]">hub</span>
+                  {serviceScopesEnabled[svc.id] ? tc("enabled") : tc("disabled")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Self-service Visibility */}
         <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface/40">
           <div className="flex flex-col gap-1">

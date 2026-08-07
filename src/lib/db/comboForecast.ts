@@ -1,4 +1,12 @@
-import { getDbInstance } from "./core";
+import { getAsyncDb } from "./core";
+import type { RawSyncDb } from "./adapters/types";
+
+// Sync view of the shared DB singleton (see featureFlags.ts for the same
+// pattern). This reader sits in the synchronous call stack, so we access the
+// async adapter through the sync view.
+function syncDb(): RawSyncDb {
+  return getAsyncDb() as unknown as RawSyncDb;
+}
 
 export type ComboForecastUsageRow = {
   comboName: string;
@@ -53,7 +61,7 @@ export function getComboForecastUsageRows(opts: {
   until?: string;
   comboName?: string;
 }): ComboForecastUsageRow[] {
-  const db = getDbInstance();
+  const db = syncDb();
   const conditions = ["combo_name IS NOT NULL", "combo_name != ''", "timestamp >= @since"];
   const params: Record<string, unknown> = { since: opts.since };
 

@@ -39,7 +39,7 @@ export async function GET(request: Request): Promise<Response> {
     });
 
     // 2. Manual DB overrides — may overlap with catalog providers (override wins)
-    const dbPlans = listProviderPlans();
+    const dbPlans = await listProviderPlans();
 
     // 3. Merge: DB plans by provider key override catalog entries
     const dbByProvider = new Map(dbPlans.map((p) => [p.provider, p]));

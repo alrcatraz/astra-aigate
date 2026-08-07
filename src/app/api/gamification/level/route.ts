@@ -19,6 +19,6 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   const apiKeyId = new URL(request.url).searchParams.get("apiKeyId");
-  const level = apiKeyId ? getXp(apiKeyId) : getAggregateXp();
+  const level = apiKeyId ? await getXp(apiKeyId) : await getAggregateXp();
   return NextResponse.json({ level }, { headers: CORS_HEADERS });
 }

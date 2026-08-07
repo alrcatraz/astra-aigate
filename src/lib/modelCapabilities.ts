@@ -11,7 +11,7 @@ import {
   type ModelSpec,
 } from "@/shared/constants/modelSpecs";
 import { getSyncedCapability } from "@/lib/modelsDevSync";
-import { MODELS_DEV_PROVIDER_MAP } from "@/lib/modelsDevSync/transform";
+import { MODELS_DEV_PROVIDER_MAP, type ModelCapabilityEntry } from "@/lib/modelsDevSync/transform";
 import { getModelContextOverride } from "@/lib/db/modelContextOverrides";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import { isVisionModelId } from "@/shared/constants/visionModels";
@@ -98,7 +98,7 @@ type CapabilityInput =
       model?: string | null;
     };
 
-type SyncedCapabilities = ReturnType<typeof getSyncedCapability>;
+type SyncedCapabilities = Awaited<ReturnType<typeof getSyncedCapability>>;
 
 export interface ResolvedModelCapabilities {
   provider: string | null;
@@ -135,7 +135,7 @@ function toNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-function parseModalities(value: string | null | undefined): string[] {
+async function parseModalities(value: string | null | undefined): Promise<string[]> {
   if (typeof value !== "string" || value.trim().length === 0) return [];
   try {
     const parsed = JSON.parse(value);
@@ -147,7 +147,7 @@ function parseModalities(value: string | null | undefined): string[] {
   }
 }
 
-function getRegistryModel(providerIdOrAlias: string | null, modelId: string | null) {
+async function getRegistryModel(providerIdOrAlias: string | null, modelId: string | null) {
   if (!providerIdOrAlias || !modelId) return null;
   const providerAlias = PROVIDER_ID_TO_ALIAS[providerIdOrAlias] || providerIdOrAlias;
   const models = PROVIDER_MODELS[providerAlias];
@@ -155,12 +155,12 @@ function getRegistryModel(providerIdOrAlias: string | null, modelId: string | nu
   return models.find((model) => model?.id === modelId) || null;
 }
 
-function resolveCapabilityInput(input: CapabilityInput) {
+async function resolveCapabilityInput(input: CapabilityInput) {
   if (typeof input === "string") {
     const parsed = parseModel(input);
     const rawModel = toNonEmptyString(parsed.model);
     if (parsed.provider) {
-      const canonical = resolveCanonicalProviderModel(parsed.provider, rawModel);
+      const canonical = await resolveCanonicalProviderModel(parsed.provider, rawModel);
       return {
         provider: canonical.provider,
         model: toNonEmptyString(canonical.model),
@@ -180,7 +180,7 @@ function resolveCapabilityInput(input: CapabilityInput) {
   const rawProvider = toNonEmptyString(input.provider);
   const rawModel = toNonEmptyString(input.model);
   if (rawProvider) {
-    const canonical = resolveCanonicalProviderModel(rawProvider, rawModel);
+    const canonical = await resolveCanonicalProviderModel(rawProvider, rawModel);
     return {
       provider: canonical.provider,
       model: toNonEmptyString(canonical.model),
@@ -197,7 +197,7 @@ function resolveCapabilityInput(input: CapabilityInput) {
   };
 }
 
-function heuristicToolCalling(modelStr: string): boolean {
+async function heuristicToolCalling(modelStr: string): Promise<boolean> {
   const normalized = String(modelStr || "").toLowerCase();
   if (!normalized) return false;
   const blocked = TOOL_CALLING_UNSUPPORTED_PATTERNS.some((pattern) => {
@@ -208,7 +208,7 @@ function heuristicToolCalling(modelStr: string): boolean {
   return !blocked;
 }
 
-function heuristicReasoning(modelStr: string): boolean {
+async function heuristicReasoning(modelStr: string): Promise<boolean> {
   const normalized = String(modelStr || "").toLowerCase();
   if (!normalized) return true;
   const blocked = REASONING_UNSUPPORTED_PATTERNS.some(
@@ -218,7 +218,7 @@ function heuristicReasoning(modelStr: string): boolean {
   return !blocked;
 }
 
-function heuristicMaxTokens(modelStr: string): boolean {
+async function heuristicMaxTokens(modelStr: string): Promise<boolean> {
   const normalized = String(modelStr || "").toLowerCase();
   if (!normalized) return true;
   const blocked = MAX_TOKENS_UNSUPPORTED_PATTERNS.some(
@@ -229,15 +229,18 @@ function heuristicMaxTokens(modelStr: string): boolean {
 }
 
 /** Last path segment of a path-shaped model id (`cline-pass/kimi-k3` → `kimi-k3`). */
-function leafModelId(modelId: string | null | undefined): string | null {
+async function leafModelId(modelId: string | null | undefined): Promise<string | null> {
   if (!modelId || !modelId.includes("/")) return null;
   const leaf = modelId.split("/").filter(Boolean).pop() ?? null;
   return leaf && leaf !== modelId ? leaf : null;
 }
 
-function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSpec | undefined {
+async function getStaticSpec(
+  modelId: string | null,
+  rawModel: string | null
+): Promise<ModelSpec | undefined> {
   if (modelId) {
-    const byCanonical = getModelSpec(modelId);
+    const byCanonical = await getModelSpec(modelId);
     if (byCanonical) return byCanonical;
   }
   if (rawModel && rawModel !== modelId) {
@@ -254,38 +257,38 @@ function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSp
  * incorrectly promotes e.g. aihorde/deepseek/deepseek-v4-flash to the real
  * DeepSeek V4 Flash tool-calling spec (#8212 regression).
  */
-function getVisionStaticSpec(
+async function getVisionStaticSpec(
   modelId: string | null,
   rawModel: string | null
-): ModelSpec | undefined {
-  const direct = getStaticSpec(modelId, rawModel);
+): Promise<ModelSpec | undefined> {
+  const direct = await getStaticSpec(modelId, rawModel);
   if (direct) return direct;
   for (const candidate of [modelId, rawModel]) {
-    const leaf = leafModelId(candidate);
+    const leaf = await leafModelId(candidate);
     if (!leaf) continue;
-    const byLeaf = getModelSpec(leaf);
+    const byLeaf = await getModelSpec(leaf);
     if (byLeaf) return byLeaf;
   }
   return undefined;
 }
 
-function getAuthoritativeStaticContextWindow(
+async function getAuthoritativeStaticContextWindow(
   provider: string | null,
   modelId: string | null,
   rawModel: string | null
-): number | null {
+): Promise<number | null> {
   for (const candidate of [modelId, rawModel]) {
-    const providerContextWindow = getAuthoritativeProviderContextWindow(provider, candidate);
+    const providerContextWindow = await getAuthoritativeProviderContextWindow(provider, candidate);
     if (typeof providerContextWindow === "number") return providerContextWindow;
   }
   for (const candidate of [modelId, rawModel]) {
-    const contextWindow = getAuthoritativeContextWindow(candidate);
+    const contextWindow = await getAuthoritativeContextWindow(candidate);
     if (typeof contextWindow === "number") return contextWindow;
   }
   return null;
 }
 
-function getStaticSpecCanonicalModelId(modelId: string | null, rawModel: string | null) {
+async function getStaticSpecCanonicalModelId(modelId: string | null, rawModel: string | null) {
   const candidates = [modelId, rawModel].filter(
     (candidate): candidate is string => typeof candidate === "string" && candidate.length > 0
   );
@@ -305,14 +308,14 @@ function getStaticSpecCanonicalModelId(modelId: string | null, rawModel: string 
  * short id (`pixtral-12b-latest` → `pixtral-12b`) or `null` when there is no
  * `-latest` suffix to drop. Used only as a last-resort synced-lookup fallback.
  */
-function stripLatestAlias(modelId: string | null): string | null {
+async function stripLatestAlias(modelId: string | null): Promise<string | null> {
   if (!modelId) return null;
   const stripped = modelId.replace(/-latest$/i, "");
   return stripped && stripped !== modelId ? stripped : null;
 }
 
-function reverseModelsDevProviders(provider: string): string[] {
-  // models.dev may store capabilities under a different OmniRoute provider id
+async function reverseModelsDevProviders(provider: string): Promise<string[]> {
+  // models.dev may store capabilities under a different AI Gate provider id
   // that also maps from the same upstream models.dev provider. Build reverse
   // candidates from MODELS_DEV_PROVIDER_MAP (e.g. openai ↔ cx).
   //
@@ -337,42 +340,45 @@ function reverseModelsDevProviders(provider: string): string[] {
   return [...out];
 }
 
-function getSyncedCapabilityForResolved(
+async function getSyncedCapabilityForResolved(
   provider: string | null,
   model: string | null,
   rawModel: string | null
-): SyncedCapabilities {
+): Promise<ModelCapabilityEntry | null> {
   if (!provider || !model) return null;
 
   const modelCandidates = Array.from(
     new Set(
-      [model, rawModel, getStaticSpecCanonicalModelId(model, rawModel)]
-        .filter((value): value is string => typeof value === "string" && value.length > 0)
-        .flatMap((candidate) => {
-          const values = [candidate];
-          const stripped = stripLatestAlias(candidate);
-          if (stripped) values.push(stripped);
-          const leaf = leafModelId(candidate);
-          if (leaf) values.push(leaf);
-          // models.dev often stores OpenAI-family specialty models as qualified
-          // ids under another mapped provider, e.g. vercel + "openai/whisper-1".
-          if (!candidate.includes("/")) {
-            values.push(`${provider}/${candidate}`);
-          }
-          return values;
-        })
+      [model, rawModel, await getStaticSpecCanonicalModelId(model, rawModel)].filter(
+        (value): value is string => typeof value === "string" && value.length > 0
+      )
     )
   );
+  const candidateValues: string[] = [];
+  for (const candidate of modelCandidates) {
+    const values = [candidate];
+    const stripped = await stripLatestAlias(candidate);
+    if (stripped) values.push(stripped);
+    const leaf = await leafModelId(candidate);
+    if (leaf) values.push(leaf);
+    // models.dev often stores OpenAI-family specialty models as qualified
+    // ids under another mapped provider, e.g. vercel + "openai/whisper-1".
+    if (!candidate.includes("/")) {
+      values.push(`${provider}/${candidate}`);
+    }
+    candidateValues.push(...values);
+  }
+  const uniqueModelCandidates = Array.from(new Set(candidateValues));
 
   // Include common host providers that re-publish OpenAI specialty models under
   // qualified ids (observed: vercel/openai/whisper-1, vercel/openai/tts-1).
   const providerCandidates = Array.from(
-    new Set([provider, ...reverseModelsDevProviders(provider), "vercel"])
+    new Set([provider, ...(await reverseModelsDevProviders(provider)), "vercel"])
   );
 
   for (const prov of providerCandidates) {
-    for (const mid of modelCandidates) {
-      const found = getSyncedCapability(prov, mid);
+    for (const mid of uniqueModelCandidates) {
+      const found = await getSyncedCapability(prov, mid);
       if (found) return found;
     }
   }
@@ -388,7 +394,7 @@ function getSyncedCapabilityForResolved(
  * model is vision-capable. The list is intentionally conservative — a false
  * positive would let an image request route to a text-only model.
  */
-export function modelIdLikelyVision(modelId: string | null | undefined): boolean {
+export async function modelIdLikelyVision(modelId: string | null | undefined): Promise<boolean> {
   return isVisionModelId(modelId);
 }
 
@@ -408,28 +414,28 @@ const KNOWN_TEXT_ONLY_DESPITE_SYNC: readonly RegExp[] = [
   /(?:^|\/)mimo-v2-pro$/i,
 ];
 
-function isKnownTextOnlyDespiteSync(modelId: string | null | undefined): boolean {
+async function isKnownTextOnlyDespiteSync(modelId: string | null | undefined): Promise<boolean> {
   if (!modelId) return false;
   const id = String(modelId);
   return KNOWN_TEXT_ONLY_DESPITE_SYNC.some((pattern) => pattern.test(id));
 }
 
 /** True when a modality list declares image and/or video input/output. */
-function modalitiesDeclareVision(modalities: readonly string[]): boolean {
+async function modalitiesDeclareVision(modalities: readonly string[]): Promise<boolean> {
   return modalities.some((entry) => {
     const lower = String(entry).toLowerCase();
     return lower.includes("image") || lower.includes("video");
   });
 }
 
-function resolveVisionCapability(
+async function resolveVisionCapability(
   spec: ModelSpec | undefined,
   registryModel: { supportsVision?: boolean } | null,
   synced: SyncedCapabilities,
   modalitiesInput: string[],
   modalitiesOutput: string[],
   modelId?: string
-): boolean | null {
+): Promise<boolean | null> {
   const allModalities = [...modalitiesInput, ...modalitiesOutput].map((entry) =>
     String(entry).toLowerCase()
   );
@@ -437,14 +443,14 @@ function resolveVisionCapability(
   // Hard override FIRST: a wrong synced `attachment:true` (or image modality) must not
   // win for models the vendor documents as text-only. Beats every branch below so an
   // image request can never be routed to a blind model (#4071).
-  if (isKnownTextOnlyDespiteSync(modelId)) return false;
+  if (await isKnownTextOnlyDespiteSync(modelId)) return false;
 
   if (typeof synced?.attachment === "boolean") {
     // #8250: models.dev sometimes ships attachment=false alongside image/video
     // modalities (observed for Kimi K3). Prefer the richer modality signal over
     // the contradictory false flag so supportsVision / attachment / modalities
     // can be reconciled to a single vision-capable verdict.
-    if (synced.attachment === false && modalitiesDeclareVision(allModalities)) {
+    if (synced.attachment === false && (await modalitiesDeclareVision(allModalities))) {
       return true;
     }
     // #8032: attachment=false without modalities must not beat authoritative
@@ -472,7 +478,7 @@ function resolveVisionCapability(
   // Last resort: no capability data at all. Positively confirm known multimodal
   // families by model id so image requests can be routed to them; everything
   // else stays `null` (unknown).
-  if (modelIdLikelyVision(modelId)) return true;
+  if (await modelIdLikelyVision(modelId)) return true;
 
   return null;
 }
@@ -486,11 +492,11 @@ function resolveVisionCapability(
  * makes `getExplicitModelOutputCap()` (used by the reasoning-token-buffer clamp)
  * consult the same override so both read paths agree.
  */
-function getMaxTokenCapabilityOverride(resolved: {
+async function getMaxTokenCapabilityOverride(resolved: {
   provider: string | null;
   model: string | null;
   rawModel: string | null;
-}): number | null {
+}): Promise<number | null> {
   return (
     getModelCapabilityOverride(resolved.provider, resolved.model, "max_token") ??
     (resolved.rawModel && resolved.rawModel !== resolved.model
@@ -499,44 +505,46 @@ function getMaxTokenCapabilityOverride(resolved: {
   );
 }
 
-export function getExplicitModelOutputCap(input: CapabilityInput): number | null {
-  const resolved = resolveCapabilityInput(input);
-  const maxTokenOverride = getMaxTokenCapabilityOverride(resolved);
+export async function getExplicitModelOutputCap(input: CapabilityInput): Promise<number | null> {
+  const resolved = await resolveCapabilityInput(input);
+  const maxTokenOverride = await getMaxTokenCapabilityOverride(resolved);
   if (maxTokenOverride !== null) return maxTokenOverride;
 
-  const synced = getSyncedCapabilityForResolved(
+  const synced = await getSyncedCapabilityForResolved(
     resolved.provider,
     resolved.model,
     resolved.rawModel
   );
   if (synced && typeof synced.limit_output === "number") return synced.limit_output;
 
-  const registryModel = getRegistryModel(resolved.provider, resolved.model);
+  const registryModel = await getRegistryModel(resolved.provider, resolved.model);
   if (typeof registryModel?.maxOutputTokens === "number") return registryModel.maxOutputTokens;
 
-  const spec = getStaticSpec(resolved.model, resolved.rawModel);
+  const spec = await getStaticSpec(resolved.model, resolved.rawModel);
   return spec?.maxOutputTokens ?? null;
 }
 
-export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedModelCapabilities {
-  const resolved = resolveCapabilityInput(input);
-  const spec = getStaticSpec(resolved.model, resolved.rawModel);
-  const registryModel = getRegistryModel(resolved.provider, resolved.model);
-  const synced = getSyncedCapabilityForResolved(
+export async function getResolvedModelCapabilities(
+  input: CapabilityInput
+): Promise<ResolvedModelCapabilities> {
+  const resolved = await resolveCapabilityInput(input);
+  const spec = await getStaticSpec(resolved.model, resolved.rawModel);
+  const registryModel = await getRegistryModel(resolved.provider, resolved.model);
+  const synced = await getSyncedCapabilityForResolved(
     resolved.provider,
     resolved.model,
     resolved.rawModel
   );
 
-  const modalitiesInput = parseModalities(synced?.modalities_input);
-  const modalitiesOutput = parseModalities(synced?.modalities_output);
+  const modalitiesInput = await parseModalities(synced?.modalities_input);
+  const modalitiesOutput = await parseModalities(synced?.modalities_output);
   const lookupKey =
-    toNonEmptyString(
+    (await toNonEmptyString(
       resolved.provider && resolved.model
         ? `${resolved.provider}/${resolved.model}`
         : resolved.model || resolved.rawModel || resolved.lookupKey
-    ) || "";
-  const reasoningDenied = !heuristicReasoning(lookupKey);
+    )) || "";
+  const reasoningDenied = !(await heuristicReasoning(lookupKey));
 
   // Provider-level fallback: a live-discovered model (passthroughModels
   // providers like AI Horde) has no per-model registry entry, synced
@@ -551,7 +559,7 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
       : false;
 
   const supportsTools =
-    synced?.tool_call ??
+    (await synced?.tool_call) ??
     (typeof registryModel?.toolCalling === "boolean" ? registryModel.toolCalling : null) ??
     (typeof spec?.supportsTools === "boolean" ? spec.supportsTools : null) ??
     (providerDeniesTools ? false : null);
@@ -564,25 +572,25 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
         : null) ??
       (typeof spec?.supportsThinking === "boolean" ? spec.supportsThinking : null));
 
-  const authoritativeContextWindow = getAuthoritativeStaticContextWindow(
+  const authoritativeContextWindow = await getAuthoritativeStaticContextWindow(
     resolved.provider,
     resolved.model,
     resolved.rawModel
   );
   const contextWindow =
-    authoritativeContextWindow ??
+    (await authoritativeContextWindow) ??
     synced?.limit_context ??
     (typeof registryModel?.contextLength === "number" ? registryModel.contextLength : null) ??
     spec?.contextWindow ??
     null;
 
-  const maxTokenOverride = getMaxTokenCapabilityOverride(resolved);
+  const maxTokenOverride = await getMaxTokenCapabilityOverride(resolved);
 
   // Vision consults leaf static metadata for path-shaped ids; other capability
   // fields keep using the non-leaf `spec` from getStaticSpec() above.
-  const visionSpec = getVisionStaticSpec(resolved.model, resolved.rawModel);
+  const visionSpec = await getVisionStaticSpec(resolved.model, resolved.rawModel);
 
-  const supportsVision = resolveVisionCapability(
+  const supportsVision = await resolveVisionCapability(
     visionSpec,
     registryModel,
     synced,
@@ -602,12 +610,12 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
     provider: resolved.provider,
     model: resolved.model,
     rawModel: resolved.rawModel,
-    toolCalling: supportsTools ?? heuristicToolCalling(lookupKey),
-    reasoning: supportsThinking ?? heuristicReasoning(lookupKey),
+    toolCalling: supportsTools ?? (await heuristicToolCalling(lookupKey)),
+    reasoning: supportsThinking ?? (await heuristicReasoning(lookupKey)),
     supportsThinking,
     supportsTools,
     supportsVision,
-    supportsMaxTokens: heuristicMaxTokens(lookupKey),
+    supportsMaxTokens: await heuristicMaxTokens(lookupKey),
     attachment,
     structuredOutput: synced?.structured_output ?? null,
     temperature: synced?.temperature ?? null,
@@ -641,30 +649,33 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
   };
 }
 
-export function supportsToolCalling(input: CapabilityInput): boolean {
+export async function supportsToolCalling(input: CapabilityInput): Promise<boolean> {
   if (typeof input === "string" && !String(input || "").trim()) return false;
-  return getResolvedModelCapabilities(input).toolCalling;
+  return (await getResolvedModelCapabilities(input)).toolCalling;
 }
 
-export function supportsReasoning(input: CapabilityInput): boolean {
+export async function supportsReasoning(input: CapabilityInput): Promise<boolean> {
   if (typeof input === "string" && !String(input || "").trim()) return true;
-  return getResolvedModelCapabilities(input).reasoning;
+  return (await getResolvedModelCapabilities(input)).reasoning;
 }
 
-export function supportsMaxTokens(input: CapabilityInput): boolean {
+export async function supportsMaxTokens(input: CapabilityInput): Promise<boolean> {
   if (typeof input === "string" && !String(input || "").trim()) return true;
-  return getResolvedModelCapabilities(input).supportsMaxTokens;
+  return (await getResolvedModelCapabilities(input)).supportsMaxTokens;
 }
 
-export function capMaxOutputTokens(input: CapabilityInput, requested?: number): number | null {
-  const cap = getResolvedModelCapabilities(input).maxOutputTokens;
+export async function capMaxOutputTokens(
+  input: CapabilityInput,
+  requested?: number
+): Promise<number | null> {
+  const cap = (await getResolvedModelCapabilities(input)).maxOutputTokens;
   const hasRequested = typeof requested === "number" && Number.isFinite(requested);
   if (cap === null) return hasRequested ? requested : null;
   return hasRequested ? Math.min(requested, cap) : cap;
 }
 
-export function getDefaultThinkingBudget(input: CapabilityInput): number {
-  return getResolvedModelCapabilities(input).defaultThinkingBudget;
+export async function getDefaultThinkingBudget(input: CapabilityInput): Promise<number> {
+  return (await getResolvedModelCapabilities(input)).defaultThinkingBudget;
 }
 
 /**
@@ -682,11 +693,11 @@ export function getDefaultThinkingBudget(input: CapabilityInput): number {
  *     models already carry their explicit 24576 cap via rule 1, so this only
  *     fires for unregistered Gemini ids.
  */
-export function capThinkingBudget(input: CapabilityInput, budget: number): number {
-  const resolved = getResolvedModelCapabilities(input);
+export async function capThinkingBudget(input: CapabilityInput, budget: number): Promise<number> {
+  const resolved = await getResolvedModelCapabilities(input);
   let cap = resolved.thinkingBudgetCap;
 
-  const modelId = resolved.model ?? resolved.rawModel ?? "";
+  const modelId = (await resolved.model) ?? resolved.rawModel ?? "";
   const modelLower = modelId.toLowerCase();
   // Learned-cap lookup needs a concrete provider key (the executor records under
   // `this.provider`). When the input is a bare Gemini id, `resolved.provider` is
@@ -695,9 +706,9 @@ export function capThinkingBudget(input: CapabilityInput, budget: number): numbe
   // invisible to bare-model callers. Provider-qualified inputs keep their own
   // provider, preserving per-provider independence.
   const providerForLearned =
-    resolved.provider ?? (modelLower.includes("gemini") ? "gemini" : null);
+    (await resolved.provider) ?? (modelLower.includes("gemini") ? "gemini" : null);
 
-  const learned = getLearnedThinkingCap(providerForLearned, modelId);
+  const learned = await getLearnedThinkingCap(providerForLearned, modelId);
   if (learned !== null) {
     cap = cap === null ? learned : Math.min(cap, learned);
   }
@@ -709,14 +720,14 @@ export function capThinkingBudget(input: CapabilityInput, budget: number): numbe
   return Math.min(budget, cap ?? budget);
 }
 
-export function getModelContextLimit(
+export async function getModelContextLimit(
   providerOrInput: CapabilityInput,
   modelId?: string
-): number | null {
+): Promise<number | null> {
   const resolved =
     typeof providerOrInput === "string" && modelId !== undefined
-      ? getResolvedModelCapabilities({ provider: providerOrInput, model: modelId })
-      : getResolvedModelCapabilities(providerOrInput);
+      ? await getResolvedModelCapabilities({ provider: providerOrInput, model: modelId })
+      : await getResolvedModelCapabilities(providerOrInput);
   // Feature 5004: a persisted override (operator-set or auto-discovered) wins over the
   // static catalog / models.dev sync. `getResolvedModelCapabilities` stays override-free
   // so the reconciler can compare the catalog value against provider-declared windows.

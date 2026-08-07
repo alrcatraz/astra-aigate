@@ -1,4 +1,4 @@
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 export interface CompressionRunTelemetryInput {
   requestId: string;
@@ -24,7 +24,7 @@ export interface CompressionRunTelemetrySummary {
 }
 
 function ensureCompressionRunTelemetryTable(): void {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   // `CREATE TABLE IF NOT EXISTS` is idempotent and cheap; run it unconditionally so the
   // table self-heals if it was dropped (e.g. test isolation) under the same db handle.
   db.exec(`
@@ -55,7 +55,7 @@ export async function insertCompressionRunTelemetryRow(
   row: CompressionRunTelemetryInput
 ): Promise<void> {
   try {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     ensureCompressionRunTelemetryTable();
     await db
       .prepare(
@@ -85,7 +85,7 @@ export async function insertCompressionRunTelemetryRow(
 }
 
 export async function getCompressionRunTelemetrySummary(): Promise<CompressionRunTelemetrySummary> {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   ensureCompressionRunTelemetryTable();
   const rows = (await db
     .prepare(

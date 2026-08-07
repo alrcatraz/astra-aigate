@@ -11,7 +11,7 @@ import { createLogger } from "@/shared/utils/logger.ts";
 const log = createLogger("mitm-repair");
 
 /**
- * Enumerate every hostname OmniRoute may have written to /etc/hosts during
+ * Enumerate every hostname AI Gate may have written to /etc/hosts during
  * startMitm(): the full agent-target registry plus all custom hosts. Removal
  * via removeDNSEntries() is idempotent (absent entries are skipped), so this
  * set is intentionally over-inclusive — a host that was never spoofed costs

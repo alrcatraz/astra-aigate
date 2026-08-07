@@ -5,4 +5,6 @@ export * from "./db.ts";
 
 import { createCloudAgentTaskTable } from "./db.ts";
 
-createCloudAgentTaskTable();
+// Best-effort table bootstrap (fire-and-forget). Route handlers also call and
+// await createCloudAgentTaskTable(), so correctness doesn't depend on this.
+createCloudAgentTaskTable().catch(() => {});

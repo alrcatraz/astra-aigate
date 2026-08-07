@@ -106,7 +106,7 @@ export function getThinkingBudgetConfig() {
  * Returns true when a valid config was applied, false otherwise (zero behavior
  * change when the setting is unset).
  */
-export function hydrateThinkingBudgetConfig(settings: unknown): boolean {
+export async function hydrateThinkingBudgetConfig(settings: unknown): Promise<boolean> {
   const tb = toRecord(settings).thinkingBudget;
   if (tb && typeof tb === "object" && !Array.isArray(tb)) {
     setThinkingBudgetConfig(tb as Partial<ThinkingBudgetConfig>);
@@ -123,7 +123,7 @@ export function hydrateThinkingBudgetConfig(settings: unknown): boolean {
  * @param {object} body - Request body
  * @returns {object} Body with string thinkingLevel converted to numeric budget
  */
-export function normalizeThinkingLevel(body: unknown) {
+export async function normalizeThinkingLevel(body: unknown) {
   if (!body || typeof body !== "object") return body;
   const result: JsonRecord = { ...(body as JsonRecord) };
 
@@ -131,7 +131,7 @@ export function normalizeThinkingLevel(body: unknown) {
   const levelStr = result.thinkingLevel || result.thinking_level;
   if (typeof levelStr === "string" && THINKING_LEVEL_MAP[levelStr.toLowerCase()] !== undefined) {
     const rawBudget = THINKING_LEVEL_MAP[levelStr.toLowerCase()];
-    const budget = capThinkingBudget(getStringField(result, "model"), rawBudget);
+    const budget = await capThinkingBudget(getStringField(result, "model"), rawBudget);
     // Convert to Claude thinking format as canonical representation
     result.thinking = {
       type: budget > 0 ? "enabled" : "disabled",
@@ -151,7 +151,7 @@ export function normalizeThinkingLevel(body: unknown) {
     THINKING_LEVEL_MAP[geminiLevel.toLowerCase()] !== undefined
   ) {
     const rawBudget = THINKING_LEVEL_MAP[geminiLevel.toLowerCase()];
-    const budget = capThinkingBudget(getStringField(result, "model"), rawBudget);
+    const budget = await capThinkingBudget(getStringField(result, "model"), rawBudget);
     result.generationConfig = {
       ...generationConfig,
       thinkingConfig: { ...thinkingConfig, thinkingBudget: budget },
@@ -178,7 +178,7 @@ export function normalizeThinkingLevel(body: unknown) {
  * @param {object} body - Request body
  * @returns {object} Body with thinking config auto-injected if needed
  */
-export function ensureThinkingConfig(body: unknown) {
+export async function ensureThinkingConfig(body: unknown) {
   if (!body || typeof body !== "object") return body;
   const bodyRecord = body as JsonRecord;
   const model = getStringField(bodyRecord, "model");
@@ -192,7 +192,7 @@ export function ensureThinkingConfig(body: unknown) {
   const result: JsonRecord = { ...bodyRecord };
   result.thinking = {
     type: "enabled",
-    budget_tokens: getDefaultThinkingBudget(model) || EFFORT_BUDGETS.medium,
+    budget_tokens: (await getDefaultThinkingBudget(model)) || EFFORT_BUDGETS.medium,
   };
   return result;
 }
@@ -207,7 +207,7 @@ export function ensureThinkingConfig(body: unknown) {
  * @param {object} [config] - Override config (defaults to stored config)
  * @returns {object} Modified body
  */
-export function applyThinkingBudget(
+export async function applyThinkingBudget(
   body: unknown,
   config: Partial<ThinkingBudgetConfig> | null = null
 ) {
@@ -223,10 +223,10 @@ export function applyThinkingBudget(
   }
 
   // Pre-processing: convert string thinkingLevel to numeric budget
-  let processed = normalizeThinkingLevel(body);
+  let processed = await normalizeThinkingLevel(body);
 
   // Pre-processing: auto-inject thinking config for -thinking suffix models
-  processed = ensureThinkingConfig(processed);
+  processed = await ensureThinkingConfig(processed);
 
   switch (cfg.mode) {
     case ThinkingMode.AUTO:
@@ -285,11 +285,11 @@ function stripThinkingConfig(body: unknown) {
 /**
  * CUSTOM mode: set exact budget tokens
  */
-function setCustomBudget(body: unknown, budget: number) {
+async function setCustomBudget(body: unknown, budget: number) {
   const result: JsonRecord = { ...toRecord(body) };
 
   // If body already has thinking config in Claude format, update it
-  if (result.thinking || hasThinkingCapableModel(result)) {
+  if (result.thinking || (await hasThinkingCapableModel(result))) {
     result.thinking = {
       type: budget > 0 ? "enabled" : "disabled",
       budget_tokens: budget,
@@ -328,7 +328,7 @@ function setCustomBudget(body: unknown, budget: number) {
 /**
  * ADAPTIVE mode: scale budget based on request complexity
  */
-function applyAdaptiveBudget(body: unknown, cfg: Partial<ThinkingBudgetConfig>) {
+async function applyAdaptiveBudget(body: unknown, cfg: Partial<ThinkingBudgetConfig>) {
   const bodyRecord = toRecord(body);
   const messages = Array.isArray(bodyRecord.messages)
     ? bodyRecord.messages
@@ -361,9 +361,9 @@ function applyAdaptiveBudget(body: unknown, cfg: Partial<ThinkingBudgetConfig>) 
 
   const baseBudget =
     EFFORT_BUDGETS[typeof cfg.effortLevel === "string" ? cfg.effortLevel : "medium"] ||
-    getDefaultThinkingBudget(getStringField(bodyRecord, "model")) ||
+    (await getDefaultThinkingBudget(getStringField(bodyRecord, "model"))) ||
     EFFORT_BUDGETS.medium;
-  const budget = capThinkingBudget(
+  const budget = await capThinkingBudget(
     getStringField(bodyRecord, "model"),
     Math.ceil(baseBudget * multiplier)
   );
@@ -374,9 +374,9 @@ function applyAdaptiveBudget(body: unknown, cfg: Partial<ThinkingBudgetConfig>) 
 /**
  * Check if model name suggests thinking capability
  */
-export function hasThinkingCapableModel(body: unknown) {
+export async function hasThinkingCapableModel(body: unknown): Promise<boolean> {
   const model = getStringField(toRecord(body), "model");
-  const resolved = getResolvedModelCapabilities(model);
+  const resolved = await getResolvedModelCapabilities(model);
   if (resolved.supportsThinking === true) return true;
   if (resolved.supportsThinking === false) return false;
   return (

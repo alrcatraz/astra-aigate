@@ -1,4 +1,8 @@
-import { errorResponse, unavailableResponse, errorResponseWithComboDiagnostics } from "../../utils/error.ts";
+import {
+  errorResponse,
+  unavailableResponse,
+  errorResponseWithComboDiagnostics,
+} from "../../utils/error.ts";
 import { BudgetExceededError, selectProvider as selectAutoProvider } from "../autoCombo/engine.ts";
 import {
   resolveRequestModePack,
@@ -63,11 +67,11 @@ export interface ResolveAutoStrategyDeps {
   relayOptions?: {
     bypassProviderQuotaPolicy?: boolean;
     sessionId?: string | null;
-    /** Per-request X-OmniRoute-Mode value (#6024/#6025). */
+    /** Per-request X-AI Gate-Mode value (#6024/#6025). */
     mode?: string | null;
-    /** Per-request X-OmniRoute-Budget value in USD (#6023). */
+    /** Per-request X-AI Gate-Budget value in USD (#6023). */
     budgetCap?: number | null;
-    /** Per-request X-OmniRoute-Budget-Fallback value ("cheapest" | "strict") — #3470. */
+    /** Per-request X-AI Gate-Budget-Fallback value ("cheapest" | "strict") — #3470. */
     budgetFallback?: "cheapest" | "strict" | null;
   } | null;
   resilienceSettings: ResilienceSettings;
@@ -118,8 +122,7 @@ export async function resolveAutoStrategyOrder(
     // registry/capability rows honestly report toolCalling:false.
     const filtered = eligibleTargets.filter(
       (target) =>
-        supportsToolCalling(target.modelStr) ||
-        providerSupportsEmulatedToolCalling(target.provider)
+        supportsToolCalling(target.modelStr) || providerSupportsEmulatedToolCalling(target.provider)
     );
     if (filtered.length > 0) {
       eligibleTargets = filtered;
@@ -165,11 +168,16 @@ export async function resolveAutoStrategyOrder(
       : []
   );
   if (estimatedInputTokens > 0) {
-    const filteredByContext = eligibleTargets.filter((target) => {
-      const limit = getModelContextLimitForModelString(target.modelStr);
-      if (limit === null || limit === undefined) return true; // unknown — include to be safe
-      return limit >= estimatedInputTokens;
-    });
+    const contextKept = await Promise.all(
+      eligibleTargets.map(async (target) => {
+        const limit = await getModelContextLimitForModelString(target.modelStr);
+        return {
+          target,
+          keep: limit === null || limit === undefined || limit >= estimatedInputTokens,
+        };
+      })
+    );
+    const filteredByContext = contextKept.filter((e) => e.keep).map((e) => e.target);
     if (filteredByContext.length > 0) {
       log.debug?.(
         "COMBO",
@@ -226,8 +234,8 @@ export async function resolveAutoStrategyOrder(
     slaPolicy,
   } = parseAutoConfig(combo, eligibleTargets);
 
-  // Per-request overrides (#6023 / #6024 / #6025 / #3470): X-OmniRoute-Budget,
-  // X-OmniRoute-Budget-Fallback and X-OmniRoute-Mode headers (threaded via
+  // Per-request overrides (#6023 / #6024 / #6025 / #3470): X-AI Gate-Budget,
+  // X-AI Gate-Budget-Fallback and X-AI Gate-Mode headers (threaded via
   // relayOptions) take precedence over the combo's stored config for this single
   // request. Unknown/garbage header values are ignored so the saved config is
   // preserved.
@@ -240,7 +248,7 @@ export async function resolveAutoStrategyOrder(
   // #7008: `weights` must track the *effective* (post-override) modePack, not just
   // the combo's stored one. `selectAutoProvider()` (engine.ts) already re-derives
   // weights internally from the `modePack` it's given, so it correctly reacts to a
-  // per-request X-OmniRoute-Mode override — but `scoreAutoTargets()` (the fallback
+  // per-request X-AI Gate-Mode override — but `scoreAutoTargets()` (the fallback
   // ranking below) has no such re-derivation and only ever sees whatever `weights`
   // it's handed. Without this recompute, a request overriding e.g. `quality-first`
   // to `ship-fast` would select its primary target under ship-fast weights but rank

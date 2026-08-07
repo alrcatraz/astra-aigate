@@ -154,7 +154,8 @@ function filterByEnabledOverrides(
   const overrideIds = new Set(enabledOverrides.map((o) => o.providerId.toLowerCase()));
   const selected = active.filter(
     (c: any) =>
-      overrideIds.has((c.provider ?? "").toLowerCase()) || overrideIds.has((c.id ?? "").toLowerCase())
+      overrideIds.has((c.provider ?? "").toLowerCase()) ||
+      overrideIds.has((c.id ?? "").toLowerCase())
   );
   return selected.length > 0 ? selected : active; // fallback to all active
 }
@@ -272,7 +273,7 @@ function buildDispatchErrorResult(
 }
 
 /**
- * Dispatch to OmniRoute's own /v1/chat/completions handler for a given
+ * Dispatch to AI Gate's own /v1/chat/completions handler for a given
  * provider+model — in-process, via a synthetic Request handed directly to the
  * route's POST handler. No network hop, no port dependency. Mirrors the
  * established pattern in src/lib/batches/dispatch.ts and src/lib/evals/runtime.ts
@@ -305,7 +306,10 @@ async function dispatchToModel(
  * Uses a simple pooling approach: start up to `limit` tasks at once,
  * and as each completes, start the next one.
  */
-async function runWithConcurrencyLimit<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+async function runWithConcurrencyLimit<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number
+): Promise<T[]> {
   const results: T[] = new Array(tasks.length);
   let nextIndex = 0;
 

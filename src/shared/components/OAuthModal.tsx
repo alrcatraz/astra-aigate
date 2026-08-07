@@ -461,10 +461,10 @@ export default function OAuthModal({
         let forceManual = false;
 
         // Claude Code and Cline OAuth flows can finish on provider-hosted pages that
-        // show an auth code instead of redirecting back to OmniRoute.
+        // show an auth code instead of redirecting back to AI Gate.
         // Start directly in manual mode so users always have an input to paste code/url.
         // zed-hosted's native-app sign-in always redirects the browser to a local
-        // 127.0.0.1:<port> callback that OmniRoute never listens on (the port is
+        // 127.0.0.1:<port> callback that AI Gate never listens on (the port is
         // arbitrary and unrelated to the dashboard's own port) — nothing can
         // auto-close the popup, so always show the manual paste-URL input.
         if (provider === "claude" || provider === "cline" || provider === "zed-hosted") {
@@ -552,7 +552,7 @@ export default function OAuthModal({
           const grokBuildPort = provider === "xai-oauth" ? 56121 : 56122;
           redirectUri = `http://127.0.0.1:${grokBuildPort}/callback`;
         } else if (provider === "windsurf" || provider === "devin-cli") {
-          // Remote fallback: use OmniRoute's port with the /auth/callback path Windsurf expects.
+          // Remote fallback: use AI Gate's port with the /auth/callback path Windsurf expects.
           // On true localhost this code is never reached (callback server handles the flow above).
           const port = window.location.port || "20128";
           redirectUri = `http://localhost:${port}/auth/callback`;

@@ -230,7 +230,10 @@ function formatMessagesForPrompt(messages: MessageLike[]): string {
     .join("\n\n");
 }
 
-export function selectMessagesForSummary(messages: MessageLike[], maxMessages: number): MessageLike[] {
+export function selectMessagesForSummary(
+  messages: MessageLike[],
+  maxMessages: number
+): MessageLike[] {
   const validMessages = messages.filter((m) => m && typeof m === "object");
   const system = validMessages.filter(
     (m) => typeof m.role === "string" && (m.role === "system" || m.role === "developer")
@@ -433,7 +436,7 @@ async function generateHandoffAsync(options: {
   });
 }
 
-export function maybeGenerateHandoff(options: {
+export async function maybeGenerateHandoff(options: {
   sessionId: string | null;
   comboName: string;
   connectionId: string | null;
@@ -443,7 +446,7 @@ export function maybeGenerateHandoff(options: {
   expiresAt: string | null;
   config?: ContextRelayConfig | null;
   handleSingleModel: (body: Record<string, unknown>, modelStr: string) => Promise<Response>;
-}): void {
+}): Promise<void> {
   if (!options.sessionId || !options.connectionId) return;
 
   const relayConfig = resolveContextRelayConfig(options.config as Record<string, unknown>);
@@ -452,7 +455,7 @@ export function maybeGenerateHandoff(options: {
   if (options.percentUsed >= HANDOFF_EXHAUSTION_THRESHOLD) return;
 
   cleanupExpiredHandoffs();
-  if (hasActiveHandoff(options.sessionId, options.comboName)) return;
+  if (await hasActiveHandoff(options.sessionId, options.comboName)) return;
   const inflightKey = getInflightKey(options.sessionId, options.comboName);
   if (inflightHandoffGenerations.has(inflightKey)) return;
   inflightHandoffGenerations.add(inflightKey);
@@ -582,20 +585,20 @@ Continue seamlessly from where the session left off.`;
  *          "inject"  - handoff already exists, just inject it
  *          "skip"    - no handoff needed
  */
-export function shouldGenerateUniversalHandoff(options: {
+export async function shouldGenerateUniversalHandoff(options: {
   sessionId: string | null;
   comboName: string;
   previousModel: string | null;
   currentModel: string;
   universalConfig: UniversalHandoffConfig;
-}): "generate" | "inject" | "skip" {
+}): Promise<"generate" | "inject" | "skip"> {
   if (!options.universalConfig.enabled) return "skip";
   if (!options.previousModel) return "skip";
   if (options.previousModel === options.currentModel) return "skip";
 
   // Check if handoff already exists for this session/combo
   if (options.sessionId) {
-    const existing = getHandoff(options.sessionId, options.comboName);
+    const existing = await getHandoff(options.sessionId, options.comboName);
     if (existing && existing.summary) return "inject";
   }
 
@@ -671,7 +674,7 @@ async function generateUniversalHandoffAsync(options: {
   });
 }
 
-export function maybeGenerateUniversalHandoff(options: {
+export async function maybeGenerateUniversalHandoff(options: {
   sessionId: string | null;
   comboName: string;
   messages: MessageLike[];
@@ -679,8 +682,8 @@ export function maybeGenerateUniversalHandoff(options: {
   currModel: string;
   universalConfig: UniversalHandoffConfig;
   handleSingleModel: (body: Record<string, unknown>, modelStr: string) => Promise<Response>;
-}): void {
-  const decision = shouldGenerateUniversalHandoff({
+}): Promise<void> {
+  const decision = await shouldGenerateUniversalHandoff({
     sessionId: options.sessionId,
     comboName: options.comboName,
     previousModel: options.prevModel,

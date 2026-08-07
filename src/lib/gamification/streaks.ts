@@ -1,5 +1,5 @@
 /**
- * Streak Tracker for OmniRoute Gamification
+ * Streak Tracker for AI Gate Gamification
  *
  * Tracks consecutive daily active usage per API key.
  * Stores streak data in the existing `key_value` table with
@@ -8,7 +8,8 @@
  * @module lib/gamification/streaks
  */
 
-import { getDbInstance, isBuildPhase, isCloud } from "../db/core";
+import { getDbInstance, isBuildPhase, isCloud, getAsyncDb } from "../db/core";
+// DatabaseAdapter not exported from core; use as any
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -98,10 +99,10 @@ function parseStreakJson(raw: string): StreakData {
 export async function getStreak(apiKeyId: string): Promise<StreakData> {
   if (isBuildPhase || isCloud) return emptyStreak();
 
-  const db = getDbInstance() as unknown as DbLike;
-  const row = db
+  const db = (await getAsyncDb()) as any;
+  const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(NAMESPACE, apiKeyId) as KeyValueRow | undefined;
+    .get(NAMESPACE, apiKeyId)) as KeyValueRow | undefined;
 
   if (!row?.value) return emptyStreak();
   return parseStreakJson(row.value);
@@ -127,7 +128,7 @@ export async function getStreak(apiKeyId: string): Promise<StreakData> {
 export async function updateStreak(apiKeyId: string): Promise<number> {
   if (isBuildPhase || isCloud) return 0;
 
-  const db = getDbInstance() as unknown as DbLike;
+  const db = (await getAsyncDb()) as any;
   const today = todayUtc();
   const streak = await getStreak(apiKeyId);
 
@@ -154,11 +155,9 @@ export async function updateStreak(apiKeyId: string): Promise<number> {
     streakStartDate: newStreak === 1 ? today : streak.streakStartDate,
   };
 
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    NAMESPACE,
-    apiKeyId,
-    JSON.stringify(newData)
-  );
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run(NAMESPACE, apiKeyId, JSON.stringify(newData));
 
   return newStreak;
 }

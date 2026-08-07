@@ -16,7 +16,8 @@ if (!process.env.API_KEY_SECRET) {
 
 const { getDbInstance, resetDbInstance } = await import("../../../src/lib/db/core.ts");
 const gami = await import("../../../src/lib/db/gamification.ts");
-const { seedBuiltinBadges, BUILTIN_BADGES } = await import("../../../src/lib/gamification/badges.ts");
+const { seedBuiltinBadges, BUILTIN_BADGES } =
+  await import("../../../src/lib/gamification/badges.ts");
 
 test.after(() => {
   try {
@@ -40,11 +41,11 @@ test("#3484 getAggregateXp on an empty ledger → zero XP, level 1, no throw", (
 });
 
 test("#3484 seedBuiltinBadges populates the catalog (getBadgeDefinitions non-empty)", async () => {
-  assert.equal(gami.getBadgeDefinitions().length, 0); // unseeded
+  assert.equal((await gami.getBadgeDefinitions()).length, 0); // unseeded
   await seedBuiltinBadges();
-  assert.equal(gami.getBadgeDefinitions().length, BUILTIN_BADGES.length);
+  assert.equal((await gami.getBadgeDefinitions()).length, BUILTIN_BADGES.length);
   await seedBuiltinBadges(); // idempotent — no duplicates
-  assert.equal(gami.getBadgeDefinitions().length, BUILTIN_BADGES.length);
+  assert.equal((await gami.getBadgeDefinitions()).length, BUILTIN_BADGES.length);
 });
 
 test("#3484 getAggregateXp sums XP across keys and takes the highest level", () => {

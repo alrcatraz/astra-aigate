@@ -3,7 +3,7 @@
  *
  * Toggle provider exposure for the CLIProxy embedded service.
  * When enabled, cliproxyapi models are discoverable as `cliproxyapi/...` in
- * OmniRoute routing.
+ * AI Gate routing.
  *
  * Body: { enabled: boolean }
  * Response: 204 No Content on success.

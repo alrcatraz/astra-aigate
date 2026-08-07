@@ -352,7 +352,7 @@ async function handleStartCallbackServer(
 
     // #7523: the PKCE callback server listens on the SERVER's loopback
     // (localhost:PORT). When the operator drives the OAuth flow from a
-    // *different* machine (OmniRoute running on a remote host/VPS), the
+    // *different* machine (AI Gate running on a remote host/VPS), the
     // provider redirects the browser to the operator's own localhost:PORT,
     // not the server's — so the final confirmation screen hangs forever.
     // Detect a non-loopback Host and surface the reverse-tunnel instruction

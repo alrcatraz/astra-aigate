@@ -1,4 +1,5 @@
-import { getDbInstance, rowToCamel } from "./core";
+import { getDbInstance, rowToCamel, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 import type { QuotaSnapshotRow, ProviderUtilizationPoint } from "@/shared/types/utilization";
 
 type JsonRecord = Record<string, unknown>;
@@ -15,27 +16,31 @@ interface DbLike {
 
 let lastCleanupAt = 0;
 
-export function saveQuotaSnapshot(snapshot: Omit<QuotaSnapshotRow, "id" | "created_at">): void {
-  const db = getDbInstance() as unknown as DbLike;
+export async function saveQuotaSnapshot(
+  snapshot: Omit<QuotaSnapshotRow, "id" | "created_at">
+): Promise<void> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const now = new Date().toISOString();
 
   try {
-    db.prepare(
-      `INSERT INTO quota_snapshots
+    await db
+      .prepare(
+        `INSERT INTO quota_snapshots
        (provider, connection_id, window_key, remaining_percentage, is_exhausted,
         next_reset_at, window_duration_ms, raw_data, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      snapshot.provider,
-      snapshot.connection_id,
-      snapshot.window_key,
-      snapshot.remaining_percentage,
-      snapshot.is_exhausted,
-      snapshot.next_reset_at,
-      snapshot.window_duration_ms,
-      snapshot.raw_data,
-      now
-    );
+      )
+      .run(
+        snapshot.provider,
+        snapshot.connection_id,
+        snapshot.window_key,
+        snapshot.remaining_percentage,
+        snapshot.is_exhausted,
+        snapshot.next_reset_at,
+        snapshot.window_duration_ms,
+        snapshot.raw_data,
+        now
+      );
   } catch (err: any) {
     if (err?.message?.includes("no such table")) {
       console.warn(
@@ -47,13 +52,13 @@ export function saveQuotaSnapshot(snapshot: Omit<QuotaSnapshotRow, "id" | "creat
   }
 }
 
-export function getQuotaSnapshots(opts: {
+export async function getQuotaSnapshots(opts: {
   provider?: string;
   connectionId?: string;
   since: string;
   until?: string;
-}): QuotaSnapshotRow[] {
-  const db = getDbInstance() as unknown as DbLike;
+}): Promise<QuotaSnapshotRow[]> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const conditions: string[] = ["created_at >= ?"];
   const params: unknown[] = [opts.since];
 
@@ -74,7 +79,7 @@ export function getQuotaSnapshots(opts: {
 
   try {
     const sql = `SELECT * FROM quota_snapshots WHERE ${conditions.join(" AND ")} ORDER BY created_at ASC`;
-    const rows = db.prepare(sql).all(...params);
+    const rows = await db.prepare(sql).all(...params);
     return rows.map((r) => rowToCamel(r) as unknown as QuotaSnapshotRow);
   } catch (err: any) {
     if (err?.message?.includes("no such table")) {
@@ -97,11 +102,13 @@ export function getQuotaSnapshots(opts: {
  * window_key via a window function keeps every window visible regardless of
  * how skewed the write frequency is across windows.
  */
-export function getLatestQuotaSnapshotsForConnection(connectionId: string): QuotaSnapshotRow[] {
-  const db = getDbInstance() as unknown as DbLike;
+export async function getLatestQuotaSnapshotsForConnection(
+  connectionId: string
+): Promise<QuotaSnapshotRow[]> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
 
   try {
-    const rows = db
+    const rows = await db
       .prepare(
         `SELECT * FROM (
            SELECT *, ROW_NUMBER() OVER (
@@ -123,14 +130,14 @@ export function getLatestQuotaSnapshotsForConnection(connectionId: string): Quot
   }
 }
 
-export function getAggregatedSnapshots(opts: {
+export async function getAggregatedSnapshots(opts: {
   provider?: string;
   since: string;
   until?: string;
   bucketMinutes: number;
   aggregateBy?: "provider" | "connection";
-}): ProviderUtilizationPoint[] {
-  const db = getDbInstance() as unknown as DbLike;
+}): Promise<ProviderUtilizationPoint[]> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const conditions: string[] = ["created_at >= ?"];
   const params: unknown[] = [opts.since];
 
@@ -170,7 +177,7 @@ export function getAggregatedSnapshots(opts: {
       ORDER BY bucket ASC
     `;
 
-    const rows = db.prepare(sql).all(...params) as Array<{
+    const rows = (await db.prepare(sql).all(...params)) as Array<{
       bucket: string;
       provider: string;
       remainingPct: number | null;
@@ -193,7 +200,7 @@ export function getAggregatedSnapshots(opts: {
   }
 }
 
-export function cleanupOldSnapshots(retentionDays = 90): number {
+export async function cleanupOldSnapshots(retentionDays = 90): Promise<number> {
   const now = Date.now();
   const cleanupThresholdMs = 6 * 60 * 60 * 1000;
 
@@ -201,11 +208,13 @@ export function cleanupOldSnapshots(retentionDays = 90): number {
     return 0;
   }
 
-  const db = getDbInstance() as unknown as DbLike;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
 
   try {
-    const result = db.prepare("DELETE FROM quota_snapshots WHERE created_at < ?").run(cutoffDate);
+    const result = await db
+      .prepare("DELETE FROM quota_snapshots WHERE created_at < ?")
+      .run(cutoffDate);
     lastCleanupAt = now;
     return result.changes;
   } catch (err: any) {

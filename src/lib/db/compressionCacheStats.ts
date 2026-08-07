@@ -1,4 +1,4 @@
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 export interface CacheStatsEntry {
   provider: string;
@@ -19,7 +19,7 @@ export interface CacheStatsSummary {
 }
 
 export async function recordCacheStats(entry: CacheStatsEntry): Promise<void> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   const sql = `INSERT INTO compression_cache_stats (
     provider, 
@@ -47,7 +47,7 @@ export async function recordCacheStats(entry: CacheStatsEntry): Promise<void> {
 }
 
 export async function getCacheStatsSummary(since?: Date): Promise<CacheStatsSummary> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const whereClause = since ? "WHERE created_at >= ?" : "";
   const params = since ? [since.toISOString()] : [];
 

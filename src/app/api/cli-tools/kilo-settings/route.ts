@@ -23,7 +23,7 @@ const KILO_CONFIG_DIR = path.join(os.homedir(), ".config", "kilo");
 // "installed but not configured" instead of a 500 misread as "not installed".
 const readAuth = async () => readJsoncConfig(AUTH_PATH);
 
-// Check if OmniRoute OpenAI-compatible provider is configured
+// Check if AI Gate OpenAI-compatible provider is configured
 const hasOmniRouteConfig = (auth) => {
   if (!auth) return false;
   const routerEntry = auth["openai-compatible"] || auth["omniroute"];
@@ -107,7 +107,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Configure Kilo Code to use OmniRoute as OpenAI-compatible provider
+// POST - Configure Kilo Code to use AI Gate as OpenAI-compatible provider
 export async function POST(request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -161,7 +161,7 @@ export async function POST(request) {
     // Normalize baseUrl
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
 
-    // Add/update OmniRoute as openai-compatible provider
+    // Add/update AI Gate as openai-compatible provider
     auth["openai-compatible"] = {
       type: "api-key",
       apiKey: apiKey || "sk_omniroute",
@@ -190,7 +190,7 @@ export async function POST(request) {
 
       // Set custom provider config for the extension
       vscodeSettings["kilocode.customProvider"] = {
-        name: "OmniRoute",
+        name: "AI Gate",
         baseURL: normalizedBaseUrl,
         apiKey: apiKey || "sk_omniroute",
       };
@@ -219,7 +219,7 @@ export async function POST(request) {
   }
 }
 
-// DELETE - Remove OmniRoute config from Kilo
+// DELETE - Remove AI Gate config from Kilo
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -245,7 +245,7 @@ export async function DELETE(request: Request) {
       throw error;
     }
 
-    // Remove OmniRoute provider
+    // Remove AI Gate provider
     delete auth["openai-compatible"];
     delete auth["omniroute"];
 
@@ -278,7 +278,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "OmniRoute settings removed from Kilo Code",
+      message: "AI Gate settings removed from Kilo Code",
     });
   } catch (error) {
     console.log("Error resetting kilo settings:", error);

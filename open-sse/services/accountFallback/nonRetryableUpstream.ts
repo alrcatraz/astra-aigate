@@ -1,7 +1,7 @@
 /**
  * #8775 — Detect Cloudflare (and similar edge) errors that explicitly forbid
  * retries. When these bodies are misclassified as short AUTH_ERROR cooldowns,
- * OmniRoute waits 3× for a permanent client-signature ban and burns 21–33s
+ * AI Gate waits 3× for a permanent client-signature ban and burns 21–33s
  * before falling through to the next combo tier.
  *
  * Kept as a pure helper so checkFallbackError stays within its file-size freeze
@@ -97,4 +97,3 @@ export function resolveApiKeyForbiddenFallback(
   }
   return buildRetryableFallback(authErrorReason);
 }
-

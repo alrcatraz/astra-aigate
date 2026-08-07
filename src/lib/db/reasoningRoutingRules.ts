@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { registerDbStateResetter } from "./stateReset";
 
 export type ReasoningRuleScope = "global" | "apiKey" | "combo" | "model" | "connection";
@@ -98,7 +98,7 @@ function referenceExists(table: string, id: string | null): boolean {
   if (!id) return false;
   const allowedTables = new Set(["api_keys", "combos", "provider_connections"]);
   if (!allowedTables.has(table)) return false;
-  return Boolean(getDbInstance().prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id));
+  return Boolean(getAsyncDb().prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id));
 }
 
 export function getReasoningRoutingRuleReferenceErrors(rule: ReasoningRoutingRuleInput): string[] {
@@ -127,7 +127,7 @@ export async function getReasoningRoutingRules(
   options: { enabledOnly?: boolean } = {}
 ): Promise<ReasoningRoutingRule[]> {
   if (!cache || cache.version !== version) {
-    const rows = (await getDbInstance()
+    const rows = (await getAsyncDb()
       .prepare(
         "SELECT * FROM reasoning_routing_rules ORDER BY priority DESC, created_at ASC, id ASC"
       )
@@ -141,7 +141,7 @@ export async function getReasoningRoutingRules(
 export async function getReasoningRoutingRuleById(
   id: string
 ): Promise<ReasoningRoutingRule | null> {
-  const row = (await getDbInstance()
+  const row = (await getAsyncDb()
     .prepare("SELECT * FROM reasoning_routing_rules WHERE id = ?")
     .get(id)) as RuleRow | undefined;
   return row ? rowToRule(row) : null;
@@ -185,7 +185,7 @@ export async function createReasoningRoutingRule(
   assertReferences(rule);
   const id = randomUUID();
   const now = new Date().toISOString();
-  getDbInstance()
+  getAsyncDb()
     .prepare(
       `INSERT INTO reasoning_routing_rules (
       id, name, description, scope, api_key_id, combo_id, connection_id, model_pattern,
@@ -212,7 +212,7 @@ export async function updateReasoningRoutingRule(
   const next = { ...base, ...patch } as ReasoningRoutingRuleInput;
   assertReferences(next);
   const now = new Date().toISOString();
-  getDbInstance()
+  getAsyncDb()
     .prepare(
       `UPDATE reasoning_routing_rules SET
       name=@name, description=@description, scope=@scope, api_key_id=@apiKeyId,
@@ -229,7 +229,7 @@ export async function updateReasoningRoutingRule(
 }
 
 export async function deleteReasoningRoutingRule(id: string): Promise<boolean> {
-  const result = await getDbInstance()
+  const result = await getAsyncDb()
     .prepare("DELETE FROM reasoning_routing_rules WHERE id = ?")
     .run(id);
   if ((result.changes ?? 0) > 0) invalidate();

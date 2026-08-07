@@ -1,6 +1,6 @@
 import { skillRegistry } from "./registry";
 import { SkillExecution, SkillStatus, SkillHandler } from "./types";
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { getSettings } from "../db/settings";
 import { randomUUID } from "crypto";
 import { logger } from "../../../open-sse/utils/logger.ts";
@@ -53,25 +53,27 @@ class SkillExecutor {
       throw new Error(`Skill is disabled: ${skillName}`);
     }
 
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const executionId = randomUUID();
     const startTime = Date.now();
 
     log.info("skills.executor.start", { skillId: skill.id, skillName, apiKeyId: context.apiKeyId });
 
     try {
-      db.prepare(
-        `INSERT INTO skill_executions (id, skill_id, api_key_id, session_id, input, status, created_at)
+      await db
+        .prepare(
+          `INSERT INTO skill_executions (id, skill_id, api_key_id, session_id, input, status, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        executionId,
-        skill.id,
-        context.apiKeyId,
-        context.sessionId || null,
-        JSON.stringify(input),
-        SkillStatus.RUNNING,
-        new Date().toISOString()
-      );
+        )
+        .run(
+          executionId,
+          skill.id,
+          context.apiKeyId,
+          context.sessionId || null,
+          JSON.stringify(input),
+          SkillStatus.RUNNING,
+          new Date().toISOString()
+        );
 
       const handler = this.handlers.get(skill.handler);
       if (!handler) {
@@ -94,9 +96,11 @@ class SkillExecutor {
 
       const durationMs = Date.now() - startTime;
 
-      db.prepare(
-        `UPDATE skill_executions SET output = ?, status = ?, error_message = ?, duration_ms = ? WHERE id = ?`
-      ).run(output ? JSON.stringify(output) : null, status, errorMessage, durationMs, executionId);
+      await db
+        .prepare(
+          `UPDATE skill_executions SET output = ?, status = ?, error_message = ?, duration_ms = ? WHERE id = ?`
+        )
+        .run(output ? JSON.stringify(output) : null, status, errorMessage, durationMs, executionId);
 
       log.info("skills.executor.complete", {
         skillId: skill.id,
@@ -120,9 +124,11 @@ class SkillExecutor {
       const durationMs = Date.now() - startTime;
       const errorMessage = err instanceof Error ? err.message : String(err);
 
-      db.prepare(
-        `UPDATE skill_executions SET status = ?, error_message = ?, duration_ms = ? WHERE id = ?`
-      ).run(SkillStatus.ERROR, errorMessage, durationMs, executionId);
+      await db
+        .prepare(
+          `UPDATE skill_executions SET status = ?, error_message = ?, duration_ms = ? WHERE id = ?`
+        )
+        .run(SkillStatus.ERROR, errorMessage, durationMs, executionId);
 
       throw err;
     }
@@ -137,9 +143,11 @@ class SkillExecutor {
     ]);
   }
 
-  getExecution(executionId: string): SkillExecution | undefined {
-    const db = getDbInstance();
-    const row = db.prepare("SELECT * FROM skill_executions WHERE id = ?").get(executionId) as any;
+  async getExecution(executionId: string): Promise<SkillExecution | undefined> {
+    const db = getAsyncDb();
+    const row = (await db
+      .prepare("SELECT * FROM skill_executions WHERE id = ?")
+      .get(executionId)) as any;
     if (!row) return undefined;
 
     return {
@@ -161,7 +169,7 @@ class SkillExecutor {
     limit: number = 50,
     offset: number = 0
   ): Promise<SkillExecution[]> {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const rows = apiKeyId
       ? await db
           .prepare(
@@ -187,7 +195,7 @@ class SkillExecutor {
   }
 
   countExecutions(apiKeyId?: string): number {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const row = apiKeyId
       ? (db
           .prepare("SELECT COUNT(*) as count FROM skill_executions WHERE api_key_id = ?")

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
 import { useDisplayBaseUrl } from "@/shared/hooks";
@@ -395,8 +396,6 @@ export default function ApiEndpointsTab() {
               </div>
             </div>
           </Card>
-
-          <VscodeTokenAliasCard variant="catalog" />
         </>
       )}
 
@@ -486,8 +485,6 @@ export default function ApiEndpointsTab() {
               </button>
             </div>
           </div>
-
-          <VscodeTokenAliasCard variant="catalog" />
 
           {/* Endpoint groups */}
           {Object.entries(groupedEndpoints).map(([tag, endpoints]) => (
@@ -755,8 +752,87 @@ export default function ApiEndpointsTab() {
               </div>
             </Card>
           )}
+
+          {/* Auxiliary access facilities */}
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-symbols-outlined text-[16px] text-primary">widgets</span>
+              <h3 className="text-sm font-semibold">{t("auxiliaryAccess")}</h3>
+            </div>
+            <p className="text-xs text-text-muted mb-4">{t("auxiliaryAccessDesc")}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              <AuxEntry
+                href="/dashboard/api-manager"
+                icon="vpn_key"
+                label={t("entryApiKeys")}
+                desc={t("entryApiKeysDesc")}
+              />
+              <AuxEntry
+                href="/dashboard/cli-code"
+                icon="terminal"
+                label={t("entryCliCode")}
+                desc={t("entryCliCodeDesc")}
+              />
+              <AuxEntry
+                href="/dashboard/settings/access-tokens"
+                icon="key"
+                label={t("entryAccessTokens")}
+                desc={t("entryAccessTokensDesc")}
+              />
+              <AuxEntry
+                href="/dashboard/mcp-servers"
+                icon="hub"
+                label={t("entryMcpServers")}
+                desc={t("entryMcpServersDesc")}
+              />
+            </div>
+            <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+              <span className="material-symbols-outlined text-[14px]">code</span>
+              <span>{t("entryVscodeAlias")}</span>
+              <span className="flex-1" />
+              <a
+                href="#vscode-alias"
+                onClick={(event) => {
+                  event.preventDefault();
+                  document.getElementById("vscode-alias")?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="text-primary hover:underline"
+              >
+                {t("viewOnThisPage")}
+              </a>
+            </div>
+          </Card>
         </>
       )}
+
+      <div id="vscode-alias" className="scroll-mt-20">
+        <VscodeTokenAliasCard variant="catalog" />
+      </div>
     </div>
+  );
+}
+
+function AuxEntry({
+  href,
+  icon,
+  label,
+  desc,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-lg border border-black/10 dark:border-white/10 p-3 hover:border-primary/40 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
+        <span className="text-xs font-semibold">{label}</span>
+      </div>
+      <p className="text-[11px] text-text-muted leading-snug">{desc}</p>
+    </Link>
   );
 }

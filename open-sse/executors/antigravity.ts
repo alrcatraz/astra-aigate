@@ -142,11 +142,11 @@ const CREDIT_BALANCE_TTL_MS = 5 * 60 * 1000;
 const creditBalanceCache = new Map<string, { balance: number; updatedAt: number }>();
 let creditCacheHydrated = false;
 
-function hydrateCreditCacheFromDb(): void {
+async function hydrateCreditCacheFromDb(): Promise<void> {
   if (creditCacheHydrated) return;
   creditCacheHydrated = true;
   try {
-    const persisted = getAllPersistedCreditBalances();
+    const persisted = await getAllPersistedCreditBalances();
     for (const [accountId, balance] of persisted) {
       if (!creditBalanceCache.has(accountId)) {
         creditBalanceCache.set(accountId, { balance, updatedAt: Date.now() });
@@ -174,8 +174,8 @@ if (typeof _creditBalanceSweep === "object" && "unref" in _creditBalanceSweep) {
   (_creditBalanceSweep as { unref?: () => void }).unref?.();
 }
 
-export function getAntigravityRemainingCredits(accountId: string): number | null {
-  hydrateCreditCacheFromDb();
+export async function getAntigravityRemainingCredits(accountId: string): Promise<number | null> {
+  await hydrateCreditCacheFromDb();
   const entry = creditBalanceCache.get(accountId);
   if (!entry) return null;
   if (Date.now() - entry.updatedAt > CREDIT_BALANCE_TTL_MS) {
@@ -378,7 +378,7 @@ function sanitizeAntigravityGeminiRequest(
   }
 
   // Preserve only caller-supplied safetySettings through the Claude-path whitelist.
-  // Missing settings stay absent so OmniRoute does not silently weaken upstream safety.
+  // Missing settings stay absent so AI Gate does not silently weaken upstream safety.
   if (Array.isArray(request.safetySettings)) {
     clean.safetySettings = request.safetySettings;
   }

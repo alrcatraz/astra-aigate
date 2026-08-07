@@ -5,7 +5,8 @@
  * and community server connections.
  */
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 import { calculateLevel } from "../gamification/xp";
 
 // ──────────────── Types ────────────────
@@ -94,9 +95,9 @@ export interface CommunityServer {
 // ──────────────── Helper ────────────────
 
 interface StatementLike<TRow = unknown> {
-  all: (...params: unknown[]) => TRow[];
-  get: (...params: unknown[]) => TRow | undefined;
-  run: (...params: unknown[]) => { changes: number };
+  all: (...params: unknown[]) => Promise<TRow[]>;
+  get: (...params: unknown[]) => Promise<TRow | undefined>;
+  run: (...params: unknown[]) => Promise<{ changes: number }>;
 }
 
 interface DbLike {
@@ -104,40 +105,44 @@ interface DbLike {
 }
 
 function db(): DbLike {
-  return getDbInstance() as unknown as DbLike;
+  return getAsyncDb() as unknown as DbLike;
 }
 
 // ──────────────── Leaderboard ────────────────
 
-export function updateScore(apiKeyId: string, scope: string, points: number): void {
-  db()
+export async function updateScore(apiKeyId: string, scope: string, points: number): Promise<void> {
+  await db()
     .prepare(
       `INSERT INTO leaderboard (api_key_id, scope, score, updated_at)
-     VALUES (?, ?, ?, datetime('now'))
+     VALUES (?, ?, ?, NOW())
      ON CONFLICT(api_key_id, scope)
-     DO UPDATE SET score = score + excluded.score, updated_at = datetime('now')`
+     DO UPDATE SET score = score + excluded.score, updated_at = NOW()`
     )
     .run(apiKeyId, scope, points);
 }
 
-export function getRank(apiKeyId: string, scope: string): number {
-  const row = db()
+export async function getRank(apiKeyId: string, scope: string): Promise<number> {
+  const row = (await db()
     .prepare(`SELECT score FROM leaderboard WHERE api_key_id = ? AND scope = ?`)
-    .get(apiKeyId, scope) as { score: number } | undefined;
+    .get(apiKeyId, scope)) as { score: number } | undefined;
   if (!row) return 0;
-  const rankRow = db()
+  const rankRow = (await db()
     .prepare(`SELECT COUNT(*) + 1 AS rank FROM leaderboard WHERE scope = ? AND score > ?`)
-    .get(scope, row.score) as { rank: number };
+    .get(scope, row.score)) as { rank: number };
   return rankRow.rank;
 }
 
-export function getTopN(scope: string, limit: number, offset: number = 0): LeaderboardRow[] {
-  const rows = db()
+export async function getTopN(
+  scope: string,
+  limit: number,
+  offset: number = 0
+): Promise<LeaderboardRow[]> {
+  const rows = (await db()
     .prepare(
       `SELECT api_key_id, scope, score, updated_at FROM leaderboard
      WHERE scope = ? ORDER BY score DESC LIMIT ? OFFSET ?`
     )
-    .all(scope, limit, offset) as Array<{
+    .all(scope, limit, offset)) as Array<{
     api_key_id: string;
     scope: string;
     score: number;
@@ -153,30 +158,35 @@ export function getTopN(scope: string, limit: number, offset: number = 0): Leade
 
 // ──────────────── XP & Levels ────────────────
 
-export function addXp(apiKeyId: string, action: string, amount: number, metadata?: string): void {
-  db()
+export async function addXp(
+  apiKeyId: string,
+  action: string,
+  amount: number,
+  metadata?: string
+): Promise<void> {
+  await db()
     .prepare(
       `INSERT INTO xp_audit_log (api_key_id, action, xp_earned, metadata)
      VALUES (?, ?, ?, ?)`
     )
     .run(apiKeyId, action, amount, metadata ?? null);
 
-  db()
+  await db()
     .prepare(
       `INSERT INTO user_levels (api_key_id, total_xp, current_level, updated_at)
-     VALUES (?, ?, ?, datetime('now'))
+     VALUES (?, ?, ?, NOW())
      ON CONFLICT(api_key_id)
-     DO UPDATE SET total_xp = total_xp + excluded.total_xp, updated_at = datetime('now')`
+     DO UPDATE SET total_xp = user_levels.total_xp + excluded.total_xp, updated_at = NOW()`
     )
     .run(apiKeyId, amount, calculateLevel(amount));
 }
 
-export function getXp(apiKeyId: string): UserLevelRow | null {
-  const row = db()
+export async function getXp(apiKeyId: string): Promise<UserLevelRow | null> {
+  const row = (await db()
     .prepare(
       `SELECT api_key_id, total_xp, current_level, updated_at FROM user_levels WHERE api_key_id = ?`
     )
-    .get(apiKeyId) as
+    .get(apiKeyId)) as
     | {
         api_key_id: string;
         total_xp: number;
@@ -193,21 +203,21 @@ export function getXp(apiKeyId: string): UserLevelRow | null {
   };
 }
 
-export function updateLevel(apiKeyId: string, level: number): void {
-  db()
+export async function updateLevel(apiKeyId: string, level: number): Promise<void> {
+  await db()
     .prepare(
       `INSERT INTO user_levels (api_key_id, total_xp, current_level, updated_at)
-     VALUES (?, 0, ?, datetime('now'))
+     VALUES (?, 0, ?, NOW())
      ON CONFLICT(api_key_id)
-     DO UPDATE SET current_level = ?, updated_at = datetime('now')`
+     DO UPDATE SET current_level = ?, updated_at = NOW()`
     )
     .run(apiKeyId, level, level);
 }
 
 // ──────────────── Badges ────────────────
 
-export function unlockBadge(apiKeyId: string, badgeId: string): void {
-  db()
+export async function unlockBadge(apiKeyId: string, badgeId: string): Promise<void> {
+  await db()
     .prepare(`INSERT OR IGNORE INTO user_badges (api_key_id, badge_id) VALUES (?, ?)`)
     .run(apiKeyId, badgeId);
 }
@@ -220,15 +230,15 @@ export function unlockBadge(apiKeyId: string, badgeId: string): void {
  * it returns nothing until the definitions are seeded — using it as a dedup guard caused
  * badge-unlock events to re-fire on every request (#3472).
  */
-export function hasBadge(apiKeyId: string, badgeId: string): boolean {
-  const row = db()
+export async function hasBadge(apiKeyId: string, badgeId: string): Promise<boolean> {
+  const row = (await db()
     .prepare(`SELECT 1 FROM user_badges WHERE api_key_id = ? AND badge_id = ? LIMIT 1`)
-    .get(apiKeyId, badgeId);
+    .get(apiKeyId, badgeId)) as unknown;
   return !!row;
 }
 
-export function getBadges(apiKeyId: string): UserBadge[] {
-  const rows = db()
+export async function getBadges(apiKeyId: string): Promise<UserBadge[]> {
+  const rows = (await db()
     .prepare(
       `SELECT ub.api_key_id, ub.badge_id, ub.unlocked_at,
             bd.name, bd.description, bd.icon, bd.category, bd.rarity
@@ -236,7 +246,7 @@ export function getBadges(apiKeyId: string): UserBadge[] {
      JOIN badge_definitions bd ON bd.id = ub.badge_id
      WHERE ub.api_key_id = ?`
     )
-    .all(apiKeyId) as Array<{
+    .all(apiKeyId)) as Array<{
     api_key_id: string;
     badge_id: string;
     unlocked_at: string;
@@ -258,11 +268,13 @@ export function getBadges(apiKeyId: string): UserBadge[] {
   }));
 }
 
-export function getBadgeDefinitions(category?: string): BadgeDefinition[] {
+export async function getBadgeDefinitions(category?: string): Promise<BadgeDefinition[]> {
   const sql = category
     ? `SELECT * FROM badge_definitions WHERE category = ?`
     : `SELECT * FROM badge_definitions`;
-  const rows = (category ? db().prepare(sql).all(category) : db().prepare(sql).all()) as Array<{
+  const rows = (await (category
+    ? db().prepare(sql).all(category)
+    : db().prepare(sql).all())) as Array<{
     id: string;
     name: string;
     description: string | null;
@@ -291,15 +303,15 @@ export function getBadgeDefinitions(category?: string): BadgeDefinition[] {
  * dashboard profile page, which is not scoped to a single key). Sums total XP and
  * takes the highest reached level. (#3484)
  */
-export function getAggregateXp(): UserLevelRow {
-  const row = db()
+export async function getAggregateXp(): Promise<UserLevelRow> {
+  const row = (await db()
     .prepare(
       `SELECT COALESCE(SUM(total_xp), 0) AS total_xp,
               COALESCE(MAX(current_level), 1) AS current_level,
               MAX(updated_at) AS updated_at
-       FROM user_levels`
+      FROM user_levels`
     )
-    .get() as { total_xp: number; current_level: number; updated_at: string | null };
+    .get()) as { total_xp: number; current_level: number; updated_at: string | null };
   return {
     apiKeyId: "*",
     totalXp: row?.total_xp ?? 0,
@@ -312,16 +324,18 @@ export function getAggregateXp(): UserLevelRow {
  * Distinct badges earned by any API key (operator-wide earned set for the profile
  * page). Deduplicated by badge id, keeping the earliest unlock. (#3484)
  */
-export function getAllEarnedBadges(): UserBadge[] {
-  const rows = db()
+export async function getAllEarnedBadges(): Promise<UserBadge[]> {
+  // GROUP BY lists every non-aggregated bd column so the query is valid under
+  // PostgreSQL's strict grouping (SQLite tolerated the bare badge_id).
+  const rows = (await db()
     .prepare(
       `SELECT ub.badge_id, MIN(ub.unlocked_at) AS unlocked_at,
               bd.name, bd.description, bd.icon, bd.category, bd.rarity
-       FROM user_badges ub
-       JOIN badge_definitions bd ON bd.id = ub.badge_id
-       GROUP BY ub.badge_id`
+      FROM user_badges ub
+      JOIN badge_definitions bd ON bd.id = ub.badge_id
+      GROUP BY ub.badge_id, bd.name, bd.description, bd.icon, bd.category, bd.rarity`
     )
-    .all() as Array<{
+    .all()) as Array<{
     badge_id: string;
     unlocked_at: string;
     name: string;
@@ -352,7 +366,7 @@ export async function transferTokens(
   idempotencyKey: string
 ): Promise<{ success: boolean; error?: string }> {
   // Atomic transaction: balance check + insert
-  const instance = getDbInstance();
+  const instance = await getAsyncDb();
   const txn = instance.transaction(async () => {
     // Check for duplicate
     const existing = (await instance
@@ -361,12 +375,12 @@ export async function transferTokens(
     if (existing) return { success: true };
 
     // Balance check (inside transaction to prevent race)
-    const balance = getBalance(fromId);
+    const balance = await getBalance(fromId);
     if (balance < amount) {
       return { success: false, error: "insufficient_balance" };
     }
 
-    instance
+    await instance
       .prepare(
         `INSERT INTO token_ledger (from_api_key_id, to_api_key_id, amount, reason, idempotency_key)
          VALUES (?, ?, ?, ?, ?)`
@@ -379,24 +393,24 @@ export async function transferTokens(
   return await txn();
 }
 
-export function getBalance(apiKeyId: string): number {
-  const received = db()
+export async function getBalance(apiKeyId: string): Promise<number> {
+  const received = (await db()
     .prepare(`SELECT COALESCE(SUM(amount), 0) AS total FROM token_ledger WHERE to_api_key_id = ?`)
-    .get(apiKeyId) as { total: number };
-  const sent = db()
+    .get(apiKeyId)) as { total: number };
+  const sent = (await db()
     .prepare(`SELECT COALESCE(SUM(amount), 0) AS total FROM token_ledger WHERE from_api_key_id = ?`)
-    .get(apiKeyId) as { total: number };
+    .get(apiKeyId)) as { total: number };
   return received.total - sent.total;
 }
 
-export function getHistory(apiKeyId: string, limit: number): TokenLedgerEntry[] {
-  const rows = db()
+export async function getHistory(apiKeyId: string, limit: number): Promise<TokenLedgerEntry[]> {
+  const rows = (await db()
     .prepare(
       `SELECT * FROM token_ledger
-     WHERE from_api_key_id = ? OR to_api_key_id = ?
-     ORDER BY created_at DESC LIMIT ?`
+    WHERE from_api_key_id = ? OR to_api_key_id = ?
+    ORDER BY created_at DESC LIMIT ?`
     )
-    .all(apiKeyId, apiKeyId, limit) as Array<{
+    .all(apiKeyId, apiKeyId, limit)) as Array<{
     id: number;
     from_api_key_id: string;
     to_api_key_id: string;
@@ -418,24 +432,24 @@ export function getHistory(apiKeyId: string, limit: number): TokenLedgerEntry[] 
 
 // ──────────────── Invite Tokens ────────────────
 
-export function createInviteToken(
+export async function createInviteToken(
   id: string,
   code: string,
   tokenHash: string,
   createdBy: string,
   serverUrl?: string,
   maxUses?: number
-): void {
-  db()
+): Promise<void> {
+  await db()
     .prepare(
       `INSERT INTO invite_tokens (id, code, token_hash, created_by, server_url, max_uses)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    VALUES (?, ?, ?, ?, ?, ?)`
     )
     .run(id, code, tokenHash, createdBy, serverUrl ?? null, maxUses ?? 1);
 }
 
-export function getInviteByCode(code: string): InviteToken | null {
-  const row = db().prepare(`SELECT * FROM invite_tokens WHERE code = ?`).get(code) as
+export async function getInviteByCode(code: string): Promise<InviteToken | null> {
+  const row = (await db().prepare(`SELECT * FROM invite_tokens WHERE code = ?`).get(code)) as
     | {
         id: string;
         code: string;
@@ -466,21 +480,21 @@ export function getInviteByCode(code: string): InviteToken | null {
   };
 }
 
-export function redeemInvite(code: string, usedBy: string): boolean {
-  const result = db()
+export async function redeemInvite(code: string, usedBy: string): Promise<boolean> {
+  const result = await db()
     .prepare(
       `UPDATE invite_tokens
-     SET use_count = use_count + 1, used_by = ?
-     WHERE code = ? AND revoked_at IS NULL
-       AND use_count < max_uses
-       AND (expires_at IS NULL OR expires_at > datetime('now'))`
+    SET use_count = use_count + 1, used_by = ?
+    WHERE code = ? AND revoked_at IS NULL
+      AND use_count < max_uses
+      AND (expires_at IS NULL OR expires_at > NOW())`
     )
     .run(usedBy, code);
   return result.changes > 0;
 }
 
-export function revokeInvite(id: string): void {
-  db().prepare(`UPDATE invite_tokens SET revoked_at = datetime('now') WHERE id = ?`).run(id);
+export async function revokeInvite(id: string): Promise<void> {
+  await db().prepare(`UPDATE invite_tokens SET revoked_at = NOW() WHERE id = ?`).run(id);
 }
 
 // ──────────────── Community Servers ────────────────
@@ -490,32 +504,39 @@ export function revokeInvite(id: string): void {
  * Returns the server id if the key hash matches a 'connected' server, or undefined.
  * Used by federation routes to authenticate bearer tokens.
  */
-export function getConnectedServerByKeyHash(apiKeyHash: string): { id: string } | undefined {
-  return db()
+export async function getConnectedServerByKeyHash(
+  apiKeyHash: string
+): Promise<{ id: string } | undefined> {
+  return (await db()
     .prepare("SELECT id FROM community_servers WHERE api_key_hash = ? AND status = 'connected'")
-    .get(apiKeyHash) as { id: string } | undefined;
+    .get(apiKeyHash)) as { id: string } | undefined;
 }
 
-export function connectServer(id: string, name: string, url: string, apiKeyHash: string): void {
-  db()
+export async function connectServer(
+  id: string,
+  name: string,
+  url: string,
+  apiKeyHash: string
+): Promise<void> {
+  await db()
     .prepare(
       `INSERT OR REPLACE INTO community_servers (id, name, url, api_key_hash)
-     VALUES (?, ?, ?, ?)`
+    VALUES (?, ?, ?, ?)`
     )
     .run(id, name, url, apiKeyHash);
 }
 
-export function disconnectServer(id: string): void {
-  db().prepare(`UPDATE community_servers SET status = 'disconnected' WHERE id = ?`).run(id);
+export async function disconnectServer(id: string): Promise<void> {
+  await db().prepare(`UPDATE community_servers SET status = 'disconnected' WHERE id = ?`).run(id);
 }
 
 /** List community servers (excludes api_key_hash for security). */
-export function listServers(): Omit<CommunityServer, "apiKeyHash">[] {
-  const rows = db()
+export async function listServers(): Promise<Omit<CommunityServer, "apiKeyHash">[]> {
+  const rows = (await db()
     .prepare(
       `SELECT id, name, url, connected_at, last_sync_at, status, error_message FROM community_servers`
     )
-    .all() as Array<{
+    .all()) as Array<{
     id: string;
     name: string;
     url: string;
@@ -538,37 +559,37 @@ export function listServers(): Omit<CommunityServer, "apiKeyHash">[] {
 /**
  * Get neighbors around a user on the leaderboard.
  */
-export function getLeaderboardNeighbors(
+export async function getLeaderboardNeighbors(
   apiKeyId: string,
   scope: string,
   radius: number = 5
-): {
+): Promise<{
   above: Array<{ apiKeyId: string; score: number }>;
   below: Array<{ apiKeyId: string; score: number }>;
-} {
+}> {
   const d = db();
 
-  const scoreRow = d
+  const scoreRow = (await d
     .prepare("SELECT score FROM leaderboard WHERE api_key_id = ? AND scope = ?")
-    .get(apiKeyId, scope) as { score: number } | undefined;
+    .get(apiKeyId, scope)) as { score: number } | undefined;
 
   if (!scoreRow) return { above: [], below: [] };
 
-  const above = d
+  const above = (await d
     .prepare(
       `SELECT api_key_id, score FROM leaderboard
-       WHERE scope = ? AND score > ?
-       ORDER BY score ASC LIMIT ?`
+      WHERE scope = ? AND score > ?
+      ORDER BY score ASC LIMIT ?`
     )
-    .all(scope, scoreRow.score, radius) as Array<{ api_key_id: string; score: number }>;
+    .all(scope, scoreRow.score, radius)) as Array<{ api_key_id: string; score: number }>;
 
-  const below = d
+  const below = (await d
     .prepare(
       `SELECT api_key_id, score FROM leaderboard
-       WHERE scope = ? AND score < ?
-       ORDER BY score DESC LIMIT ?`
+      WHERE scope = ? AND score < ?
+      ORDER BY score DESC LIMIT ?`
     )
-    .all(scope, scoreRow.score, radius) as Array<{ api_key_id: string; score: number }>;
+    .all(scope, scoreRow.score, radius)) as Array<{ api_key_id: string; score: number }>;
 
   return {
     above: above.reverse().map((r) => ({ apiKeyId: r.api_key_id, score: r.score })),
@@ -581,7 +602,7 @@ export function getLeaderboardNeighbors(
  * Uses two-step approach (SELECT then parameterized INSERT) to avoid SQL injection.
  * Skips if archive scope already has data for this period (double-run protection).
  */
-export function rotateLeaderboardScope(scope: "weekly" | "monthly"): void {
+export async function rotateLeaderboardScope(scope: "weekly" | "monthly"): Promise<void> {
   const d = db();
   const archiveSuffix =
     scope === "weekly"
@@ -589,15 +610,15 @@ export function rotateLeaderboardScope(scope: "weekly" | "monthly"): void {
       : `month_${new Date().toISOString().slice(0, 7)}`;
 
   // Double-run protection: skip if archive scope already has data
-  const existing = d
+  const existing = (await d
     .prepare("SELECT COUNT(*) AS cnt FROM leaderboard WHERE scope = ?")
-    .get(archiveSuffix) as { cnt: number };
+    .get(archiveSuffix)) as { cnt: number };
   if (existing.cnt > 0) return;
 
   // Step 1: SELECT rows into memory
-  const rows = d
+  const rows = (await d
     .prepare("SELECT api_key_id, score, updated_at FROM leaderboard WHERE scope = ?")
-    .all(scope) as Array<{ api_key_id: string; score: number; updated_at: string }>;
+    .all(scope)) as Array<{ api_key_id: string; score: number; updated_at: string }>;
 
   // Step 2: INSERT with parameters (no string interpolation)
   if (rows.length > 0) {
@@ -605,9 +626,9 @@ export function rotateLeaderboardScope(scope: "weekly" | "monthly"): void {
       "INSERT OR IGNORE INTO leaderboard (api_key_id, scope, score, updated_at) VALUES (?, ?, ?, ?)"
     );
     for (const row of rows) {
-      insert.run(row.api_key_id, archiveSuffix, row.score, row.updated_at);
+      await insert.run(row.api_key_id, archiveSuffix, row.score, row.updated_at);
     }
   }
 
-  d.prepare("DELETE FROM leaderboard WHERE scope = ?").run(scope);
+  await d.prepare("DELETE FROM leaderboard WHERE scope = ?").run(scope);
 }

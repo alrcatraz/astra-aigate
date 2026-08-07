@@ -1,46 +1,24 @@
 /**
- * MCP SSE Transport — /api/mcp/sse
+ * Legacy MCP SSE Transport — /api/mcp/sse (deprecated)
  *
- * Endpoints:
- *   GET    — open SSE stream for bidirectional communication
- *   POST   — send JSON-RPC messages to the MCP server
+ * Permanent redirect to the gateway endpoint
+ * /api/mcp/servers/aigate-omniroute/sse (single source of truth).
+ *
+ * Status code matters: 301 for GET (SSE stream bootstrap), 308 for POST —
+ * the fetch spec converts POST→GET on 301/302/303, which would drop the
+ * JSON-RPC message body. 308 preserves the method for both.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCachedSettings } from "@/lib/db/settings";
-import { handleMcpSSE } from "../../../../../open-sse/mcp-server/httpTransport";
-import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 
-async function guardEnabled(): Promise<NextResponse | null> {
-  const settings = await getCachedSettings();
-  if (!settings.mcpEnabled) {
-    return NextResponse.json(
-      { error: "MCP server is disabled. Enable it from the Endpoints page." },
-      { status: 503 }
-    );
-  }
-  const transport = (settings.mcpTransport as string) || "stdio";
-  if (transport !== "sse") {
-    return NextResponse.json(
-      { error: `MCP transport is set to "${transport}", not "sse". Change it from Settings.` },
-      { status: 400 }
-    );
-  }
-  return null;
-}
+const TARGET = "/api/mcp/servers/aigate-omniroute/sse";
 
 export async function GET(request: NextRequest) {
-  const authError = await requireManagementAuth(request);
-  if (authError) return authError;
-  const blocked = await guardEnabled();
-  if (blocked) return blocked;
-  return handleMcpSSE(request);
+  const url = new URL(TARGET, request.url);
+  return NextResponse.redirect(url, 301);
 }
 
 export async function POST(request: NextRequest) {
-  const authError = await requireManagementAuth(request);
-  if (authError) return authError;
-  const blocked = await guardEnabled();
-  if (blocked) return blocked;
-  return handleMcpSSE(request);
+  const url = new URL(TARGET, request.url);
+  return NextResponse.redirect(url, 308);
 }

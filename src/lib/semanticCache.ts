@@ -7,7 +7,7 @@
  * Two-tier: in-memory LRU (fast) + SQLite (persistent across restarts).
  *
  * Cache key = SHA-256(model + normalized messages + temperature + top_p)
- * Bypass: X-OmniRoute-No-Cache: true
+ * Bypass: X-AI Gate-No-Cache: true
  *
  * @module lib/semanticCache
  */
@@ -17,6 +17,24 @@ import { LRUCache } from "./cacheLayer";
 import { getDbInstance } from "./db/core";
 
 type JsonRecord = Record<string, unknown>;
+
+/**
+ * Synchronous view of the SQLite handle used by this (not-yet-migrated) module.
+ * `getDbInstance()` is typed as the async `DatabaseAdapter`, so cast to a
+ * minimal sync interface — the cache read/write/invalidate paths are called
+ * synchronously from request handlers and must not await.
+ */
+interface SemanticCacheSyncStmt {
+  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
+  get(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+}
+interface SemanticCacheSyncDb {
+  prepare(sql: string): SemanticCacheSyncStmt;
+}
+function syncDb(): SemanticCacheSyncDb {
+  return getDbInstance() as unknown as SemanticCacheSyncDb;
+}
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -33,7 +51,7 @@ function toNumber(value: unknown, fallback = 0): number {
 
 function ensureCacheMetricsTable() {
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     db.prepare(
       `CREATE TABLE IF NOT EXISTS cache_metrics (
         key TEXT PRIMARY KEY,
@@ -51,7 +69,7 @@ function ensureCacheMetricsTable() {
 
 function incrementMetric(metric: "hits" | "misses" | "tokens_saved", amount = 1) {
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     db.prepare(
       `UPDATE cache_metrics SET value = value + ?, updated_at = datetime('now') WHERE key = ?`
     ).run(amount, metric);
@@ -62,7 +80,7 @@ function incrementMetric(metric: "hits" | "misses" | "tokens_saved", amount = 1)
 
 function getMetricValue(metric: string): number {
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const row = db.prepare(`SELECT value FROM cache_metrics WHERE key = ?`).get(metric);
     return row ? toNumber(asRecord(row).value, 0) : 0;
   } catch {
@@ -184,12 +202,12 @@ export function getCachedResponse(signature) {
 
   // 2. Check SQLite
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const row = db
       .prepare(
-        "SELECT response, tokens_saved FROM semantic_cache WHERE signature = ? AND expires_at > datetime('now')"
+        "SELECT response, tokens_saved FROM semantic_cache WHERE signature = ? AND expires_at > ?"
       )
-      .get(signature);
+      .get(signature, new Date().toISOString());
 
     if (row) {
       const record = asRecord(row);
@@ -238,7 +256,7 @@ export function setCachedResponse(signature, model, response, tokensSaved = 0, t
 
   // 2. SQLite
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const id = crypto.randomUUID();
     const promptHash = signature.slice(0, 16);
     const now = new Date().toISOString();
@@ -262,7 +280,7 @@ export function setCachedResponse(signature, model, response, tokensSaved = 0, t
 export function invalidateByModel(model: string): number {
   getMemoryCache().clear(); // Memory cache doesn't track model; full clear
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const result = db.prepare("DELETE FROM semantic_cache WHERE model = ?").run(model);
     return result.changes || 0;
   } catch {
@@ -278,7 +296,7 @@ export function invalidateByModel(model: string): number {
 export function invalidateBySignature(signature: string): boolean {
   getMemoryCache().delete(signature);
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const result = db.prepare("DELETE FROM semantic_cache WHERE signature = ?").run(signature);
     return (result.changes || 0) > 0;
   } catch {
@@ -294,7 +312,7 @@ export function invalidateBySignature(signature: string): boolean {
 export function invalidateStale(maxAgeMs: number): number {
   getMemoryCache().clear();
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
     const result = db.prepare("DELETE FROM semantic_cache WHERE created_at < ?").run(cutoff);
     return result.changes || 0;
@@ -310,7 +328,7 @@ export function clearCache(): number {
   getMemoryCache().clear();
   let removed = 0;
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const result = db.prepare("DELETE FROM semantic_cache").run();
     removed = result.changes || 0;
     db.prepare("UPDATE cache_metrics SET value = 0").run();
@@ -324,10 +342,10 @@ export function getCacheStats() {
   const memStats = getMemoryCache().getStats();
   let dbSize = 0;
   try {
-    const db = getDbInstance();
+    const db = syncDb();
     const row = db
-      .prepare("SELECT COUNT(*) as count FROM semantic_cache WHERE expires_at > datetime('now')")
-      .get();
+      .prepare("SELECT COUNT(*) as count FROM semantic_cache WHERE expires_at > ?")
+      .get(new Date().toISOString());
     dbSize = toNumber(asRecord(row).count, 0);
   } catch {
     // DB not available

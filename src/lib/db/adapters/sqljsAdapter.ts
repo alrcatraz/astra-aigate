@@ -26,7 +26,7 @@ function resolveSqlJsWasmPath(): string {
 
   // Global Bun installs do not use the application's cwd as the package root.
   // Resolve the actual JavaScript entrypoint so sql.js can find its sibling WASM
-  // asset when OmniRoute is launched from ~/.bun/install/global.
+  // asset when AI Gate is launched from ~/.bun/install/global.
   try {
     const sqlJsEntry = _require.resolve("sql.js");
     candidatePaths.push(path.join(path.dirname(sqlJsEntry), "sql-wasm.wasm"));

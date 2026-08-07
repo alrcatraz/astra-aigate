@@ -4,7 +4,7 @@
  * Implements QuotaFetcher for the `freemodel-dev` provider (quotaPreflight.ts + quotaMonitor.ts).
  *
  * FreeModel.dev publishes no usage API (verified per #7075 research), so tracking is
- * local-first: OmniRoute meters its own requests per **account** (connectionId — not per
+ * local-first: AI Gate meters its own requests per **account** (connectionId — not per
  * key, not per host, since all tier hosts T0/T1/T2 drain the same upstream bucket) across
  * two rolling windows, mirroring the Codex 5h/7d window model
  * (`open-sse/services/codexUsageQuotas.ts`):

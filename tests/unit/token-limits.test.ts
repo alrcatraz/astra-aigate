@@ -151,7 +151,14 @@ test("seed-on-miss equals usage_history SUM for the active window", async () => 
   // Different month (excluded).
   insertUsage("k2", "openai", "gpt-4o", 999, 999, new Date(Date.UTC(2025, 11, 31)).toISOString());
   // Different model (excluded).
-  insertUsage("k2", "openai", "gpt-4o-mini", 777, 777, new Date(Date.UTC(2026, 0, 13)).toISOString());
+  insertUsage(
+    "k2",
+    "openai",
+    "gpt-4o-mini",
+    777,
+    777,
+    new Date(Date.UTC(2026, 0, 13)).toISOString()
+  );
 
   const expected = 100 + 50 + 30 + 20;
   assert.equal(counter.seedWindowUsageFromHistory(limit, NOW_JAN), expected);
@@ -194,11 +201,19 @@ test("seed total excludes cache tokens (no double-count) (FIX 2)", async () => {
 
   // tokens_input ALREADY INCLUDES cache_read + cache_creation (these columns are a
   // breakdown, per migration 012). Billable = input + output + reasoning ONLY.
-  insertUsage("k2c", "anthropic", "claude-sonnet", 500, 200, new Date(Date.UTC(2026, 0, 12)).toISOString(), {
-    cacheRead: 300,
-    cacheCreation: 100,
-    reasoning: 40,
-  });
+  insertUsage(
+    "k2c",
+    "anthropic",
+    "claude-sonnet",
+    500,
+    200,
+    new Date(Date.UTC(2026, 0, 12)).toISOString(),
+    {
+      cacheRead: 300,
+      cacheCreation: 100,
+      reasoning: 40,
+    }
+  );
 
   // 500 + 200 + 40 = 740. Must NOT add cacheRead/cacheCreation again (would be 1140).
   assert.equal(counter.seedWindowUsageFromHistory(limit, NOW_JAN), 740);
@@ -249,7 +264,7 @@ test("most-restrictive breach wins when model and provider both match", async ()
   tokenLimits.incrementWindowTokens(modelLimit.id, mWs, 100); // remaining 0
   tokenLimits.incrementWindowTokens(providerLimit.id, pWs, 55); // remaining 0, smaller limitValue
 
-  const breachA = counter.checkTokenLimits("k3", "openai", "gpt-4o", NOW_JAN);
+  const breachA = await counter.checkTokenLimits("k3", "openai", "gpt-4o", NOW_JAN);
   assert.ok(breachA);
   assert.equal(breachA!.scopeType, "provider");
   assert.equal(breachA!.limitValue, 50);
@@ -274,7 +289,7 @@ test("most-restrictive breach wins when model and provider both match", async ()
   tokenLimits.incrementWindowTokens(modelLimit2.id, mWs2, 100); // breach (>=100)
   tokenLimits.incrementWindowTokens(providerLimit2.id, pWs2, 150); // 150 < 200 → no breach
 
-  const breachB = counter.checkTokenLimits("k3b", "openai", "gpt-4o", NOW_JAN);
+  const breachB = await counter.checkTokenLimits("k3b", "openai", "gpt-4o", NOW_JAN);
   assert.ok(breachB);
   assert.equal(breachB!.scopeType, "model");
   assert.equal(breachB!.limitValue, 100);
@@ -291,7 +306,7 @@ test("disabled limit is ignored by checkTokenLimits", async () => {
   });
   const ws = tokenLimits.resetWindowIfElapsed(limit, NOW_JAN).windowStart;
   tokenLimits.incrementWindowTokens(limit.id, ws, 999);
-  assert.equal(counter.checkTokenLimits("k4", "openai", "gpt-4o", NOW_JAN), null);
+  assert.equal(await counter.checkTokenLimits("k4", "openai", "gpt-4o", NOW_JAN), null);
 });
 
 test("global fallback applies when no model/provider limit", async () => {
@@ -303,7 +318,7 @@ test("global fallback applies when no model/provider limit", async () => {
   });
   const ws = tokenLimits.resetWindowIfElapsed(limit, NOW_JAN).windowStart;
   tokenLimits.incrementWindowTokens(limit.id, ws, 20);
-  const breach = counter.checkTokenLimits("k5", "openai", "gpt-4o", NOW_JAN);
+  const breach = await counter.checkTokenLimits("k5", "openai", "gpt-4o", NOW_JAN);
   assert.ok(breach);
   assert.equal(breach!.scopeType, "global");
   assert.equal(breach!.limitValue, 10);

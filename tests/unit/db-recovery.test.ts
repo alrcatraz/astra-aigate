@@ -42,7 +42,7 @@ test("resetEncryptedColumns dry-run returns affected count without mutating", as
     const countBefore = countEncryptedCredentials();
     assert.equal(countBefore, 1);
 
-    const { affected } = resetEncryptedColumns({ dryRun: true });
+    const { affected } = await resetEncryptedColumns({ dryRun: true });
     assert.equal(affected, 1);
 
     // Dry run should NOT have mutated
@@ -62,7 +62,7 @@ test("resetEncryptedColumns force mode nulls encrypted columns", async () => {
       "INSERT INTO provider_connections (id, provider, name, api_key, access_token, created_at, updated_at) VALUES (?,?,?,?,?,?,?)"
     ).run("rec-id", "anthropic", "rec-conn", "enc:v1:key123", "enc:v1:tok456", now, now);
 
-    const { affected } = resetEncryptedColumns({ dryRun: false });
+    const { affected } = await resetEncryptedColumns({ dryRun: false });
     assert.ok(affected >= 1);
 
     const row = db

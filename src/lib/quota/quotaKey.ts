@@ -94,14 +94,14 @@ export async function resolveQuotaKeyScope(
   // Deduplicate: a key in 2 pools of the same group expands once.
   const groupIdSet = new Set<string>();
   for (const poolId of allowedQuotas) {
-    const pool = getPool(poolId);
+    const pool = await getPool(poolId);
     if (!pool) continue;
     groupIdSet.add(pool.groupId);
   }
 
   // For each distinct group, aggregate ALL pools in that group.
   for (const groupId of groupIdSet) {
-    const groupPools = getPoolsByGroup(groupId);
+    const groupPools = await getPoolsByGroup(groupId);
     // Group-level "anyValidConnection" gate: include the group slug only when
     // at least one pool in the group has a usable connection.
     let groupHasValidConnection = false;
@@ -129,7 +129,7 @@ export async function resolveQuotaKeyScope(
     // Only expose the group slug when the group has at least one usable
     // connection — a fully-orphaned group has no qtSd/<groupSlug>/... models.
     if (groupHasValidConnection) {
-      const groupName = getGroupName(groupId) ?? groupId;
+      const groupName = (await getGroupName(groupId)) ?? groupId;
       groupSlugSet.add(quotaGroupSlug(groupName));
     }
   }
@@ -163,7 +163,7 @@ export async function reconcilePoolExclusivity(
   poolId: string,
   prevApiKeyIds: string[],
   nextApiKeyIds: string[],
-  exclusive: boolean,
+  exclusive: boolean
 ): Promise<void> {
   const affectedIds = new Set([...prevApiKeyIds, ...nextApiKeyIds]);
 
@@ -173,7 +173,7 @@ export async function reconcilePoolExclusivity(
       if (!keyRow) continue;
 
       const currentQuotas: string[] = Array.isArray(
-        (keyRow as Record<string, unknown>).allowedQuotas,
+        (keyRow as Record<string, unknown>).allowedQuotas
       )
         ? ((keyRow as Record<string, unknown>).allowedQuotas as string[])
         : [];

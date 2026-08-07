@@ -2,7 +2,7 @@
  * MITM alias-mapping normalization — Antigravity model + reasoning-effort overrides.
  *
  * Ported from upstream decolua/9router#2584 ("add Antigravity reasoning effort
- * overrides"), adapted to OmniRoute's alias storage shape (`src/lib/db/models/mitmAlias.ts`,
+ * overrides"), adapted to AI Gate's alias storage shape (`src/lib/db/models/mitmAlias.ts`,
  * `Record<alias, string | MitmAliasEntry>`) and its existing canonical reasoning-effort
  * vocabulary (`@/shared/reasoning/effortStandardization.ts`) instead of inventing a new one.
  *

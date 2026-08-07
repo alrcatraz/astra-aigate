@@ -1,4 +1,4 @@
-import { getDbInstance } from "@/lib/db/core";
+import { getDbInstance, getAsyncDb } from "@/lib/db/core";
 
 const DEFAULT_OBSIDIAN_BASE_URL = "http://127.0.0.1:27123";
 const MAX_RETRIES = 2;
@@ -309,7 +309,7 @@ const SYNC_TOKEN_KEY = "omniroute_sync_token";
 
 export function getSyncToken(): string | null {
   try {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const row = db
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get("sync", SYNC_TOKEN_KEY) as { value?: string } | undefined;
@@ -321,7 +321,7 @@ export function getSyncToken(): string | null {
 
 export async function setSyncToken(token: string | null): Promise<void> {
   try {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     if (token === null) {
       await db
         .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")

@@ -666,7 +666,7 @@ export async function withRateLimit(
     // Bottleneck's raw `This job timed out after <maxWaitMs> ms.` is
     // indistinguishable from an upstream gateway timeout, so it leaks into 502
     // bodies / call-log `last_error` and gets misdiagnosed as a provider outage
-    // (#4165). Rewrite it into a clear, OmniRoute-owned error (knob named,
+    // (#4165). Rewrite it into a clear, AI Gate-owned error (knob named,
     // upstream disclaimed, original kept as `cause`, `code` for classification).
     // If the limiter is idle with capacity after the expiry, the scheduler is wedged.
     // Reset it and retry this never-dispatched function once on a fresh limiter.
@@ -691,7 +691,7 @@ export async function withRateLimit(
       }
       const queueErr = new Error(
         `Request dropped after exceeding the local rate-limit queue budget maxWaitMs (${maxWaitMs}ms) for ` +
-          `${model ? `${provider}/${model}` : provider} — this is OmniRoute's request queue ` +
+          `${model ? `${provider}/${model}` : provider} — this is AI Gate's request queue ` +
           `(resilienceSettings.requestQueue.maxWaitMs), not an upstream timeout. Raise it in ` +
           `Settings → Resilience if this is queue saturation rather than a slow provider.`,
         { cause: err }
@@ -701,13 +701,13 @@ export async function withRateLimit(
     }
     // The watchdog's stop({ dropWaitingJobs: true }) wedge-recovery (above) rejects
     // queued jobs with this exact message. Rewrite it the same way as the timeout
-    // case — a clear, OmniRoute-owned, classifiable error — so combo's transient-error
+    // case — a clear, AI Gate-owned, classifiable error — so combo's transient-error
     // handling (which already treats a 502 as retryable) falls back to the next target
     // immediately instead of surfacing Bottleneck's internal wording.
     if (err?.message === "rate-limit-watchdog-wedge-reset") {
       const wedgeErr = new Error(
         `Request dropped: the local rate-limit queue for ${model ? `${provider}/${model}` : provider} ` +
-          `was detected as wedged (stalled with nothing executing) and force-reset. This is OmniRoute's ` +
+          `was detected as wedged (stalled with nothing executing) and force-reset. This is AI Gate's ` +
           `own queue recovering, not an upstream error.`,
         { cause: err }
       ) as Error & { code?: string };

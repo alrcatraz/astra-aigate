@@ -9,7 +9,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ suit
 
   try {
     const { suiteId } = await params;
-    const suite = getSuite(suiteId);
+    const suite = await getSuite(suiteId);
     if (!suite) {
       return NextResponse.json({ error: `Suite not found: ${suiteId}` }, { status: 404 });
     }

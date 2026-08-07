@@ -6,7 +6,7 @@
  * (the user has no visible signal to switch). After N consecutive failures for a
  * (sessionId, comboName) pair we drop the session pin so the next request is
  * forced to re-resolve targets from scratch — and we surface an
- * `X-OmniRoute-Recovery-Action: try-auto` (or `switch-combo`) hint so the client
+ * `X-AI Gate-Recovery-Action: try-auto` (or `switch-combo`) hint so the client
  * (e.g. the OpenCode plugin) can render an actionable error instead of the
  * previous opaque "model stopped producing output" loop.
  *

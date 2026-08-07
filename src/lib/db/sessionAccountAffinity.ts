@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 type SessionAccountAffinityRecord = {
   connectionId: string;
@@ -55,9 +55,7 @@ function parseRecord(value: unknown): SessionAccountAffinityRecord | null {
 }
 
 function deleteAffinityKey(key: string): void {
-  getDbInstance()
-    .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
-    .run(NAMESPACE, key);
+  getAsyncDb().prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
 }
 
 export function getSessionAccountAffinity(
@@ -69,7 +67,7 @@ export function getSessionAccountAffinity(
   if (!sessionKey || !provider || normalizePositiveTtl(ttlMs) <= 0) return null;
 
   const key = affinityKey(sessionKey, provider);
-  const row = getDbInstance()
+  const row = getAsyncDb()
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(NAMESPACE, key) as { value?: unknown } | undefined;
   const record = parseRecord(row?.value);
@@ -103,7 +101,7 @@ export function upsertSessionAccountAffinity(
     expiresAt: isoFromMs(now + normalizedTtlMs),
   };
 
-  getDbInstance()
+  getAsyncDb()
     .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
     .run(NAMESPACE, key, JSON.stringify(record));
 }
@@ -151,7 +149,7 @@ export function evictSessionAccountAffinityForConnection(
   if (!sessionKey || !provider || !connectionId) return false;
 
   const key = affinityKey(sessionKey, provider);
-  const row = getDbInstance()
+  const row = getAsyncDb()
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(NAMESPACE, key) as { value?: unknown } | undefined;
   const record = parseRecord(row?.value);
@@ -165,7 +163,7 @@ export async function cleanupStaleSessionAccountAffinities(
   _ttlMs: number = 30 * 60 * 1000,
   now: number = Date.now()
 ): Promise<number> {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
     .all(NAMESPACE)) as Array<{ key?: unknown; value?: unknown }>;

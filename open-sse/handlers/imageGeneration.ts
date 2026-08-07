@@ -886,7 +886,7 @@ async function handleGeminiImageGeneration({ model, providerConfig, body, creden
       status: 400,
       startTime,
       error:
-        "Missing Google projectId for Antigravity account. Please reconnect OAuth in Providers so OmniRoute can fetch your Cloud Code project.",
+        "Missing Google projectId for Antigravity account. Please reconnect OAuth in Providers so AI Gate can fetch your Cloud Code project.",
       requestBody: logRequestBody,
     });
   }
@@ -1342,7 +1342,7 @@ export async function handleImageEdit({
       status: 400,
       startTime,
       error:
-        "chatgpt-web image edit only works for images recently generated through this OmniRoute instance " +
+        "chatgpt-web image edit only works for images recently generated through this AI Gate instance " +
         "(cache window: 30 minutes). Re-generate the image and try the edit immediately, or disable image-edit " +
         "in your client to use plain chat-completion edit prompts instead.",
       requestBody,

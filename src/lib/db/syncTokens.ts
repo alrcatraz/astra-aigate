@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance, rowToCamel } from "./core";
+import { getDbInstance, rowToCamel, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 import { backupDbFile } from "./backup";
 
 type JsonRecord = Record<string, unknown>;
@@ -48,8 +49,8 @@ function toSyncTokenRecord(value: unknown): SyncTokenRecord | null {
   };
 }
 
-function ensureSyncTokensTable(db: DbLike) {
-  db.exec(`
+async function ensureSyncTokensTable(db: DatabaseAdapter) {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS sync_tokens (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -69,12 +70,10 @@ function ensureSyncTokensTable(db: DbLike) {
 }
 
 export async function listSyncTokens() {
-  const db = getDbInstance() as unknown as DbLike;
-  ensureSyncTokensTable(db);
-  const rows = db
-    .prepare(
-      "SELECT * FROM sync_tokens ORDER BY datetime(created_at) DESC, name COLLATE NOCASE ASC"
-    )
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  await ensureSyncTokensTable(db);
+  const rows = await db
+    .prepare("SELECT * FROM sync_tokens ORDER BY created_at DESC, name COLLATE NOCASE ASC")
     .all();
 
   return rows
@@ -83,16 +82,16 @@ export async function listSyncTokens() {
 }
 
 export async function getSyncTokenById(id: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  ensureSyncTokensTable(db);
-  const row = db.prepare("SELECT * FROM sync_tokens WHERE id = ?").get(id);
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  await ensureSyncTokensTable(db);
+  const row = await db.prepare("SELECT * FROM sync_tokens WHERE id = ?").get(id);
   return toSyncTokenRecord(row);
 }
 
 export async function getSyncTokenByHash(tokenHash: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  ensureSyncTokensTable(db);
-  const row = db.prepare("SELECT * FROM sync_tokens WHERE token_hash = ?").get(tokenHash);
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  await ensureSyncTokensTable(db);
+  const row = await db.prepare("SELECT * FROM sync_tokens WHERE token_hash = ?").get(tokenHash);
   return toSyncTokenRecord(row);
 }
 
@@ -101,8 +100,8 @@ export async function createSyncTokenRecord(data: {
   tokenHash: string;
   syncApiKeyId?: string | null;
 }) {
-  const db = getDbInstance() as unknown as DbLike;
-  ensureSyncTokensTable(db);
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  await ensureSyncTokensTable(db);
 
   const now = new Date().toISOString();
   const record: SyncTokenRecord = {
@@ -116,47 +115,47 @@ export async function createSyncTokenRecord(data: {
     updatedAt: now,
   };
 
-  db.prepare(
-    `INSERT INTO sync_tokens (
+  await db
+    .prepare(
+      `INSERT INTO sync_tokens (
       id, name, token_hash, sync_api_key_id, revoked_at, last_used_at, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    record.id,
-    record.name,
-    record.tokenHash,
-    record.syncApiKeyId,
-    record.revokedAt,
-    record.lastUsedAt,
-    record.createdAt,
-    record.updatedAt
-  );
+    )
+    .run(
+      record.id,
+      record.name,
+      record.tokenHash,
+      record.syncApiKeyId,
+      record.revokedAt,
+      record.lastUsedAt,
+      record.createdAt,
+      record.updatedAt
+    );
 
   backupDbFile("pre-write");
   return record;
 }
 
 export async function revokeSyncToken(id: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  ensureSyncTokensTable(db);
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  await ensureSyncTokensTable(db);
 
   const existing = await getSyncTokenById(id);
   if (!existing) return null;
   if (existing.revokedAt) return existing;
 
   const now = new Date().toISOString();
-  db.prepare("UPDATE sync_tokens SET revoked_at = ?, updated_at = ? WHERE id = ?").run(
-    now,
-    now,
-    id
-  );
+  await db
+    .prepare("UPDATE sync_tokens SET revoked_at = ?, updated_at = ? WHERE id = ?")
+    .run(now, now, id);
   backupDbFile("pre-write");
   return await getSyncTokenById(id);
 }
 
 export async function touchSyncTokenLastUsed(id: string, usedAt = new Date().toISOString()) {
-  const db = getDbInstance() as unknown as DbLike;
-  ensureSyncTokensTable(db);
-  const result = db
+  const db = (await getAsyncDb()) as unknown as DatabaseAdapter;
+  await ensureSyncTokensTable(db);
+  const result = await db
     .prepare("UPDATE sync_tokens SET last_used_at = ?, updated_at = ? WHERE id = ?")
     .run(usedAt, usedAt, id);
   return Number(result.changes || 0) > 0;

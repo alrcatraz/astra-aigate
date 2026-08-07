@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     todayStart.setUTCHours(0, 0, 0, 0);
     const todayIso = todayStart.toISOString();
 
-    const statsRow = getSearchAggregateStats(todayIso);
+    const statsRow = await getSearchAggregateStats(todayIso);
 
     const total = statsRow?.total ?? 0;
     const today = statsRow?.today ?? 0;
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     const cached = statsRow?.cached ?? 0;
 
     // Per-provider breakdown
-    const provRows = getSearchProviderCounts();
+    const provRows = await getSearchProviderCounts();
 
     const byProvider: Record<string, { count: number; costUsd: number }> = {};
     let totalCostUsd = 0;

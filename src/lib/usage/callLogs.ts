@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { RequestPipelinePayloads } from "@omniroute/open-sse/utils/requestLogger.ts";
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb, tableExists } from "../db/core";
 import { collectReferencedArtifacts, selectCallLogIdsBefore } from "./callLogsBoundedQueries";
 import { getRequestDetailLogByCallLogId } from "../db/detailedLogs";
 import { shouldPersistToDisk } from "./migrations";
@@ -277,10 +277,8 @@ function resolveReasoningObservation(
 }
 
 async function hasTable(tableName: string): Promise<boolean> {
-  const db = getDbInstance();
-  return Boolean(
-    await db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName)
-  );
+  // PG-aware shared existence check (bare sqlite_master does not exist in PG).
+  return tableExists(tableName);
 }
 
 function readLegacyLogFromDisk(entry: {
@@ -327,7 +325,7 @@ function readLegacyLogFromDisk(entry: {
 }
 
 async function clearArtifactReference(relativePath: string, nextState: CallLogDetailState) {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   await db
     .prepare(
       `
@@ -358,7 +356,7 @@ async function deleteCallLogRowsByIds(ids: string[]): Promise<DeleteResult> {
     return { deletedRows: 0, deletedArtifacts: 0 };
   }
 
-  const db = getDbInstance();
+  const db = getAsyncDb();
   let deletedRows = 0;
   let deletedArtifacts = 0;
 
@@ -455,7 +453,7 @@ export async function trimCallLogsToMaxRows(
     return { deletedRows: 0, deletedArtifacts: 0 };
   }
 
-  const db = getDbInstance();
+  const db = getAsyncDb();
   let deletedRows = 0;
   let deletedArtifacts = 0;
   const batchSize = 5000;
@@ -561,7 +559,7 @@ async function buildLegacyPipelinePayloads(id: string) {
 async function getLegacyInlineDetail(id: string) {
   if (!(await hasTable("call_logs_v1_legacy"))) return null;
 
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const row = (await db
     .prepare("SELECT request_body, response_body, error FROM call_logs_v1_legacy WHERE id = ?")
     .get(id)) as LegacyInlineRow | undefined;
@@ -674,7 +672,7 @@ export async function saveCallLog(entry: any) {
       }
     }
 
-    const db = getDbInstance();
+    const db = getAsyncDb();
     await db
       .prepare(
         `
@@ -790,7 +788,7 @@ function pushLikeFilter(
 }
 
 export async function getCallLogs(filter: any = {}) {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   let sql = `
     SELECT cl.*,
       pn.name AS provider_node_name, pn.prefix AS provider_node_prefix,
@@ -874,7 +872,7 @@ export async function getCallLogs(filter: any = {}) {
 }
 
 export async function getCallLogById(id: string) {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const row = (await db
     .prepare(
       `SELECT cl.*,
@@ -965,7 +963,7 @@ export async function getCallLogById(id: string) {
 }
 
 export async function exportCallLogsSince(since: string) {
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const ids = (
     await db
       .prepare("SELECT id FROM call_logs WHERE timestamp >= ? ORDER BY timestamp DESC")

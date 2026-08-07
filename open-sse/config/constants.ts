@@ -299,7 +299,7 @@ export const CREDENTIAL_HEALTH_CACHE_TTL = (() => {
  * Stream-recovery tuning (opt-in, see ResilienceSettings.streamRecovery).
  *
  * Ported from free-claude-code's always-on recovery (`core/anthropic/stream_recovery.py`).
- * In OmniRoute the holdback is disabled by default because buffering the opening
+ * In AI Gate the holdback is disabled by default because buffering the opening
  * window adds up to HOLDBACK_MS of time-to-first-token latency on every stream;
  * operators opt in via STREAM_RECOVERY_ENABLED / the resilience settings.
  *

@@ -1,7 +1,7 @@
 // Proxy-subscription-specific pool operations, split out of `proxies.ts` to keep
 // that module under its frozen size cap. Re-exported from `proxies.ts` so callers
 // (subscriptionService.ts et al.) can keep importing from the original module.
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { backupDbFile } from "./backup";
 import { normalizeScope, normalizeAssignmentScopeId } from "./proxies/mappers";
 import { bumpProxyRegistryGeneration } from "./proxies/registryGeneration";
@@ -27,17 +27,19 @@ export async function addProxiesToScopePool(
   const unique = [...new Set((proxyIds || []).filter(Boolean))];
   if (unique.length === 0) return 0;
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const maxRow = db
-    .prepare("SELECT MAX(position) AS maxPos FROM proxy_assignments WHERE scope = ? AND scope_id IS ?")
+    .prepare(
+      "SELECT MAX(position) AS maxPos FROM proxy_assignments WHERE scope = ? AND scope_id IS ?"
+    )
     .get(normalizedScope, normalizedScopeId) as { maxPos?: number | null } | undefined;
   const base = maxRow && typeof maxRow.maxPos === "number" ? maxRow.maxPos + 1 : 0;
   const now = new Date().toISOString();
 
-  const exists = db.prepare(
+  const exists = await db.prepare(
     "SELECT 1 FROM proxy_assignments WHERE scope = ? AND scope_id IS ? AND proxy_id = ? LIMIT 1"
   );
-  const insert = db.prepare(
+  const insert = await db.prepare(
     `INSERT INTO proxy_assignments (proxy_id, scope, scope_id, position, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)`
   );

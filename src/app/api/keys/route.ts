@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   try {
     const { limit, offset } = parsePagination(request);
     const dbLimit = limit ?? undefined;
-    const total = getApiKeysCount();
+    const total = await getApiKeysCount();
     const keys = await getApiKeys(dbLimit, offset);
     const maskedKeys = keys.map((k) => ({
       ...k,

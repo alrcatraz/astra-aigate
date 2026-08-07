@@ -40,7 +40,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
       return NextResponse.json(buildErrorBody(400, parsed.error.message), { status: 400 });
     }
 
-    const updated = renameGroup(id, parsed.data.name);
+    const updated = await renameGroup(id, parsed.data.name);
     if (!updated) {
       return NextResponse.json(buildErrorBody(404, "Group not found"), { status: 404 });
     }
@@ -48,21 +48,18 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
     // Re-sync combos for all pools in the group — combo names embed the group
     // slug, so they must be refreshed after a rename. Dynamic import mirrors
     // quotaPools.ts::syncQuotaCombosGuarded pattern; failures are non-fatal.
-    const pools = getPoolsByGroup(id);
+    const pools = await getPoolsByGroup(id);
     for (const pool of pools) {
       try {
         const { syncQuotaCombos } = await import("@/lib/quota/quotaCombos");
         await syncQuotaCombos(pool.id);
       } catch (err) {
         // Guard: combo-sync failure must never break group rename callers.
-        console.warn(
-          "[quota-groups] syncQuotaCombos failed (non-fatal):",
-          (err as Error)?.message,
-        );
+        console.warn("[quota-groups] syncQuotaCombos failed (non-fatal):", (err as Error)?.message);
       }
     }
 
-    const group = getGroup(id);
+    const group = await getGroup(id);
     return NextResponse.json({ group });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to rename group";
@@ -78,7 +75,7 @@ export async function DELETE(request: Request, { params }: RouteParams): Promise
     const { id } = await params;
     let existed: boolean;
     try {
-      existed = deleteGroup(id);
+      existed = await deleteGroup(id);
     } catch (err) {
       // deleteGroup throws when the group is protected ('group-demo') or when
       // pools still reference it — both map to 409 Conflict.

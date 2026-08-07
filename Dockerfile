@@ -1,19 +1,40 @@
 # ── Common base with runtime deps ──────────────────────────────────────────
-FROM node:26-trixie-slim AS base
+# openSUSE Leap 16.0 (2026-08 decision): zypper's mirrorbrain selects the
+# fastest mirror automatically and retries — much friendlier to CN networks
+# than Debian/Ubuntu apt mirrors (builder apt downloads were ~165 KB/s vs
+# registry.opensuse.org pulls at 10 s). Leap is a fixed-release distro (like
+# Debian stable): no rolling digest churn. Node is NOT available as an
+# official openSUSE image, so we install the nodejs.org official binary
+# tarball (glibc build — compatible with tls-client-node's prebuilt .so,
+# unlike musl/Alpine).
+FROM registry.opensuse.org/opensuse/leap:16.0 AS base
 WORKDIR /app
 
-# `apt-get upgrade` pulls the security-patched versions of the Debian (trixie)
+# `zypper update` pulls the security-patched versions of the openSUSE Leap
 # base-image packages at build time — clears the subset of container-scan CVEs
 # (perl / util-linux / systemd / ncurses / zlib / tar / sqlite / shadow / pam …)
-# that already have a fix published in trixie. CVEs without an upstream fix yet
+# that already have a fix published in Leap. CVEs without an upstream fix yet
 # (local-only TOCTOU, etc.) remain until the distro patches them and the image
 # is rebuilt; none are reachable from the proxy's request surface at runtime.
-RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
-  --mount=type=cache,id=apt-lists,target=/var/lib/apt/lists,sharing=locked \
-  apt-get update \
-  && apt-get upgrade -y \
-  && apt-get install -y --no-install-recommends libsecret-1-0 ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+# zypper's mirrorbrain automatically picks the fastest mirror and retries —
+# the reason this image moved off Debian (2026-08).
+RUN zypper --non-interactive --gpg-auto-import-keys refresh \
+  && zypper --non-interactive update -y \
+  && zypper --non-interactive install -y --no-recommends \
+       ca-certificates libsecret-1-0 libatomic1 findutils curl tar xz \
+  && zypper clean -a
+
+# Node.js 26 from the official binary tarball (matches the node:26 lineage of
+# the previous Debian base). Pinned to an exact version for reproducibility.
+ARG NODE_VERSION=26.7.0
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    | tar -xJ -C /usr/local --strip-components=1 \
+  && node --version \
+  && npm --version
+
+# Runtime user for the runner stages (the base image has no node user; the
+# Debian node:26 image did). UID/GID 1000 keeps volumes compatible.
+RUN useradd -m -u 1000 -U node
 
 # Refresh the globally-installed npm so its *bundled* node_modules (undici, tar)
 # ship the patched versions. These are npm's own internals — not application
@@ -28,12 +49,14 @@ RUN npm install -g npm@latest \
 FROM base AS builder
 
 # Build tools for native module compilation
-# apt-get update needed here because base's rm -rf clears the shared cache
-RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
-  --mount=type=cache,id=apt-lists,target=/var/lib/apt/lists,sharing=locked \
-  apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
+# (openSUSE: gcc-c++ provides g++; zypper clean -a clears the package cache)
+# `--no-refresh` reuses the metadata refreshed by the `base` stage instead of
+# re-running `zypper refresh`, whose rpm-preloading walks *every* package in
+# repo-oss — a run that intermittently 404s on freshly published rpm versions
+# not yet synced to all mirrors (mirrorbrain retries do not help when most
+# mirrors lack the file). `base` refreshes once; `builder` inherits that cache.
+RUN zypper --non-interactive --gpg-auto-import-keys --no-refresh install -y --no-recommends python3 make gcc-c++ \
+  && zypper clean -a
 
 COPY package*.json ./
 # Workspace package manifests MUST be present before `npm ci` so npm materializes
@@ -82,7 +105,7 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
       && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild) \
   && node -e "require('better-sqlite3')(':memory:').close()" \
   && node node_modules/tls-client-node/scripts/postinstall.js \
-  && (test -n "$(find node_modules/tls-client-node/bin -mindepth 1 -print -quit 2>/dev/null)" \
+  && (test -n "$(ls -A node_modules/tls-client-node/bin 2>/dev/null)" \
       || (echo "tls-client-node native binary missing after postinstall — GitHub API fetch likely rate-limited or failed (#7802)" >&2 && exit 1))
 
 # Build with Turbopack (stable in Next 16, the repo default). The v3.8.27-era
@@ -93,7 +116,10 @@ RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
 # build from 17min to 9min on the same 32-core box. Webpack stays available as the
 # escape hatch: `--build-arg`/-e AIGATE_USE_TURBOPACK=0.
 # See docs/ops/QUALITY_GATE_PLAYBOOK.md Parte 6.
-ENV AIGATE_USE_TURBOPACK=1
+# This repo forces webpack (AIGATE_USE_TURBOPACK=0 below): Turbopack (Rust)
+# bypasses V8 --max-old-space-size and can OOM the builder (#6283). The
+# Turbopack comment above is upstream's; do NOT flip this back to 1.
+ENV AIGATE_USE_TURBOPACK=0
 
 # Next.js basePath is fixed at build time; pass AIGATE_BASE_PATH here when the
 # image should serve under a reverse-proxy subpath without a runtime patch.
@@ -129,8 +155,8 @@ FROM base AS runner-base
 
 LABEL org.opencontainers.image.title="astra-aigate" \
   org.opencontainers.image.description="Unified AI proxy — route any LLM through one endpoint" \
-  org.opencontainers.image.url="https://git01.wrt.astra-lab.org/alrcatraz/astra-aigate" \
-  org.opencontainers.image.source="https://git01.wrt.astra-lab.org/alrcatraz/astra-aigate" \
+  org.opencontainers.image.url="https://github.com/alrcatraz/astra-aigate" \
+  org.opencontainers.image.source="https://github.com/alrcatraz/astra-aigate" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${BUILD_VERSION}"
 ENV NODE_ENV=production
@@ -219,36 +245,36 @@ COPY --from=builder /app/node_modules/playwright ./node_modules/playwright
 
 # Install Playwright browser binaries + OS dependencies under root, then hand
 # ownership of the browsers cache to the node user.
+# `playwright install --with-deps` is NOT usable here: since ~1.5x Playwright's
+# install-deps only knows apt (Debian/Ubuntu) — no zypper branch — so on
+# openSUSE it would fail with "apt-get: command not found". The Chromium OS
+# deps below are the openSUSE names for playwright's Debian dependency list
+# (nativeDeps.ts, chromium block, verified against Leap 16.0 repos).
 # PLAYWRIGHT_BROWSERS_PATH overrides the default ~/.cache/ms-playwright so the
 # browsers land under /home/node which persists across image layers and is
 # accessible to the non-root runtime user.
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
-RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
-  --mount=type=cache,id=apt-lists,target=/var/lib/apt/lists,sharing=locked \
-  apt-get update \
-  && node node_modules/playwright/cli.js install chromium --with-deps \
-  && chown -R node:node /home/node/.cache \
-  && rm -rf /var/lib/apt/lists/*
+RUN zypper --non-interactive --gpg-auto-import-keys refresh \
+  && zypper --non-interactive install -y --no-recommends \
+       fonts-liberation libasound2 libatk-bridge-2_0-0 libatk-1_0-0 \
+       libatspi2-0_0 libcairo2 libcups2 libdbus-1-3 libdrm2 libegl1 libgbm1 \
+       libglib-2_0-0 libgtk-3-0 libnspr4 libnss3 libpango-1_0-0 libx11-6 \
+       libx11-xcb1 libxcb1 libxcomposite1 libxdamage1 libxext6 libxfixes3 \
+       libxrandr2 libxshmfence1 \
+  && zypper clean -a \
+  && node node_modules/playwright/cli.js install chromium \
+  && chown -R node:node /home/node/.cache
 
 USER node
 
 FROM runner-base AS runner-cli
 
-# Drop back to root briefly so we can install system + global npm packages,
-# then return to the `node` non-root user before the CMD inherited from
-# runner-base runs.
-USER root
-
-# Install system dependencies required by openclaw (git+ssh references).
-RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
-  --mount=type=cache,id=apt-lists,target=/var/lib/apt/lists,sharing=locked \
-  apt-get update \
-  && apt-get install -y --no-install-recommends git ca-certificates docker.io docker-compose \
-  && rm -rf /var/lib/apt/lists/* \
-  && git config --system url."https://github.com/".insteadOf "ssh://git@github.com/"
-
-# Install CLI tools globally. Separate layer from apt for better cache reuse.
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-  npm install -g --no-audit --no-fund @openai/codex @anthropic-ai/claude-code droid openclaw@latest
+# Default build target: existing build commands without `--target` keep
+# producing the lean image (this stage is otherwise identical to runner-base).
+# Pre-bundled agent CLIs (codex, claude-code, droid, openclaw — ~1.3 GB) were
+# removed 2026-08 for a lighter image; they were never runtime dependencies,
+# only surfaced by the dashboard's cli-code page, whose detection is
+# runtime-dynamic (missing CLIs simply report "not installed"). Install your
+# own agent CLIs at runtime (docker exec / bind-mount) if the panel is used.
 
 USER node

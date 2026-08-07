@@ -12,9 +12,9 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
     textIcon: "NLPC",
     website: "https://docs.nlpcloud.com",
     authHint:
-      "Use your NLP Cloud API key in Authorization: Token <key>. OmniRoute targets the chatbot endpoint on https://api.nlpcloud.io/v1/gpu/<model>/chatbot by default.",
+      "Use your NLP Cloud API key in Authorization: Token <key>. AI Gate targets the chatbot endpoint on https://api.nlpcloud.io/v1/gpu/<model>/chatbot by default.",
     apiHint:
-      "NLP Cloud uses a proprietary chatbot API instead of OpenAI chat/completions. OmniRoute adapts OpenAI messages to input/context/history and exposes a local catalog of supported chatbot models.",
+      "NLP Cloud uses a proprietary chatbot API instead of OpenAI chat/completions. AI Gate adapts OpenAI messages to input/context/history and exposes a local catalog of supported chatbot models.",
     hasFree: true,
     freeNote: "Trial credits for new accounts",
   },
@@ -27,9 +27,9 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
     textIcon: "RW",
     website: "https://docs.dev.runwayml.com",
     authHint:
-      "Use your Runway API key in Authorization: Bearer <key>. OmniRoute targets the current Runway API at https://api.dev.runwayml.com/v1 and sends the required X-Runway-Version header automatically.",
+      "Use your Runway API key in Authorization: Bearer <key>. AI Gate targets the current Runway API at https://api.dev.runwayml.com/v1 and sends the required X-Runway-Version header automatically.",
     apiHint:
-      "Runway video generation is task-based. OmniRoute submits text-to-video or image-to-video jobs, polls /v1/tasks/{id}, and normalizes the finished video outputs back into the OpenAI-like /v1/videos/generations response.",
+      "Runway video generation is task-based. AI Gate submits text-to-video or image-to-video jobs, polls /v1/tasks/{id}, and normalizes the finished video outputs back into the OpenAI-like /v1/videos/generations response.",
   },
   kie: {
     id: "kie",
@@ -213,9 +213,9 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
     textIcon: "SG",
     website: "https://segmind.com",
     authHint:
-      "Use your Segmind API key in the x-api-key header. OmniRoute targets https://api.segmind.com/v1/<model> and returns the generated image/video bytes directly.",
+      "Use your Segmind API key in the x-api-key header. AI Gate targets https://api.segmind.com/v1/<model> and returns the generated image/video bytes directly.",
     apiHint:
-      "Segmind exposes 200+ hosted image and video models (Flux, SDXL, SD3, Kandinsky, Wan, Hunyuan, LTX, Kling, ...) under a single POST /v1/<model> REST call per model. OmniRoute ships a curated starter subset for each modality; more models can be routed by using their Segmind slug as the model id.",
+      "Segmind exposes 200+ hosted image and video models (Flux, SDXL, SD3, Kandinsky, Wan, Hunyuan, LTX, Kling, ...) under a single POST /v1/<model> REST call per model. AI Gate ships a curated starter subset for each modality; more models can be routed by using their Segmind slug as the model id.",
     hasFree: true,
     freeNote: "Free trial credits on signup, no credit card required (per Segmind's public docs).",
   },
@@ -281,7 +281,7 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
     textIcon: "TF",
     website: "https://docs.tinyfish.ai/fetch-api",
     notice: {
-      text: "Fetch does not use TinyFish credits. Submit up to 10 URLs per request (OmniRoute fetches one URL per call).",
+      text: "Fetch does not use TinyFish credits. Submit up to 10 URLs per request (AI Gate fetches one URL per call).",
       apiKeyUrl: "https://agent.tinyfish.ai/api-keys",
     },
     authHint: "X-API-Key from agent.tinyfish.ai/api-keys",

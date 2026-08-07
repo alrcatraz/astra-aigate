@@ -1,6 +1,6 @@
 {
   "name": "astra-aigate",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Unified AI router with 160+ providers, RTK+Caveman compression, auto fallback, MCP/A2A, desktop, PWA, and OpenAI-compatible APIs.",
   "type": "module",
   "bin": {
@@ -68,12 +68,12 @@
     "auto-fallback"
   ],
   "license": "MIT",
-  "author": "diegosouzapw",
+  "author": "alrcatraz",
   "repository": {
     "type": "git",
-    "url": "https://github.com/diegosouzapw/OmniRoute"
+    "url": "https://github.com/alrcatraz/astra-aigate"
   },
-  "homepage": "https://git01.wrt.astra-lab.org/alrcatraz/astra-aigate",
+  "homepage": "https://github.com/alrcatraz/astra-aigate",
   "scripts": {
     "dev": "node --max-old-space-size=8192 scripts/dev/run-next.mjs dev",
     "prebuild:docs": "node scripts/docs/gen-openapi-module.mjs",

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 
-import { getDbInstance, rowToCamel } from "./core";
+import { rowToCamel, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 import { decrypt, encrypt } from "./encryption";
 
 export type CommandCodeAuthStatus = "pending" | "received" | "applied" | "expired";
@@ -53,7 +54,7 @@ type AuthSessionRow = {
 };
 
 function db(): DbLike {
-  return getDbInstance() as unknown as DbLike;
+  return getAsyncDb() as unknown as DatabaseAdapter;
 }
 
 export function hashCommandCodeAuthState(state: string): string {

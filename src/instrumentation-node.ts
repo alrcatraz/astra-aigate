@@ -23,7 +23,7 @@ function toHex(bytes: Uint8Array): string {
 }
 
 /**
- * Rename a Node process title so OmniRoute is identifiable in `ps`/`htop`
+ * Rename a Node process title so AI Gate is identifiable in `ps`/`htop`
  * instead of the generic Next.js standalone server name.
  *
  * Only rewrites titles that start with "next-server", preserving any
@@ -118,8 +118,8 @@ function isBackgroundServicesDisabled(): boolean {
 }
 
 async function ensureSecrets(): Promise<void> {
-  let getPersistedSecret = (_key: string): string | null => null;
-  let persistSecret = (_key: string, _value: string): void => {};
+  let getPersistedSecret = async (_key: string): Promise<string | null> => null;
+  let persistSecret = async (_key: string, _value: string): Promise<void> => {};
 
   try {
     ({ getPersistedSecret, persistSecret } = await import("@/lib/db/secrets"));
@@ -132,26 +132,26 @@ async function ensureSecrets(): Promise<void> {
   }
 
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === "") {
-    const persisted = getPersistedSecret("jwtSecret");
+    const persisted = await getPersistedSecret("jwtSecret");
     if (persisted) {
       process.env.JWT_SECRET = persisted;
       console.log("[STARTUP] JWT_SECRET restored from persistent store");
     } else {
       const generated = toBase64(getRandomBytes(48));
       process.env.JWT_SECRET = generated;
-      persistSecret("jwtSecret", generated);
+      await persistSecret("jwtSecret", generated);
       console.log("[STARTUP] JWT_SECRET auto-generated and persisted (random 64-char secret)");
     }
   }
 
   if (!process.env.API_KEY_SECRET || process.env.API_KEY_SECRET.trim() === "") {
-    const persisted = getPersistedSecret("apiKeySecret");
+    const persisted = await getPersistedSecret("apiKeySecret");
     if (persisted) {
       process.env.API_KEY_SECRET = persisted;
     } else {
       const generated = toHex(getRandomBytes(32));
       process.env.API_KEY_SECRET = generated;
-      persistSecret("apiKeySecret", generated);
+      await persistSecret("apiKeySecret", generated);
       console.log(
         "[STARTUP] API_KEY_SECRET auto-generated and persisted (random 64-char hex secret)"
       );
@@ -245,7 +245,7 @@ export async function scanComboModelNameCollisionsAtBoot(): Promise<void> {
 export async function registerNodejs(): Promise<void> {
   markServerStarting();
 
-  // Rename the process title so OmniRoute is identifiable in ps/htop instead
+  // Rename the process title so AI Gate is identifiable in ps/htop instead
   // of the generic "next-server" standalone server name.
   process.title = renameProcessTitle(process.title);
 
@@ -280,7 +280,7 @@ export async function registerNodejs(): Promise<void> {
   // that cause every connection to be skipped by getProviderCredentials(), making
   // all subsequent requests time out at Bottleneck's maxWaitMs (120 s default).
   // Terminal states (banned / expired / credits_exhausted) are intentionally kept.
-  // See: https://github.com/diegosouzapw/OmniRoute/issues/3625 (Part A)
+  // See: https://github.com/diegosouzapw/AI Gate/issues/3625 (Part A)
   try {
     const { clearStaleCrashCooldowns } = await import("@/lib/db/providers");
     const { cleared } = clearStaleCrashCooldowns();

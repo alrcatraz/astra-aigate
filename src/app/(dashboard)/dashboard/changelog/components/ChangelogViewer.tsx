@@ -15,7 +15,7 @@ function resolveChangelogHref(href: string | undefined): string | null {
   if (href.startsWith("#")) return href;
 
   try {
-    const url = new URL(href, "https://github.com/diegosouzapw/OmniRoute/blob/main/");
+    const url = new URL(href, "https://github.com/diegosouzapw/AI Gate/blob/main/");
     return url.protocol === "https:" ? url.toString() : null;
   } catch {
     return null;

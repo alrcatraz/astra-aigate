@@ -173,7 +173,7 @@ export function openaiResponsesToOpenAIRequest(
 
   // background: true requests a deferred Responses API run (the upstream
   // returns 202 with response_id and the client polls GET /responses/<id>).
-  // OmniRoute is a forward proxy that streams responses synchronously —
+  // AI Gate is a forward proxy that streams responses synchronously —
   // implementing the queue/poll contract would require persistence and a
   // separate retrieval surface. Degrade: log a marker when true was
   // actually requested (operators can observe clients that should be

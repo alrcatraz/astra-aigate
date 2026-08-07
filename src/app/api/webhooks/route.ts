@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.has("limit") ? Number(searchParams.get("limit")) : undefined;
     const offset = searchParams.has("offset") ? Number(searchParams.get("offset")) : 0;
-    const result = getWebhooks(limit !== undefined ? { limit, offset } : undefined);
+    const result = await getWebhooks(limit !== undefined ? { limit, offset } : undefined);
     // Mask secrets in listing
     const masked = result.webhooks.map((w) => ({
       ...w,
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     }
 
     const metadataEncrypted = data.metadata ? encryptMetadata(data.metadata) : undefined;
-    const webhook = createWebhook({
+    const webhook = await createWebhook({
       url: data.url,
       events: data.events,
       secret: data.secret,

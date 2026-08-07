@@ -1,7 +1,7 @@
 /**
  * A2A Skill: Smart Routing
  *
- * Receives a prompt + metadata → routes via OmniRoute pipeline →
+ * Receives a prompt + metadata → routes via AI Gate pipeline →
  * returns response with routing_explanation, cost_envelope, resilience_trace, policy_verdict.
  */
 

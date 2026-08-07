@@ -183,7 +183,7 @@ export function extractResponsesReasoningSummaryText(item) {
 // This function computes the placeholder text WITHOUT mutating `item` — callers
 // use the returned text for synthetic client-facing events only.
 const ENCRYPTED_REASONING_PLACEHOLDER =
-  "Codex is reasoning, but the upstream Responses API exposed this reasoning block only as encrypted private reasoning. OmniRoute cannot recover the plaintext.";
+  "Codex is reasoning, but the upstream Responses API exposed this reasoning block only as encrypted private reasoning. AI Gate cannot recover the plaintext.";
 
 export function getVisibleResponsesReasoningSummaryText(item) {
   const existingSummary = extractResponsesReasoningSummaryText(item);

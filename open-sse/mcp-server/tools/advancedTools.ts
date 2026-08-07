@@ -1,6 +1,6 @@
 /**
- * OmniRoute MCP Advanced Tools — 13 intelligence tools that differentiate
- * OmniRoute from all other AI gateways.
+ * AI Gate MCP Advanced Tools — 13 intelligence tools that differentiate
+ * AI Gate from all other AI gateways.
  *
  * Tools:
  *   1. omniroute_simulate_route     — Dry-run routing simulation
@@ -487,7 +487,7 @@ export async function handleSetResilienceProfile(args: {
       };
     }
 
-    // Apply to OmniRoute via API using the plan-aligned resilience structure.
+    // Apply to AI Gate via API using the plan-aligned resilience structure.
     await apiFetch("/api/resilience", {
       method: "PATCH",
       body: JSON.stringify(settings),

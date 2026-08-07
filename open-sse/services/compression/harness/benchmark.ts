@@ -59,7 +59,7 @@ export interface EngineBenchmarkGateRow {
 
 // ── Fixture corpus (BENCHMARK_CORPUS) ────────────────────────────────────────
 // Representative samples for reproducible A/B runs in CI and local dev.
-// Three task groups mirror real OmniRoute workloads:
+// Three task groups mirror real AI Gate workloads:
 //   "prose"       — conversational / documentation turns
 //   "tool-output" — bash/CLI raw output with repeated structural noise
 //   "json"        — structured tool results / API responses
@@ -144,7 +144,7 @@ export const BENCHMARK_CORPUS: EvalCase[] = [
             message: {
               role: "assistant",
               content:
-                "The file src/lib/db/core.ts exports getDbInstance() which returns the WAL-mode SQLite singleton.",
+                "The file src/lib/db/core.ts exports getAsyncDb() which returns the WAL-mode SQLite singleton.",
             },
           },
           {
@@ -152,7 +152,7 @@ export const BENCHMARK_CORPUS: EvalCase[] = [
             finish_reason: "stop",
             message: {
               role: "assistant",
-              content: "Call getDbInstance() from src/lib/db/core.ts to obtain the DB handle.",
+              content: "Call getAsyncDb() from src/lib/db/core.ts to obtain the DB handle.",
             },
           },
         ],

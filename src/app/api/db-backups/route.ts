@@ -47,7 +47,7 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const result = backupDbFile("manual");
+    const result = await backupDbFile("manual");
     if (!result) {
       return NextResponse.json({ message: "No changes since last backup (throttled)" });
     }

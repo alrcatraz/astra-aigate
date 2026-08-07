@@ -5,7 +5,7 @@
  */
 
 import { isIP } from "node:net";
-import { getDbInstance } from "../../src/lib/db/core.ts";
+import { getAsyncDb } from "../../src/lib/db/core.ts";
 
 // In-memory IP lists
 let _config = {
@@ -17,7 +17,7 @@ let _config = {
 };
 
 // Persistence (#6131): the config used to live in memory only, so every restart
-// (i.e. every OmniRoute update) reset it to Disabled + empty lists. It is now
+// (i.e. every AI Gate update) reset it to Disabled + empty lists. It is now
 // persisted to the key_value table (namespace 'ipFilter', key 'config') and
 // lazily loaded on first access. better-sqlite3 is synchronous, so both the load
 // and the save stay in the sync hot path without extra startup wiring. tempBans
@@ -31,23 +31,35 @@ function ensureLoaded() {
   // Mark loaded up-front so a DB failure (build phase / cloud / migration not yet
   // run) degrades to in-memory only instead of retrying on every request.
   _loaded = true;
+  // Fire-and-forget async load: every public accessor keeps a synchronous
+  // hot path (returns the in-memory defaults immediately), while the persisted
+  // config is applied asynchronously once the DB read resolves. A rejection is
+  // swallowed so a missing DB simply means in-memory defaults for this process.
   try {
-    const row = getDbInstance()
-      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-      .get(IP_FILTER_NAMESPACE, IP_FILTER_KEY) as { value?: string } | undefined;
-    if (!row?.value) return;
-    const parsed = JSON.parse(row.value) as {
-      enabled?: boolean;
-      mode?: string;
-      blacklist?: string[];
-      whitelist?: string[];
-    };
-    _config.enabled = parsed.enabled === true;
-    if (typeof parsed.mode === "string") _config.mode = parsed.mode;
-    _config.blacklist = new Set(Array.isArray(parsed.blacklist) ? parsed.blacklist : []);
-    _config.whitelist = new Set(Array.isArray(parsed.whitelist) ? parsed.whitelist : []);
+    Promise.resolve(
+      getAsyncDb()
+        .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
+        .get(IP_FILTER_NAMESPACE, IP_FILTER_KEY)
+    )
+      .then((row) => {
+        const typed = row as { value?: string } | undefined;
+        if (!typed?.value) return;
+        const parsed = JSON.parse(typed.value) as {
+          enabled?: boolean;
+          mode?: string;
+          blacklist?: string[];
+          whitelist?: string[];
+        };
+        _config.enabled = parsed.enabled === true;
+        if (typeof parsed.mode === "string") _config.mode = parsed.mode;
+        _config.blacklist = new Set(Array.isArray(parsed.blacklist) ? parsed.blacklist : []);
+        _config.whitelist = new Set(Array.isArray(parsed.whitelist) ? parsed.whitelist : []);
+      })
+      .catch(() => {
+        // No DB / table yet — keep the in-memory defaults.
+      });
   } catch {
-    // No DB / table yet — keep the in-memory defaults.
+    // Synchronous setup failure — keep the in-memory defaults.
   }
 }
 
@@ -59,9 +71,16 @@ function persist() {
       blacklist: Array.from(_config.blacklist),
       whitelist: Array.from(_config.whitelist),
     });
-    getDbInstance()
-      .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
-      .run(IP_FILTER_NAMESPACE, IP_FILTER_KEY, payload);
+    // Fire-and-forget best-effort persistence: never let a DB write failure
+    // break the request path. The async adapter's `.run()` returns a Promise;
+    // the rejection is swallowed here.
+    Promise.resolve(
+      getAsyncDb()
+        .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+        .run(IP_FILTER_NAMESPACE, IP_FILTER_KEY, payload)
+    ).catch(() => {
+      // Best-effort persistence: never surface a DB write failure.
+    });
   } catch {
     // Best-effort persistence: never let a DB write failure break the request path.
   }

@@ -8,7 +8,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { globToRegex } from "@/shared/utils/globPattern";
 
 // ──────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ export async function getModelComboMappings(options?: {
   limit?: number;
   offset?: number;
 }): Promise<{ items: ModelComboMapping[]; total: number }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const limit = options?.limit;
   const offset = options?.offset ?? 0;
   let sql = `SELECT m.id, m.pattern, m.combo_id, c.name AS combo_name,
@@ -94,7 +94,7 @@ export async function getModelComboMappings(options?: {
  * Get a single mapping by ID.
  */
 export async function getModelComboMappingById(id: string): Promise<ModelComboMapping | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       `SELECT m.id, m.pattern, m.combo_id, c.name AS combo_name,
@@ -118,7 +118,7 @@ export async function createModelComboMapping(data: {
   enabled?: boolean;
   description?: string;
 }): Promise<ModelComboMapping> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
   const id = uuidv4();
 
@@ -167,7 +167,7 @@ export async function updateModelComboMapping(
   const existing = await getModelComboMappingById(id);
   if (!existing) return null;
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
   const updated = {
     pattern: data.pattern ?? existing.pattern,
@@ -201,7 +201,7 @@ export async function updateModelComboMapping(
  * Delete a model-combo mapping.
  */
 export async function deleteModelComboMapping(id: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const result = await db.prepare("DELETE FROM model_combo_mappings WHERE id = ?").run(id);
   return (result.changes ?? 0) > 0;
 }
@@ -220,7 +220,7 @@ export async function deleteModelComboMapping(id: string): Promise<boolean> {
 export async function resolveComboForModel(
   modelStr: string
 ): Promise<Record<string, unknown> | null> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   // Fetch enabled mappings, ordered by priority (highest first)
   const rows = (await db

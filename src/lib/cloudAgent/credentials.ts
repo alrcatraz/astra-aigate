@@ -1,6 +1,14 @@
-import { getDbInstance } from "@/lib/db/core";
+import { getAsyncDb } from "@/lib/db/core";
+import type { RawSyncDb } from "@/lib/db/adapters/types";
 import { encrypt, decrypt } from "@/lib/db/encryption";
 import type { AgentCredentials } from "@/lib/cloudAgent/baseAgent";
+
+// Sync access to the shared DB singleton (see featureFlags.ts for the same
+// pattern). These helpers sit in the synchronous call stack (API routes call
+// them without await), so we read the async adapter through the sync view.
+function syncDb(): RawSyncDb {
+  return getAsyncDb() as unknown as RawSyncDb;
+}
 
 // The `cloud_agent_credentials` table is provisioned by migration
 // `061_cloud_agent_credentials.sql` at database initialization (see
@@ -15,7 +23,7 @@ export function maskApiKey(key: string): string {
 
 /** Get decrypted credentials for a provider */
 export function getCloudAgentCredentialFromDb(providerId: string): AgentCredentials | null {
-  const db = getDbInstance();
+  const db = syncDb();
   const row = db
     .prepare(
       "SELECT api_key_encrypted, base_url FROM cloud_agent_credentials WHERE provider_id = ?"
@@ -39,7 +47,7 @@ export function listCloudAgentCredentials(): Array<{
   baseUrl: string | null;
   updatedAt: string;
 }> {
-  const db = getDbInstance();
+  const db = syncDb();
   const rows = db
     .prepare(
       "SELECT provider_id, api_key_encrypted, base_url, updated_at FROM cloud_agent_credentials"
@@ -71,7 +79,7 @@ export function saveCloudAgentCredential(
   const encrypted = encrypt(apiKey);
   if (!encrypted) throw new Error("Failed to encrypt API key");
 
-  const db = getDbInstance();
+  const db = syncDb();
   db.prepare(
     `INSERT INTO cloud_agent_credentials (provider_id, api_key_encrypted, base_url, updated_at)
      VALUES (@providerId, @apiKey, @baseUrl, datetime('now'))
@@ -84,6 +92,6 @@ export function saveCloudAgentCredential(
 
 /** Delete credentials for a provider */
 export function deleteCloudAgentCredential(providerId: string): void {
-  const db = getDbInstance();
+  const db = syncDb();
   db.prepare("DELETE FROM cloud_agent_credentials WHERE provider_id = ?").run(providerId);
 }

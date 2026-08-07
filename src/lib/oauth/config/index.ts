@@ -2,7 +2,7 @@
  * OAuth CLI Configuration
  *
  * Provides server credentials for OAuth CLI services to communicate
- * with the running OmniRoute server when saving tokens.
+ * with the running AI Gate server when saving tokens.
  */
 
 import { getRuntimePorts } from "@/lib/runtime/ports";

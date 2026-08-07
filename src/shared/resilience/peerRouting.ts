@@ -2,7 +2,7 @@ const DEFAULT_MAX_PEER_HOPS = 4;
 const MAX_TRACE_HEADER_LENGTH = 2048;
 const INSTANCE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
 
-export const OMNIROUTE_PEER_TRACE_HEADER = "X-OmniRoute-Peer-Trace";
+export const OMNIROUTE_PEER_TRACE_HEADER = "X-AI Gate-Peer-Trace";
 
 type HeaderSource = Headers | Record<string, unknown> | null | undefined;
 type PeerEnvironment = {
@@ -85,13 +85,13 @@ export function inspectPeerRequest(
   if (trace.includes(instanceId)) {
     return {
       code: "peer_loop_detected",
-      message: "OmniRoute peer routing loop detected",
+      message: "AI Gate peer routing loop detected",
     };
   }
   if (trace.length >= getMaxPeerHops(env)) {
     return {
       code: "peer_hop_limit_exceeded",
-      message: "OmniRoute peer routing hop limit exceeded",
+      message: "AI Gate peer routing hop limit exceeded",
     };
   }
   return null;
@@ -110,7 +110,7 @@ export function rejectPeerRequest<T>(
 }
 
 /**
- * Append this instance to the peer trace for an explicitly allowlisted OmniRoute URL.
+ * Append this instance to the peer trace for an explicitly allowlisted AI Gate URL.
  * Returns true when the header was applied. Other upstream providers are untouched.
  */
 export function applyPeerTraceHeader(

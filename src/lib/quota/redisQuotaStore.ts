@@ -16,10 +16,7 @@
  * Part of: Group B — Quota Sharing Engine (plan 22, frente F6).
  */
 
-import {
-  getPool,
-  listAllocationsForApiKey,
-} from "@/lib/localDb";
+import { getPool, listAllocationsForApiKey } from "@/lib/localDb";
 import { WINDOW_MS, dimensionKeyToString } from "./dimensions";
 import type { DimensionKey } from "./dimensions";
 import type { QuotaStore, PoolUsageSnapshot } from "./types";
@@ -180,7 +177,7 @@ export class RedisQuotaStore implements QuotaStore {
    * Keys absent in Redis are treated as 0 (MGET returns null).
    */
   async poolConsumedTotal(poolId: string, dim: DimensionKey): Promise<number> {
-    const pool = getPool(poolId);
+    const pool = await getPool(poolId);
     if (!pool || pool.allocations.length === 0) return 0;
 
     const nowMs = Date.now();
@@ -216,7 +213,7 @@ export class RedisQuotaStore implements QuotaStore {
    */
   async poolUsage(poolId: string): Promise<PoolUsageSnapshot> {
     const nowMs = Date.now();
-    const pool = getPool(poolId);
+    const pool = await getPool(poolId);
 
     if (!pool) {
       return {
@@ -244,7 +241,7 @@ export class RedisQuotaStore implements QuotaStore {
     planDimensions: Array<{ unit: string; window: string; limit: number }>
   ): Promise<PoolUsageSnapshot> {
     const nowMs = Date.now();
-    const pool = getPool(poolId);
+    const pool = await getPool(poolId);
 
     if (!pool) {
       return {

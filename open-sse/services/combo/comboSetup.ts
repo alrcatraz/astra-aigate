@@ -50,10 +50,10 @@ export interface ComboSetup {
  * Extracted from phaseComboSetup to keep that function under the complexity ceiling and to
  * further the combo god-file decomposition.
  */
-function resolveContextCachePin(ctx: ComboContext): {
+async function resolveContextCachePin(ctx: ComboContext): Promise<{
   effectiveSessionId: string | null;
   pinnedModel: string | null;
-} {
+}> {
   const { combo, relayOptions, log } = ctx;
   const effectiveSessionId: string | null = combo.context_cache_protection
     ? (relayOptions?.sessionId ?? deriveComboSessionKey(ctx.body))
@@ -64,7 +64,7 @@ function resolveContextCachePin(ctx: ComboContext): {
     effectiveSessionId &&
     !(ctx.body as Record<string, unknown>)?.[SKIP_UNIVERSAL_HANDOFF_FLAG]
   ) {
-    const pinned = getLastSessionModel(effectiveSessionId, combo.name);
+    const pinned = await getLastSessionModel(effectiveSessionId, combo.name);
     if (pinned) {
       ctx.body = { ...ctx.body, model: pinned };
       pinnedModel = pinned;
@@ -74,7 +74,7 @@ function resolveContextCachePin(ctx: ComboContext): {
   return { effectiveSessionId, pinnedModel };
 }
 
-export function phaseComboSetup(ctx: ComboContext): ComboSetup {
+export async function phaseComboSetup(ctx: ComboContext): Promise<ComboSetup> {
   const { combo, settings, relayOptions } = ctx;
 
   const strategy = normalizeRoutingStrategy(combo.strategy || "priority");
@@ -85,14 +85,14 @@ export function phaseComboSetup(ctx: ComboContext): ComboSetup {
     ? resolveResilienceSettings(settings)
     : resolveResilienceSettings(null);
 
-  const universalHandoffConfig = resolveUniversalHandoffConfig(
+  const universalHandoffConfig = await resolveUniversalHandoffConfig(
     (combo.universal_handoff || combo.universalHandoff) as
       Record<string, unknown> | null | undefined,
     relayOptions?.universalHandoffConfig as Record<string, unknown> | null | undefined
   );
 
   // Server-side context cache pinning (rewrites ctx.body when a model is pinned).
-  const { effectiveSessionId, pinnedModel } = resolveContextCachePin(ctx);
+  const { effectiveSessionId, pinnedModel } = await resolveContextCachePin(ctx);
 
   // ── Combo Agent Middleware (#399 + #401) ────────────────────────────────
   // Apply system_message override, tool_filter_regex.
@@ -107,8 +107,8 @@ export function phaseComboSetup(ctx: ComboContext): ComboSetup {
 
   // Use config cascade before dispatch so all strategies, pinned context routes,
   // and round-robin targets share the same timeout policy.
-  const config = resolveComboSetupConfig(combo, settings);
-  const comboTargetTimeoutMs = resolveComboTargetTimeoutMsForCombo(
+  const config = await resolveComboSetupConfig(combo, settings);
+  const comboTargetTimeoutMs = await resolveComboTargetTimeoutMsForCombo(
     config,
     FETCH_TIMEOUT_MS,
     strategy,

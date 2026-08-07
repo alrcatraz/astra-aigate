@@ -17,8 +17,16 @@
  *   - the per-model split, because a healthy model averages away a sick one.
  */
 
-import { getDbInstance } from "@/lib/db/core";
+import { getDbInstance, getAsyncDb } from "@/lib/db/core";
+import type { RawSyncDb } from "@/lib/db/adapters/types";
 import type { UtilizationTimeRange } from "@/shared/types/utilization";
+
+// Sync view of the shared DB singleton (see featureFlags.ts for the same
+// pattern). This reader sits in the synchronous call stack (the route calls it
+// without await).
+function syncDb(): RawSyncDb {
+  return getAsyncDb() as unknown as RawSyncDb;
+}
 
 /** One `call_logs` row, already narrowed to the cache columns. Both counters are nullable in the schema. */
 export interface CacheHealthRow {
@@ -250,7 +258,7 @@ export function buildCacheHealthResponse(opts: {
   now?: number;
 }): CacheHealthResponse {
   const since = new Date((opts.now ?? Date.now()) - RANGE_MS[opts.range]).toISOString();
-  const db = getDbInstance();
+  const db = syncDb();
 
   const params: (string | number)[] = [since];
   let modelFilter = "";

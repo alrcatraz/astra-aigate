@@ -43,7 +43,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-/** Builds the DeepInfra `/v1/inference/{model}` request body from the OmniRoute video body. */
+/** Builds the DeepInfra `/v1/inference/{model}` request body from the AI Gate video body. */
 /* @testonly */ export function buildDeepinfraVideoRequestBody(
   body: DeepinfraHandlerArgs["body"]
 ): Record<string, unknown> {

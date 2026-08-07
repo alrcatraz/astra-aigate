@@ -2,7 +2,7 @@
  * Cache Control Policy
  *
  * Determines when to preserve client-side prompt caching headers (cache_control)
- * vs. applying OmniRoute's own caching strategy.
+ * vs. applying AI Gate's own caching strategy.
  *
  * Client-side caching (e.g., Claude Code) is preserved when:
  * 1. Client is Claude Code or similar caching-aware client
@@ -238,7 +238,7 @@ export function isDeterministicStrategy(
  * Auto mode preserves for every caching-aware client talking to a
  * caching-capable provider — regardless of combo membership or routing
  * strategy. The old gate (combos only preserved on "deterministic"
- * strategies) forced OmniRoute to strip the client's markers and re-derive
+ * strategies) forced AI Gate to strip the client's markers and re-derive
  * breakpoints per request; the re-derived positions are not stable
  * turn-over-turn, which thrashed the provider prompt cache (observed in
  * production as ~200k cache_write tokens per turn on quota-share combos).
@@ -253,7 +253,7 @@ export function isDeterministicStrategy(
  *   callers/telemetry; no longer gates preservation)
  * @param targetProvider - The target provider for the request
  * @param settings - Cache control settings from database (optional)
- * @returns true if cache_control should be preserved, false if OmniRoute should manage it
+ * @returns true if cache_control should be preserved, false if AI Gate should manage it
  */
 export function shouldPreserveCacheControl({
   userAgent,

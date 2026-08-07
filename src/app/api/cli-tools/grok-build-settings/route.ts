@@ -53,7 +53,7 @@ type GrokModelSection = {
  * Parse the `~/.grok/config.toml` produced by the Grok Build CLI (a subset of
  * TOML — flat `key = "value"` pairs inside `[section]` headers). Grok Build's
  * config format is not guaranteed to be quote-escaped or nested, so this reads
- * only the flat string fields OmniRoute itself writes.
+ * only the flat string fields AI Gate itself writes.
  */
 const parseModelSection = (toml: string): GrokModelSection | null => {
   const match = toml.match(MODEL_SECTION_RE);
@@ -81,8 +81,8 @@ const buildModelSection = (model: string, baseUrl: string, apiKey: string): stri
     `[model.${MODEL_SLOT}]`,
     `model = "${escapeTomlString(model)}"`,
     `base_url = "${escapeTomlString(baseUrl)}"`,
-    `name = "OmniRoute"`,
-    `description = "Routed via OmniRoute gateway"`,
+    `name = "AI Gate"`,
+    `description = "Routed via AI Gate gateway"`,
     `api_backend = "chat_completions"`,
   ];
   if (apiKey) lines.push(`api_key = "${escapeTomlString(apiKey)}"`);
@@ -292,7 +292,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "OmniRoute model slot removed from Grok Build",
+      message: "AI Gate model slot removed from Grok Build",
     });
   } catch (err) {
     return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });

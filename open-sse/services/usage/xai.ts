@@ -4,7 +4,7 @@
  * Extracted from services/usage.ts (god-file decomposition): the xAI family —
  * xAI has no public per-account quota API (the billing console at console.x.ai
  * requires a session cookie, not an API key), so — exactly like the Xiaomi MiMo
- * self-track pattern — OmniRoute sums the tokens it itself routed to this
+ * self-track pattern — AI Gate sums the tokens it itself routed to this
  * connection (from `usage_history`) instead of calling an upstream endpoint.
  * Unlike Xiaomi MiMo, xAI has no fixed monthly cap, so the aggregate is reported
  * as `unlimited: true` with `remaining: 100`. Depends only on the sibling
@@ -20,7 +20,7 @@ import { type UsageQuota } from "./quota.ts";
  *
  * xAI has no public per-account quota API (the billing console at console.x.ai
  * requires a session cookie, not an API key), so — exactly like the Xiaomi
- * MiMo self-track pattern above — OmniRoute sums the tokens it itself routed
+ * MiMo self-track pattern above — AI Gate sums the tokens it itself routed
  * to this connection (from `usage_history`) instead of calling an upstream
  * endpoint. Unlike Xiaomi MiMo, xAI has no fixed monthly cap, so the
  * aggregate is reported as `unlimited: true` with `remaining: 100` — this
@@ -35,7 +35,7 @@ export async function getXaiUsage(connectionId: string) {
     const { getMonthlyProviderTokensForConnection } = await import("@/lib/usage/usageStats");
     const used = await getMonthlyProviderTokensForConnection("xai", connectionId);
     return {
-      plan: "xAI / Grok (OmniRoute-tracked)",
+      plan: "xAI / Grok (AI Gate-tracked)",
       quotas: {
         monthly: {
           used,

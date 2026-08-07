@@ -1,6 +1,6 @@
 import { backupDbFile } from "./backup";
 import { getDefaultCompressionCombo } from "./compressionCombos";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 import { invalidateDbCache } from "./readCache";
 import {
   ENGINE_IDS,
@@ -589,7 +589,7 @@ function aggressiveEnabled(value: AggressiveConfig | undefined): boolean {
 }
 
 export async function getCompressionSettings(): Promise<CompressionConfig> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   if (
     compressionSettingsCache &&
     Date.now() < compressionSettingsCache.expiresAt &&
@@ -811,8 +811,8 @@ export async function getCompressionSettings(): Promise<CompressionConfig> {
 export async function updateCompressionSettings(
   updates: Partial<CompressionConfig>
 ): Promise<CompressionConfig> {
-  const db = getDbInstance();
-  const insert = db.prepare(
+  const db = await getAsyncDb();
+  const insert = await db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
   );
 
@@ -851,7 +851,7 @@ function normalizeMcpAccessibilityConfig(value: unknown): McpAccessibilityConfig
 }
 
 export async function getMcpAccessibilityConfig(): Promise<McpAccessibilityConfig> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
     .get(NAMESPACE, "mcpAccessibility")) as { value: string } | undefined;
@@ -862,12 +862,10 @@ export async function setMcpAccessibilityConfig(
   value: Partial<McpAccessibilityConfig>
 ): Promise<void> {
   const next = normalizeMcpAccessibilityConfig({ ...DEFAULT_MCP_ACCESSIBILITY_CONFIG, ...value });
-  const db = getDbInstance();
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    NAMESPACE,
-    "mcpAccessibility",
-    JSON.stringify(next)
-  );
+  const db = await getAsyncDb();
+  await db
+    .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
+    .run(NAMESPACE, "mcpAccessibility", JSON.stringify(next));
   compressionSettingsCache = null;
   invalidateDbCache();
 }

@@ -2,7 +2,7 @@
  * Memory store - CRUD operations with prepared statements and caching
  */
 
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { upsertSemanticMemoryPoint, deleteSemanticMemoryPoint } from "./qdrant";
 import { Memory, MemoryType } from "./types";
 import { logger } from "../../../open-sse/utils/logger.ts";
@@ -96,7 +96,7 @@ async function findExistingMemory(
   key: string
 ): Promise<MemoryRow | undefined> {
   if (!key) return undefined;
-  const stmt = db.prepare(
+  const stmt = await db.prepare(
     "SELECT * FROM memories WHERE api_key_id = ? AND key = ? ORDER BY created_at DESC LIMIT 1"
   );
   return (await stmt.get(apiKeyId, key)) as MemoryRow | undefined;
@@ -123,7 +123,7 @@ function scheduleVectorUpsert(id: string, content: string): void {
   setImmediate(async () => {
     try {
       const settings = await getMemorySettings();
-      const resolution = resolveEmbeddingSource(settings);
+      const resolution = await resolveEmbeddingSource(settings);
       if (!resolution.source) return;
 
       const embeddingResult = await embed(content, settings);
@@ -137,7 +137,7 @@ function scheduleVectorUpsert(id: string, content: string): void {
         return;
       }
 
-      const vec = getVectorStore();
+      const vec = await getVectorStore();
       if (!vec) {
         safeMarkNeedsReindex(id, true);
         return;
@@ -162,7 +162,7 @@ function scheduleVectorUpsert(id: string, content: string): void {
 export async function createMemory(
   memory: Omit<Memory, "id" | "createdAt" | "updatedAt" | "accessCount" | "lastAccessedAt">
 ): Promise<Memory> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
 
   // Check for existing memory with same apiKeyId + key (UPSERT logic)
@@ -173,7 +173,7 @@ export async function createMemory(
   if (existing) {
     // UPDATE existing record
     const updatedMetadata = { ...parseJSON(existing.metadata), ...memory.metadata };
-    const stmt = db.prepare(
+    const stmt = await db.prepare(
       "UPDATE memories SET content = ?, metadata = ?, updated_at = ?, session_id = ?, type = ?, expires_at = ? WHERE id = ?"
     );
     await stmt.run(
@@ -242,7 +242,7 @@ export async function createMemory(
 
   // INSERT new record if not exists
   const id = crypto.randomUUID();
-  const stmt = db.prepare(
+  const stmt = await db.prepare(
     "INSERT INTO memories (id, api_key_id, session_id, type, key, content, metadata, created_at, updated_at, expires_at) " +
       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
@@ -318,8 +318,8 @@ export async function getMemory(id: string): Promise<Memory | null> {
     return cached.value;
   }
 
-  const db = getDbInstance();
-  const stmt = db.prepare("SELECT * FROM memories WHERE id = ?");
+  const db = await getAsyncDb();
+  const stmt = await db.prepare("SELECT * FROM memories WHERE id = ?");
   const row = (await stmt.get(id)) as MemoryRow | undefined;
 
   if (!row) {
@@ -347,7 +347,7 @@ export async function updateMemory(
 ): Promise<boolean> {
   if (!id || typeof id !== "string") return false;
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
 
   // Fetch current state to detect content/key change (needed for vector re-gen)
@@ -386,7 +386,7 @@ export async function updateMemory(
 
   values.push(id); // For WHERE clause
 
-  const stmt = db.prepare(`UPDATE memories SET ${fields.join(", ")} WHERE id = ?`);
+  const stmt = await db.prepare(`UPDATE memories SET ${fields.join(", ")} WHERE id = ?`);
 
   const result = await stmt.run(...values);
 
@@ -398,11 +398,12 @@ export async function updateMemory(
   invalidateMemoryCache(id);
 
   // Regenerate vector if content or key changed (fire-and-forget)
-  const contentChanged = updates.content !== undefined && updates.content !== currentRow?.content;
-  const keyChanged = updates.key !== undefined && updates.key !== currentRow?.key;
+  const contentChanged =
+    (await updates.content) !== undefined && updates.content !== currentRow?.content;
+  const keyChanged = (await updates.key) !== undefined && updates.key !== currentRow?.key;
 
   if (contentChanged || keyChanged) {
-    const newContent = updates.content ?? currentRow?.content ?? "";
+    const newContent = (await updates.content) ?? currentRow?.content ?? "";
     scheduleVectorUpsert(id, newContent);
   }
 
@@ -418,7 +419,7 @@ export async function deleteMemory(id: string): Promise<boolean> {
   if (!id || typeof id !== "string") return false;
 
   // 1. Delete from sqlite-vec (best-effort — does not fail if vec not loaded)
-  const vec = getVectorStore();
+  const vec = await getVectorStore();
   if (vec) {
     await vec.deleteVector(id).catch((e: unknown) =>
       log.warn("memory.vec.delete.fail", {
@@ -437,8 +438,8 @@ export async function deleteMemory(id: string): Promise<boolean> {
   );
 
   // 3. Delete from SQLite
-  const db = getDbInstance();
-  const stmt = db.prepare("DELETE FROM memories WHERE id = ?");
+  const db = await getAsyncDb();
+  const stmt = await db.prepare("DELETE FROM memories WHERE id = ?");
   const result = await stmt.run(id);
 
   if (result.changes === 0) {
@@ -465,7 +466,7 @@ export async function listMemories(filters: {
   offset?: number;
   page?: number;
 }): Promise<{ data: Memory[]; total: number; byType: Record<string, number> }> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
 
   // Build dynamic query conditions
   const whereClauses: string[] = [];
@@ -497,9 +498,9 @@ export async function listMemories(filters: {
   if (whereClauses.length > 0) {
     countQuery += " WHERE " + whereClauses.join(" AND ");
   }
-  const countStmt = db.prepare(countQuery);
+  const countStmt = await db.prepare(countQuery);
   const countRow = (await countStmt.get(...whereParams)) as { total: number };
-  const total = countRow.total;
+  const total = await countRow.total;
 
   // Build byType aggregation (counts ALL matching rows, not just the page)
   let byTypeQuery = "SELECT type, COUNT(*) as count FROM memories";
@@ -508,7 +509,7 @@ export async function listMemories(filters: {
     byTypeQuery += " WHERE " + whereClauses.join(" AND ");
   }
   byTypeQuery += " GROUP BY type";
-  const byTypeStmt = db.prepare(byTypeQuery);
+  const byTypeStmt = await db.prepare(byTypeQuery);
   const byTypeRows = (await byTypeStmt.all(...byTypeParams)) as { type: string; count: number }[];
   const byType = Object.fromEntries(byTypeRows.map((r) => [r.type, r.count])) as Record<
     string,
@@ -532,7 +533,7 @@ export async function listMemories(filters: {
   // Build params for SELECT query (WHERE params + pagination params)
   const params = [...whereParams, effectiveLimit, effectiveOffset];
 
-  const stmt = db.prepare(query);
+  const stmt = await db.prepare(query);
   const rows = await stmt.all(...params);
 
   return {
@@ -548,8 +549,8 @@ export async function listMemories(filters: {
  * single API key when `apiKeyId` is provided, otherwise counts all memories.
  */
 export async function getMemoryTokensUsed(apiKeyId?: string): Promise<number> {
-  const db = getDbInstance();
-  const stmt = db.prepare(
+  const db = await getAsyncDb();
+  const stmt = await db.prepare(
     "SELECT COALESCE(SUM((LENGTH(content) + 3) / 4), 0) as tokensUsed FROM memories" +
       (apiKeyId ? " WHERE api_key_id = ?" : "")
   );
@@ -565,14 +566,14 @@ export async function getMemoryTokensUsed(apiKeyId?: string): Promise<number> {
  * any error (DB closed in test teardown, missing columns pre-migration) is swallowed so
  * retrieval is never impacted.
  */
-export function recordMemoryAccess(ids: string[]): void {
+export async function recordMemoryAccess(ids: string[]): Promise<void> {
   if (!Array.isArray(ids) || ids.length === 0) return;
   const unique = Array.from(new Set(ids.filter((id) => typeof id === "string" && id)));
   if (unique.length === 0) return;
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     const placeholders = unique.map(() => "?").join(", ");
-    const stmt = db.prepare(
+    const stmt = await db.prepare(
       `UPDATE memories SET access_count = access_count + 1, last_accessed_at = ? ` +
         `WHERE id IN (${placeholders})`
     );
@@ -597,11 +598,11 @@ export async function listMemoriesForDecay(filters: { apiKeyId?: string; limit: 
     lastAccessedAt: Date | null;
   }[]
 > {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const where = filters.apiKeyId ? " WHERE api_key_id = ?" : "";
   const params: unknown[] = filters.apiKeyId ? [filters.apiKeyId] : [];
   params.push(Math.max(1, Math.floor(filters.limit)));
-  const stmt = db.prepare(
+  const stmt = await db.prepare(
     `SELECT id, type, access_count, created_at, last_accessed_at FROM memories${where} ` +
       `ORDER BY created_at ASC LIMIT ?`
   );

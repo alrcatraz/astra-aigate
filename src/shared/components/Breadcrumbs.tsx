@@ -43,6 +43,7 @@ const PATH_LABELS = {
   "acp-agents": "acpAgents",
   endpoint: "endpoint",
   "api-manager": "apiManager",
+  "mcp-servers": "mcpServers",
   context: "context",
   compression: "compression",
   services: "services",

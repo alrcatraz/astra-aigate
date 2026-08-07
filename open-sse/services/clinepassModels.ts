@@ -1,5 +1,5 @@
 // ClinePass live catalog resolver. Cline publishes the authoritative picker
-// contents through the public recommended-models endpoint. OmniRoute exposes
+// contents through the public recommended-models endpoint. AI Gate exposes
 // the subscription bucket on ClinePass and keeps recommended/free entries on
 // the sibling Cline provider so the two catalogs remain clearly separated.
 

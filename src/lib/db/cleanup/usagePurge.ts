@@ -7,7 +7,7 @@
  *
  * @module lib/db/cleanup/usagePurge
  */
-import { getDbInstance } from "../core";
+import { getAsyncDb, tableExists } from "../core";
 import { cleanupEmptyCallLogDirs, deleteCallArtifact } from "@/lib/usage/callLogArtifacts";
 
 export type DeleteByPeriodTarget = {
@@ -16,20 +16,18 @@ export type DeleteByPeriodTarget = {
   cutoff: "iso" | "date" | "dateHour" | "epochMs" | "epochSeconds";
 };
 
-export function tableExists(table: string): boolean {
-  const row = getDbInstance()
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .get(table) as { name?: string } | undefined;
-  return Boolean(row?.name);
+export async function deleteAllFromTable(table: string): Promise<number> {
+  if (!(await tableExists(table))) return 0;
+  const db = await getAsyncDb();
+  const result = await db.prepare(`DELETE FROM ${table}`).run();
+  return result.changes;
 }
 
-export function deleteAllFromTable(table: string): number {
-  if (!tableExists(table)) return 0;
-  return getDbInstance().prepare(`DELETE FROM ${table}`).run().changes;
-}
-
-export function deleteFromTableBefore(target: DeleteByPeriodTarget, cutoffIso: string): number {
-  if (!tableExists(target.table)) return 0;
+export async function deleteFromTableBefore(
+  target: DeleteByPeriodTarget,
+  cutoffIso: string
+): Promise<number> {
+  if (!(await tableExists(target.table))) return 0;
 
   const cutoff = (() => {
     switch (target.cutoff) {
@@ -47,19 +45,22 @@ export function deleteFromTableBefore(target: DeleteByPeriodTarget, cutoffIso: s
     }
   })();
 
-  return getDbInstance()
+  const db = await getAsyncDb();
+  const result = await db
     .prepare(`DELETE FROM ${target.table} WHERE ${target.column} < ?`)
-    .run(cutoff).changes;
+    .run(cutoff);
+  return result.changes;
 }
 
-export function collectCallLogArtifactsBefore(cutoffIso: string): string[] {
-  if (!tableExists("call_logs")) return [];
+export async function collectCallLogArtifactsBefore(cutoffIso: string): Promise<string[]> {
+  if (!(await tableExists("call_logs"))) return [];
 
-  const rows = getDbInstance()
+  const db = await getAsyncDb();
+  const rows = (await db
     .prepare(
       "SELECT artifact_relpath FROM call_logs WHERE timestamp < ? AND artifact_relpath IS NOT NULL"
     )
-    .all(cutoffIso) as Array<{ artifact_relpath?: string | null }>;
+    .all(cutoffIso)) as Array<{ artifact_relpath?: string | null }>;
 
   return rows
     .map((row) => row.artifact_relpath)

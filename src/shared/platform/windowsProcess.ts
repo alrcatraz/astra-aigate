@@ -4,7 +4,7 @@
  *
  * #8045: on win32, `process.kill(pid, "SIGTERM")` is documented by Node.js to cause
  * "unconditional termination of the target process" — it is never a real, interceptable
- * signal there, identical to SIGKILL. Sending it to the OmniRoute server child
+ * signal there, identical to SIGKILL. Sending it to the AI Gate server child
  * immediately on every stop/Ctrl+C force-kills it before its own async
  * `initGracefulShutdown()` cleanup (WAL checkpoint + closeDbInstance()) has any
  * realistic chance to run, corrupting storage.sqlite's WAL state for the next launch.

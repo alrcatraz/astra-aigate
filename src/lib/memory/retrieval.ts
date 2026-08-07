@@ -1,4 +1,4 @@
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb, getDbDriver } from "../db/core";
 import { Memory, MemoryConfig } from "./types";
 import { MemoryConfigSchema } from "./schemas";
 import { logger } from "../../../open-sse/utils/logger.ts";
@@ -51,12 +51,26 @@ export { estimateTokens } from "./retrieval/scoring";
 
 // ──────────────── Helpers ────────────────
 
-function hasTable(tableName: string): boolean {
-  const db = getDbInstance();
-  const row = db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .get(tableName) as { name?: string } | undefined;
-  return row?.name === tableName;
+async function hasTable(tableName: string): Promise<boolean> {
+  const db = getAsyncDb();
+  const driver = getDbDriver();
+  try {
+    if (driver === "postgres") {
+      const row = (await db
+        .prepare(
+          "SELECT tablename FROM information_schema.tables WHERE schemaname = 'public' AND tablename = ?"
+        )
+        .get(tableName)) as { tablename?: string } | undefined;
+      return row?.tablename === tableName;
+    }
+    const row = (await db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(tableName)) as { name?: string } | undefined;
+    return row?.name === tableName;
+  } catch {
+    // On any read error (e.g. non-SQLite/PG without the table yet), report absent.
+    return false;
+  }
 }
 
 /**
@@ -64,7 +78,7 @@ function hasTable(tableName: string): boolean {
  */
 async function fetchMemoriesByIds(ids: string[]): Promise<Memory[]> {
   if (ids.length === 0) return [];
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const placeholders = ids.map(() => "?").join(", ");
   const rows = (await db
     .prepare(`SELECT * FROM memories WHERE id IN (${placeholders})`)
@@ -96,7 +110,7 @@ interface FtsColConfig {
  */
 async function buildFtsRows(apiKeyId: string, config: FtsColConfig): Promise<MemoryRow[]> {
   if (!config.query) return [];
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const {
     apiKeyCol,
     expiresCol,
@@ -113,16 +127,16 @@ async function buildFtsRows(apiKeyId: string, config: FtsColConfig): Promise<Mem
     `SELECT m.* FROM ${tableName} m ` +
     `JOIN memory_fts f ON m.memory_id = f.rowid ` +
     `WHERE f.memory_fts MATCH ? AND m.${apiKeyCol} = ? ` +
-    `AND (m.${expiresCol} IS NULL OR datetime(m.${expiresCol}) > datetime('now'))`;
+    `AND (m.${expiresCol} IS NULL OR m.${expiresCol} > ?)`;
   if (scope === "session" && sessionId) {
     ftsQueryStr += ` AND m.${sessionCol} = ?`;
   }
   if (retentionDays && retentionDays > 0) {
-    ftsQueryStr += ` AND datetime(m.${createdCol}) >= datetime(?)`;
+    ftsQueryStr += ` AND m.${createdCol} >= ?`;
   }
   ftsQueryStr += ` ORDER BY f.rank LIMIT 100`;
 
-  const ftsParams: unknown[] = [q, apiKeyId];
+  const ftsParams: unknown[] = [q, apiKeyId, new Date().toISOString()];
   if (scope === "session" && sessionId) ftsParams.push(sessionId);
   if (retentionDays && retentionDays > 0) {
     const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
@@ -264,7 +278,7 @@ async function retrieveMemoriesInternal(
   const maxTokens = Math.min(Math.max(normalizedConfig.maxTokens, 1), 8000);
   const strategy = normalizedConfig.retrievalStrategy;
 
-  const db = getDbInstance();
+  const db = getAsyncDb();
   // Plan 21 FAIL #2 fix: include "qdrant" in the tier union so that the
   // Qdrant tier-2 branch in semantic/hybrid below can push hits with that tier.
   const memories: Array<{
@@ -274,7 +288,7 @@ async function retrieveMemoriesInternal(
   }> = [];
   let totalTokens = 0;
 
-  const useModernTable = hasTable("memories");
+  const useModernTable = await hasTable("memories");
   const tableName = useModernTable ? "memories" : "memory";
   const columns = useModernTable
     ? {
@@ -293,8 +307,8 @@ async function retrieveMemoriesInternal(
   // Build base query
   let query =
     `SELECT * FROM ${tableName} WHERE ${columns.apiKeyId} = ? ` +
-    `AND (${columns.expiresAt} IS NULL OR datetime(${columns.expiresAt}) > datetime('now'))`;
-  const params: unknown[] = [apiKeyId];
+    `AND (${columns.expiresAt} IS NULL OR ${columns.expiresAt} > ?)`;
+  const params: unknown[] = [apiKeyId, new Date().toISOString()];
 
   if (normalizedConfig.scope === "session" && config.sessionId) {
     query += ` AND ${columns.sessionId} = ?`;
@@ -305,7 +319,7 @@ async function retrieveMemoriesInternal(
     const cutoff = new Date(
       Date.now() - normalizedConfig.retentionDays * 24 * 60 * 60 * 1000
     ).toISOString();
-    query += ` AND datetime(${columns.createdAt}) >= datetime(?)`;
+    query += ` AND ${columns.createdAt} >= ?`;
     params.push(cutoff);
   }
 
@@ -314,7 +328,7 @@ async function retrieveMemoriesInternal(
 
   // Execute query based on strategy
   let rows: MemoryRow[];
-  const ftsAvailable = useModernTable && hasTable("memory_fts");
+  const ftsAvailable = useModernTable && (await hasTable("memory_fts"));
 
   const ftsColConfig: FtsColConfig = {
     apiKeyCol: columns.apiKeyId,
@@ -672,9 +686,9 @@ export async function retrievePreview(
   const result: RetrievePreviewItem[] = [];
   let totalTokens = 0;
 
-  const useModernTable = hasTable("memories");
-  const ftsAvailable = useModernTable && hasTable("memory_fts");
-  const db = getDbInstance();
+  const useModernTable = await hasTable("memories");
+  const ftsAvailable = useModernTable && (await hasTable("memory_fts"));
+  const db = getAsyncDb();
 
   const tableName = useModernTable ? "memories" : "memory";
   const apiKeyCol = useModernTable ? "api_key_id" : "apiKeyId";
@@ -892,9 +906,11 @@ export async function retrievePreview(
   if (apiKeyId) {
     baseQuery += ` WHERE ${apiKeyCol} = ?`;
     baseParams.push(apiKeyId);
-    baseQuery += ` AND (${expiresCol} IS NULL OR datetime(${expiresCol}) > datetime('now'))`;
+    baseQuery += ` AND (${expiresCol} IS NULL OR ${expiresCol} > ?)`;
+    baseParams.push(new Date().toISOString());
   } else {
-    baseQuery += ` WHERE (${expiresCol} IS NULL OR datetime(${expiresCol}) > datetime('now'))`;
+    baseQuery += ` WHERE (${expiresCol} IS NULL OR ${expiresCol} > ?)`;
+    baseParams.push(new Date().toISOString());
   }
 
   if (strategy === "exact") {

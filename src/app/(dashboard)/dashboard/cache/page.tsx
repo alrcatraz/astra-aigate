@@ -285,7 +285,10 @@ function PromptTrendPanel({
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-3">
-        <DetailStat label={cachedRequestsLabel} value={totalCachedRequests.toLocaleString()} />
+        <DetailStat
+          label={cachedRequestsLabel}
+          value={(totalCachedRequests ?? 0).toLocaleString()}
+        />
         <DetailStat label={busiestHourLabel} value={formatHour(busiestHour.timestamp)} />
         <DetailStat
           label={peakCacheRateLabel}
@@ -326,14 +329,14 @@ function PromptTrendPanel({
                       />
                     </div>
                     <div className="text-xs text-text-muted">
-                      {point.requests.toLocaleString()} {requestsLabel.toLowerCase()}
+                      {(point.requests ?? 0).toLocaleString()} {requestsLabel.toLowerCase()}
                     </div>
                   </div>
                   <div className="text-sm font-semibold tabular-nums text-text-main">
                     {cacheRate.toFixed(1)}%
                   </div>
                   <div className="text-sm font-semibold tabular-nums text-cyan-400">
-                    {point.cachedTokens.toLocaleString()}
+                    {(point.cachedTokens ?? 0).toLocaleString()}
                   </div>
                 </div>
               );
@@ -527,7 +530,7 @@ export default function CachePage() {
                     icon="speed"
                     label={t("cacheRate")}
                     value={`${promptCacheRate.toFixed(1)}%`}
-                    sub={`${pc.requestsWithCacheControl.toLocaleString()} / ${pc.totalRequests.toLocaleString()} ${t("requests").toLowerCase()}`}
+                    sub={`${(pc.requestsWithCacheControl ?? 0).toLocaleString()} / ${(pc.totalRequests ?? 0).toLocaleString()} ${t("requests").toLowerCase()}`}
                     accent="text-emerald-500"
                     size="hero"
                   />
@@ -542,7 +545,7 @@ export default function CachePage() {
                   <StatCard
                     icon="token"
                     label={t("cachedTokens")}
-                    value={pc.totalCachedTokens.toLocaleString()}
+                    value={(pc.totalCachedTokens ?? 0).toLocaleString()}
                     sub={t("cachedTokensRead")}
                     accent="text-cyan-400"
                     size="hero"
@@ -550,7 +553,7 @@ export default function CachePage() {
                   <StatCard
                     icon="upload"
                     label={t("cacheCreationTokens")}
-                    value={pc.totalCacheCreationTokens.toLocaleString()}
+                    value={(pc.totalCacheCreationTokens ?? 0).toLocaleString()}
                     sub={t("cacheCreationWrite")}
                     accent="text-purple-400"
                     size="hero"
@@ -606,17 +609,18 @@ export default function CachePage() {
                                     {resolveProviderName(provider, nodeMap)}
                                   </div>
                                   <div className="mt-1 text-xs text-text-muted">
-                                    {totalRequests.toLocaleString()} {t("requests").toLowerCase()}
+                                    {(totalRequests ?? 0).toLocaleString()}{" "}
+                                    {t("requests").toLowerCase()}
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 tabular-nums text-text-main">
-                                  {data.inputTokens.toLocaleString()}
+                                  {(data.inputTokens ?? 0).toLocaleString()}
                                 </td>
                                 <td className="px-4 py-3 tabular-nums text-cyan-400">
-                                  {data.cachedTokens.toLocaleString()}
+                                  {(data.cachedTokens ?? 0).toLocaleString()}
                                 </td>
                                 <td className="px-4 py-3 tabular-nums text-purple-400">
-                                  {data.cacheCreationTokens.toLocaleString()}
+                                  {(data.cacheCreationTokens ?? 0).toLocaleString()}
                                 </td>
                                 <td className="px-4 py-3 font-semibold tabular-nums text-blue-400">
                                   {reuseRatio.toFixed(1)}%
@@ -625,8 +629,8 @@ export default function CachePage() {
                                   {cacheRate.toFixed(1)}%
                                 </td>
                                 <td className="px-4 py-3 tabular-nums text-text-main">
-                                  {cachedRequests.toLocaleString()} /{" "}
-                                  {totalRequests.toLocaleString()}
+                                  {(cachedRequests ?? 0).toLocaleString()} /{" "}
+                                  {(totalRequests ?? 0).toLocaleString()}
                                 </td>
                               </tr>
                             );
@@ -777,7 +781,10 @@ export default function CachePage() {
                     value={(sc?.misses ?? 0).toLocaleString()}
                     accent="text-red-400"
                   />
-                  <DetailStat label={t("total")} value={semanticTotalRequests.toLocaleString()} />
+                  <DetailStat
+                    label={t("total")}
+                    value={(semanticTotalRequests ?? 0).toLocaleString()}
+                  />
                 </div>
               </div>
 
@@ -787,7 +794,7 @@ export default function CachePage() {
                   <div className="mt-4 grid gap-3">
                     <InfoRow icon="info">{t("behaviorDeterministic")}</InfoRow>
                     <InfoRow icon="info">
-                      {t("behaviorBypass", { header: "X-OmniRoute-No-Cache: true" })}
+                      {t("behaviorBypass", { header: "X-AI Gate-No-Cache: true" })}
                     </InfoRow>
                     <InfoRow icon="info">{t("behaviorTwoTier")}</InfoRow>
                     <InfoRow icon="info">

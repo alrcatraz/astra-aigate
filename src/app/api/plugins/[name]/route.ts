@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
   const { name } = await params;
-  const plugin = getPluginByName(name);
+  const plugin = await getPluginByName(name);
 
   if (!plugin) {
     return NextResponse.json(

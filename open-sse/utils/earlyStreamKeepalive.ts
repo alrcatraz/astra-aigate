@@ -3,7 +3,7 @@
  *
  * Strict HTTP clients (notably Codex CLI's `reqwest`, which has a ~5s idle-read
  * timeout) drop the connection if no bytes arrive shortly after the request.
- * OmniRoute, however, holds the streaming response until `ensureStreamReadiness`
+ * AI Gate, however, holds the streaming response until `ensureStreamReadiness`
  * observes the upstream's first useful byte — which can exceed 5s for reasoning
  * models that "think" before emitting any token (#2544). `curl` has no such
  * idle timeout, so it was never affected, which is why the bug looked
@@ -52,7 +52,7 @@ export const ANTHROPIC_PING_FRAME = ENCODER.encode('event: ping\ndata: {"type":"
 // response.created lifecycle from scratch; this placeholder item never
 // carries a response_id and isn't meant to be continued.
 const RESPONSES_STARTUP_ITEM_ID = "rs_omniroute_keepalive";
-const STARTUP_THINKING_TEXT = "OmniRoute: got request, sending to provider";
+const STARTUP_THINKING_TEXT = "AI Gate: got request, sending to provider";
 export const RESPONSES_STARTUP_THINKING_FRAME = ENCODER.encode(
   [
     {
@@ -177,8 +177,7 @@ export type EarlyStreamKeepaliveOptions = {
  * type-check. A string discriminant narrows both branches under the same settings.
  */
 type SettledHandler =
-  | { status: "fulfilled"; response: Response }
-  | { status: "rejected"; error: unknown };
+  { status: "fulfilled"; response: Response } | { status: "rejected"; error: unknown };
 
 export async function withEarlyStreamKeepalive(
   handlerPromise: Promise<Response>,

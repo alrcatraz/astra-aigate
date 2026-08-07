@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 
       const result: Record<string, unknown> = { hook };
       if (includeLogs) {
-        result.logs = getHookLogs(hookName, logLimit);
+        result.logs = await getHookLogs(hookName, logLimit);
       }
       return NextResponse.json(result);
     }
@@ -115,6 +115,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ hook: saved }, { status: 201 });
   } catch (error: any) {
     console.error("[API] POST /api/middleware/hooks error:", error);
-    return NextResponse.json({ error: sanitizeErrorMessage(error) || "Failed to create hook" }, { status: 500 });
+    return NextResponse.json(
+      { error: sanitizeErrorMessage(error) || "Failed to create hook" },
+      { status: 500 }
+    );
   }
 }

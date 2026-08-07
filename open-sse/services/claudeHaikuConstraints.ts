@@ -30,7 +30,7 @@ function modelRejectsAdaptiveAndEffort(modelId: string | null | undefined): bool
  *   2. `output_config.effort` — only the larger models steer reasoning via effort.
  * Sending either of these to Haiku is a hard `400` from the Messages API.
  *
- * Multiple OmniRoute paths can still emit those shapes on a Haiku target:
+ * Multiple AI Gate paths can still emit those shapes on a Haiku target:
  *   - native Claude passthrough from newer Claude Code / Cowork clients;
  *   - the OpenAI→Claude translator when `reasoning_effort` is `max`/`xhigh`
  *     (see `request/openai-to-claude.ts`) — Haiku isn't `adaptiveThinkingOnly`,

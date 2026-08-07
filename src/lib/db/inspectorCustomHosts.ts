@@ -3,7 +3,7 @@
  * CRUD operations for inspector_custom_hosts table.
  */
 
-import { getDbInstance } from "./core.ts";
+import { getDbInstance, getAsyncDb } from "./core.ts";
 import type { InspectorCustomHostRow } from "./_rowTypes.ts";
 
 // SQLite stores booleans as integers
@@ -30,7 +30,7 @@ function mapRow(row: InspectorCustomHostDbRow): InspectorCustomHostRow {
 export async function listCustomHosts(opts?: {
   enabledOnly?: boolean;
 }): Promise<InspectorCustomHostRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const enabledOnly = opts?.enabledOnly === true;
 
   const rows = enabledOnly
@@ -44,36 +44,39 @@ export async function listCustomHosts(opts?: {
   return rows.map(mapRow);
 }
 
-export function addCustomHost(
+export async function addCustomHost(
   host: string,
   kind: "llm" | "app" | "custom" = "custom",
   label?: string
-): void {
-  const db = getDbInstance();
+): Promise<void> {
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
-  db.prepare(
-    `INSERT OR IGNORE INTO inspector_custom_hosts (host, enabled, label, kind, added_at)
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO inspector_custom_hosts (host, enabled, label, kind, added_at)
      VALUES (?, 1, ?, ?, ?)`
-  ).run(host, label ?? null, kind, now);
+    )
+    .run(host, label ?? null, kind, now);
 }
 
-export function removeCustomHost(host: string): void {
-  const db = getDbInstance();
-  db.prepare("DELETE FROM inspector_custom_hosts WHERE host = ?").run(host);
+export async function removeCustomHost(host: string): Promise<void> {
+  const db = await getAsyncDb();
+  await db.prepare("DELETE FROM inspector_custom_hosts WHERE host = ?").run(host);
 }
 
-export function toggleCustomHost(host: string, enabled: boolean): void {
-  const db = getDbInstance();
-  db.prepare("UPDATE inspector_custom_hosts SET enabled = ? WHERE host = ?").run(
-    enabled ? 1 : 0,
-    host
-  );
+export async function toggleCustomHost(host: string, enabled: boolean): Promise<void> {
+  const db = await getAsyncDb();
+  await db
+    .prepare("UPDATE inspector_custom_hosts SET enabled = ? WHERE host = ?")
+    .run(enabled ? 1 : 0, host);
 }
 
-export function touchLastSeen(host: string): void {
-  const db = getDbInstance();
+export async function touchLastSeen(host: string): Promise<void> {
+  const db = await getAsyncDb();
   const now = new Date().toISOString();
-  db.prepare("UPDATE inspector_custom_hosts SET last_seen_at = ? WHERE host = ?").run(now, host);
+  await db
+    .prepare("UPDATE inspector_custom_hosts SET last_seen_at = ? WHERE host = ?")
+    .run(now, host);
 }
 
 /**
@@ -82,7 +85,7 @@ export function touchLastSeen(host: string): void {
  * intercepts so that Mode 2 (Custom Hosts) entries appear in the "Custom" profile.
  */
 export async function isCustomHost(host: string): Promise<boolean> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare("SELECT 1 AS found FROM inspector_custom_hosts WHERE host = ? AND enabled = 1")
     .get(host)) as { found: number } | undefined;

@@ -104,7 +104,7 @@ const ARENA_ELO_API_BASE = "https://api.wulong.dev/arena-ai-leaderboards/v1/lead
 const FETCH_CATEGORIES = ["text", "code"] as const;
 
 /**
- * Maps Arena leaderboard categories to OmniRoute task-type categories.
+ * Maps Arena leaderboard categories to AI Gate task-type categories.
  *
  * - "text" leaderboard → default, review, documentation, debugging
  * - "code" leaderboard → coding
@@ -140,9 +140,9 @@ const VENDOR_PREFIXES = [
 ] as const;
 
 /**
- * OmniRoute model aliases: canonical name → known aliases.
+ * AI Gate model aliases: canonical name → known aliases.
  * Creates additional DB entries for each alias so that models
- * are findable under any name OmniRoute uses internally.
+ * are findable under any name AI Gate uses internally.
  */
 const MODEL_ALIAS_MAP: Record<string, string[]> = {
   "claude-opus-4-6-thinking": ["claude-opus-4", "anthropic/claude-opus-4"],
@@ -291,11 +291,11 @@ function computeConfidence(votes: number): "high" | "medium" | "low" {
  * This ensures scores never reach 0 or 1, leaving room for user overrides.
  * Models with fewer than 100 votes are marked as confidence="low".
  *
- * Leaderboard categories are mapped to OmniRoute task types:
+ * Leaderboard categories are mapped to AI Gate task types:
  * - "text" → default, review, documentation, debugging
  * - "code" → coding
  *
- * Known OmniRoute model aliases are also expanded into additional entries.
+ * Known AI Gate model aliases are also expanded into additional entries.
  *
  * @param data - Map of leaderboard category → Arena leaderboard data.
  * @returns Array of model intelligence entries ready for DB upsert.
@@ -384,7 +384,7 @@ export async function syncArenaElo(dryRun = false): Promise<SyncResult> {
     // Clean up stale entries before writing new ones
     if (!dryRun) {
       try {
-        deleteExpiredIntelligence();
+        await deleteExpiredIntelligence();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.warn(`[ARENA_ELO_SYNC] Failed to delete expired intelligence: ${message}`);
@@ -447,8 +447,8 @@ export async function syncArenaElo(dryRun = false): Promise<SyncResult> {
  * since the DB module provides per-key deletion. This is used by the
  * DELETE /api/intelligence/sync endpoint.
  */
-export function clearSyncedIntelligence(): void {
-  const deleted = deleteModelIntelligenceBySource("arena_elo");
+export async function clearSyncedIntelligence(): Promise<void> {
+  const deleted = await deleteModelIntelligenceBySource("arena_elo");
   console.log(`[ARENA_ELO_SYNC] Cleared ${deleted} arena_elo intelligence entries`);
 }
 

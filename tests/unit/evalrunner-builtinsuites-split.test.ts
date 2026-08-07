@@ -92,10 +92,10 @@ describe("evalRunner/builtinSuites split-guard", () => {
     }
   });
 
-  it("host registers every leaf suite at module load", () => {
+  it("host registers every leaf suite at module load", async () => {
     resetSuites();
     for (const s of builtInSuites) {
-      const registered = getSuite(s.id);
+      const registered = await getSuite(s.id);
       assert.ok(registered, `suite ${s.id} should be registered on the host`);
       assert.equal(registered.id, s.id);
       assert.equal(registered.name, s.name);

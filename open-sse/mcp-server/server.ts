@@ -6,6 +6,7 @@ import {
   getComboStepTarget,
 } from "../../src/lib/combos/steps.ts";
 import { registerToolSearchTool } from "./toolSearch/register.ts";
+import { registerMcpAdminTools } from "./mcpAdminTools.ts";
 import {
   MCP_TOOLS,
   getHealthInput,
@@ -86,7 +87,7 @@ import {
   clampMcpAccessibilityConfig,
   type McpAccessibilityConfig,
 } from "../services/compression/engines/mcpAccessibility/constants.ts";
-import { getDbInstance } from "../../src/lib/db/core.ts";
+import { getDbInstance, getAsyncDb } from "../../src/lib/db/core.ts";
 import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
@@ -120,7 +121,7 @@ type JsonRecord = Record<string, unknown>;
 
 function readMcpDescriptionCompressionEnabled(): boolean {
   try {
-    const row = getDbInstance()
+    const row = getAsyncDb()
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get("compression", "mcpDescriptionCompressionEnabled") as { value?: string } | undefined;
     if (!row?.value) return true;
@@ -132,7 +133,7 @@ function readMcpDescriptionCompressionEnabled(): boolean {
 
 function readMcpAccessibilityConfig(): McpAccessibilityConfig {
   try {
-    const row = getDbInstance()
+    const row = getAsyncDb()
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get("compression", "mcpAccessibility") as { value?: string } | undefined;
     if (!row?.value) return { ...DEFAULT_MCP_ACCESSIBILITY_CONFIG };
@@ -210,7 +211,7 @@ export async function omniRouteFetch(path: string, options: RequestInit = {}): P
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error(`OmniRoute API error [${response.status}]: ${errorText}`);
+    throw new Error(`AI Gate API error [${response.status}]: ${errorText}`);
   }
 
   return response.json();
@@ -219,7 +220,8 @@ export async function omniRouteFetch(path: string, options: RequestInit = {}): P
 function withScopeEnforcement(
   toolName: string,
   handler: (args: unknown, extra?: McpToolExtraLike) => Promise<TextToolResult>,
-  toolScopes?: readonly string[]
+  toolScopes?: readonly string[],
+  options?: { audit?: boolean }
 ) {
   return async (args: unknown, extra?: McpToolExtraLike): Promise<TextToolResult> => {
     const scopeContext = resolveCallerScopeContext(extra, Array.from(MCP_ALLOWED_SCOPES));
@@ -253,7 +255,8 @@ function withScopeEnforcement(
         null,
         0,
         false,
-        `scope_denied:${reason}`
+        `scope_denied:${reason}`,
+        scopeContext.callerId
       );
       return {
         content: [{ type: "text" as const, text: `Error: ${msg}` }],
@@ -261,7 +264,40 @@ function withScopeEnforcement(
       };
     }
 
-    return handler(args, extra);
+    // Phase 3.6d: opt-in audit wrapper — management tools (mcp_* registry) get
+    // per-caller audit entries (api_key_id = callerId from authInfo/session).
+    // Ordinary omniroute tools audit themselves inside their handlers, so they
+    // must NOT enable this (would double-log).
+    if (options?.audit !== true) {
+      return handler(args, extra);
+    }
+
+    const start = Date.now();
+    try {
+      const result = await handler(args, extra);
+      await logToolCall(
+        toolName,
+        args ?? {},
+        result,
+        Date.now() - start,
+        true,
+        undefined,
+        scopeContext.callerId
+      );
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await logToolCall(
+        toolName,
+        args ?? {},
+        null,
+        Date.now() - start,
+        false,
+        `handler_error:${message.slice(0, 200)}`,
+        scopeContext.callerId
+      );
+      throw err;
+    }
   };
 }
 
@@ -615,7 +651,24 @@ async function handleWebFetch(args: {
   }
 }
 
-export function createMcpServer(): McpServer {
+/**
+ * Tool domain for a gateway endpoint. Selects which locally-registered
+ * tools are exposed to clients:
+ *   - "all":  everything (aigate-omniroute → the 40-tool AI Gate set)
+ *   - "mcp":  only mcp_* admin tools (aigate-mcp)
+ *   - "none": empty tool set (aigate-infra, reserved for Phase 4)
+ * stdio/http endpoints register downstream tools dynamically and always
+ * use "all" for the local registry.
+ */
+export type McpToolDomain = "all" | "mcp" | "none";
+
+function matchesToolDomain(name: string, domain: McpToolDomain): boolean {
+  if (domain === "all") return true;
+  if (domain === "none") return false;
+  return name.startsWith("mcp_");
+}
+
+export function createMcpServer(domain: McpToolDomain = "all"): McpServer {
   const server = new McpServer({
     name: "omniroute",
     version: process.env.npm_package_version || "1.8.1",
@@ -646,11 +699,15 @@ export function createMcpServer(): McpServer {
         }
       : handler;
     const registered = registerTool(name, metadata, filteredHandler as never);
-    if (toolProfile && reduceToolManifest([{ name, scopes: [] }], toolProfile).length === 0) {
-      // Denied by the cardinality profile: keep the registration valid but disable it so the tool
-      // is not announced in tools/list (token savings). The default profile never reaches here.
-      const disablable = registered as unknown as { disable?: () => void };
-      if (typeof disablable?.disable === "function") disablable.disable();
+    const disablable = registered as unknown as { disable?: () => void };
+    const hiddenByProfile =
+      toolProfile !== null && reduceToolManifest([{ name, scopes: [] }], toolProfile).length === 0;
+    const hiddenByDomain = !matchesToolDomain(name, domain);
+    if ((hiddenByProfile || hiddenByDomain) && typeof disablable?.disable === "function") {
+      // Hidden by the cardinality profile or the endpoint tool domain: keep the
+      // registration valid but disable it so the tool is not announced in
+      // tools/list (token savings). The default profile never reaches here.
+      disablable.disable();
     }
     return registered;
   }) as typeof server.registerTool;
@@ -676,6 +733,11 @@ export function createMcpServer(): McpServer {
 
   const RESERVED_MCP_NAMES = new Set([
     ...MCP_TOOLS.map((t) => t.name),
+    "mcp_list_servers",
+    "mcp_get_server",
+    "mcp_register_server",
+    "mcp_unregister_server",
+    "mcp_server_health",
     ...Object.keys(memoryTools),
     ...Object.keys(skillTools),
     ...Object.keys(compressionTools),
@@ -691,7 +753,7 @@ export function createMcpServer(): McpServer {
     "omniroute_get_health",
     {
       description:
-        "Returns OmniRoute health status including uptime, memory, circuit breakers, rate limits, and cache stats",
+        "Returns AI Gate health status including uptime, memory, circuit breakers, rate limits, and cache stats",
       inputSchema: getHealthInput,
     },
     withScopeEnforcement("omniroute_get_health", async (args) => {
@@ -748,7 +810,7 @@ export function createMcpServer(): McpServer {
   server.registerTool(
     "omniroute_route_request",
     {
-      description: "Sends a chat completion request through OmniRoute intelligent routing",
+      description: "Sends a chat completion request through AI Gate intelligent routing",
       inputSchema: routeRequestInput,
     },
     withScopeEnforcement("omniroute_route_request", (args) =>
@@ -901,7 +963,7 @@ export function createMcpServer(): McpServer {
     "omniroute_db_health_check",
     {
       description:
-        "Diagnoses or repairs OmniRoute database drift, including broken combo references and orphan quota/domain rows",
+        "Diagnoses or repairs AI Gate database drift, including broken combo references and orphan quota/domain rows",
       inputSchema: dbHealthCheckInput,
     },
     withScopeEnforcement("omniroute_db_health_check", (args) =>
@@ -913,7 +975,7 @@ export function createMcpServer(): McpServer {
     "omniroute_sync_pricing",
     {
       description:
-        "Syncs pricing data from external sources (LiteLLM) into OmniRoute without overwriting user-set prices",
+        "Syncs pricing data from external sources (LiteLLM) into AI Gate without overwriting user-set prices",
       inputSchema: syncPricingInput,
     },
     withScopeEnforcement("omniroute_sync_pricing", (args) =>
@@ -925,7 +987,7 @@ export function createMcpServer(): McpServer {
     "omniroute_web_search",
     {
       description:
-        "Performs a web search using OmniRoute's search gateway. Supports multiple providers (Serper, Brave, Perplexity, Exa, Tavily) with automatic failover. Returns search results with titles, URLs, snippets, and position data.",
+        "Performs a web search using AI Gate's search gateway. Supports multiple providers (Serper, Brave, Perplexity, Exa, Tavily) with automatic failover. Returns search results with titles, URLs, snippets, and position data.",
       inputSchema: webSearchInput,
     },
     withScopeEnforcement("omniroute_web_search", (args) =>
@@ -937,7 +999,7 @@ export function createMcpServer(): McpServer {
     "omniroute_web_fetch",
     {
       description:
-        "Fetches and extracts content from a URL using OmniRoute's web fetch gateway. Supports multiple providers (Firecrawl, Jina Reader, Tavily) with automatic failover. Returns the page content as markdown, HTML, links, or screenshot, along with metadata.",
+        "Fetches and extracts content from a URL using AI Gate's web fetch gateway. Supports multiple providers (Firecrawl, Jina Reader, Tavily) with automatic failover. Returns the page content as markdown, HTML, links, or screenshot, along with metadata.",
       inputSchema: webFetchInput,
     },
     withScopeEnforcement("omniroute_web_fetch", (args) => handleWebFetch(webFetchInput.parse(args)))
@@ -1002,6 +1064,7 @@ export function createMcpServer(): McpServer {
   );
 
   registerToolSearchTool(server, withScopeEnforcement);
+  registerMcpAdminTools(server, withScopeEnforcement);
 
   // ── Memory Tools ──────────────────────────────
   Object.values(memoryTools).forEach((toolDef: any) => {
@@ -1382,10 +1445,10 @@ export async function startMcpStdio(): Promise<void> {
   process.once("SIGINT", stopHeartbeatOnce);
   process.once("SIGTERM", stopHeartbeatOnce);
 
-  console.error("[MCP] OmniRoute MCP Server starting (stdio transport)...");
+  console.error("[MCP] AI Gate MCP Server starting (stdio transport)...");
   try {
     await server.connect(transport);
-    console.error("[MCP] OmniRoute MCP Server connected and ready.");
+    console.error("[MCP] AI Gate MCP Server connected and ready.");
   } finally {
     if (closeAuditDb()) {
       console.error("[MCP] Audit database checkpointed and closed.");

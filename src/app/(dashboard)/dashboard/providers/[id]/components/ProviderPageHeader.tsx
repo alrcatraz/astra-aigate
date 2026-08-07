@@ -5,7 +5,6 @@ import Link from "next/link";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getHeaderIconProviderId, providerText } from "../providerPageHelpers";
 import type { ProviderMessageTranslator } from "../providerPageHelpers";
-import { isKimiPartnerProviderId } from "../../featuredProviders";
 
 interface ProviderInfo {
   id: string;
@@ -38,19 +37,6 @@ export default function ProviderPageHeader({
   onOpenTutorial,
   t,
 }: ProviderPageHeaderProps) {
-  // Kimi (Moonshot AI) official-partnership aff links (2026-07): the header
-  // website link doubles as the CTA for kimi-coding/kimi-web/moonshot's
-  // tracking links (see website field in oauth.ts / web-cookie.ts /
-  // apikey/regional.ts) — flag it with a discreet "Partner link" note so it
-  // reads as a monetized link, not just "visit provider website" like every
-  // other card. UI-only — never affects routing/fallback (featuredProviders.ts).
-  const isKimiPartnerLink = isKimiPartnerProviderId(providerInfo.id);
-  const kimiPartnerLinkNote = providerText(
-    t,
-    "kimiPartnerLinkNote",
-    "Partner link — supports OmniRoute at no extra cost to you"
-  );
-
   return (
     <div>
       <Link
@@ -88,10 +74,6 @@ export default function ProviderPageHeader({
               rel="noopener noreferrer"
               className="text-3xl font-semibold tracking-tight hover:underline inline-flex items-center gap-2"
               style={{ color: providerInfo.color }}
-              title={isKimiPartnerLink ? kimiPartnerLinkNote : undefined}
-              aria-label={
-                isKimiPartnerLink ? `${providerInfo.name} — ${kimiPartnerLinkNote}` : undefined
-              }
             >
               {providerInfo.name}
               <span className="material-symbols-outlined text-lg opacity-60">open_in_new</span>
@@ -103,11 +85,6 @@ export default function ProviderPageHeader({
             <p className="text-text-muted">
               {t("connectionCountLabel", { count: connectionsCount })}
             </p>
-            {isKimiPartnerLink && providerInfo.website && (
-              <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted/70">
-                {kimiPartnerLinkNote}
-              </span>
-            )}
             {providerId === "adapta-web" && (
               <button
                 onClick={onOpenTutorial}

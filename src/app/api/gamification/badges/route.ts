@@ -23,6 +23,6 @@ export async function GET(request: NextRequest) {
   await seedBuiltinBadges();
 
   const category = new URL(request.url).searchParams.get("category") || undefined;
-  const badges = getBadgeDefinitions(category);
+  const badges = await getBadgeDefinitions(category);
   return NextResponse.json({ badges }, { headers: CORS_HEADERS });
 }

@@ -58,7 +58,7 @@ function extractMetaScopeList(meta: unknown): string[] {
   return [];
 }
 
-function scopeMatches(grantedScope: string, requiredScope: string): boolean {
+export function scopeMatches(grantedScope: string, requiredScope: string): boolean {
   if (grantedScope === "*" || grantedScope === requiredScope) {
     return true;
   }

@@ -14,7 +14,7 @@ import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
-  return NextResponse.json({ tokens: listAccessTokens() });
+  return NextResponse.json({ tokens: await listAccessTokens() });
 }
 
 const createSchema = z.object({

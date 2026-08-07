@@ -4,7 +4,7 @@
  * Turns a subscription body (base64-wrapped list, Clash/Clash.Meta YAML,
  * V2Ray/Clash JSON, or a plain list of URIs) into a normalized node model.
  *
- * OmniRoute's request dispatcher (open-sse/utils/proxyDispatcher) only speaks
+ * AI Gate's request dispatcher (open-sse/utils/proxyDispatcher) only speaks
  * http / https / socks5 (+ edge relay). Subscriptions whose nodes are
  * Shadowsocks / VMess / VLESS / Trojan / TUIC / Hysteria / WireGuard cannot be
  * used directly — they require a local proxy core (sing-box / clash) that
@@ -67,13 +67,7 @@ export interface ParsedSubscription {
   nodes: SubscriptionNode[];
   needsCore: NeedsCoreNode[];
   format:
-    | "clash-yaml"
-    | "clash-json"
-    | "v2ray-json"
-    | "lines"
-    | "base64-lines"
-    | "empty"
-    | "unknown";
+    "clash-yaml" | "clash-json" | "v2ray-json" | "lines" | "base64-lines" | "empty" | "unknown";
 }
 
 function looksLikeBase64(s: string): boolean {
@@ -108,7 +102,9 @@ function asProtocol(raw: unknown): RawProxyProtocol {
   return "unknown";
 }
 
-function nodeFromClashObject(obj: Record<string, unknown>): SubscriptionNode | NeedsCoreNode | null {
+function nodeFromClashObject(
+  obj: Record<string, unknown>
+): SubscriptionNode | NeedsCoreNode | null {
   if (!obj || typeof obj !== "object") return null;
   const name = typeof obj.name === "string" ? obj.name : "";
   const type = asProtocol(obj.type);
@@ -219,7 +215,10 @@ function nodeFromUri(uri: string): SubscriptionNode | NeedsCoreNode | null {
   return null;
 }
 
-function collectFromArray(items: unknown[], format: ParsedSubscription["format"]): ParsedSubscription {
+function collectFromArray(
+  items: unknown[],
+  format: ParsedSubscription["format"]
+): ParsedSubscription {
   const nodes: SubscriptionNode[] = [];
   const needsCore: NeedsCoreNode[] = [];
   for (const item of items) {
@@ -247,7 +246,10 @@ function parseClashYaml(content: string): ParsedSubscription {
       return collectFromArray(doc.proxies, "clash-yaml");
     }
     if (doc && Array.isArray((doc as Record<string, unknown>).outbounds)) {
-      return collectFromArray((doc as Record<string, unknown>).outbounds as unknown[], "clash-yaml");
+      return collectFromArray(
+        (doc as Record<string, unknown>).outbounds as unknown[],
+        "clash-yaml"
+      );
     }
   } catch {
     // fall through to unknown
@@ -288,13 +290,17 @@ export function parseSubscription(body: string): ParsedSubscription {
       const json = JSON.parse(content);
       if (Array.isArray(json)) return collectFromArray(json, "v2ray-json");
       if (json && Array.isArray(json.proxies)) return collectFromArray(json.proxies, "clash-json");
-      if (json && Array.isArray(json.outbounds)) return collectFromArray(json.outbounds, "v2ray-json");
+      if (json && Array.isArray(json.outbounds))
+        return collectFromArray(json.outbounds, "v2ray-json");
     } catch {
       // fall through
     }
   }
 
-  const lines = content.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const lines = content
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (lines.length > 0 && lines.some((l) => /^[a-zA-Z][a-zA-Z0-9+.\-]*:\/\//.test(l))) {
     const res = parseLineList(lines);
     return base64Used ? { ...res, format: "base64-lines" } : res;
@@ -304,9 +310,7 @@ export function parseSubscription(body: string): ParsedSubscription {
 }
 
 /** Redacted node summary for storage/display (no secrets). */
-export function redactedNodeSummary(parsed: ParsedSubscription): Array<
-  Record<string, unknown>
-> {
+export function redactedNodeSummary(parsed: ParsedSubscription): Array<Record<string, unknown>> {
   const direct = parsed.nodes.map((n) => ({
     name: n.name,
     type: n.type,

@@ -29,8 +29,8 @@ function extractBearer(request: Request): string | null {
       if (token) return token;
     }
     // A non-"Bearer <token>" Authorization header (an empty "Bearer ", or a
-    // client's own non-OmniRoute token — VS Code Copilot sends one even when the
-    // OmniRoute key lives in the URL path of a /vscode tokenized endpoint) must
+    // client's own non-AI Gate token — VS Code Copilot sends one even when the
+    // AI Gate key lives in the URL path of a /vscode tokenized endpoint) must
     // NOT short-circuit auth. Fall through to x-api-key and the path-scoped URL
     // token below instead of rejecting the request with "Authentication required".
   }

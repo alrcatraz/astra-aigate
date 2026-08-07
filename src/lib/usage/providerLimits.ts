@@ -743,7 +743,13 @@ async function fetchLiveProviderLimitsWithOptions(
   }
 
   if (!isSupportedUsageConnection(connection)) {
-    throw withStatus(new Error("Usage not available for this connection"), 400);
+    // A connection that exists but whose provider has no live usage API (or is
+    // not a supported auth type for quota fetches) is not an error — the bulk
+    // sync path skips such connections entirely. Mirror that behaviour on the
+    // on-demand per-connection path so the dashboard quota page renders an
+    // empty quota card instead of failing with a 400:
+    // "Usage not available for this connection".
+    return { connection, usage: {} };
   }
 
   if (connection.authType !== "oauth") {

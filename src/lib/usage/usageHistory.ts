@@ -7,7 +7,7 @@
  * @module lib/usage/usageHistory
  */
 
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { protectPayloadForLog } from "../logPayloads";
 import {
   resolveOrphanedUsageAccountIdentity,
@@ -508,7 +508,7 @@ const MAX_ROWS = 10000;
  * @param cursor - Timestamp cursor for pagination (exclusive, for next page)
  */
 export async function getUsageDb(sinceIso?: string | null, limit?: number, cursor?: string | null) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const maxRows = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : MAX_ROWS;
 
   let rows;
@@ -615,12 +615,12 @@ export async function saveRequestUsage(entry: UsageEntry) {
   if (!shouldPersistToDisk) return;
 
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     const timestamp = entry.timestamp || new Date().toISOString();
     const serviceTier = normalizeServiceTier(entry.serviceTier ?? entry.service_tier);
 
-    const tokensInput = getLoggedInputTokens(entry.tokens);
-    const tokensOutput = getLoggedOutputTokens(entry.tokens);
+    const tokensInput = await getLoggedInputTokens(entry.tokens);
+    const tokensOutput = await getLoggedOutputTokens(entry.tokens);
     const connection = entry.connectionId
       ? ((await db
           .prepare("SELECT * FROM provider_connections WHERE id = ?")
@@ -637,9 +637,15 @@ export async function saveRequestUsage(entry: UsageEntry) {
     // Keyed on the natural identity of a request: timestamp + provider + model
     // + connectionId + apiKeyId + token counts. If only the endpoint is missing
     // on the existing row, fill it in rather than inserting a duplicate.
+    // Best-effort analytics write. The SELECT guard dedupes identical requests,
+    // and the INSERT is race-safe (`OR IGNORE` → `ON CONFLICT DO NOTHING` on PG)
+    // so a concurrent PK collision (e.g. two speculative combo targets landing on
+    // the same row id, or a sequence drift after a SQLite→PG migration) is
+    // swallowed instead of surfacing as a 23505 → unhandledRejection. The whole
+    // transaction is awaited so the surrounding catch owns every failure.
     let inserted = false;
 
-    db.transaction(async () => {
+    await db.transaction(async () => {
       const existing = (await db
         .prepare(
           `SELECT id, endpoint FROM usage_history
@@ -675,7 +681,7 @@ export async function saveRequestUsage(entry: UsageEntry) {
       await db
         .prepare(
           `
-        INSERT INTO usage_history (provider, model, connection_id, account_key, account_label,
+        INSERT OR IGNORE INTO usage_history (provider, model, connection_id, account_key, account_label,
           account_label_priority, api_key_id, api_key_name, tokens_input, tokens_output,
           tokens_cache_read, tokens_cache_creation, tokens_reasoning, service_tier, status, success,
           latency_ms, ttft_ms, error_code, combo_strategy, endpoint, timestamp)
@@ -738,7 +744,7 @@ export interface UsageHistoryFilter {
  * Get usage history with optional filters.
  */
 export async function getUsageHistory(filter: UsageHistoryFilter = {}) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   let sql = "SELECT * FROM usage_history";
   const conditions: string[] = [];
   const params: Record<string, unknown> = {};
@@ -809,11 +815,11 @@ export async function getModelLatencyStats(
     model?: string;
   } = {}
 ): Promise<Record<string, ModelLatencyStatsEntry>> {
-  const windowHours = resolvePositiveOption(options.windowHours, 24);
-  const minSamples = resolvePositiveOption(options.minSamples, 1);
-  const maxRows = resolvePositiveOption(options.maxRows, 10000);
+  const windowHours = await resolvePositiveOption(options.windowHours, 24);
+  const minSamples = await resolvePositiveOption(options.minSamples, 1);
+  const maxRows = await resolvePositiveOption(options.maxRows, 10000);
 
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const sinceIso = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
 
   type LatencyRow = {
@@ -875,7 +881,7 @@ export async function getModelLatencyStats(
 
   const stats: Record<string, ModelLatencyStatsEntry> = {};
   for (const [key, bucket] of grouped.entries()) {
-    const entry = buildLatencyStatsEntry(key, bucket, minSamples, windowHours);
+    const entry = await buildLatencyStatsEntry(key, bucket, minSamples, windowHours);
     if (entry) stats[key] = entry;
   }
 
@@ -909,7 +915,7 @@ export async function appendRequestLog({
  */
 export async function getRecentLogs(limit = 200) {
   try {
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     const rows = (await db
       .prepare(
         `

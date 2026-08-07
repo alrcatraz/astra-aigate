@@ -24,7 +24,7 @@ const getJcodeConfigPath = (): string =>
 const getJcodeDir = () => path.dirname(getJcodeConfigPath());
 
 /**
- * Check if the config file contains OmniRoute settings.
+ * Check if the config file contains AI Gate settings.
  */
 const hasOmniRouteConfig = (settings: Record<string, unknown> | null): boolean => {
   if (!settings) return false;
@@ -84,14 +84,11 @@ export async function GET(request: Request) {
       configPath: getJcodeConfigPath(),
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// POST — write OmniRoute settings to jcode config.json
+// POST — write AI Gate settings to jcode config.json
 export async function POST(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -100,10 +97,7 @@ export async function POST(request: Request) {
   try {
     rawBody = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: { message: "Invalid JSON body" } },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: { message: "Invalid JSON body" } }, { status: 400 });
   }
 
   try {
@@ -140,7 +134,7 @@ export async function POST(request: Request) {
       /* No existing config */
     }
 
-    // Merge OmniRoute settings (jcode uses OpenAI-compatible config)
+    // Merge AI Gate settings (jcode uses OpenAI-compatible config)
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     const updated: Record<string, unknown> = {
       ...existing,
@@ -165,14 +159,11 @@ export async function POST(request: Request) {
       configPath,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }
 
-// DELETE — remove OmniRoute settings from jcode config
+// DELETE — remove AI Gate settings from jcode config
 export async function DELETE(request: Request) {
   const authError = await requireCliToolsAuth(request);
   if (authError) return authError;
@@ -200,7 +191,7 @@ export async function DELETE(request: Request) {
       throw err;
     }
 
-    // Remove OmniRoute-managed fields
+    // Remove AI Gate-managed fields
     delete existing.baseUrl;
     delete existing.apiKey;
     delete existing.model;
@@ -219,11 +210,8 @@ export async function DELETE(request: Request) {
       /* non-critical */
     }
 
-    return NextResponse.json({ success: true, message: "jcode OmniRoute settings removed" });
+    return NextResponse.json({ success: true, message: "jcode AI Gate settings removed" });
   } catch (err) {
-    return NextResponse.json(
-      { error: { message: sanitizeErrorMessage(err) } },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: { message: sanitizeErrorMessage(err) } }, { status: 500 });
   }
 }

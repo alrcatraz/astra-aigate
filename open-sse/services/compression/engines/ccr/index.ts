@@ -595,7 +595,7 @@ function processMessages(
 
     // H-fix1: skip tool outputs (OpenAI `role:"tool"` and Anthropic user
     // messages whose content is exclusively `tool_result` parts). When
-    // OmniRoute is used as a chat-completion PROVIDER, the upstream LLM has no
+    // AI Gate is used as a chat-completion PROVIDER, the upstream LLM has no
     // way to call `omniroute_ccr_retrieve` and expand markers — replacing tool
     // outputs with `[CCR retrieve hash=…]` placeholders therefore breaks the agent
     // loop. Preserve tool outputs verbatim so the LLM can keep reasoning.

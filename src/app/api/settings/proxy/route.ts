@@ -68,9 +68,7 @@ function getRegistryScopeForLevel(
     return undefined;
   }
 
-  return PROXY_LEVEL_TO_REGISTRY_SCOPE[
-    level as keyof typeof PROXY_LEVEL_TO_REGISTRY_SCOPE
-  ];
+  return PROXY_LEVEL_TO_REGISTRY_SCOPE[level as keyof typeof PROXY_LEVEL_TO_REGISTRY_SCOPE];
 }
 
 async function getRegistryProxyForLevel(level: string, id: string | null) {
@@ -83,7 +81,7 @@ async function getRegistryProxyForLevel(level: string, id: string | null) {
     scope === "global" ? assignments[0] : assignments.find((entry) => entry.scopeId === id);
   if (!assignment?.proxyId) return null;
 
-  return getProxyById(assignment.proxyId, { includeSecrets: true });
+  return await getProxyById(assignment.proxyId, { includeSecrets: true });
 }
 
 function toProxyConfig(proxyData: NonNullable<Awaited<ReturnType<typeof getProxyById>>>) {

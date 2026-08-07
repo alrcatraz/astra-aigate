@@ -15,7 +15,7 @@ import {
   markAllMemoriesNeedReindex,
   countMemoryReindexPending,
 } from "../localDb";
-import { getDbInstance } from "../db/core";
+import { getDbInstance, getAsyncDb } from "../db/core";
 import { logger } from "../../../open-sse/utils/logger.ts";
 import { sanitizeErrorMessage } from "../../../open-sse/utils/error.ts";
 
@@ -148,7 +148,7 @@ function isMissingVecTableError(err: unknown): boolean {
 async function recreateFromMeta(): Promise<boolean> {
   const meta = await getMemoryVecMeta();
   if (meta.activeDim == null) return false;
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const q = storedVecQuantization(meta.embeddingSignature);
   db.exec(
     `CREATE VIRTUAL TABLE IF NOT EXISTS vec_memories USING vec0(embedding ${vecColumnType(meta.activeDim, q)})`
@@ -160,7 +160,7 @@ async function recreateFromMeta(): Promise<boolean> {
 
 class VectorStoreImpl implements VectorStore {
   async ensureReady(resolution: EmbeddingResolution): Promise<{ ready: boolean; reason: string }> {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const meta = await getMemoryVecMeta();
     const requested = requestedVecQuantization();
 
@@ -203,7 +203,7 @@ class VectorStoreImpl implements VectorStore {
   }
 
   async upsertVector(memoryId: string, vector: Float32Array): Promise<void> {
-    const db = getDbInstance();
+    const db = getAsyncDb();
 
     // Map UUID memoryId → INTEGER rowid (the rowid is used as the FK into vec_memories).
     const row = (await db.prepare("SELECT rowid FROM memories WHERE id = ?").get(memoryId)) as
@@ -235,7 +235,7 @@ class VectorStoreImpl implements VectorStore {
   }
 
   async deleteVector(memoryId: string): Promise<void> {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     try {
       await db
         .prepare("DELETE FROM vec_memories WHERE rowid = (SELECT rowid FROM memories WHERE id = ?)")
@@ -253,7 +253,7 @@ class VectorStoreImpl implements VectorStore {
     topK: number,
     apiKeyId?: string
   ): Promise<VectorSearchHit[]> {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const k = topK > 0 ? topK : TOP_K_DEFAULT;
 
     const q = await liveVecQuantization();
@@ -285,7 +285,7 @@ class VectorStoreImpl implements VectorStore {
     topK: number,
     apiKeyId?: string
   ): Promise<HybridRrfHit[]> {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     const k = topK > 0 ? topK : TOP_K_DEFAULT;
     const rrfK = RRF_K;
     const q = await liveVecQuantization();
@@ -364,7 +364,7 @@ class VectorStoreImpl implements VectorStore {
   }> {
     let rowCount = 0;
     try {
-      const db = getDbInstance();
+      const db = getAsyncDb();
       const row = (await db.prepare("SELECT COUNT(*) AS cnt FROM vec_memories").get()) as
         { cnt: number } | undefined;
       rowCount = row?.cnt ?? 0;
@@ -385,7 +385,7 @@ class VectorStoreImpl implements VectorStore {
   }
 
   async resetForSignature(signature: string, dim: number): Promise<void> {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     // The column type follows the mode encoded in the (effective) signature.
     const q = storedVecQuantization(signature);
 
@@ -426,7 +426,7 @@ export function getVectorStore(): VectorStore | null {
     return null;
   }
 
-  const db = getDbInstance();
+  const db = getAsyncDb();
   const raw = db.raw as { loadExtension?: (path: string) => void } | null;
 
   // sqlite-vec must be loaded as a native extension on the better-sqlite3 raw handle.

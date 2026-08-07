@@ -14,32 +14,32 @@ describe("tierConfig DB module", () => {
     initTierConfigTable();
   });
 
-  it("loadTierConfigFromDb returns null when no config saved", () => {
-    const result = loadTierConfigFromDb();
+  it("loadTierConfigFromDb returns null when no config saved", async () => {
+    const result = await loadTierConfigFromDb();
     assert.equal(result, null, "should return null when no config exists");
   });
 
-  it("saveTierConfig persists and loadTierConfigFromDb retrieves", () => {
+  it("saveTierConfig persists and loadTierConfigFromDb retrieves", async () => {
     const config = { ...DEFAULT_TIER_CONFIG };
     saveTierConfig(config);
-    const loaded = loadTierConfigFromDb();
+    const loaded = await loadTierConfigFromDb();
     assert.ok(loaded, "should return saved config");
     assert.ok(loaded!.freeProviders, "should have freeProviders");
   });
 
-  it("loadTierConfig returns DEFAULT_TIER_CONFIG when no DB entry", () => {
+  it("loadTierConfig returns DEFAULT_TIER_CONFIG when no DB entry", async () => {
     // loadTierConfig falls back to DEFAULT_TIER_CONFIG
-    const result = loadTierConfig();
+    const result = await loadTierConfig();
     assert.ok(result, "should return a config");
     assert.equal(typeof result.freeProviders, "object", "freeProviders should be an object");
   });
 
-  it("saveTierConfig overwrites previous config", () => {
+  it("saveTierConfig overwrites previous config", async () => {
     const config1 = { ...DEFAULT_TIER_CONFIG };
     saveTierConfig(config1);
     const config2 = { ...DEFAULT_TIER_CONFIG };
     saveTierConfig(config2);
-    const loaded = loadTierConfigFromDb();
+    const loaded = await loadTierConfigFromDb();
     assert.ok(loaded, "should return config after overwrite");
   });
 
@@ -57,14 +57,14 @@ describe("tierConfig DB module", () => {
     const warnSpy = mock.method(loggerModule.defaultLogger, "warn", () => {});
 
     try {
-      const result = loadTierConfigFromDb();
+      const result = await loadTierConfigFromDb();
       assert.equal(result, null, "should return null for corrupted JSON");
       assert.ok(
         warnSpy.mock.calls.length > 0,
         "should emit at least one warning so operators can spot the corruption"
       );
       // Sanity: loadTierConfig() still returns DEFAULT_TIER_CONFIG.
-      const fallback = loadTierConfig();
+      const fallback = await loadTierConfig();
       assert.deepEqual(fallback.freeProviders, DEFAULT_TIER_CONFIG.freeProviders);
     } finally {
       warnSpy.mock.restore();
@@ -91,7 +91,7 @@ describe("tierConfig DB module", () => {
     const warnSpy = mock.method(loggerModule.defaultLogger, "warn", () => {});
 
     try {
-      const result = loadTierConfigFromDb();
+      const result = await loadTierConfigFromDb();
       assert.equal(result, null, "should return null for Zod-failing config");
       assert.ok(warnSpy.mock.calls.length > 0, "should log a warning on Zod failure");
     } finally {
@@ -112,7 +112,7 @@ describe("tierConfig DB module", () => {
     const warnSpy = mock.method(loggerModule.defaultLogger, "warn", () => {});
 
     try {
-      const result = loadTierConfigFromDb();
+      const result = await loadTierConfigFromDb();
       assert.equal(result, null);
       assert.ok(warnSpy.mock.calls.length > 0);
       const payload = warnSpy.mock.calls[0].arguments[0] as Record<string, unknown>;

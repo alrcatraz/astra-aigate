@@ -225,7 +225,10 @@ async function openNodeSqliteAuditDb(dbPath: string): Promise<AuditDatabase> {
   return createNodeSqliteAuditAdapter(new DatabaseSync(dbPath));
 }
 
-async function openFallbackAuditDb(dbPath: string, nativeMessage: string): Promise<AuditDatabase | null> {
+async function openFallbackAuditDb(
+  dbPath: string,
+  nativeMessage: string
+): Promise<AuditDatabase | null> {
   if (!nodeSqliteFallbackAvailable()) {
     console.error(
       `[MCP Audit] better-sqlite3 native binding unavailable and Node ${process.version} ` +
@@ -251,7 +254,7 @@ async function openFallbackAuditDb(dbPath: string, nativeMessage: string): Promi
 
 /**
  * Lazy-load the database connection.
- * Uses the same SQLite database as the main OmniRoute app.
+ * Uses the same SQLite database as the main AI Gate app.
  *
  * Driver priority:
  *   1. better-sqlite3 — fast native binding (when its compiled `.node`
@@ -343,7 +346,8 @@ export async function logToolCall(
   output: unknown,
   durationMs: number,
   success: boolean,
-  errorCode?: string
+  errorCode?: string,
+  apiKeyId?: string
 ): Promise<void> {
   try {
     const database = await getDb();
@@ -351,7 +355,7 @@ export async function logToolCall(
 
     const inputHash = await hashInput(input);
     const outputSummary = summarizeOutput(output);
-    const apiKeyId = process.env.OMNIROUTE_API_KEY_ID || null;
+    const resolvedApiKeyId = apiKeyId ?? (process.env.OMNIROUTE_API_KEY_ID || null);
 
     database
       .prepare(
@@ -363,7 +367,7 @@ export async function logToolCall(
         inputHash,
         outputSummary,
         durationMs,
-        apiKeyId,
+        resolvedApiKeyId,
         success ? 1 : 0,
         errorCode || null
       );

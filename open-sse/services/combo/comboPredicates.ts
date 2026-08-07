@@ -33,8 +33,8 @@ export function isAllAccountsRateLimitedResponse(
   return ALL_ACCOUNTS_RATE_LIMITED_PATTERNS.some((p) => p.test(errorText));
 }
 
-// #1731v2 guard: a provider circuit-breaker-open response (503 + `X-OmniRoute-Provider-Breaker`
-// header / `provider_circuit_open` error code, see providerCircuitOpenResponse) is an OmniRoute
+// #1731v2 guard: a provider circuit-breaker-open response (503 + `X-AI Gate-Provider-Breaker`
+// header / `provider_circuit_open` error code, see providerCircuitOpenResponse) is an AI Gate
 // resilience signal, NOT a per-connection upstream failure. It must keep being treated as an
 // ordinary target failure (try the next target, including same-provider ones) — so it must NOT
 // poison exhaustedConnections/exhaustedProviders, otherwise remaining same-provider targets get

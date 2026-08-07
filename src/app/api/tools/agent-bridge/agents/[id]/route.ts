@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: Params): Promise<Respon
       return createErrorResponse({ status: 404, message: `Agent not found: ${id}` });
     }
     const detection = detectAgent(id as AgentId);
-    const state = getAgentBridgeState(id) ?? null;
+    const state = (await getAgentBridgeState(id)) ?? null;
     return Response.json({ agent: target, detection, state });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<Respo
 
   try {
     upsertAgentBridgeState({ agent_id: id, setup_completed: parsed.data.setup_completed });
-    const state = getAgentBridgeState(id);
+    const state = await getAgentBridgeState(id);
     return Response.json({ ok: true, state });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));

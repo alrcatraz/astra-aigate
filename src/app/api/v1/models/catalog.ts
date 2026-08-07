@@ -360,13 +360,13 @@ async function buildUnifiedModelsResponseCore(
     const getComboTargetModelId = (target: ComboCatalogTarget) =>
       getComboTargetModelIdFromMaps(aliasMaps, target);
 
-    const getComboTargetCatalogMetadata = (
+    const getComboTargetCatalogMetadata = async (
       target: ComboCatalogTarget
-    ): ComboTargetCatalogMetadata | null => {
+    ): Promise<ComboTargetCatalogMetadata | null> => {
       const targetModel = getComboTargetModelId(target);
       if (!targetModel) return null;
 
-      const canonical = getCanonicalModelMetadata({
+      const canonical = await getCanonicalModelMetadata({
         provider: targetModel.providerId,
         model: targetModel.modelId,
       });
@@ -470,10 +470,10 @@ async function buildUnifiedModelsResponseCore(
       };
     };
 
-    const buildComboCatalogMetadata = (
+    const buildComboCatalogMetadata = async (
       combo: Parameters<typeof resolveNestedComboTargets>[0],
       allCombos: Parameters<typeof resolveNestedComboTargets>[1]
-    ) => {
+    ): Promise<Record<string, unknown>> => {
       const explicitContextLength = isPositiveFiniteNumber(combo.context_length)
         ? combo.context_length
         : undefined;
@@ -482,7 +482,9 @@ async function buildUnifiedModelsResponseCore(
       const targets = resolveNestedComboTargets(combo, allCombos) as ComboCatalogTarget[];
       if (targets.length === 0) return baseMetadata;
 
-      const targetMetadata = targets.map((target) => getComboTargetCatalogMetadata(target));
+      const targetMetadata = await Promise.all(
+        targets.map((target) => getComboTargetCatalogMetadata(target))
+      );
 
       const knownMetadata = targetMetadata.filter(
         (metadata): metadata is ComboTargetCatalogMetadata => metadata !== null
@@ -548,7 +550,7 @@ async function buildUnifiedModelsResponseCore(
           timestamp,
           (c) => buildComboCatalogMetadata(c, combos)
         );
-        const quotaFinal = applyCatalogPostFilters(request, quotaModels, {
+        const quotaFinal = await applyCatalogPostFilters(request, quotaModels, {
           connections,
           prefixMode,
           aliasToProviderId,
@@ -633,7 +635,7 @@ async function buildUnifiedModelsResponseCore(
         continue;
       }
 
-      const comboMetadata = buildComboCatalogMetadata(combo, combos);
+      const comboMetadata = await buildComboCatalogMetadata(combo, combos);
 
       listedIds.add(combo.name);
       models.push({
@@ -1448,7 +1450,7 @@ async function buildUnifiedModelsResponseCore(
       }
     }
     // ?configuredOnly — hide models that have no eligible DB connection.
-    finalModels = applyCatalogPostFilters(request, finalModels, {
+    finalModels = await applyCatalogPostFilters(request, finalModels, {
       connections,
       prefixMode,
       aliasToProviderId,

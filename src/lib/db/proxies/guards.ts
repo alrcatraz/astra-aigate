@@ -1,4 +1,4 @@
-import { getDbInstance } from "../core";
+import { getDbInstance, getAsyncDb } from "../core";
 
 export const PROXY_ALIVE_PREDICATE =
   "(p.status IS NULL OR LOWER(p.status) NOT IN ('inactive','error','disabled','dead','down'))";
@@ -25,7 +25,7 @@ export function isGlobalProxyEnabled(db: ReturnType<typeof getDbInstance>): bool
  */
 export function hasBlockingProxyAssignment(connectionId: string, providerId?: string): boolean {
   try {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     if (!isGlobalProxyEnabled(db)) return false;
 
     const conn = db
@@ -55,7 +55,7 @@ export function hasBlockingProxyAssignment(connectionId: string, providerId?: st
  */
 export function hasBlockingProxyAssignmentForProvider(providerId: string): boolean {
   try {
-    const db = getDbInstance();
+    const db = getAsyncDb();
     if (!isGlobalProxyEnabled(db)) return false;
 
     const assignments = db

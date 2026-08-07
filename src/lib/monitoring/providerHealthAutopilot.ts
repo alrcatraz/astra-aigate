@@ -1,9 +1,6 @@
 import { createHash } from "crypto";
 
-import {
-  getProviderConnections,
-  updateProviderConnection,
-} from "@/lib/db/providers";
+import { getProviderConnections, updateProviderConnection } from "@/lib/db/providers";
 import { getCachedProviderConnectionById } from "@/lib/localDb";
 import { clearProviderFailure, clearModelLock } from "@omniroute/open-sse/services/accountFallback";
 
@@ -265,7 +262,7 @@ export async function buildProviderHealthAutopilotReport(
   const connections = (await getProviderConnections(
     providerFilter ? { provider: providerFilter } : {}
   )) as JsonRecord[];
-  const breakers = getAllCircuitBreakerStatuses().filter((breaker) => {
+  const breakers = (await getAllCircuitBreakerStatuses()).filter((breaker) => {
     const name = toString((breaker as JsonRecord).name);
     if (!name || name.startsWith("test-") || name.startsWith("test_")) return false;
     return !providerFilter || name === providerFilter;
@@ -306,8 +303,7 @@ export async function buildProviderHealthAutopilotReport(
       (connection) => connection.provider === provider
     );
     const breaker = breakers.find((entry) => (entry as JsonRecord).name === provider) as
-      | JsonRecord
-      | undefined;
+      JsonRecord | undefined;
     const providerLockouts = lockouts.filter(
       (lockout) => providerFromLockout(lockout) === provider
     );

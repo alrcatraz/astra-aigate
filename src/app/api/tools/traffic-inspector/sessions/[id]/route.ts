@@ -24,14 +24,14 @@ export async function GET(_request: Request, { params }: Params): Promise<Respon
   const { id } = await params;
 
   try {
-    const session = getSession(id);
+    const session = await getSession(id);
     if (!session) {
       return new Response(JSON.stringify(buildErrorBody(404, "Session not found")), {
         status: 404,
         headers: { "content-type": "application/json" },
       });
     }
-    const requests = getSessionRequests(id).map((r) => {
+    const requests = await getSessionRequests(id).map((r) => {
       try {
         return JSON.parse(r.payload) as unknown;
       } catch {
@@ -69,7 +69,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<Respo
     );
   }
 
-  const session = getSession(id);
+  const session = await getSession(id);
   if (!session) {
     return new Response(JSON.stringify(buildErrorBody(404, "Session not found")), {
       status: 404,
@@ -89,7 +89,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<Respo
       }
       renameSession(id, parsed.data.name);
     }
-    return Response.json(getSession(id));
+    return Response.json(await getSession(id));
   } catch (err) {
     const msg = sanitizeErrorMessage(err);
     return new Response(JSON.stringify(buildErrorBody(500, msg || "Failed to update session")), {
@@ -102,7 +102,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<Respo
 export async function DELETE(_request: Request, { params }: Params): Promise<Response> {
   const { id } = await params;
 
-  const session = getSession(id);
+  const session = await getSession(id);
   if (!session) {
     return new Response(JSON.stringify(buildErrorBody(404, "Session not found")), {
       status: 404,

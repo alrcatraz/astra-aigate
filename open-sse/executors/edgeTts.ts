@@ -42,7 +42,7 @@ const DEFAULT_OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3";
 const CONNECT_TIMEOUT_MS = 10_000;
 const SYNTH_TIMEOUT_MS = 30_000;
 
-// Per-client-IP throttle — EdgeTTS has no per-user key, so every OmniRoute
+// Per-client-IP throttle — EdgeTTS has no per-user key, so every AI Gate
 // deployment shares the same trusted-token identity upstream. A single
 // abusive caller could get the shared token rate-limited/blocked for
 // everyone, so we cap requests per source IP before we ever open a socket.
@@ -189,9 +189,7 @@ export function isTurnEndMessage(message: string): boolean {
  * ASCII headers, then the remaining bytes are audio data. Returns `null`
  * for a frame too short to contain a valid header-length prefix.
  */
-export function demuxAudioChunk(
-  frame: Buffer
-): { headers: string; audio: Buffer } | null {
+export function demuxAudioChunk(frame: Buffer): { headers: string; audio: Buffer } | null {
   if (!Buffer.isBuffer(frame) || frame.length < 2) return null;
   const headerLength = frame.readUInt16BE(0);
   if (2 + headerLength > frame.length) return null;

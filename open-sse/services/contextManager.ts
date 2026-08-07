@@ -270,8 +270,11 @@ export function estimateTokens(text: string | object | null | undefined): number
  * Get token limit for a provider/model combination
  * Priority: Env override > models.dev DB > Registry defaultContextLength > DEFAULT_LIMITS
  */
-export function getTokenLimit(provider: string, model: string | null = null): number {
-  return resolveTokenLimit(provider, model).limit;
+export async function getTokenLimit(
+  provider: string,
+  model: string | null = null
+): Promise<number> {
+  return (await resolveTokenLimit(provider, model)).limit;
 }
 
 /**
@@ -281,13 +284,13 @@ export function getTokenLimit(provider: string, model: string | null = null): nu
  * `ResolvedComboTarget.provider` is populated independently of `modelStr`, so fall
  * back to it before calling `getTokenLimit` (#8716).
  */
-export function getComboTargetTokenLimit(options: {
+export async function getComboTargetTokenLimit(options: {
   modelStr?: string | null;
   provider?: string | null;
   parsedProvider?: string | null;
   parsedModel?: string | null;
   targetProvider?: string | null;
-}): number {
+}): Promise<number> {
   let parsedProvider = options.parsedProvider;
   let parsedModel = options.parsedModel;
   if (
@@ -299,7 +302,7 @@ export function getComboTargetTokenLimit(options: {
     if (parsedModel === undefined) parsedModel = parsed.model;
   }
   const provider = parsedProvider ?? options.targetProvider ?? options.provider ?? "unknown";
-  return getTokenLimit(provider, parsedModel ?? null);
+  return await getTokenLimit(provider, parsedModel ?? null);
 }
 
 /**
@@ -308,10 +311,10 @@ export function getComboTargetTokenLimit(options: {
  * name heuristic, curated per-provider default) or only from the generic
  * catch-all default.
  */
-function resolveTokenLimit(
+async function resolveTokenLimit(
   provider: string,
   model: string | null = null
-): { limit: number; specific: boolean } {
+): Promise<{ limit: number; specific: boolean }> {
   // 1. Check environment variable override first
   const envOverride = getEnvOverride(provider);
   if (envOverride) return { limit: envOverride, specific: true };
@@ -320,7 +323,7 @@ function resolveTokenLimit(
 
   // 2. Check models.dev synced DB for per-model context limit
   if (model) {
-    const dbLimit = getModelContextLimit(provider, model);
+    const dbLimit = await getModelContextLimit(provider, model);
     if (dbLimit && dbLimit > 0) return { limit: dbLimit, specific: true };
   }
 
@@ -363,12 +366,12 @@ function resolveTokenLimit(
  * min(...comboTargetLimits) is kept only as a defensive fallback for the
  * case where the current provider/model resolves no specific limit at all.
  */
-export function resolveComboContextLimit(options: {
+export async function resolveComboContextLimit(options: {
   provider: string;
   model: string | null;
   comboTargetLimits: number[];
-}): { limit: number; source: "target" | "combo-min" | "fallback" } {
-  const own = resolveTokenLimit(options.provider, options.model ?? null);
+}): Promise<{ limit: number; source: "target" | "combo-min" | "fallback" }> {
+  const own = await resolveTokenLimit(options.provider, options.model ?? null);
   if (own.specific) {
     return { limit: own.limit, source: "target" };
   }
@@ -398,7 +401,7 @@ export function resolveComboContextLimit(options: {
  * @param {object} options - { provider?, model?, maxTokens?, reserveTokens?, keepLatestImages? }
  * @returns {{ body: object, compressed: boolean, stats: object }}
  */
-export function compressContext(
+export async function compressContext(
   body: Record<string, unknown> | null | undefined,
   options: {
     provider?: string;
@@ -414,7 +417,8 @@ export function compressContext(
 
   const provider = options.provider || "default";
   const maxTokens =
-    options.maxTokens || getTokenLimit(provider, (body.model as string) || options.model || null);
+    options.maxTokens ||
+    (await getTokenLimit(provider, (body.model as string) || options.model || null));
   const defaultReserveTokens = Math.min(16000, Math.max(256, Math.floor(maxTokens * 0.15)));
   const reserveTokens = Math.min(
     options.reserveTokens ?? getReserveTokensOverride() ?? defaultReserveTokens,

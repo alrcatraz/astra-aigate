@@ -39,7 +39,7 @@ export async function connectServer(
  */
 export async function disconnectServer(serverId: string): Promise<void> {
   const { disconnectServer: dbDisconnect } = await import("../db/gamification");
-  dbDisconnect(serverId);
+  await dbDisconnect(serverId);
 }
 
 /**
@@ -47,7 +47,7 @@ export async function disconnectServer(serverId: string): Promise<void> {
  */
 export async function listServers(): Promise<ServerConnection[]> {
   const { listServers: dbList } = await import("../db/gamification");
-  return dbList() as ServerConnection[];
+  return (await dbList()) as unknown as ServerConnection[];
 }
 
 /**
@@ -57,7 +57,7 @@ export async function listServers(): Promise<ServerConnection[]> {
 export async function syncLeaderboard(
   serverId: string
 ): Promise<{ synced: number; errors: string[] }> {
-  const db = (await import("../db/core")).getDbInstance();
+  const db = (await import("../db/core")).getAsyncDb();
 
   const server = (await db
     .prepare(
@@ -85,7 +85,7 @@ export async function syncLeaderboard(
     };
 
     // Overwrite local scores with remote scores (not additive)
-    const db2 = (await import("../db/core")).getDbInstance();
+    const db2 = (await import("../db/core")).getAsyncDb();
     for (const entry of data.entries) {
       db2
         .prepare(
@@ -97,16 +97,17 @@ export async function syncLeaderboard(
     }
 
     // Update last sync time
-    db.prepare(
-      "UPDATE community_servers SET last_sync_at = datetime('now'), error_message = NULL WHERE id = ?"
-    ).run(serverId);
+    await db
+      .prepare(
+        "UPDATE community_servers SET last_sync_at = datetime('now'), error_message = NULL WHERE id = ?"
+      )
+      .run(serverId);
 
     return { synced: data.entries.length, errors: [] };
   } catch (err: any) {
-    db.prepare("UPDATE community_servers SET status = 'error', error_message = ? WHERE id = ?").run(
-      err.message,
-      serverId
-    );
+    await db
+      .prepare("UPDATE community_servers SET status = 'error', error_message = ? WHERE id = ?")
+      .run(err.message, serverId);
 
     return { synced: 0, errors: [err.message] };
   }
@@ -120,7 +121,7 @@ export async function pushScore(
   apiKeyId: string,
   score: number
 ): Promise<{ success: boolean; error?: string }> {
-  const db = (await import("../db/core")).getDbInstance();
+  const db = (await import("../db/core")).getAsyncDb();
 
   const server = (await db
     .prepare(
@@ -159,7 +160,7 @@ export async function pushScore(
 export async function healthCheck(
   serverId: string
 ): Promise<{ healthy: boolean; latencyMs: number }> {
-  const db = (await import("../db/core")).getDbInstance();
+  const db = (await import("../db/core")).getAsyncDb();
 
   const server = (await db
     .prepare("SELECT url FROM community_servers WHERE id = ?")

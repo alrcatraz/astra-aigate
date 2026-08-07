@@ -39,13 +39,13 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("computeComboContextLength resolves a registry-known, prefixed member (glm/glm-5.2) to its real context window", () => {
+test("computeComboContextLength resolves a registry-known, prefixed member (glm/glm-5.2) to its real context window", async () => {
   const combo = {
     name: "prefix-resolution-probe-single",
     models: ["glm/glm-5.2"],
   };
 
-  const result = computeComboContextLength(combo, []);
+  const result = await computeComboContextLength(combo, []);
 
   assert.equal(
     result,
@@ -56,14 +56,14 @@ test("computeComboContextLength resolves a registry-known, prefixed member (glm/
   );
 });
 
-test("computeComboContextLength takes the minimum across multiple prefixed, registry-known members", () => {
+test("computeComboContextLength takes the minimum across multiple prefixed, registry-known members", async () => {
   const combo = {
     name: "prefix-resolution-probe-multi",
     // glm-4.5 (128,000) is the smaller of the two known windows.
     models: ["glm/glm-5.2", "glm/glm-4.5"],
   };
 
-  const result = computeComboContextLength(combo, []);
+  const result = await computeComboContextLength(combo, []);
 
   assert.equal(
     result,

@@ -1,16 +1,16 @@
 /** db/models/mitmAlias.ts — MITM alias CRUD (mitmAlias namespace). */
 
-import { getDbInstance } from "../core";
+import { getAsyncDb } from "../core";
 import { backupDbFile } from "../backup";
 import { getKeyValue } from "./shared";
 
 export async function getMitmAlias(toolName?: string) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   if (toolName) {
     const row = db
       .prepare("SELECT value FROM key_value WHERE namespace = 'mitmAlias' AND key = ?")
       .get(toolName);
-    const value = getKeyValue(row).value;
+    const value = await getKeyValue(row).value;
     return value ? JSON.parse(value) : {};
   }
   const rows = await db
@@ -26,7 +26,7 @@ export async function getMitmAlias(toolName?: string) {
 }
 
 export async function setMitmAliasAll(toolName: string, mappings: unknown) {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('mitmAlias', ?, ?)"
   ).run(toolName, JSON.stringify(mappings || {}));

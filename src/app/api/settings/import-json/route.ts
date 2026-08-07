@@ -10,7 +10,7 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 /**
  * POST /api/settings/import-json
  *
- * Imports a legacy OmniRoute JSON backup into the current SQLite
+ * Imports a legacy AI Gate JSON backup into the current SQLite
  * database.  Accepts either multipart/form-data (file field) or a raw JSON body.
  *
  * 🔒 Auth-guarded.

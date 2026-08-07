@@ -13,10 +13,7 @@
 
 import { getModelContextLimit } from "../../../src/lib/modelCapabilities";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
-import {
-  getProviderByAlias,
-  getProviderById,
-} from "../../../src/shared/constants/providers.ts";
+import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel } from "../model.ts";
@@ -416,12 +413,14 @@ export function resolveNestedComboModels(
  * @param {Array<string>} models - Model strings in "provider/model" format
  * @returns {Array<string>} Sorted model strings (largest context first)
  */
-function sortModelsByContextSize(models: string[]): string[] {
-  const withContext = models.map((modelStr) => {
-    return { modelStr, context: getModelContextLimitForModelString(modelStr) ?? 0 };
-  });
-  withContext.sort((a, b) => b.context - a.context);
-  return withContext.map((e) => e.modelStr);
+async function sortModelsByContextSize(models: string[]): Promise<string[]> {
+  const withContext = models.map(async (modelStr) => ({
+    modelStr,
+    context: (await getModelContextLimitForModelString(modelStr)) ?? 0,
+  }));
+  const resolved = await Promise.all(withContext);
+  resolved.sort((a, b) => b.context - a.context);
+  return resolved.map((e) => e.modelStr);
 }
 
 export function getModelContextLimitForModelString(modelStr: string) {
@@ -508,12 +507,12 @@ function exceedsKnownOutputLimit(
   return maxOutputTokens < requestedOutputTokens;
 }
 
-function hasKnownCompatibleContextLimit(
+async function hasKnownCompatibleContextLimit(
   target: ResolvedComboTarget,
   requirements: RequestCompatibilityRequirements
-): boolean {
+): Promise<boolean> {
   if (requirements.requiredContextTokens <= 0) return false;
-  const capabilities = getResolvedModelCapabilities(target.modelStr);
+  const capabilities = await getResolvedModelCapabilities(target.modelStr);
   return evaluateContextLimit(capabilities, requirements, target.modelStr) === true;
 }
 
@@ -527,12 +526,12 @@ function hasOnlyContextWindowFailures(reasons: string[]): boolean {
  * reconsidering compat-rejected targets (fallback tiers, degrade-to-unfiltered) MUST
  * exclude these via this predicate.
  */
-export function isVisionIncompatibleTarget(
+export async function isVisionIncompatibleTarget(
   target: ResolvedComboTarget,
   requirements: RequestCompatibilityRequirements
-): boolean {
+): Promise<boolean> {
   if (!requirements.requiresVision) return false;
-  const capabilities = getResolvedModelCapabilities(target.modelStr);
+  const capabilities = await getResolvedModelCapabilities(target.modelStr);
   return capabilities.supportsVision !== true;
 }
 
@@ -541,23 +540,27 @@ export function isVisionIncompatibleTarget(
  * pre-filter rejected, minus anything rejected for vision (#8332 — see
  * isVisionIncompatibleTarget).
  */
-export function computeCompatRejectedTargets(
+export async function computeCompatRejectedTargets(
   rankedTargets: ResolvedComboTarget[],
   compatKeptTargets: ResolvedComboTarget[],
   body: Record<string, unknown>
-): ResolvedComboTarget[] {
+): Promise<ResolvedComboTarget[]> {
   const requirements = deriveRequestCompatibilityRequirements(body);
   const keptSet = new Set(compatKeptTargets);
-  return rankedTargets.filter(
-    (target) => !keptSet.has(target) && !isVisionIncompatibleTarget(target, requirements)
-  );
+  const rejected: ResolvedComboTarget[] = [];
+  for (const target of rankedTargets) {
+    if (!keptSet.has(target) && !(await isVisionIncompatibleTarget(target, requirements))) {
+      rejected.push(target);
+    }
+  }
+  return rejected;
 }
 
-function getTargetCompatibilityFailures(
+async function getTargetCompatibilityFailures(
   target: ResolvedComboTarget,
   requirements: RequestCompatibilityRequirements
-): string[] {
-  const capabilities = getResolvedModelCapabilities(target.modelStr);
+): Promise<string[]> {
+  const capabilities = await getResolvedModelCapabilities(target.modelStr);
   const failures: string[] = [];
 
   if (
@@ -614,22 +617,24 @@ function hasHardCapabilityFailure(reasons: string[]): boolean {
  * Summarize a capability-filter exhaustion for a 400-class combo error (#8488).
  * Returns null when the empty pool is not attributable to hard requirements.
  */
-export function describeCapabilityFilterExhaustion(
+export async function describeCapabilityFilterExhaustion(
   targets: ResolvedComboTarget[],
   body: Record<string, unknown>,
   comboName?: string
-): {
+): Promise<{
   unmet: string[];
   excluded: Array<{ provider: string; model: string; reason: string }>;
   message: string;
   terminalReason: string;
-} | null {
+} | null> {
   if (targets.length === 0) return null;
   const requirements = deriveRequestCompatibilityRequirements(body);
-  const rejected = targets.map((target) => ({
-    target,
-    reasons: getTargetCompatibilityFailures(target, requirements),
-  }));
+  const rejected = await Promise.all(
+    targets.map(async (target) => ({
+      target,
+      reasons: await getTargetCompatibilityFailures(target, requirements),
+    }))
+  );
   const unmet = Array.from(
     new Set(rejected.flatMap((entry) => entry.reasons.filter((r) => HARD_COMPAT_REASONS.has(r))))
   );
@@ -663,13 +668,13 @@ export function describeCapabilityFilterExhaustion(
   };
 }
 
-export function filterTargetsByRequestCompatibility(
+export async function filterTargetsByRequestCompatibility(
   targets: ResolvedComboTarget[],
   body: Record<string, unknown>,
   log: ComboLogger,
   label = "Context-aware fallback",
   options?: CompatFilterOptions
-): ResolvedComboTarget[] {
+): Promise<ResolvedComboTarget[]> {
   if (targets.length === 0) return targets;
   const requirements = deriveRequestCompatibilityRequirements(body);
   const needsFiltering =
@@ -679,13 +684,19 @@ export function filterTargetsByRequestCompatibility(
     requirements.requiredContextTokens > 0;
   if (!needsFiltering) return targets;
 
+  const withReasons = await Promise.all(
+    targets.map(async (target) => ({
+      target,
+      reasons: await getTargetCompatibilityFailures(target, requirements),
+    }))
+  );
   const rejected: Array<{ target: ResolvedComboTarget; reasons: string[] }> = [];
-  const compatible = targets.filter((target) => {
-    const reasons = getTargetCompatibilityFailures(target, requirements);
+  const compatible = withReasons.filter(({ target, reasons }) => {
     if (reasons.length === 0) return true;
     rejected.push({ target, reasons });
     return false;
   });
+  const compatibleTargets = compatible.map((entry) => entry.target);
 
   // Unknown context limits are safe only as a fallback. If this request already
   // filtered at least one known-too-small target and known-good targets remain,
@@ -696,13 +707,16 @@ export function filterTargetsByRequestCompatibility(
     entry.reasons.includes("context_window")
   );
   if (requirements.requiredContextTokens > 0 && rejectedForContextWindow) {
-    const knownContextCompatible = compatible.filter((target) =>
+    const knownContextCompatible = compatibleTargets.filter((target) =>
       hasKnownCompatibleContextLimit(target, requirements)
     );
 
-    if (knownContextCompatible.length > 0 && knownContextCompatible.length < compatible.length) {
+    if (
+      knownContextCompatible.length > 0 &&
+      knownContextCompatible.length < compatibleTargets.length
+    ) {
       const knownContextCompatibleTargets = new Set(knownContextCompatible);
-      for (const target of compatible) {
+      for (const target of compatibleTargets) {
         if (!knownContextCompatibleTargets.has(target)) {
           rejected.push({ target, reasons: ["context_window_unknown"] });
         }
@@ -721,14 +735,14 @@ export function filterTargetsByRequestCompatibility(
       return knownContextCompatible;
     }
 
-    if (knownContextCompatible.length === 0 && compatible.length > 0) {
+    if (knownContextCompatible.length === 0 && compatibleTargets.length > 0) {
       const rejectedByTarget = new Map(rejected.map((entry) => [entry.target, entry.reasons]));
       const contextOnlyFallback = targets.filter((target) => {
         const reasons = rejectedByTarget.get(target);
         return !reasons || hasOnlyContextWindowFailures(reasons);
       });
 
-      if (contextOnlyFallback.length > compatible.length) {
+      if (contextOnlyFallback.length > compatibleTargets.length) {
         log.warn(
           "COMBO",
           `${label}: no known-compatible context target remains; preserving strategy order for context-only candidates`
@@ -744,8 +758,8 @@ export function filterTargetsByRequestCompatibility(
     }
   }
 
-  if (compatible.length === targets.length) return targets;
-  if (compatible.length === 0) {
+  if (compatibleTargets.length === targets.length) return targets;
+  if (compatibleTargets.length === 0) {
     const hardRejected = rejected.some((entry) => hasHardCapabilityFailure(entry.reasons));
     const failOpen = options?.failOpen === true;
 
@@ -799,7 +813,7 @@ export function filterTargetsByRequestCompatibility(
 
   log.info(
     "COMBO",
-    `${label}: kept ${compatible.length}/${targets.length} targets for request requirements`
+    `${label}: kept ${compatibleTargets.length}/${targets.length} targets for request requirements`
   );
   log.debug?.(
     "COMBO",
@@ -807,16 +821,19 @@ export function filterTargetsByRequestCompatibility(
       .map((entry) => `${entry.target.modelStr}(${entry.reasons.join("+")})`)
       .join(", ")}`
   );
-  return compatible;
+  return compatibleTargets;
 }
 
-export function sortTargetsByContextSize(targets: ResolvedComboTarget[]) {
-  const hasKnownContext = targets.some(
-    (target) => getModelContextLimitForModelString(target.modelStr) != null
+export async function sortTargetsByContextSize(
+  targets: ResolvedComboTarget[]
+): Promise<ResolvedComboTarget[]> {
+  const knownLimits = await Promise.all(
+    targets.map((target) => getModelContextLimitForModelString(target.modelStr))
   );
+  const hasKnownContext = knownLimits.some((limit) => limit != null);
   if (!hasKnownContext) return targets;
 
-  const orderedModels = sortModelsByContextSize(targets.map((target) => target.modelStr));
+  const orderedModels = await sortModelsByContextSize(targets.map((target) => target.modelStr));
   const byModel = new Map<string, ResolvedComboTarget[]>();
   for (const target of targets) {
     const queue = byModel.get(target.modelStr) || [];

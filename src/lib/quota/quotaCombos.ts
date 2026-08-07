@@ -63,7 +63,7 @@ async function resolvePoolForSync(poolId: string): Promise<{
     groupName: string;
   };
 } | null> {
-  const pool = getPool(poolId);
+  const pool = await getPool(poolId);
   if (!pool) return null;
 
   // Defensive: ensure connectionIds is always a non-empty array.
@@ -74,7 +74,7 @@ async function resolvePoolForSync(poolId: string): Promise<{
 
   // B4: resolve the group name for combo naming.
   // Fall back to pool.name when the group is missing (legacy / test isolation).
-  const groupName = getGroupName(pool.groupId) ?? pool.name;
+  const groupName = (await getGroupName(pool.groupId)) ?? pool.name;
 
   return {
     pool: {
@@ -152,7 +152,10 @@ export async function syncQuotaCombos(poolId: string): Promise<void> {
   for (const connId of pool.connectionIds) {
     let connection: Record<string, unknown> | null = null;
     try {
-      connection = (await getCachedProviderConnectionById(connId)) as Record<string, unknown> | null;
+      connection = (await getCachedProviderConnectionById(connId)) as Record<
+        string,
+        unknown
+      > | null;
     } catch {
       // Connection lookup failure — skip this connection.
       continue;
@@ -306,7 +309,7 @@ export async function buildQuotaExclusiveModels<TCombo extends { name?: unknown 
   allowedQuotas: string[],
   combos: TCombo[],
   timestamp: number,
-  metadataFor: (combo: TCombo) => Record<string, unknown>
+  metadataFor: (combo: TCombo) => Promise<Record<string, unknown>>
 ): Promise<Array<Record<string, unknown>>> {
   const { resolveQuotaKeyScope } = await import("./quotaKey");
   const scope = await resolveQuotaKeyScope(allowedQuotas);
@@ -326,7 +329,7 @@ export async function buildQuotaExclusiveModels<TCombo extends { name?: unknown 
       permission: [],
       root: name,
       parent: null,
-      ...metadataFor(combo),
+      ...(await metadataFor(combo)),
     });
   }
   return out;

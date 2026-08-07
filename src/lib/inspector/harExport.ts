@@ -3,10 +3,10 @@
  *
  * HAR is the standard format consumed by Chrome DevTools, Charles, Fiddler,
  * Postman, and most observability tools. Exporting lets users carry the
- * trace out of OmniRoute into their existing workflow.
+ * trace out of AI Gate into their existing workflow.
  *
  * Secrets are *always* masked on export, regardless of the UI state — see
- * Hard Rule #1 (no credentials in artefacts). The OmniRoute capture source
+ * Hard Rule #1 (no credentials in artefacts). The AI Gate capture source
  * (agent-bridge / custom-host / http-proxy / system-proxy) is preserved as
  * `_source`, a custom field allowed by the HAR spec's underscore convention.
  */
@@ -15,7 +15,7 @@ import { maskSecret } from "@/mitm/maskSecrets";
 import type { InterceptedRequest } from "@/mitm/inspector/types";
 
 const HAR_VERSION = "1.2";
-const CREATOR_NAME = "OmniRoute Traffic Inspector";
+const CREATOR_NAME = "AI Gate Traffic Inspector";
 const CREATOR_VERSION = "3.8.6";
 
 interface HarNameValue {

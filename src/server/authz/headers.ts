@@ -43,7 +43,7 @@ export const PEER_IP_HEADER = "x-omniroute-peer-ip";
  * inbound TCP request carried forwarding headers (`x-forwarded-for` /
  * `x-real-ip`) and `<token>|0` otherwise. The middleware combines this with
  * the stamped peer IP so a loopback / private-LAN socket that is actually the
- * proxy hop (e.g. OmniRoute behind nginx / Caddy / Cloudflare Tunnel) is NOT
+ * proxy hop (e.g. AI Gate behind nginx / Caddy / Cloudflare Tunnel) is NOT
  * trusted as local — closing the upstream da667836 vulnerability that would
  * otherwise let a leaked JWT over a public tunnel reach LOCAL_ONLY routes
  * that spawn child processes. Token-validated like PEER_IP_HEADER, so a

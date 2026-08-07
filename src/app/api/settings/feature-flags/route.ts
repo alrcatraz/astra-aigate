@@ -32,14 +32,30 @@ export async function GET(request: NextRequest) {
   try {
     const resolved = resolveAllFeatureFlags();
 
-    const flags = resolved.map(({ key, effectiveValue, source, definition }) => {
-      // EXPOSE_CC_DISCOVERY_ALIASES resolves with env-wins-over-db precedence
-      // (see db/ccDiscoveryAliases.ts::getCcAliasGlobalState) — the opposite of
-      // resolveAllFeatureFlags' generic db-wins-over-env order. Override the
-      // reported effectiveValue/source with the gate's own resolution so the
-      // dashboard never shows a source that doesn't match actual gate behavior.
-      if (key === CC_DISCOVERY_ALIASES_FLAG_KEY) {
-        const gateState = getCcAliasGlobalState();
+    const flags = await Promise.all(
+      resolved.map(async ({ key, effectiveValue, source, definition }) => {
+        // EXPOSE_CC_DISCOVERY_ALIASES resolves with env-wins-over-db precedence
+        // (see db/ccDiscoveryAliases.ts::getCcAliasGlobalState) — the opposite of
+        // resolveAllFeatureFlags' generic db-wins-over-env order. Override the
+        // reported effectiveValue/source with the gate's own resolution so the
+        // dashboard never shows a source that doesn't match actual gate behavior.
+        if (key === CC_DISCOVERY_ALIASES_FLAG_KEY) {
+          const gateState = await getCcAliasGlobalState();
+          return {
+            key,
+            label: definition.label,
+            description: definition.description,
+            category: definition.category,
+            type: definition.type,
+            enumValues: definition.enumValues ?? null,
+            defaultValue: definition.defaultValue,
+            effectiveValue: gateState.enabled ? "true" : "false",
+            source: gateState.source,
+            requiresRestart: definition.requiresRestart,
+            warningLevel: definition.warningLevel,
+          };
+        }
+
         return {
           key,
           label: definition.label,
@@ -48,27 +64,13 @@ export async function GET(request: NextRequest) {
           type: definition.type,
           enumValues: definition.enumValues ?? null,
           defaultValue: definition.defaultValue,
-          effectiveValue: gateState.enabled ? "true" : "false",
-          source: gateState.source,
+          effectiveValue,
+          source,
           requiresRestart: definition.requiresRestart,
           warningLevel: definition.warningLevel,
         };
-      }
-
-      return {
-        key,
-        label: definition.label,
-        description: definition.description,
-        category: definition.category,
-        type: definition.type,
-        enumValues: definition.enumValues ?? null,
-        defaultValue: definition.defaultValue,
-        effectiveValue,
-        source,
-        requiresRestart: definition.requiresRestart,
-        warningLevel: definition.warningLevel,
-      };
-    });
+      })
+    );
 
     const total = flags.length;
     const active = flags.filter((f) => isActive(f.effectiveValue)).length;
@@ -141,7 +143,7 @@ export async function PUT(request: NextRequest) {
     const previousSource = prevFlag?.source ?? "default";
 
     if (value === undefined) {
-      removeFeatureFlagOverride(key);
+      await removeFeatureFlagOverride(key);
     } else {
       setFeatureFlagOverride(key, value);
     }
@@ -178,7 +180,7 @@ export async function DELETE(request: NextRequest) {
     const overrides = getFeatureFlagOverrides();
     const count = Object.keys(overrides).length;
 
-    clearAllFeatureFlagOverrides();
+    await clearAllFeatureFlagOverrides();
 
     return NextResponse.json({
       cleared: count,

@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       Number.isInteger(parsedOffset) && parsedOffset && parsedOffset > 0 ? parsedOffset : 0;
 
     const connections = await getProviderConnections({}, limit, offset);
-    const total = getProviderConnectionsCount();
+    const total = await getProviderConnectionsCount();
     const revealKeys = isApiKeyRevealEnabled();
 
     // Hide or mask sensitive fields
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
 
-  const auditContext = getAuditRequestContext(request);
+  const auditContext = await getAuditRequestContext(request);
 
   try {
     const body = await request.json();
@@ -198,7 +198,7 @@ export async function POST(request: Request) {
       // controlled Host header, which would let a caller redirect this
       // credential-bearing internal self-fetch to an arbitrary host
       // (SSRF + internal-auth-header exfiltration; CodeQL js/request-forgery).
-      const internalOrigin = getModelSyncInternalBaseUrl();
+      const internalOrigin = await getModelSyncInternalBaseUrl();
       const cookieHeader = request.headers.get("cookie") || "";
       const syncHeaders: Record<string, string> = {
         "Content-Type": "application/json",
@@ -270,7 +270,7 @@ export async function PATCH(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
 
-  const auditContext = getAuditRequestContext(request);
+  const auditContext = await getAuditRequestContext(request);
 
   let rawBody;
   try {
@@ -327,7 +327,7 @@ export async function DELETE(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
 
-  const auditContext = getAuditRequestContext(request);
+  const auditContext = await getAuditRequestContext(request);
 
   let body: { ids?: string[] };
   try {

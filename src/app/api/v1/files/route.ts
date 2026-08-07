@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const record = createFile({
+    const record = await createFile({
       bytes,
       filename,
       purpose,
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
   const purpose = searchParams.get("purpose") || undefined;
 
   // We fetch limit + 1 to check if there are more items
-  const files = listFiles({
+  const files = await listFiles({
     apiKeyId: apiKeyId || undefined,
     purpose,
     limit: limit + 1,
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
 
   const hasMore = files.length > limit;
   const data = files.slice(0, limit);
-  const totalCount = countFiles({ apiKeyId: apiKeyId || undefined, purpose });
+  const totalCount = await countFiles({ apiKeyId: apiKeyId || undefined, purpose });
 
   return NextResponse.json(
     {

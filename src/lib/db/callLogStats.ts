@@ -1,4 +1,4 @@
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 /**
  * Aggregation queries over `call_logs` extracted from route handlers.
@@ -59,7 +59,7 @@ export interface SearchProviderCountRow {
  * subselects. Excludes rows where provider is NULL or '-'.
  */
 export async function getProviderMetrics(): Promise<ProviderMetricRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `SELECT
@@ -109,7 +109,7 @@ export async function getProviderMetrics(): Promise<ProviderMetricRow[]> {
  * Per-provider request count and average latency for search requests.
  */
 export async function getSearchProviderStats(): Promise<SearchProviderStatRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -127,7 +127,7 @@ export async function getSearchProviderStats(): Promise<SearchProviderStatRow[]>
  * Most recent 10 search entries (request_summary + provider + timestamp).
  */
 export async function getRecentSearchLogs(): Promise<SearchRecentRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `
@@ -150,7 +150,7 @@ export async function getRecentSearchLogs(): Promise<SearchRecentRow[]> {
  * `todayIso` is the ISO-8601 UTC start-of-day string used for the "today" count.
  */
 export async function getSearchAggregateStats(todayIso: string): Promise<SearchAggregateStats> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       `SELECT
@@ -170,7 +170,7 @@ export async function getSearchAggregateStats(todayIso: string): Promise<SearchA
  * Per-provider request count for search entries, ordered by count descending.
  */
 export async function getSearchProviderCounts(): Promise<SearchProviderCountRow[]> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   return (await db
     .prepare(
       `SELECT provider, COUNT(*) as cnt
@@ -202,7 +202,7 @@ export async function getFallbackStats(
   whereClause: string,
   params: Record<string, string>
 ): Promise<FallbackStatsRow> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const row = (await db
     .prepare(
       `

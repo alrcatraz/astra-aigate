@@ -2,7 +2,7 @@
  * db/autoCandidateOverrides.ts — Per-API-key candidate exclusions for `auto/*`
  * channels (#7819, Level 2 of the "per-user candidate control" feature).
  *
- * OmniRoute is single-tenant (no `users` table, no `user_id`/`userId` column
+ * AI Gate is single-tenant (no `users` table, no `user_id`/`userId` column
  * anywhere under `src/lib/db/`) — `apiKeyId` is the closest real per-caller
  * identity this app has, so overrides are keyed by (apiKeyId, autoChannel,
  * connectionId) rather than "per user". See the Open Question in the #7819
@@ -14,7 +14,7 @@
  * JSON array column.
  */
 import { randomUUID } from "node:crypto";
-import { getDbInstance } from "./core";
+import { getDbInstance, getAsyncDb } from "./core";
 
 export interface AutoCandidateOverride {
   id: string;
@@ -56,7 +56,7 @@ export async function getExcludedConnectionIds(
   autoChannel: string
 ): Promise<Set<string>> {
   if (!apiKeyId || !autoChannel) return new Set();
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       `SELECT connection_id FROM auto_candidate_overrides
@@ -77,16 +77,18 @@ export async function setExcluded(
   connectionId: string,
   excluded: boolean
 ): Promise<AutoCandidateOverride> {
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const id = randomUUID();
   const createdAt = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO auto_candidate_overrides
+  await db
+    .prepare(
+      `INSERT INTO auto_candidate_overrides
        (id, api_key_id, auto_channel, connection_id, excluded, created_at)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(api_key_id, auto_channel, connection_id)
      DO UPDATE SET excluded = excluded.excluded`
-  ).run(id, apiKeyId, autoChannel, connectionId, excluded ? 1 : 0, createdAt);
+    )
+    .run(id, apiKeyId, autoChannel, connectionId, excluded ? 1 : 0, createdAt);
 
   const row = (await db
     .prepare(
@@ -104,7 +106,7 @@ export async function listOverrides(
   autoChannel: string
 ): Promise<AutoCandidateOverride[]> {
   if (!apiKeyId || !autoChannel) return [];
-  const db = getDbInstance();
+  const db = await getAsyncDb();
   const rows = (await db
     .prepare(
       `SELECT id, api_key_id, auto_channel, connection_id, excluded, created_at

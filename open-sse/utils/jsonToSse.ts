@@ -4,7 +4,7 @@
  *
  * Some "reasoning" openai-compatible upstreams ignore a `stream: true` request
  * and reply with a single `application/json` chat-completion body instead of an
- * SSE stream. OmniRoute's streaming readiness check only recognizes SSE `data:`
+ * SSE stream. AI Gate's streaming readiness check only recognizes SSE `data:`
  * frames, so such a body produced a spurious `STREAM_EARLY_EOF` / HTTP 502 even
  * though it carried valid `content` / `reasoning_content`. Synthesizing an SSE
  * stream from that JSON lets the normal streaming pipeline (and the client) get

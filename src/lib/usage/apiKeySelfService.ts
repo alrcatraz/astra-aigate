@@ -1,7 +1,4 @@
-import {
-  hasSelfAccountQuotaScope,
-  hasSelfUsageScope,
-} from "@/shared/constants/selfServiceScopes";
+import { hasSelfAccountQuotaScope, hasSelfUsageScope } from "@/shared/constants/selfServiceScopes";
 import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 
 type JsonRecord = Record<string, unknown>;
@@ -266,7 +263,7 @@ async function listAccountQuotaConnections(
       continue;
     }
 
-    const connection = getConnectionIdentity(rawConnection);
+    const connection = await getConnectionIdentity(rawConnection);
     if (!connection || seen.has(connection.id)) continue;
     seen.add(connection.id);
     connections.push(connection);
@@ -389,18 +386,18 @@ export async function buildApiKeySelfServiceStatus(
   }
 
   const resolvedDeps = await normalizeDeps(deps);
-  const summary = resolvedDeps.getCostSummary(metadata.id);
+  const summary = await resolvedDeps.getCostSummary(metadata.id);
   resolvedDeps.checkBudget(metadata.id);
 
-  const cost = buildCostStatus(summary, resolvedDeps.now());
+  const cost = await buildCostStatus(summary, resolvedDeps.now());
   const tokens = aggregateTokens(
-    resolvedDeps.getDbInstance() as DbLike,
+    resolvedDeps.getAsyncDb() as DbLike,
     metadata.id,
-    cost.periodStartAt ?? new Date(getCurrentMonthWindow(resolvedDeps.now()).periodStartAt).toISOString()
+    cost.periodStartAt ??
+      new Date(getCurrentMonthWindow(resolvedDeps.now()).periodStartAt).toISOString()
   );
   const accountQuotas = await resolveAccountQuotas(metadata, resolvedDeps);
-  const accountQuota =
-    accountQuotas && accountQuotas.length === 1 ? accountQuotas[0] : undefined;
+  const accountQuota = accountQuotas && accountQuotas.length === 1 ? accountQuotas[0] : undefined;
 
   return {
     apiKey: {

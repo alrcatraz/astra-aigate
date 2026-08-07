@@ -16,7 +16,7 @@ export const ALLOWED_CORE_SCHEMES = new Set<string>(["http:", "https:", "socks5:
  *
  * Only loopback hosts over a proxy scheme (http/https/socks5) are permitted.
  * A subscription's `localCoreEndpoint` becomes the single SOCKS5/HTTP address
- * OmniRoute routes SS/VMess/Trojan/VLESS/etc. traffic through, so it must
+ * AI Gate routes SS/VMess/Trojan/VLESS/etc. traffic through, so it must
  * never point at a remote host — and a non-proxy scheme (file:/ftp:/…) is
  * meaningless and rejected.
  */
