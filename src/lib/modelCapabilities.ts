@@ -527,6 +527,11 @@ export async function getExplicitModelOutputCap(input: CapabilityInput): Promise
 export async function getResolvedModelCapabilities(
   input: CapabilityInput
 ): Promise<ResolvedModelCapabilities> {
+  const cacheKey = capabilityKey(input);
+  if (cacheKey) {
+    const cached = resolvedCapabilityCache.get(cacheKey);
+    if (cached) return cached;
+  }
   const resolved = await resolveCapabilityInput(input);
   const spec = await getStaticSpec(resolved.model, resolved.rawModel);
   const registryModel = await getRegistryModel(resolved.provider, resolved.model);
@@ -606,7 +611,7 @@ export async function getResolvedModelCapabilities(
     attachment = true;
   }
 
-  return {
+  const result: ResolvedModelCapabilities = {
     provider: resolved.provider,
     model: resolved.model,
     rawModel: resolved.rawModel,
@@ -647,6 +652,10 @@ export async function getResolvedModelCapabilities(
       synced?.interleaved_field ??
       (typeof registryModel?.interleavedField === "string" ? registryModel.interleavedField : null),
   };
+  if (cacheKey) {
+    resolvedCapabilityCache.set(cacheKey, result);
+  }
+  return result;
 }
 
 export async function supportsToolCalling(input: CapabilityInput): Promise<boolean> {
@@ -733,4 +742,39 @@ export async function getModelContextLimit(
   // so the reconciler can compare the catalog value against provider-declared windows.
   const override = getModelContextOverride(resolved.provider, resolved.model);
   return override ?? resolved.contextWindow;
+}
+
+// ── Synchronous capability accessors ─────────────────────────────────────────
+// `translateRequest` (open-sse/translator/index.ts) is a synchronous choke point
+// every outbound chat request passes through, but `getResolvedModelCapabilities`
+// / `supportsReasoning` are async (they await DB/registry lookups). A sync caller
+// that forgets to await them reads a Promise (and `.interleavedField` etc. become
+// undefined / a Promise is passed where a boolean is expected). These cache-backed
+// synchronous accessors let the sync hot path read a previously-resolved result
+// with no behavioural change: `getResolvedModelCapabilities` writes back to the
+// same cache, and the sync variant falls back to null (triggering an async warm)
+// on the very first call of a fresh process.
+const resolvedCapabilityCache = new Map<string, ResolvedModelCapabilities>();
+
+function capabilityKey(input: CapabilityInput): string {
+  if (typeof input === "string") return input.trim() || "";
+  const p = toNonEmptyString(input?.provider);
+  const m = toNonEmptyString(input?.model);
+  return p ? `${p}/${m ?? ""}` : (m ?? "");
+}
+
+export function getResolvedModelCapabilitiesSync(
+  input: CapabilityInput
+): ResolvedModelCapabilities | null {
+  const key = capabilityKey(input);
+  if (key) {
+    const cached = resolvedCapabilityCache.get(key);
+    if (cached) return cached;
+    void getResolvedModelCapabilities(input).catch(() => {});
+  }
+  return null;
+}
+
+export function supportsReasoningSync(input: CapabilityInput): boolean | null {
+  return getResolvedModelCapabilitiesSync(input)?.reasoning ?? null;
 }

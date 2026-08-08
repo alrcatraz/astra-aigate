@@ -25,7 +25,7 @@ import { bootstrapTranslatorRegistry } from "./bootstrap.ts";
 import { hasThinkingConfig, normalizeThinkingConfig } from "../services/provider.ts";
 import { applyThinkingBudget } from "../services/thinkingBudget.ts";
 import { applyReasoningRuleDirective } from "@/lib/reasoningRouting/policy";
-import { getResolvedModelCapabilities, supportsReasoning } from "../services/modelCapabilities.ts";
+import { getResolvedModelCapabilitiesSync, supportsReasoningSync } from "@/lib/modelCapabilities";
 import { normalizeRoles } from "../services/roleNormalizer.ts";
 import { hoistLeadingSystemMessage } from "./helpers/strictSystemHoist.ts";
 import {
@@ -211,6 +211,16 @@ export function translateRequest(
 
   // Phase 2: Apply thinking budget control before normalization
   result = applyThinkingBudget(result);
+  // HARDEN (2026-08-08): the thinking-budget pass must NEVER strip the conversation.
+  // If it returns an object that lost `messages` (a production regression observed on
+  // this deployment — chat bodies were reduced to a bare "{model}"), fall back to the
+  // original body so the request ships intact.
+  if (
+    Array.isArray((result as Record<string, unknown> | null)?.messages) !== true &&
+    Array.isArray((body as Record<string, unknown> | null)?.messages) === true
+  ) {
+    result = body;
+  }
   // Explicit reasoning-routing policies are final. The marker is internal and is
   // consumed here before any provider translation can see it.
   result = applyReasoningRuleDirective(result);
@@ -335,7 +345,7 @@ export function translateRequest(
     normalizedProvider,
     normalizedModel
   );
-  const resolvedCapabilities = getResolvedModelCapabilities({
+  const resolvedCapabilities = getResolvedModelCapabilitiesSync({
     provider: normalizedProvider,
     model: normalizedModel,
   });
@@ -343,10 +353,13 @@ export function translateRequest(
     provider: normalizedProvider,
     model: normalizedModel,
     thinkingEnabled: hasThinkingConfig(result),
-    supportsReasoning: supportsReasoning({ provider: normalizedProvider, model: normalizedModel }),
+    supportsReasoning:
+      supportsReasoningSync({
+        provider: normalizedProvider,
+        model: normalizedModel,
+      }) ?? false,
     interleavedField: resolvedCapabilities?.interleavedField ?? null,
   });
-
   // Always normalize to clean OpenAI format when target is OpenAI
   // This handles hybrid requests (e.g., OpenAI messages + Claude tools)
   if (targetFormat === FORMATS.OPENAI) {
