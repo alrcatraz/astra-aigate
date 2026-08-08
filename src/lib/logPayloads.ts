@@ -38,9 +38,41 @@ function describeOpaqueBinary(value: ArrayBufferView): string {
 export function cloneLogPayload<T>(value: T): T {
   if (value === null || value === undefined) return value;
   if (typeof globalThis.structuredClone === "function") {
-    return globalThis.structuredClone(value);
+    try {
+      return globalThis.structuredClone(value);
+    } catch {
+      // Some payloads legitimately hold non-cloneable values (Promise
+      // instances, locked ReadableStreams, functions) — e.g. a body stream
+      // attached to a response object during logging. structuredClone throws
+      // "could not be cloned" on those; fall back to a safe JSON snapshot so
+      // the copy-on-write logging path never aborts the request pipeline.
+      return safeJsonClone(value);
+    }
   }
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function safeJsonClone<T>(value: T): T {
+  if (typeof value === "function" || typeof value === "symbol") return undefined as unknown as T;
+  if (typeof value === "object" && value !== null) {
+    if (value instanceof Promise) {
+      return { __promise: true } as unknown as T;
+    }
+    if (typeof globalThis.structuredClone === "function") {
+      try {
+        return globalThis.structuredClone(value);
+      } catch {
+        /* fall through to recursive copy */
+      }
+    }
+    if (Array.isArray(value)) return value.map(safeJsonClone) as unknown as T;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = safeJsonClone(v) as unknown as T;
+    }
+    return out as unknown as T;
+  }
+  return value;
 }
 
 export function normalizePayloadForLog(payload: unknown): unknown {
