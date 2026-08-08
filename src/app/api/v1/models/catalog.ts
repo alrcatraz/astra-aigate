@@ -621,17 +621,25 @@ async function buildUnifiedModelsResponseCore(
       if (typeof combo.name !== "string" || combo.name.length === 0) continue;
       if (listedIds.has(combo.name)) continue; // #4164: don't shadow a built-in auto/* id
 
-      // Skip combos whose any underlying target model is hidden
+      // Only skip a combo when EVERY one of its target models is hidden. A
+      // combo that still has at least one visible member is routable and must
+      // stay in the catalog.
+      //
+      // BUG-2 fix: getModelIsHidden is ASYNC — the previous `some(...)` callback
+      // returned the unresolved Promise (always truthy), so every combo was
+      // dropped from the catalog regardless of real visibility, leaving only the
+      // built-in auto/* ids. Await it here so actual hidden state decides.
       const comboTargets = resolveNestedComboTargets(
         combo as Parameters<typeof resolveNestedComboTargets>[0],
         combos as Parameters<typeof resolveNestedComboTargets>[1]
       ) as ComboCatalogTarget[];
-      if (
-        comboTargets.some((target) => {
+      const hiddenFlags = await Promise.all(
+        comboTargets.map(async (target): Promise<boolean> => {
           const resolved = getComboTargetModelId(target);
           return resolved ? getModelIsHidden(resolved.providerId, resolved.modelId) : false;
         })
-      ) {
+      );
+      if (hiddenFlags.every(Boolean)) {
         continue;
       }
 

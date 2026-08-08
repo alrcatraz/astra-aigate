@@ -187,6 +187,18 @@ export async function resolveModelOrError(
     const suffix = modelInfo.model || "";
     const fuzzyCandidates = [`auto/best-${suffix}`, `auto/${suffix}`];
 
+    // Mirror OmniRoute: an `auto/<name>` reference should first resolve to a
+    // user-defined combo named `<name>` (e.g. `auto/cheap` → the custom `cheap`
+    // combo). Only fall through to the built-in auto virtual catalog when no
+    // user combo matches. This keeps custom combos reachable through their bare
+    // name AND an `auto/`-prefixed alias, instead of being shadowed by the
+    // built-in auto/ directory (BUG-2).
+    const suffixCombo = suffix ? await getComboForModel(suffix) : null;
+    if (suffixCombo) {
+      log.info("ROUTING", `"auto/${suffix}" → custom combo "${suffix}"`);
+      return { combo: suffixCombo, provider: "auto", model: suffix };
+    }
+
     const exactCombo = await getComboForModel(modelStr);
     if (exactCombo) {
       log.info("ROUTING", `"auto" provider → combo "${modelStr}"`);
