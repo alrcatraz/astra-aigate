@@ -71,6 +71,10 @@ export async function getDmxapiUsage(
         used: 0,
         total: 0,
         remaining,
+        // #7993 balance tier: presence of credit means the balance is available.
+        // normalizeQuotas() needs a non-0 remainingPercentage or it marks the
+        // provider exhausted (see deepseek.ts L42 for the reference pattern).
+        remainingPercentage: remaining > 0 ? 100 : 0,
         resetAt: null,
         unlimited: remaining <= 0,
         ...(currency ? { currency } : {}),
