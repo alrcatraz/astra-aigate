@@ -7,7 +7,10 @@ export const opencodeProvider: RegistryEntry = {
   executor: "opencode",
   baseUrl: "https://opencode.ai/zen/v1",
   modelsUrl: "https://opencode.ai/zen/v1/models",
-  authType: "apikey",
+  // #7993 / NOAUTH_PROVIDERS: "opencode" (alias "oc") is the no-auth Free tier —
+  // public endpoint, no API key (matches src/shared/constants/providers/noauth.ts).
+  // opencode-go / opencode-zen are the separate apikey gateways.
+  authType: "none",
   authHeader: "Authorization",
   authPrefix: "Bearer",
   passthroughModels: true,
