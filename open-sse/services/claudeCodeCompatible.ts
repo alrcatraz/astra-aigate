@@ -1119,7 +1119,18 @@ function resolveClaudeCodeCompatibleOutputConfig({
 
 function cloneValue<T>(value: T): T {
   if (typeof structuredClone === "function") {
-    return structuredClone(value);
+    try {
+      return structuredClone(value);
+    } catch {
+      // Non-cloneable value (e.g. a Promise from an async source); snapshot
+      // via JSON rather than aborting the request pipeline (same rationale as
+      // payloadRules.cloneValue).
+      try {
+        return JSON.parse(JSON.stringify(value)) as T;
+      } catch {
+        return value;
+      }
+    }
   }
   return JSON.parse(JSON.stringify(value)) as T;
 }
