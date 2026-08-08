@@ -16,7 +16,11 @@
 // introduces new keys and never throws on null/undefined bodies — call sites
 // can chain it without extra guards.
 
-import { getParamFilterConfig, ModelParamFilter, ProviderParamFilter } from "@/lib/db/paramFilters";
+import {
+  getParamFilterConfigSync,
+  ModelParamFilter,
+  ProviderParamFilter,
+} from "@/lib/db/paramFilters";
 import { getProviderModel } from "../config/providerModels.ts";
 
 type StripRule = {
@@ -225,7 +229,11 @@ export function applyConfigFilters(
   snapshot: Record<string, unknown>
 ): void {
   if (!provider || !body) return;
-  const config = getParamFilterConfig(provider);
+  // Executor hot path is synchronous; use the synchronous cache accessor so an
+  // async-ready getParamFilterConfig (PG adapter needs a DB await) is never
+  // mistaken for config and iterated. Falls back to null until the cache is
+  // warm — filters still apply on the next request once loaded.
+  const config = getParamFilterConfigSync(provider);
   if (!config) return;
 
   applyProviderLevelFilters(body, snapshot, config);
