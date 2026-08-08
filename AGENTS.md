@@ -189,6 +189,18 @@ new `AIGATE_*` names. This set is exactly: `AIGATE_BASE_PATH` /
 `docker-compose.yml`, `.env`, or `docker run -e` that still reads
 `OMNIROUTE_*` is a bug (see `check-env-doc-sync`).
 
+**Host-network deployment (2026-08-08):** astra-aigate 现用 `--network host`
+（容器共享宿主栈，替代 pasta + `-p 20128:20128`；为访问宿主 3001/3002/3003
+MCP 服务 + SearXNG/Camofox）。关键运维约束（均被生产踩坑）：
+
+- `--env-file` 只在 `podman run`（创建）时读取，**`podman restart` 不重读** → 改
+  `~/aigate-env-keep.env` 后必须 `rm + run` 重建。
+- host 网络下 `DATABASE_URL` 用 `127.0.0.1:55432`（非 `host.containers.internal`）；
+  astra-pg `*:55432` 监听，pg_hba `127.0.0.1/32 trust` + `all all scram`——容器来源
+  非回环走 scram，密码必须正确。
+- ⚠️ **禁止用 patch/脱敏编辑含密码的 env 值**（会变 `***` 破坏密码）→ 用
+  execute_code + 从备份恢复；改 env 后重建容器。
+
 ## CLAUDE.md
 
 Deliberately removed. This project uses standard AGENTS.md only
