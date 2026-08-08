@@ -111,6 +111,22 @@ export function classifyRoute(rawPath: string, method: string = "GET"): RouteCla
       };
     }
 
+    // /api/svc/* is the service reverse-proxy gateway. Each routed service
+    // declares its own auth (auth_type / required_scope), so it must NOT be
+    // blanket-guarded by the management policy here — that would 401 anonymous
+    // callers before the svc route's bridge (which knows the service row and its
+    // auth) ever runs. Classify it PUBLIC so every request reaches the bridge;
+    // the bridge then enforces per-service auth (BUG-3 fix): public services
+    // (auth_type===none && !required_scope) pass anonymously, others still
+    // require an API key / management session.
+    if (normalizedPath === "/api/svc" || normalizedPath.startsWith("/api/svc/")) {
+      return {
+        routeClass: "PUBLIC",
+        reason: "service_gateway_public",
+        normalizedPath,
+      };
+    }
+
     return {
       routeClass: "MANAGEMENT",
       reason: "management_api",
