@@ -59,7 +59,20 @@ function toArray<T>(value: unknown): T[] {
 }
 
 function cloneValue<T>(value: T): T {
-  return structuredClone(value);
+  try {
+    return structuredClone(value);
+  } catch {
+    // A params value can legitimately be a Promise if an async settings source
+    // handed it through unresolved (async migration residue). structuredClone
+    // throws DataCloneError ("#<Promise> could not be cloned") on it, which
+    // bubbled up and 502'd every chat request. Fall back to a JSON snapshot so
+    // the clone never aborts the routing pipeline.
+    try {
+      return JSON.parse(JSON.stringify(value)) as T;
+    } catch {
+      return value;
+    }
+  }
 }
 
 function clonePayloadRulesConfig(config: PayloadRulesConfig): PayloadRulesConfig {
@@ -412,6 +425,21 @@ export function applyPayloadRules(
   protocol: string | string[],
   rules: PayloadRulesConfig
 ) {
+  // Short-circuit when no rules are configured at all: return the caller's
+  // payload untouched. cloneValue() below is only safe to run when a rule is
+  // actually going to apply — on empty config it used to run anyway and, when
+  // the runtime body held a non-cloneable/non-serializable value (async
+  // migration residue), structuredClone → JSON.stringify could mangle the body
+  // down to a bare { model } (live chat regression). An empty rule set must be
+  // a strict no-op.
+  if (
+    (!rules.default || rules.default.length === 0) &&
+    (!rules.defaultRaw || rules.defaultRaw.length === 0) &&
+    (!rules.override || rules.override.length === 0) &&
+    (!rules.filter || rules.filter.length === 0)
+  ) {
+    return { payload, applied: [] as AppliedPayloadRule[] };
+  }
   const normalizedPayload = cloneValue(payload);
   const protocols = toPayloadRuleProtocols(protocol);
   const applied: AppliedPayloadRule[] = [];

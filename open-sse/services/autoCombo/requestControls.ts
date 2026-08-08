@@ -4,9 +4,9 @@
  * These let a caller steer an `auto` combo on a single request via response-safe
  * request headers, without changing the combo's stored config:
  *
- *   X-AI Gate-Mode:            fast | balanced | quality | <raw mode-pack name>  (#6024/#6025)
- *   X-AI Gate-Budget:          <max USD per request>                             (#6023)
- *   X-AI Gate-Budget-Fallback: cheapest | strict                                 (#3470)
+ *   X-AI-Gate-Mode:            fast | balanced | quality | <raw mode-pack name>  (#6024/#6025)
+ *   X-AI-Gate-Budget:          <max USD per request>                             (#6023)
+ *   X-AI-Gate-Budget-Fallback: cheapest | strict                                 (#3470)
  *
  * All resolvers are pure so they can be unit-tested and reused by the entry
  * handler (src/sse/handlers/chat.ts) and the combo router (open-sse/services/combo.ts).
@@ -42,7 +42,7 @@ export interface RequestModePack {
 }
 
 /**
- * Resolve the `X-AI Gate-Mode` header value into a mode-pack override.
+ * Resolve the `X-AI-Gate-Mode` header value into a mode-pack override.
  *
  * - A friendly alias (`fast`, `quality`, `cheap`, …) or a raw mode-pack name
  *   (`ship-fast`, `quality-first`, …) → `{ override: true, modePack: <name> }`.
@@ -65,7 +65,7 @@ export function resolveRequestModePack(input: unknown): RequestModePack {
 }
 
 /**
- * Parse the `X-AI Gate-Budget` header into a hard per-request cost ceiling (USD).
+ * Parse the `X-AI-Gate-Budget` header into a hard per-request cost ceiling (USD).
  * Only a finite, strictly-positive amount is accepted; anything else returns
  * `undefined` so the combo's own stored `budgetCap` (if any) stays in effect.
  */
@@ -80,7 +80,7 @@ export function parseRequestBudgetCap(input: unknown): number | undefined {
 export type RequestBudgetFallback = "cheapest" | "strict";
 
 /**
- * Parse the `X-AI Gate-Budget-Fallback` header into a budget-fallback policy override.
+ * Parse the `X-AI-Gate-Budget-Fallback` header into a budget-fallback policy override.
  * Unknown/empty/non-string values return `undefined` so the combo's own stored
  * `config.budgetFallback` (or the engine default of `"cheapest"`) stays in effect.
  */

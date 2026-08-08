@@ -141,6 +141,26 @@ export async function getParamFilterConfig(provider: string): Promise<ProviderPa
 }
 
 /**
+ * Synchronous, cache-only accessor for the executor hot path.
+ *
+ * The async `getParamFilterConfig` needs a DB await under the PG adapter, so a
+ * synchronous caller that forgets to `await` it would read a Promise and then
+ * crash iterating `config.block` ("f.block is not iterable"). This accessor
+ * reads only the module-level cache: when it is already warm it returns the
+ * exact same map synchronously (zero behavioural change after startup); when
+ * not yet loaded (first tick / fresh process) it triggers an async warm and
+ * returns null so the caller skips DB-driven filters this one tick instead of
+ * aborting the request. Filters apply from the next request on.
+ */
+export function getParamFilterConfigSync(provider: string): ProviderParamFilter | null {
+  if (filterCache !== null) {
+    return filterCache.get(provider) ?? null;
+  }
+  void loadParamFilterConfigs().catch(() => {});
+  return null;
+}
+
+/**
  * Upsert the entire param filter config for a provider.
  * Invalidates the in-memory cache.
  */

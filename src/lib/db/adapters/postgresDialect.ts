@@ -470,7 +470,12 @@ export function translateSqliteToPostgres(
   out = rewriteTimeFns(out);
   // COLLATE NOCASE → LOWER(<expr>). PostgreSQL has no NOCASE collation;
   // lowering the expression reproduces case-insensitive ordering/comparison.
-  out = out.replace(/([A-Za-z_][A-Za-z0-9_.]*|"[^"]+")\s+COLLATE\s+NOCASE\b/gi, "LOWER($1)");
+  // Handles bare identifiers, quoted identifiers, and `?` placeholders (the
+  // combos route queries use `name = ? COLLATE NOCASE`).
+  out = out.replace(
+    /((?:[A-Za-z_][A-Za-z0-9_.]*)|(?:"[^"]+")|\?)\s+COLLATE\s+NOCASE\b/gi,
+    "LOWER($1)"
+  );
   // SQLite accepts double-quoted string literals in DEFAULT (e.g. DEFAULT
   // "upstream"); PostgreSQL treats them as identifiers. Rewrite to single quotes.
   out = out.replace(/\bDEFAULT\s*"([^"]+)"/gi, "DEFAULT '$1'");

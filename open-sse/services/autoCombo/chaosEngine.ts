@@ -444,9 +444,9 @@ export async function handleChaosChat(opts: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
-      "X-AI Gate-Chaos": "true",
-      "X-AI Gate-Chaos-Panel": String(panel.length),
-      "X-AI Gate-Chaos-Primary": primaryModel ?? "",
+      "X-AI-Gate-Chaos": "true",
+      "X-AI-Gate-Chaos-Panel": String(panel.length),
+      "X-AI-Gate-Chaos-Primary": primaryModel ?? "",
     },
   });
 }

@@ -96,6 +96,15 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
    Keep ALL new DB modules async-first; never add a synchronous `db.prepare()`
    call that returns a Promise consumed synchronously (`.map`/`for…of` on an
    un-awaited result is the recurring PG runtime failure mode).
+   8a. **Chat pipeline integrity (2026-08-08): `translateRequest` must NEVER strip
+   the conversation.** `applyThinkingBudget` (open-sse/translator/index.ts) had a
+   production-runtime regression that reduced chat bodies to a bare `{model}`
+   (upstream 400 `missing messages`) while reproducing as correct in every local
+   form (real prod PG data, all thinking modes, compiled bundle). A HARDEN guard
+   now falls back to the original body if the budget pass loses `messages`.
+   Lesson: production-runtime-only regressions may be un-reproducible offline —
+   isolate with per-transform probes + a real production request (see PLAN.md
+   "v1 chat 丢失 messages" recap) rather than repeated local simulation.
 9. MCP gateway (3.x): one server exposing MULTIPLE MCP endpoints (NOT a tool
    merge pool). Registry `mcp_servers` table; `kind` = pure connection
    semantics `builtin|stdio|http` (never a brand name). Preset group id

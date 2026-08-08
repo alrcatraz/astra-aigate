@@ -4591,7 +4591,7 @@ export async function handleChatCore({
       compressionResponseMeta,
       comboStrategy,
     });
-    // #6426: align response body `model` with the `X-AI Gate-Model` header
+    // #6426: align response body `model` with the `X-AI-Gate-Model` header
     // (both must be the resolved backend model). Some upstreams (notably legacy
     // /v1/completions text-completion path) return a body `model` field that
     // differs from the resolved backend id we advertised in the header, leaving

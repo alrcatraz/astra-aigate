@@ -103,8 +103,8 @@ describe("handleChaosChat", () => {
       models: ["a/gpt", "b/opus"],
       handleSingleModel: handle,
     });
-    expect(res.headers.get("X-AI Gate-Chaos")).toBe("true");
-    expect(res.headers.get("X-AI Gate-Chaos-Panel")).toBe("2");
+    expect(res.headers.get("X-AI-Gate-Chaos")).toBe("true");
+    expect(res.headers.get("X-AI-Gate-Chaos-Panel")).toBe("2");
     const body = await res.text();
     // each model gets a broadcast event
     expect(body.match(/event: omni-chaos-part/g)?.length).toBe(2);

@@ -90,7 +90,7 @@ export async function executeRecordedTriageChatCompletion(
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
-          ...(routingPolicy ? { "X-AI Gate-Mode": routingPolicy } : {}),
+          ...(routingPolicy ? { "X-AI-Gate-Mode": routingPolicy } : {}),
         },
         body: JSON.stringify({
           model: resolveModel(input),

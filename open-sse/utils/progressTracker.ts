@@ -4,7 +4,7 @@ const decoder = new TextDecoder();
  * Progress Tracker — Phase 9.3
  *
  * Emits SSE `event: progress` events during long streaming responses.
- * Opt-in via X-AI Gate-Progress: true header.
+ * Opt-in via X-AI-Gate-Progress: true header.
  *
  * Progress events contain:
  *   { tokens_generated, elapsed_ms }

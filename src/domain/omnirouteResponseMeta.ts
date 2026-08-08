@@ -80,11 +80,11 @@ export function formatOmniRouteCost(costUsd: unknown): string {
 }
 
 /**
- * Build the `X-AI Gate-Decision` composite header value: `strategy=<name>;
+ * Build the `X-AI-Gate-Decision` composite header value: `strategy=<name>;
  * provider=<alias>; latency_ms=<n>`. Returns `null` when both `strategy` and
  * `provider` are absent/blank (mirrors the per-field guard pattern used for the
  * other optional headers). Reuses `getProviderAlias()` for the provider segment
- * (same alias normalization the `X-AI Gate-Provider` header already applies)
+ * (same alias normalization the `X-AI-Gate-Provider` header already applies)
  * and `toNonNegativeInteger()` for latency. The whole formatted string is passed
  * through `toHeaderValue()` before returning, so a strategy/provider id
  * containing control chars cannot corrupt the header line (Hard Rule #12 — this
@@ -130,7 +130,7 @@ export function buildOmniRouteResponseMetaHeaders({
    * Cost the cache AVOIDED. A semantic-cache HIT serves at ≈0 incremental cost
    * (`costUsd: 0`) but saved the original call's cost — surface it here so billing
    * consumers don't charge for hits while analytics can still see what was saved.
-   * Emitted as `X-AI Gate-Cost-Saved` only when provided (omitted on normal
+   * Emitted as `X-AI-Gate-Cost-Saved` only when provided (omitted on normal
    * responses); pass `0` to explicitly mark a free-model HIT that saved nothing.
    */
   costSavedUsd?: unknown;
@@ -141,7 +141,7 @@ export function buildOmniRouteResponseMetaHeaders({
   requestId?: string | null;
   /**
    * Routing decision (combo strategy name, or `"single"` for a non-combo
-   * request) surfaced via `X-AI Gate-Decision`. See #6022.
+   * request) surfaced via `X-AI-Gate-Decision`. See #6022.
    */
   strategy?: string | null;
   usage?: UsageLike;
@@ -201,7 +201,7 @@ export function buildOmniRouteSseMetadataComment(
 }
 
 /**
- * Single choke-point for attaching the X-AI Gate-* response meta headers.
+ * Single choke-point for attaching the X-AI-Gate-* response meta headers.
  * Mutates `headers` in place (accepts a Headers instance OR a plain Record).
  * Use at EVERY non-streaming success return so no route forgets the telemetry.
  */
@@ -218,7 +218,7 @@ export function attachOmniRouteMetaHeaders(
 }
 
 /**
- * Attach the X-AI Gate-* meta headers onto an already-built Response, ADDING
+ * Attach the X-AI-Gate-* meta headers onto an already-built Response, ADDING
  * (never replacing) headers so the original Content-Type / body stay intact.
  * Tries to mutate in place; if the Response headers are immutable, clones the
  * Response carrying over body + status + headers (mirrors
