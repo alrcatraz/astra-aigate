@@ -3,6 +3,30 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.4.4] — PG 模式收敛 + 空对象修复 (2026-08-09)
+
+Phase 2 (Provider Access Layer) 修复收敛：PostgreSQL 模式下媒体提供商列表、combo
+构建、WebSocket 绑定、权限同步的四类问题全数修复，并定位/修复媒体模型列表空对象的系统性根因。
+
+### Fixed
+
+- **WS 绑定**: `fix(ws)` — 绑定 0.0.0.0 时自动接受 loopback/LAN origin（`cb63c2e6`，Combo Studio「实时已禁用」）
+- **模型静默丢失（Systematic Async bug）**: `fix(catalog)` — `getModelIsHidden` 等 13 处 async 检查未 await，导致 provider 模型被静默 drop（`f01b25d5`）
+- **同型 async bug**: `fix(authz)` — key 权限与别名同步的 hidden 检查未 await（`4dea8ca1`）；`fix(combo)` — combo builder 的 hidden/capability 查询未 await（`03b91cda`）；`fix(models)` — persisting synced models 的 deleted 检查未 await（`01af7d05`）
+- **空对象根因（最关键）**: `fix(catalog)` — `catalogResponse.ts` 的 `enrichCatalogModelEntry`（async）在 `array.map` 里未 await，被序列化成 `{}`，导致 `/v1/providers/{id}/models` 的 `owned_by` filter 得 0、媒体页 embedding 只显示一种（`4640345d`）。修复后 `/v1/models` 1361 模型 0 空对象，硅基流动 embedding 全显（含 bge-m3）
+- **媒体 UI 同步**: `fix(media)` — provider detail/card 的 service-kind UI 与 media registries 对齐（`ca6a5002`）
+
+### Chore
+
+- 版本 bump 0.4.4（`f51e0c30`）
+
+### 验证
+
+- 本机回归: PG 模式 `/v1/models`=1361 全非空、combo 48 个、WS 0.0.0.0:20132、searxng/camofox up
+- 双端推送（gitea + github）+ tag `v0.4.4`
+
+---
+
 ## [Unreleased]
 
 ### Added
