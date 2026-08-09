@@ -3,6 +3,48 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.5.0] — Skill Hub + routing fixes (2026-08-09)
+
+Skill Hub (M0-M5): multi-source skill aggregation with sources, artifacts,
+and navigation. Routing fixes for manual model weight and PG bootstrap.
+
+### Added
+
+- **Skill Hub**: multi-source skill aggregation — pull skills from git repos
+  (tarball), SSH hosts, or built-in catalogs; register sources, discover and
+  install skills, package dependency-aware artifacts for AI agents
+  (`48be66a0`)
+- Skill sources dashboard page + `/api/skills` sources/artifacts routes +
+  DB migration 138 (`skill_sources`)
+- Data-driven sidebar order: LLM → Skill → MCP → services (`sections.ts`,
+  `types.ts` registration fix for `skill-sources`)
+- `docs/reference/WS_TROUBLESHOOTING.md` — WebSocket failure runbook
+  (loopback bind vs LAN exposure, Origin allow-list 4003, missing-token 4001,
+  why curl's 101 is not proof of a healthy connection) (`21121f44`)
+
+### Fixed
+
+- `fix(combos)`: manual/batch model additions defaulted `weight: 0` — the
+  weighted strategy never selected them. Now `weight: 1` (`8e12f1d2`)
+- `fix(db)`: `featureFlags.syncAll` awaited instead of fire-and-forget; PG
+  bootstrap waits for connectivity with clearer failures; regex fix for the
+  doubled-backslash schema match (`79fc6667`)
+
+### Chore
+
+- Privacy scrub: internal device names and LAN IPs replaced with neutral
+  examples across docs, CLI, tests, migration seed data (`37ddc271`)
+- `.gitignore` ignores auto-generated SQLite backups (`86f8d225`)
+- Version bump 0.5.0
+
+### 验证
+
+- typecheck clean (sections.ts/types.ts zero errors); smoke 18/18 (historical)
+- v102 production deploy verified: Skill Hub pages 200, WS Origin allow-list
+  (LAN/domain allowed, evil.com 4003), migrations 136/137/138 applied
+
+---
+
 ## [0.4.4] — PG 模式收敛 + 空对象修复 (2026-08-09)
 
 Phase 2 (Provider Access Layer) 修复收敛：PostgreSQL 模式下媒体提供商列表、combo
