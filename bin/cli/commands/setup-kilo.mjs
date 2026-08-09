@@ -61,7 +61,11 @@ export function buildKiloAuth(existing, { apiKey, baseUrl, model }) {
 /** Merge the kilocode.* keys into VS Code settings.json (extension surface). */
 export function buildKiloVscodeSettings(existing, { apiKey, baseUrl, model }) {
   const s = { ...(existing || {}) };
-  s["kilocode.customProvider"] = { name: "OmniRoute", baseURL: baseUrl, apiKey: apiKey || "sk_omniroute" };
+  s["kilocode.customProvider"] = {
+    name: "OmniRoute",
+    baseURL: baseUrl,
+    apiKey: apiKey || "sk_omniroute",
+  };
   s["kilocode.defaultModel"] = model;
   return s;
 }
@@ -85,7 +89,7 @@ async function fetchModelIds(root, apiKey) {
     });
     if (!res.ok) return [];
     const body = await res.json();
-    const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+    const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
     return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
   } catch {
     return [];
@@ -95,9 +99,14 @@ async function fetchModelIds(root, apiKey) {
 export async function runSetupKiloCommand(opts = {}) {
   const { baseUrl, apiKey } = resolveKiloTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const authPath = opts.authPath ?? opts["auth-path"] ?? join(os.homedir(), ".local", "share", "kilo", "auth.json");
+  const authPath =
+    opts.authPath ??
+    opts["auth-path"] ??
+    join(os.homedir(), ".local", "share", "kilo", "auth.json");
   const vscodePath =
-    opts.vscodeSettings ?? opts["vscode-settings"] ?? join(os.homedir(), ".config", "Code", "User", "settings.json");
+    opts.vscodeSettings ??
+    opts["vscode-settings"] ??
+    join(os.homedir(), ".config", "Code", "User", "settings.json");
 
   printHeading("OmniRoute → Kilo Code (OpenAI-compatible)");
   printInfo(`Server: ${baseUrl}`);
@@ -116,7 +125,9 @@ export async function runSetupKiloCommand(opts = {}) {
     }
   }
   if (!model) {
-    printError("A model is required. Pass --model <id> (Kilo's extension has no model auto-discovery).");
+    printError(
+      "A model is required. Pass --model <id> (Kilo's extension has no model auto-discovery)."
+    );
     return 2;
   }
 
@@ -132,12 +143,19 @@ export async function runSetupKiloCommand(opts = {}) {
     console.log(`\n── [dry-run] ${authPath} ──`);
     console.log(
       JSON.stringify(
-        { "openai-compatible": { ...auth["openai-compatible"], apiKey: apiKey ? "set" : "sk_omniroute" } },
+        {
+          "openai-compatible": {
+            ...auth["openai-compatible"],
+            apiKey: apiKey ? "set" : "sk_omniroute",
+          },
+        },
         null,
         2
       )
     );
-    console.log(`\n── [dry-run] ${vscodePath} ── ${vscodeExists ? "(would merge kilocode.* keys)" : "(skipped — file absent)"}`);
+    console.log(
+      `\n── [dry-run] ${vscodePath} ── ${vscodeExists ? "(would merge kilocode.* keys)" : "(skipped — file absent)"}`
+    );
   } else {
     mkdirSync(join(authPath, ".."), { recursive: true });
     writeFileSync(authPath, JSON.stringify(auth, null, 2) + "\n", "utf8");
@@ -164,11 +182,17 @@ export function registerSetupKilo(program) {
       "Configure Kilo Code for OmniRoute: write ~/.local/share/kilo/auth.json (CLI) + VS Code kilocode.* settings"
     )
     .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
+    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.1.100:20128")
     .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
     .option("--model <id>", "Model id for Kilo (required unless picked interactively)")
-    .option("--auth-path <path>", "Kilo CLI auth.json path (default: ~/.local/share/kilo/auth.json)")
-    .option("--vscode-settings <path>", "VS Code settings.json (default: ~/.config/Code/User/settings.json)")
+    .option(
+      "--auth-path <path>",
+      "Kilo CLI auth.json path (default: ~/.local/share/kilo/auth.json)"
+    )
+    .option(
+      "--vscode-settings <path>",
+      "VS Code settings.json (default: ~/.config/Code/User/settings.json)"
+    )
     .option("--yes", "Non-interactive: do not prompt (requires --model)")
     .option("--dry-run", "Print what would be written without touching the filesystem")
     .action(async (opts) => {

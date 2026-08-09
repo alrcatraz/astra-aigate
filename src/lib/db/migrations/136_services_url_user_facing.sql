@@ -10,5 +10,5 @@ SET url = 'http://192.168.0.200:9377'
 WHERE id = 'camofox';
 
 UPDATE services
-SET url = 'http://10.30.40.1:8080'
+SET url = 'http://10.0.40.1:8080'
 WHERE id = 'searxng';

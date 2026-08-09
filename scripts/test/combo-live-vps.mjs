@@ -3,7 +3,7 @@
  *
  * Phase-3 VPS HTTP scenario driver for OmniRoute combo routing.
  * Exercises 6 strategies (priority / round-robin / weighted / cost-optimized /
- * fusion / auto) against the live server at 192.168.0.15:20128.
+ * fusion / auto) against the live server at 192.168.1.100:20128.
  *
  * Usage:
  *   node scripts/test/combo-live-vps.mjs
@@ -45,13 +45,13 @@ const BROAD_CANDIDATES = [
 // Models absent from this map are treated as unknown cost (Infinity in the server's
 // sortModelsByCost, i.e. sorted last — effectively "most expensive").
 const KNOWN_INPUT_COST = {
-  "groq/llama-3.1-8b-instant": 0,       // inference-hosts.ts: price=0 (free tier)
-  "groq/llama-3.3-70b-versatile": 0,     // inference-hosts.ts: price=0 (free tier)
-  "cerebras/llama3.1-8b": 0,             // inference-hosts.ts: price=0
-  "cerebras/llama-3.3-70b": 0,           // inference-hosts.ts: price=0
-  "deepseek/deepseek-chat": 0,           // inference-hosts.ts: price=0
-  "minimax/MiniMax-M3": 0.5,             // regional.ts: $0.5/M input
-  "minimax/minimax-m3": 0.5,             // regional.ts: $0.5/M input
+  "groq/llama-3.1-8b-instant": 0, // inference-hosts.ts: price=0 (free tier)
+  "groq/llama-3.3-70b-versatile": 0, // inference-hosts.ts: price=0 (free tier)
+  "cerebras/llama3.1-8b": 0, // inference-hosts.ts: price=0
+  "cerebras/llama-3.3-70b": 0, // inference-hosts.ts: price=0
+  "deepseek/deepseek-chat": 0, // inference-hosts.ts: price=0
+  "minimax/MiniMax-M3": 0.5, // regional.ts: $0.5/M input
+  "minimax/minimax-m3": 0.5, // regional.ts: $0.5/M input
   "kimi-coding-apikey/moonshot-v1-8k": 1, // not in pricing table → Infinity on server → treated pricey
 };
 
@@ -127,14 +127,10 @@ async function step0CacheProbe(healthy) {
     // Attempt immediate chat — expect instant visibility (getComboByName bypasses cache)
     let r = await chat(probeName, { maxTokens: 4 });
     if (r.status === 200 && r.text) {
-      console.log(
-        `  chat() → ${r.status} model=${r.model} text="${r.text.slice(0, 40)}"`
-      );
+      console.log(`  chat() → ${r.status} model=${r.model} text="${r.text.slice(0, 40)}"`);
       console.log("  PROBE RESULT: immediately routable — getComboByName bypasses in-memory cache");
     } else {
-      console.log(
-        `  Immediate chat → status=${r.status} text=${r.text ?? "(empty)"}`
-      );
+      console.log(`  Immediate chat → status=${r.status} text=${r.text ?? "(empty)"}`);
       console.log("  Polling up to 12 s (TTL cache unexpectedly active)...");
       let resolved = false;
       for (let i = 0; i < 6; i++) {
@@ -164,7 +160,9 @@ async function step0CacheProbe(healthy) {
   }
 
   if (blocked) {
-    throw new Error("BLOCKER: sqlite-inserted combo not routable within 12s — cannot run scenarios");
+    throw new Error(
+      "BLOCKER: sqlite-inserted combo not routable within 12s — cannot run scenarios"
+    );
   }
 }
 
@@ -193,7 +191,12 @@ async function scenarioPriority(healthy) {
     }
     pass("priority", `status=200 model=${r.model} text="${r.text.slice(0, 40)}"`);
   } finally {
-    if (id) try { deleteCombo(name); } catch { /* best effort */ }
+    if (id)
+      try {
+        deleteCombo(name);
+      } catch {
+        /* best effort */
+      }
   }
 }
 
@@ -228,9 +231,17 @@ async function scenarioRoundRobin(healthy) {
       );
       return;
     }
-    pass("round-robin", `${served.size} distinct models across 5 calls: [${[...served].join(", ")}]`);
+    pass(
+      "round-robin",
+      `${served.size} distinct models across 5 calls: [${[...served].join(", ")}]`
+    );
   } finally {
-    if (id) try { deleteCombo(name); } catch { /* best effort */ }
+    if (id)
+      try {
+        deleteCombo(name);
+      } catch {
+        /* best effort */
+      }
   }
 }
 
@@ -277,7 +288,12 @@ async function scenarioWeighted(healthy) {
     }
     pass("weighted", `8 calls distribution: ${JSON.stringify(tally)}`);
   } finally {
-    if (id) try { deleteCombo(name); } catch { /* best effort */ }
+    if (id)
+      try {
+        deleteCombo(name);
+      } catch {
+        /* best effort */
+      }
   }
 }
 
@@ -354,7 +370,12 @@ async function scenarioCostOptimized(healthy) {
       `cheaper model served: ${r.model} (cheap=${cheapModel}@$${KNOWN_INPUT_COST[cheapModel]}, pricey=${priceyModel}@$${KNOWN_INPUT_COST[priceyModel]})`
     );
   } finally {
-    if (id) try { deleteCombo(name); } catch { /* best effort */ }
+    if (id)
+      try {
+        deleteCombo(name);
+      } catch {
+        /* best effort */
+      }
   }
 }
 
@@ -399,7 +420,12 @@ async function scenarioFusion(healthy) {
     }
     pass("fusion", `synthesized text="${r.text.slice(0, 60)}" served-model=${r.model}`);
   } finally {
-    if (id) try { deleteCombo(name); } catch { /* best effort */ }
+    if (id)
+      try {
+        deleteCombo(name);
+      } catch {
+        /* best effort */
+      }
   }
 }
 
@@ -543,7 +569,10 @@ async function scenarioFailover(healthy) {
     }
 
     if (!r.text) {
-      fail("failover", `status=200 but empty text — fallover may have served a no-content response`);
+      fail(
+        "failover",
+        `status=200 but empty text — fallover may have served a no-content response`
+      );
       return;
     }
 

@@ -60,7 +60,7 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
   branches as deliverables; never have the build machine pull feature
   branches** (bypasses the PR review line). If development is missing at
   wrap-up, rebuild + dual-push it from main.
-- Build machine (SUSETLearn00) pulls Gitea main — symptom check: UI
+- Build machine pulls Gitea main — symptom check: UI
   brand/feature mismatch with code = the changed branch was never merged
   to what the build machine pulls (or the build tree is stale), not "code
   not changed".

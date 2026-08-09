@@ -8,7 +8,7 @@
 # The image builds on the openSUSE Leap 16.0 base (see Dockerfile). The webpack
 # build step needs ~8 GB of V8 heap, which is why AIGATE_BUILD_MEMORY_MB=8192
 # is passed through. GitHub-hosted ubuntu-latest runners (16 GB) can run this
-# in a single job; the manual build machine (SUSETLearn00) remains the fallback
+# in a single job; the dedicated manual build machine remains the fallback
 # for local verification.
 #
 # Gitea CI is intentionally NOT configured (2026-08-06): the NAS-hosted
