@@ -16,6 +16,9 @@ const KIND_ICON: Record<ServiceKind, string> = {
   video: "videocam",
   music: "music_note",
   ocr: "document_scanner",
+  moderation: "gpp_maybe",
+  rerank: "low_priority",
+  audioTranslation: "translate",
 };
 
 interface ServiceKindTabsProps {

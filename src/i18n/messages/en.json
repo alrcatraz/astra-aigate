@@ -10332,7 +10332,15 @@
     "assistant": "Assistant",
     "errorLabel": "Error",
     "requestFailed": "Request failed",
-    "stop": "Stop"
+    "stop": "Stop",
+    "rerank": "Rerank",
+    "moderation": "Moderation",
+    "audioTranslation": "Audio Translation",
+    "documents": "Documents",
+    "topN": "Top N",
+    "rerankQuerySample": "What is the capital of France?",
+    "documentsSample": "Paris is the capital of France\nBerlin is the capital of Germany",
+    "moderationSample": "I am going to hurt myself. Please help."
   },
   "requestLogger": {
     "recording": "Recording",
