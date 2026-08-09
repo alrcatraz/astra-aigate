@@ -332,7 +332,7 @@ export function computeBatchAddModelSteps(
     const nextEntry: ComboBuilderDraftModelStep = {
       model: qualifiedModel,
       ...(resolvedProviderId ? { providerId: resolvedProviderId } : {}),
-      weight: 0,
+      weight: 1,
     };
     if (hasExactModelStepDuplicate(next, nextEntry)) continue;
     next.push(nextEntry);

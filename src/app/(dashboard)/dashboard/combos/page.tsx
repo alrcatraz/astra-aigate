@@ -2477,7 +2477,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     const nextEntry = {
       model: qualifiedModel,
       ...(resolvedProviderId ? { providerId: resolvedProviderId } : {}),
-      weight: 0,
+      weight: 1,
     };
     if (hasExactModelStepDuplicate(models, nextEntry)) {
       setBuilderError(
