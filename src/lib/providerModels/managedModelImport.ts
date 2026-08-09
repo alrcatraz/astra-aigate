@@ -372,11 +372,13 @@ export async function importManagedModels({
     // — otherwise auto-sync silently re-enables routing for a model the operator hid.
     // Exclude `isHidden` ids from the alias assignment. `pruneMissing` (sync mode)
     // then drops any stale alias an eye-hidden model previously held.
-    const aliasSync = await syncManagedAvailableModelAliases(
-      providerId,
-      aliasModelIds.map((model) => model.id).filter((id) => !getModelIsHidden(providerId, id)),
-      { pruneMissing: mode === "sync" }
-    );
+    const aliasModelIdsVisible = [];
+    for (const id of aliasModelIds.map((model) => model.id)) {
+      if (!(await getModelIsHidden(providerId, id))) aliasModelIdsVisible.push(id);
+    }
+    const aliasSync = await syncManagedAvailableModelAliases(providerId, aliasModelIdsVisible, {
+      pruneMissing: mode === "sync",
+    });
     syncedAliases = aliasSync.assignedAliases.length;
   }
 
