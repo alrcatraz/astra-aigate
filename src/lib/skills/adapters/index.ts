@@ -28,6 +28,7 @@ const FACTORIES = new Map<SkillSourceKind, (inst: SkillSourceInstance) => SkillS
         displayName: i.name,
         repoUrl: i.url ?? "",
         skillsPath: i.skillsPath,
+        tokenEnv: i.credentialRef,
       }),
   ],
   [
@@ -39,6 +40,7 @@ const FACTORIES = new Map<SkillSourceKind, (inst: SkillSourceInstance) => SkillS
         displayName: i.name,
         repoUrl: i.url ?? "",
         skillsPath: i.skillsPath,
+        tokenEnv: i.credentialRef,
       }),
   ],
 ]);

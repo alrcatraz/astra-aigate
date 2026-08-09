@@ -125,38 +125,77 @@ export class GitRepoAdapter implements SkillSourceAdapter {
   async discover(): Promise<SkillMeta[]> {
     const { dir, commitSha } = await this.fetchTarballOnce();
     try {
-      const skillsRoot = path.join(dir, this.skillsPath);
-      let items: import("node:fs").Dirent[];
+      const skillRoot = path.join(dir, this.skillsPath);
       try {
-        items = await fs.readdir(skillsRoot, { withFileTypes: true });
+        await fs.readdir(skillRoot, { withFileTypes: true });
       } catch {
         return []; // skills 目录不存在 → 无已结构化的技能（仍需智能体分析全仓）
       }
       const metas: SkillMeta[] = [];
-      for (const item of items) {
-        const skillDir = path.join(skillsRoot, item.name);
-        const skillMdFile = item.isDirectory()
-          ? path.join(skillDir, "SKILL.md")
-          : item.name.endsWith(".md")
-            ? skillDir
-            : null;
-        if (!skillMdFile) continue;
-        try {
-          const content = await fs.readFile(skillMdFile, "utf8");
-          const fm = parseFrontmatter(content);
-          if (!fm.name) continue;
-          metas.push({
-            name: fm.name,
-            version: fm.version,
-            description: fm.description,
-            externalId: `${this.id}::${item.name}`,
-            ref: this.skillsPath,
-            artifact: "agentskill",
-            sourceUrl: this.sanitizedRepoUrl(),
-            commitSha: commitSha ?? undefined,
-          });
-        } catch {
-          /* 跳过无法读取的条目 */
+      // 递归收集 SKILL.md（支持 skills/<category>/<skill>/SKILL.md 嵌套布局，
+      // 如 aiagent-infra 的 skills/devops/）。限制深度防误扫深层文档。
+      const pending: string[] = [skillRoot];
+      for (let depth = 0; pending.length > 0 && depth < 6; depth++) {
+        const level = pending.splice(0);
+        for (const p of level) {
+          let children: import("node:fs").Dirent[];
+          try {
+            children = await fs.readdir(p, { withFileTypes: true });
+          } catch {
+            continue; // 目录不存在/不可读 → 跳过
+          }
+          for (const item of children) {
+            const childPath = path.join(p, item.name);
+            if (item.isDirectory()) {
+              const hasSkillMd = await fs
+                .stat(path.join(childPath, "SKILL.md"))
+                .then(() => true)
+                .catch(() => false);
+              if (hasSkillMd) {
+                // 本目录即 skill 目录（skills/<skill>/SKILL.md 或 skills/<cat>/<skill>/SKILL.md）
+                const skillMdFile = path.join(childPath, "SKILL.md");
+                try {
+                  const content = await fs.readFile(skillMdFile, "utf8");
+                  const fm = parseFrontmatter(content);
+                  if (fm.name) {
+                    metas.push({
+                      name: fm.name,
+                      version: fm.version,
+                      description: fm.description,
+                      externalId: `${this.id}::${item.name}`,
+                      ref: this.skillsPath,
+                      artifact: "agentskill",
+                      sourceUrl: this.sanitizedRepoUrl(),
+                      commitSha: commitSha ?? undefined,
+                    });
+                  }
+                } catch {
+                  /* 跳过无法读取的条目 */
+                }
+              } else {
+                pending.push(childPath); // 中间层（如 skills/devops/）→ 继续深入
+              }
+              continue;
+            }
+            if (!item.name.endsWith(".md")) continue;
+            try {
+              const content = await fs.readFile(childPath, "utf8");
+              const fm = parseFrontmatter(content);
+              if (!fm.name) continue;
+              metas.push({
+                name: fm.name,
+                version: fm.version,
+                description: fm.description,
+                externalId: `${this.id}::${item.name}`,
+                ref: this.skillsPath,
+                artifact: "agentskill",
+                sourceUrl: this.sanitizedRepoUrl(),
+                commitSha: commitSha ?? undefined,
+              });
+            } catch {
+              /* 跳过无法读取的条目 */
+            }
+          }
         }
       }
       return metas;

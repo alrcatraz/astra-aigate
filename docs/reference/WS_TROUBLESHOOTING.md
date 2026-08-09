@@ -1,3 +1,9 @@
+---
+title: "WebSocket Troubleshooting"
+version: 0.5.0
+lastUpdated: 2026-08-09
+---
+
 # WebSocket Troubleshooting
 
 Operational troubleshooting for the live-dashboard / combo-studio WebSocket
