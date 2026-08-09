@@ -110,25 +110,33 @@ export async function applyCatalogPostFilters(
  * context length for non-combo entries; the quota path passes a no-op because its
  * entries are all `owned_by: "combo"`, which skips enrichment entirely.
  */
-export function finalizeCatalogResponse(
+export async function finalizeCatalogResponse(
   request: Request,
   finalModels: Array<Record<string, unknown>>,
   getContextFallback: (model: Record<string, unknown>) => number | undefined,
   headers: Record<string, string>
-): Response {
+): Promise<Response> {
   const includeModelNames = isModelCatalogNamesEnabled();
+  const emptyIn = finalModels.filter(
+    (m: any) => m && typeof m === "object" && Object.keys(m).length === 0
+  ).length;
   const enrichedModels = disambiguateCatalogModelNames(
-    finalModels.map((model) => {
-      if (model.owned_by === "combo") {
-        return maybeOmitCatalogModelName(model, includeModelNames);
-      }
-      const enriched = enrichCatalogModelEntry(model);
-      const fallbackContextLength = getContextFallback(enriched);
-      const listedModel = fallbackContextLength
-        ? { ...enriched, context_length: fallbackContextLength }
-        : enriched;
-      return maybeOmitCatalogModelName(listedModel, includeModelNames);
-    })
+    await Promise.all(
+      finalModels.map(async (model) => {
+        if (model.owned_by === "combo") {
+          return maybeOmitCatalogModelName(model, includeModelNames);
+        }
+        // enrichCatalogModelEntry is async — await it. Without await the value
+        // is a Promise, which serialised to {} (BUG: every provider model came
+        // back as an empty object after the catalog started listing them).
+        const enriched = await enrichCatalogModelEntry(model);
+        const fallbackContextLength = getContextFallback(enriched);
+        const listedModel = fallbackContextLength
+          ? { ...enriched, context_length: fallbackContextLength }
+          : enriched;
+        return maybeOmitCatalogModelName(listedModel, includeModelNames);
+      })
+    )
   );
   // Codex CLI compatibility: its model-catalog refresh (codex_models_manager) does
   // GET /v1/models?client_version=<v> and decodes a JSON object with a TOP-LEVEL

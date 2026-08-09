@@ -555,7 +555,7 @@ async function buildUnifiedModelsResponseCore(
           prefixMode,
           aliasToProviderId,
         });
-        return finalizeCatalogResponse(request, quotaFinal, () => undefined, {
+        return await finalizeCatalogResponse(request, quotaFinal, () => undefined, {
           ...corsHeaders,
           ...diagnosticHeaders,
         });
@@ -1481,7 +1481,7 @@ async function buildUnifiedModelsResponseCore(
       return modelId ? getTokenLimit(canonicalId, modelId) : getTokenLimit(canonicalId);
     };
 
-    return finalizeCatalogResponse(request, finalModels, getDefaultContextFallback, {
+    return await finalizeCatalogResponse(request, finalModels, getDefaultContextFallback, {
       ...corsHeaders,
       ...diagnosticHeaders,
     });
