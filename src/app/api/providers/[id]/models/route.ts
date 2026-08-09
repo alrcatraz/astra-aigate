@@ -15,6 +15,7 @@ import {
   getCachedProviderConnectionById,
   getSettings,
   getModelIsHidden,
+  getHiddenModelsByProvider,
   resolveProxyForProvider,
 } from "@/lib/localDb";
 import {
@@ -123,6 +124,21 @@ import {
   fetchCodexGithubCatalogModels,
 } from "./discovery/codex";
 
+/**
+ * Drop hidden models while preserving order. getModelIsHidden is async —
+ * a naive `.filter(m => !getModelIsHidden(...))` compared against the raw
+ * Promise (always truthy → every model hidden) or never awaited (never
+ * filtered), so hidden models either vanish entirely or leak through
+ * depending on side. Await each check here.
+ */
+async function filterExcludeHidden<T extends { id: string }>(
+  models: T[],
+  providerId: string
+): Promise<T[]> {
+  const flags = await Promise.all(models.map((m) => getModelIsHidden(providerId, m.id)));
+  return models.filter((_, i) => !flags[i]);
+}
+
 function toLiveModel(item: Record<string, unknown>): { id: string; name: string } | null {
   const itemId = typeof item.id === "string" ? item.id.trim() : "";
   if (!itemId) return null;
@@ -158,9 +174,7 @@ async function fetchLiveNoAuthModels(
       .filter((model): model is { id: string; name: string } => model !== null);
     if (liveModels.length === 0) return null;
 
-    const visible = excludeHidden
-      ? liveModels.filter((model) => !getModelIsHidden(providerId, model.id))
-      : liveModels;
+    const visible = excludeHidden ? await filterExcludeHidden(liveModels, providerId) : liveModels;
     return NextResponse.json({
       provider: providerId,
       connectionId,
@@ -197,9 +211,7 @@ async function buildNoAuthModelsResponse(
     getModelsByProviderId(providerId) || [],
     getStaticModelsForProvider(providerId) || []
   ).map((model) => ({ id: model.id, name: model.name || model.id }));
-  const visible = excludeHidden
-    ? catalog.filter((model) => !getModelIsHidden(providerId, model.id))
-    : catalog;
+  const visible = excludeHidden ? await filterExcludeHidden(catalog, providerId) : catalog;
   return NextResponse.json({
     provider: providerId,
     connectionId,
@@ -307,11 +319,21 @@ export async function GET(
         payload.models = mergeCustomModels(payload.models);
       }
       if (excludeHidden && payload.models && Array.isArray(payload.models)) {
-        payload.models = payload.models.filter((m: any) => !getModelIsHidden(provider, m.id));
+        payload.models = payload.models.filter(
+          (m: any) => !hiddenSetForProvider.has(typeof m?.id === "string" ? m.id : "")
+        );
       }
       return NextResponse.json(payload, statusConfig);
     };
 
+    // Precompute the hidden set once (getModelIsHidden is async) so the sync
+    // buildResponse filter below can consult it without per-model awaits.
+    let hiddenSetForProvider = new Set<string>();
+    try {
+      hiddenSetForProvider = (await getHiddenModelsByProvider()).get(provider) ?? new Set<string>();
+    } catch {
+      // DB unavailable — leave the set empty (nothing filtered).
+    }
     const connectionId = typeof connection.id === "string" ? connection.id : id;
     const apiKey = typeof connection.apiKey === "string" ? connection.apiKey : "";
     const accessToken = typeof connection.accessToken === "string" ? connection.accessToken : "";
