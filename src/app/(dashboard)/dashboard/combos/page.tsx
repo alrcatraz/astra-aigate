@@ -560,7 +560,7 @@ function getStrategyRecommendationText(t, strategy, field) {
 }
 
 function normalizeModelEntry(entry) {
-  if (typeof entry === "string") return { model: entry, weight: 0 };
+  if (typeof entry === "string") return { model: entry, weight: 1 };
   if (entry?.kind === "combo-ref") {
     return {
       ...entry,
@@ -2458,7 +2458,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       {
         kind: "combo-ref",
         comboName: builderComboRefName,
-        weight: 0,
+        weight: 1,
       },
     ]);
     setBuilderComboRefName("");

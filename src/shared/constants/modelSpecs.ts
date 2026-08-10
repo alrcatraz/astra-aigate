@@ -588,6 +588,7 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsTools: true,
   },
   "deepseek-v4-flash": {
+    aliases: ["deepseek-v4-flash-0731"],
     maxOutputTokens: 384000,
     contextWindow: 1000000,
     thinkingBudgetCap: 380000,

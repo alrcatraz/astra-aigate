@@ -82,7 +82,7 @@ export function buildPrecisionComboModelStep({
   connectionId = null,
   connectionLabel,
   allowedConnectionIds = null,
-  weight = 0,
+  weight = 1,
 }: {
   providerId: string;
   modelId: string;
@@ -148,7 +148,7 @@ export function resolveComboBuilderProviderId(
 export function buildManualComboModelStep({
   value,
   providers = [],
-  weight = 0,
+  weight = 1,
 }: {
   value: unknown;
   providers?: ComboBuilderProviderIdentity[];
