@@ -302,8 +302,8 @@ export async function getSyncedCapabilities(
     return providerCaps?.[modelId] ? { [provider]: { [modelId]: providerCaps[modelId] } } : {};
   }
 
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-  ensureCapabilitiesTable();
+  const db = getAsyncDb();
+  await ensureCapabilitiesTable();
 
   let query = "SELECT * FROM model_capabilities";
   const params: (string | number)[] = [];
@@ -317,7 +317,10 @@ export async function getSyncedCapabilities(
     }
   }
 
-  const rows = raw.prepare(query).all(...params);
+  // Use the async DatabaseAdapter (works in both SQLite and PG modes) instead
+  // of the synchronous `.raw` handle — PostgresAdapter has no sync driver and
+  // throws on `.raw` (BUG: combo builder always errored under DB_DRIVER=postgres).
+  const rows = await db.prepare(query).all(...params);
   const result: CapabilitiesByProvider = {};
 
   for (const row of rows) {

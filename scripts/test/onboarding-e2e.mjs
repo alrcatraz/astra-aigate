@@ -7,7 +7,7 @@
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 
-const BASE = "http://10.30.40.1:20129";
+const BASE = "http://10.0.40.1:20129";
 const OUT = "/tmp/astra-onboarding";
 const PASSWORD = "CHANGEME";
 

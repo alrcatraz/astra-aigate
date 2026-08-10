@@ -218,7 +218,7 @@ export function normalizeComboStep(
         id: buildStepId("combo-ref", comboName, index, target),
         kind: "combo-ref",
         comboName: target,
-        weight: 0,
+        weight: 1,
       };
     }
 
@@ -228,7 +228,7 @@ export function normalizeComboStep(
       kind: "model",
       model: target,
       ...(providerId ? { providerId } : {}),
-      weight: 0,
+      weight: 1,
     };
   }
 

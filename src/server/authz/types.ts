@@ -37,6 +37,7 @@ export type ClassificationReason =
   | "client_api_double_prefix"
   | "management_api"
   | "root_redirect"
+  | "service_gateway_public"
   | "fallback_management";
 
 export interface RouteClassification {

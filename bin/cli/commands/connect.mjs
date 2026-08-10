@@ -31,7 +31,9 @@ export function normalizeBaseUrl(host, port) {
 
 /** Derive a clean context name from a host (strip scheme/port). */
 export function hostLabel(host) {
-  let value = String(host || "").trim().replace(/^https?:\/\//i, "");
+  let value = String(host || "")
+    .trim()
+    .replace(/^https?:\/\//i, "");
   value = value.split("/")[0].split(":")[0];
   return value || "remote";
 }
@@ -48,7 +50,7 @@ async function readErrorMessage(res) {
 export async function runConnectCommand(host, opts = {}) {
   const baseUrl = normalizeBaseUrl(host, opts.port || "20128");
   if (!baseUrl) {
-    printError("A host is required, e.g. omniroute connect 192.168.0.15");
+    printError("A host is required, e.g. omniroute connect 192.168.1.100");
     return 2;
   }
   const name = opts.name || hostLabel(host);

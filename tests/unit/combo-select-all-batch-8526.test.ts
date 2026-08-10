@@ -62,8 +62,9 @@ test("computeBatchAddModelSteps ignores empty/missing values and is a no-op with
   );
   assert.equal(addedAny, true);
   // No matching entry in builderProviders, so providerId falls back to the
-  // provider prefix parsed out of the qualified model string.
-  assert.deepEqual(next, [{ model: "openai/gpt-4o", providerId: "openai", weight: 0 }]);
+  // provider prefix parsed out of the qualified model string. Newly added
+  // steps default to weight 1 so they participate in weighted routing.
+  assert.deepEqual(next, [{ model: "openai/gpt-4o", providerId: "openai", weight: 1 }]);
 
   const existing = [{ model: "openai/gpt-4o", weight: 0 }];
   const noop = builderDraft.computeBatchAddModelSteps(existing, [], []);

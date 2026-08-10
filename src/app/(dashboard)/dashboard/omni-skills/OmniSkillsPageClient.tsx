@@ -9,6 +9,7 @@ import { OmniSkillsList } from "./components/OmniSkillsList";
 import { OmniExecutionsTab } from "./components/OmniExecutionsTab";
 import { OmniSandboxTab } from "./components/OmniSandboxTab";
 import { OmniMarketplaceTab } from "./components/OmniMarketplaceTab";
+import { OmniSourcesTab } from "./components/OmniSourcesTab";
 import type { OmniSkill } from "./components/OmniSkillCard";
 
 interface Execution {
@@ -36,9 +37,9 @@ export function OmniSkillsPageClient(): JSX.Element {
   const [execTotal, setExecTotal] = useState(0);
   const [execTotalPages, setExecTotalPages] = useState(1);
 
-  const [activeTab, setActiveTab] = useState<"skills" | "executions" | "sandbox" | "marketplace">(
-    "skills"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "skills" | "executions" | "sandbox" | "marketplace" | "sources"
+  >("skills");
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [installJson, setInstallJson] = useState("");
   const [installStatus, setInstallStatus] = useState<{
@@ -188,11 +189,15 @@ export function OmniSkillsPageClient(): JSX.Element {
   const successRate =
     executions.length > 0 ? Math.round((execSuccessCount / executions.length) * 100) : 0;
 
-  const tabs: { id: "skills" | "executions" | "sandbox" | "marketplace"; labelKey: string }[] = [
+  const tabs: {
+    id: "skills" | "executions" | "sandbox" | "marketplace" | "sources";
+    labelKey: string;
+  }[] = [
     { id: "skills", labelKey: "skillsTab" },
     { id: "executions", labelKey: "executionsTab" },
     { id: "sandbox", labelKey: "sandboxTab" },
     { id: "marketplace", labelKey: "marketplaceTab" },
+    { id: "sources", labelKey: "sourcesTab" },
   ];
 
   return (
@@ -211,9 +216,7 @@ export function OmniSkillsPageClient(): JSX.Element {
           <p className="text-2xl font-bold text-emerald-400 mt-1">{enabledCount}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs text-text-muted uppercase tracking-wide">
-            {t("totalExecutions")}
-          </p>
+          <p className="text-xs text-text-muted uppercase tracking-wide">{t("totalExecutions")}</p>
           <p className="text-2xl font-bold text-violet-400 mt-1">{execTotal}</p>
         </Card>
         <Card className="p-4">
@@ -305,6 +308,8 @@ export function OmniSkillsPageClient(): JSX.Element {
       {activeTab === "marketplace" && (
         <OmniMarketplaceTab skillsProvider={skillsProvider} onRefreshSkills={refreshSkills} />
       )}
+
+      {activeTab === "sources" && <OmniSourcesTab onRefreshSkills={refreshSkills} />}
 
       {/* Install modal */}
       {showInstallModal && (

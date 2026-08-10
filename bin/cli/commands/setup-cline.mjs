@@ -28,11 +28,14 @@ export function resolveClineTarget(opts = {}) {
   if (opts.remote) baseUrl = stripToRoot(opts.remote);
   else {
     try {
-      baseUrl = stripToRoot(resolveActiveContext(opts.context ?? process.env.OMNIROUTE_CONTEXT)?.baseUrl);
+      baseUrl = stripToRoot(
+        resolveActiveContext(opts.context ?? process.env.OMNIROUTE_CONTEXT)?.baseUrl
+      );
     } catch {
       /* none */
     }
-    if (!baseUrl) baseUrl = `http://localhost:${Number(opts.port ?? process.env.PORT ?? 20128) || 20128}`;
+    if (!baseUrl)
+      baseUrl = `http://localhost:${Number(opts.port ?? process.env.PORT ?? 20128) || 20128}`;
   }
   let apiKey = opts.apiKey ?? opts["api-key"];
   if (!apiKey) {
@@ -81,7 +84,7 @@ async function fetchModelIds(baseUrl, apiKey) {
     const res = await fetch(`${baseUrl}/v1/models`, { headers, signal: AbortSignal.timeout(8000) });
     if (!res.ok) return [];
     const body = await res.json();
-    const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+    const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
     return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
   } catch {
     return [];
@@ -122,7 +125,18 @@ export async function runSetupClineCommand(opts = {}) {
 
   if (dryRun) {
     console.log(`\n── [dry-run] ${gsPath} ──`);
-    console.log(JSON.stringify({ actModeApiProvider: globalState.actModeApiProvider, planModeApiProvider: globalState.planModeApiProvider, openAiBaseUrl: globalState.openAiBaseUrl, openAiModelId: globalState.openAiModelId }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          actModeApiProvider: globalState.actModeApiProvider,
+          planModeApiProvider: globalState.planModeApiProvider,
+          openAiBaseUrl: globalState.openAiBaseUrl,
+          openAiModelId: globalState.openAiModelId,
+        },
+        null,
+        2
+      )
+    );
     console.log(`\n── [dry-run] ${secPath} ── (openAiApiKey: ${apiKey ? "set" : "sk_omniroute"})`);
   } else {
     if (!existsSync(clineDir)) mkdirSync(clineDir, { recursive: true });
@@ -133,7 +147,9 @@ export async function runSetupClineCommand(opts = {}) {
   }
 
   // The VS Code extension uses opaque globalStorage — can't be file-written.
-  printInfo("\nFor the Cline VS Code extension, set these in its Settings → API (OpenAI Compatible):");
+  printInfo(
+    "\nFor the Cline VS Code extension, set these in its Settings → API (OpenAI Compatible):"
+  );
   printInfo(`  Base URL:  ${baseUrl}        (NOT /v1 — Cline appends it)`);
   printInfo(`  API Key:   <your OMNIROUTE_API_KEY>`);
   printInfo(`  Model:     ${model}`);
@@ -147,7 +163,7 @@ export function registerSetupCline(program) {
       "Configure Cline for OmniRoute: write ~/.cline/data (CLI mode) + print VS Code extension settings"
     )
     .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
+    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.1.100:20128")
     .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
     .option("--model <id>", "Model id for Cline (required unless picked interactively)")
     .option("--cline-dir <dir>", "Cline data dir (default: ~/.cline/data)")

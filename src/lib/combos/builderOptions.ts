@@ -2,7 +2,7 @@ import {
   getAllCustomModels,
   getAllSyncedAvailableModels,
   getCombos,
-  getModelIsHidden,
+  getHiddenModelsByProvider,
   getProviderConnections,
   getProviderNodes,
   getSettings,
@@ -297,11 +297,15 @@ function addModelOption(
     contextLength?: number | null;
     outputTokenLimit?: number | null;
     supportsThinking?: boolean;
-  }
+  },
+  hiddenSet: Set<string>
 ) {
   const modelId = toStringOrNull(input.id);
   if (!modelId) return;
-  if (getModelIsHidden(providerId, modelId)) return;
+  // Sync membership check against a precomputed set (getModelIsHidden is async
+  // and, called without await, made every model look hidden → combo builder
+  // always returned 0 models under DB_DRIVER=postgres).
+  if (hiddenSet.has(modelId)) return;
 
   const nextSourcePriority = getSourcePriority(input.source);
   const existing = modelMap.get(modelId);
@@ -360,7 +364,8 @@ function buildModelOptions(
   providerId: string,
   builtInModels: RegistryModel[],
   syncedModels: SyncedModelLike[],
-  customModels: CustomModelLike[]
+  customModels: CustomModelLike[],
+  hiddenSet: Set<string>
 ): Map<string, ComboBuilderModelOption> {
   const modelMap = new Map<string, ComboBuilderModelOption>();
   const fallbackModels = getCompatibleFallbackModels(providerId, builtInModels);
@@ -370,18 +375,23 @@ function buildModelOptions(
       provider: providerId,
       model: toStringOrNull(model.id),
     });
-    addModelOption(modelMap, providerId, {
-      id: toStringOrNull(model.id),
-      name: toStringOrNull(model.name),
-      source: "imported",
-      supportedEndpoints: toStringArray(model.supportedEndpoints),
-      contextLength: toNumberOrNull(model.inputTokenLimit) ?? resolved.contextWindow,
-      outputTokenLimit: toNumberOrNull(model.outputTokenLimit) ?? resolved.maxOutputTokens,
-      supportsThinking:
-        typeof model.supportsThinking === "boolean"
-          ? model.supportsThinking
-          : (resolved.supportsThinking ?? undefined),
-    });
+    addModelOption(
+      modelMap,
+      providerId,
+      {
+        id: toStringOrNull(model.id),
+        name: toStringOrNull(model.name),
+        source: "imported",
+        supportedEndpoints: toStringArray(model.supportedEndpoints),
+        contextLength: toNumberOrNull(model.inputTokenLimit) ?? resolved.contextWindow,
+        outputTokenLimit: toNumberOrNull(model.outputTokenLimit) ?? resolved.maxOutputTokens,
+        supportsThinking:
+          typeof model.supportsThinking === "boolean"
+            ? model.supportsThinking
+            : (resolved.supportsThinking ?? undefined),
+      },
+      hiddenSet
+    );
   }
 
   // #8072: expose reasoning-effort variants (e.g. model-high, model-medium)
@@ -430,15 +440,20 @@ function buildModelOptions(
       if (modelMap.has(rawId)) continue;
       const baseId = baseRawIdByVariantId.get(variant.id) ?? rawId;
       const base = modelMap.get(baseId);
-      addModelOption(modelMap, providerId, {
-        id: rawId,
-        name: base ? `${base.name} (${rawId.slice(baseId.length + 1)})` : rawId,
-        source: "imported",
-        supportedEndpoints: base?.supportedEndpoints,
-        contextLength: base?.contextLength ?? null,
-        outputTokenLimit: base?.outputTokenLimit ?? null,
-        supportsThinking: base?.supportsThinking,
-      });
+      addModelOption(
+        modelMap,
+        providerId,
+        {
+          id: rawId,
+          name: base ? `${base.name} (${rawId.slice(baseId.length + 1)})` : rawId,
+          source: "imported",
+          supportedEndpoints: base?.supportedEndpoints,
+          contextLength: base?.contextLength ?? null,
+          outputTokenLimit: base?.outputTokenLimit ?? null,
+          supportsThinking: base?.supportsThinking,
+        },
+        hiddenSet
+      );
     }
   }
 
@@ -447,14 +462,19 @@ function buildModelOptions(
       provider: providerId,
       model: toStringOrNull(model.id),
     });
-    addModelOption(modelMap, providerId, {
-      id: toStringOrNull(model.id),
-      name: toStringOrNull(model.name),
-      source: "system",
-      contextLength: toNumberOrNull(model.contextLength) ?? resolved.contextWindow,
-      outputTokenLimit: resolved.maxOutputTokens,
-      supportsThinking: resolved.supportsThinking ?? undefined,
-    });
+    addModelOption(
+      modelMap,
+      providerId,
+      {
+        id: toStringOrNull(model.id),
+        name: toStringOrNull(model.name),
+        source: "system",
+        contextLength: toNumberOrNull(model.contextLength) ?? resolved.contextWindow,
+        outputTokenLimit: resolved.maxOutputTokens,
+        supportsThinking: resolved.supportsThinking ?? undefined,
+      },
+      hiddenSet
+    );
   }
 
   for (const model of customModels) {
@@ -468,19 +488,24 @@ function buildModelOptions(
       provider: providerId,
       model: toStringOrNull(model.id),
     });
-    addModelOption(modelMap, providerId, {
-      id: toStringOrNull(model.id),
-      name: toStringOrNull(model.name),
-      source,
-      supportedEndpoints: toStringArray(model.supportedEndpoints),
-      apiFormat: toStringOrNull(model.apiFormat),
-      contextLength: toNumberOrNull(model.inputTokenLimit) ?? resolved.contextWindow,
-      outputTokenLimit: toNumberOrNull(model.outputTokenLimit) ?? resolved.maxOutputTokens,
-      supportsThinking:
-        typeof model.supportsThinking === "boolean"
-          ? model.supportsThinking
-          : (resolved.supportsThinking ?? undefined),
-    });
+    addModelOption(
+      modelMap,
+      providerId,
+      {
+        id: toStringOrNull(model.id),
+        name: toStringOrNull(model.name),
+        source,
+        supportedEndpoints: toStringArray(model.supportedEndpoints),
+        apiFormat: toStringOrNull(model.apiFormat),
+        contextLength: toNumberOrNull(model.inputTokenLimit) ?? resolved.contextWindow,
+        outputTokenLimit: toNumberOrNull(model.outputTokenLimit) ?? resolved.maxOutputTokens,
+        supportsThinking:
+          typeof model.supportsThinking === "boolean"
+            ? model.supportsThinking
+            : (resolved.supportsThinking ?? undefined),
+      },
+      hiddenSet
+    );
   }
 
   if (Array.isArray(fallbackModels)) {
@@ -489,17 +514,22 @@ function buildModelOptions(
         provider: providerId,
         model: toStringOrNull(model.id),
       });
-      addModelOption(modelMap, providerId, {
-        id: toStringOrNull(model.id),
-        name: toStringOrNull(model.name),
-        source: "fallback",
-        contextLength:
-          typeof (model as { contextLength?: number }).contextLength === "number"
-            ? (model as { contextLength?: number }).contextLength || null
-            : resolved.contextWindow,
-        outputTokenLimit: resolved.maxOutputTokens,
-        supportsThinking: resolved.supportsThinking ?? undefined,
-      });
+      addModelOption(
+        modelMap,
+        providerId,
+        {
+          id: toStringOrNull(model.id),
+          name: toStringOrNull(model.name),
+          source: "fallback",
+          contextLength:
+            typeof (model as { contextLength?: number }).contextLength === "number"
+              ? (model as { contextLength?: number }).contextLength || null
+              : resolved.contextWindow,
+          outputTokenLimit: resolved.maxOutputTokens,
+          supportsThinking: resolved.supportsThinking ?? undefined,
+        },
+        hiddenSet
+      );
     }
   }
 
@@ -580,15 +610,23 @@ function normalizeSyncedModels(raw: unknown): SyncedModelLike[] {
 
 export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPayload> {
   getSyncedCapabilities();
-  const [connections, providerNodes, customModelsMap, syncedModelsMap, combos, settings] =
-    await Promise.all([
-      getProviderConnections(),
-      getProviderNodes(),
-      getAllCustomModels(),
-      getAllSyncedAvailableModels(),
-      getCombos(),
-      getSettings().catch(() => ({}) as Record<string, unknown>),
-    ]);
+  const [
+    connections,
+    providerNodes,
+    customModelsMap,
+    syncedModelsMap,
+    combos,
+    settings,
+    hiddenModels,
+  ] = await Promise.all([
+    getProviderConnections(),
+    getProviderNodes(),
+    getAllCustomModels(),
+    getAllSyncedAvailableModels(),
+    getCombos(),
+    getSettings().catch(() => ({}) as Record<string, unknown>),
+    getHiddenModelsByProvider(),
+  ]);
   const blockedProviders = new Set(
     Array.isArray((settings as Record<string, unknown>).blockedProviders)
       ? ((settings as Record<string, unknown>).blockedProviders as string[])
@@ -617,6 +655,8 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
     const providerNode = providerNodeMap.get(providerId) || null;
     const providerVisual = getProviderVisual(providerId, providerNode);
     const builtInModels = getModelsByProviderId(providerId);
+    if (providerId === "dmxapi-cn") {
+    }
     const syncedModels = normalizeSyncedModels(
       (syncedModelsMap as Record<string, unknown>)[providerId]
     );
@@ -632,7 +672,8 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
       providerId,
       builtInModels as RegistryModel[],
       syncedModels,
-      customModels
+      customModels,
+      hiddenModels.get(providerId) || new Set<string>()
     );
 
     const normalizedConnections =
@@ -692,7 +733,8 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
       providerId,
       builtInModels as RegistryModel[],
       syncedModels,
-      customModels
+      customModels,
+      hiddenModels.get(providerId) || new Set<string>()
     );
 
     // #2901: no-auth providers must route under their alias (e.g. "oc"), not

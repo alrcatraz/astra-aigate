@@ -177,7 +177,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const overrides = getFeatureFlagOverrides();
+    const overrides = await getFeatureFlagOverrides();
     const count = Object.keys(overrides).length;
 
     await clearAllFeatureFlagOverrides();

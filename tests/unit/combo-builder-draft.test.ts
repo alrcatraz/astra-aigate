@@ -51,7 +51,7 @@ test("buildManualComboModelStep resolves provider aliases and uses dynamic accou
       kind: "model",
       providerId: "codex",
       model: "codex/gpt-5.5",
-      weight: 0,
+      weight: 1,
     }
   );
 
@@ -64,7 +64,7 @@ test("buildManualComboModelStep resolves provider aliases and uses dynamic accou
       kind: "model",
       providerId: "openrouter",
       model: "openrouter/openai/gpt-5.5",
-      weight: 0,
+      weight: 1,
     }
   );
 

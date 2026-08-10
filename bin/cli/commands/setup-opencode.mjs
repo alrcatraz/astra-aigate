@@ -29,7 +29,8 @@ export function resolveOpencodeTarget(opts = {}) {
     } catch {
       /* no context */
     }
-    if (!baseUrl) baseUrl = `http://localhost:${Number(opts.port ?? process.env.PORT ?? 20128) || 20128}`;
+    if (!baseUrl)
+      baseUrl = `http://localhost:${Number(opts.port ?? process.env.PORT ?? 20128) || 20128}`;
   }
 
   let apiKey = opts.apiKey ?? opts["api-key"];
@@ -73,7 +74,12 @@ export function postProcessOpencodeConfig(rawJson, opts = {}) {
 export async function runSetupOpencodeCommand(opts = {}) {
   const { baseUrl, apiKey } = resolveOpencodeTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const only = opts.only ? opts.only.split(",").map((s) => s.trim()).filter(Boolean) : null;
+  const only = opts.only
+    ? opts.only
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
 
   printHeading("OmniRoute → OpenCode provider (openai-compatible)");
   printInfo(`Connecting to ${baseUrl} …`);
@@ -82,10 +88,14 @@ export async function runSetupOpencodeCommand(opts = {}) {
   // bin/omniroute.mjs before any command runs, so importing here is safe.
   let raw;
   try {
-    const { generateOpencodeConfig } = await import(
-      "../../../src/lib/cli-helper/config-generator/opencode.ts"
-    );
-    raw = await generateOpencodeConfig({ baseUrl, apiKey, model: opts.model, providerId: "omniroute" });
+    const { generateOpencodeConfig } =
+      await import("../../../src/lib/cli-helper/config-generator/opencode.ts");
+    raw = await generateOpencodeConfig({
+      baseUrl,
+      apiKey,
+      model: opts.model,
+      providerId: "omniroute",
+    });
   } catch (err) {
     printError(`Failed to generate opencode.json: ${err?.message || err}`);
     printInfo("Make sure OmniRoute is running and --remote/--api-key are correct.");
@@ -117,7 +127,7 @@ export function registerSetupOpencode(program) {
         "from the live model catalog (local or remote VPS)"
     )
     .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
+    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.1.100:20128")
     .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
     .option("--model <id>", "Set the default top-level model (omniroute/<id>)")
     .option("--only <patterns>", "Comma-separated substrings — keep only matching model IDs")

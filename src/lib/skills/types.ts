@@ -1,3 +1,5 @@
+import type { AgentTarget, SkillArtifact, SkillSourceKind } from "./sourceKind";
+
 export enum SkillStatus {
   PENDING = "pending",
   RUNNING = "running",
@@ -27,7 +29,15 @@ export interface Skill {
   handler: string;
   enabled: boolean;
   mode?: "on" | "off" | "auto";
+  // ── Skill Hub 多源 (Phase 4 M0) ──
   sourceProvider?: "skillsmp" | "skillssh" | "local";
+  sourceKind?: SkillSourceKind; // 7 枚举（扩展源，§3.3）
+  sourceRef?: string; // 源内标识（如 "project:astra-sre"）
+  sourceUrl?: string;
+  externalId?: string; // 源内 skill 唯一 ID
+  artifact?: SkillArtifact; // agentskill / ai-gate-exec / agent-plugin
+  enabledTargets?: AgentTarget[]; // 已分发的 Agent 目标
+  updatePending?: boolean; // 源有新版本待用户确认（手动更新流）
   tags?: string[];
   installCount?: number;
   createdAt: Date;

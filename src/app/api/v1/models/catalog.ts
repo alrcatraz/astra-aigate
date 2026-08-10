@@ -555,7 +555,7 @@ async function buildUnifiedModelsResponseCore(
           prefixMode,
           aliasToProviderId,
         });
-        return finalizeCatalogResponse(request, quotaFinal, () => undefined, {
+        return await finalizeCatalogResponse(request, quotaFinal, () => undefined, {
           ...corsHeaders,
           ...diagnosticHeaders,
         });
@@ -621,17 +621,25 @@ async function buildUnifiedModelsResponseCore(
       if (typeof combo.name !== "string" || combo.name.length === 0) continue;
       if (listedIds.has(combo.name)) continue; // #4164: don't shadow a built-in auto/* id
 
-      // Skip combos whose any underlying target model is hidden
+      // Only skip a combo when EVERY one of its target models is hidden. A
+      // combo that still has at least one visible member is routable and must
+      // stay in the catalog.
+      //
+      // BUG-2 fix: getModelIsHidden is ASYNC — the previous `some(...)` callback
+      // returned the unresolved Promise (always truthy), so every combo was
+      // dropped from the catalog regardless of real visibility, leaving only the
+      // built-in auto/* ids. Await it here so actual hidden state decides.
       const comboTargets = resolveNestedComboTargets(
         combo as Parameters<typeof resolveNestedComboTargets>[0],
         combos as Parameters<typeof resolveNestedComboTargets>[1]
       ) as ComboCatalogTarget[];
-      if (
-        comboTargets.some((target) => {
+      const hiddenFlags = await Promise.all(
+        comboTargets.map(async (target): Promise<boolean> => {
           const resolved = getComboTargetModelId(target);
           return resolved ? getModelIsHidden(resolved.providerId, resolved.modelId) : false;
         })
-      ) {
+      );
+      if (hiddenFlags.every(Boolean)) {
         continue;
       }
 
@@ -704,7 +712,7 @@ async function buildUnifiedModelsResponseCore(
           continue;
         if (!providerSupportsModel(canonicalProviderId, model.id)) continue;
         const aliasId = `${alias}/${model.id}`;
-        if (getModelIsHidden(canonicalProviderId, model.id)) continue;
+        if (await getModelIsHidden(canonicalProviderId, model.id)) continue;
         if (shouldHidePaid(canonicalProviderId, model.id, (model as { pricing?: unknown }).pricing))
           continue;
 
@@ -747,7 +755,7 @@ async function buildUnifiedModelsResponseCore(
 
     for (const modelId of CODEX_NATIVE_UNPREFIXED_MODELS) {
       if (!providerSupportsModel("codex", modelId)) continue;
-      if (getModelIsHidden("codex", modelId)) continue;
+      if (await getModelIsHidden("codex", modelId)) continue;
 
       const alias = providerIdToAlias.codex || "cx";
       const aliasId = `${alias}/${modelId}`;
@@ -798,7 +806,7 @@ async function buildUnifiedModelsResponseCore(
           if (canonicalProviderId === "codex" && isCodexDiscoveryModelExcluded(sm)) {
             continue;
           }
-          if (getModelIsHidden(providerId, sm.id)) continue;
+          if (await getModelIsHidden(providerId, sm.id)) continue;
           // #6457: some upstream discovery catalogs (e.g. HuggingFace's live
           // `/v1/models`) return image/diffusion models with no modality info,
           // so `endpoints` below would default to ["chat"] and misrepresent
@@ -1026,7 +1034,7 @@ async function buildUnifiedModelsResponseCore(
         ? embModel.id.slice(embModel.provider.length + 1)
         : embModel.id;
       if (!providerSupportsModel(embModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(embModel.provider, rawModelId)) continue;
+      if (await getModelIsHidden(embModel.provider, rawModelId)) continue;
       if (hasEquivalentSpecialtyModel(embModel.provider, rawModelId, "embedding", embModel.id)) {
         continue;
       }
@@ -1046,7 +1054,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(imgModel.provider)) continue;
       const rawModelId = imgModel.id.split("/").pop() || imgModel.id;
       if (!providerSupportsModel(imgModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(imgModel.provider, rawModelId)) continue;
+      if (await getModelIsHidden(imgModel.provider, rawModelId)) continue;
       models.push({
         id: imgModel.id,
         object: "model",
@@ -1065,7 +1073,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(rerankModel.provider)) continue;
       const rawModelId = rerankModel.id.split("/").pop() || rerankModel.id;
       if (!providerSupportsModel(rerankModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(rerankModel.provider, rawModelId)) continue;
+      if (await getModelIsHidden(rerankModel.provider, rawModelId)) continue;
       if (hasEquivalentSpecialtyModel(rerankModel.provider, rawModelId, "rerank", rerankModel.id)) {
         continue;
       }
@@ -1084,7 +1092,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(audioModel.provider)) continue;
       const rawModelId = audioModel.id.split("/").pop() || audioModel.id;
       if (!providerSupportsModel(audioModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(audioModel.provider, rawModelId)) continue;
+      if (await getModelIsHidden(audioModel.provider, rawModelId)) continue;
       models.push({
         id: audioModel.id,
         object: "model",
@@ -1100,7 +1108,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(modModel.provider)) continue;
       const rawModelId = modModel.id.split("/").pop() || modModel.id;
       if (!providerSupportsModel(modModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(modModel.provider, rawModelId)) continue;
+      if (await getModelIsHidden(modModel.provider, rawModelId)) continue;
       models.push({
         id: modModel.id,
         object: "model",
@@ -1115,7 +1123,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(videoModel.provider)) continue;
       const rawModelId = videoModel.id.split("/").pop() || videoModel.id;
       if (!providerSupportsModel(videoModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(videoModel.provider, rawModelId)) continue;
+      if (await getModelIsHidden(videoModel.provider, rawModelId)) continue;
       models.push({
         id: videoModel.id,
         object: "model",
@@ -1130,7 +1138,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(musicModel.provider)) continue;
       const rawModelId = musicModel.id.split("/").pop() || musicModel.id;
       if (!providerSupportsModel(musicModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(musicModel.provider, rawModelId)) continue;
+      if (await getModelIsHidden(musicModel.provider, rawModelId)) continue;
       models.push({
         id: musicModel.id,
         object: "model",
@@ -1174,7 +1182,7 @@ async function buildUnifiedModelsResponseCore(
           const modelId = typeof model.id === "string" ? model.id : null;
           if (!modelId) continue;
           if (model.isHidden === true) continue;
-          if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+          if (await getModelIsHidden(canonicalProviderId, modelId)) continue;
           // #6328: apply hidePaidModels to user-defined custom rows too.
           // Custom entries do not carry pricing, so shouldHidePaid() decides
           // via FREE_MODEL_IDS_BY_PROVIDER — matches synced/PROVIDER_MODELS.
@@ -1306,7 +1314,7 @@ async function buildUnifiedModelsResponseCore(
           continue;
         }
 
-        if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+        if (await getModelIsHidden(canonicalProviderId, modelId)) continue;
         // #6328: apply hidePaidModels to alias-backed rows too. Alias mappings
         // point at providerKey/modelId with no pricing, so shouldHidePaid()
         // decides via the FREE_MODEL_IDS_BY_PROVIDER catalog tier.
@@ -1378,7 +1386,7 @@ async function buildUnifiedModelsResponseCore(
       for (const model of fallbackModels) {
         const modelId = typeof model.id === "string" ? model.id : null;
         if (!modelId) continue;
-        if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+        if (await getModelIsHidden(canonicalProviderId, modelId)) continue;
         // #6328: apply hidePaidModels to managed-fallback rows too. Compatible
         // provider fallbacks lack pricing; shouldHidePaid() decides via the
         // FREE_MODEL_IDS_BY_PROVIDER catalog tier.
@@ -1473,7 +1481,7 @@ async function buildUnifiedModelsResponseCore(
       return modelId ? getTokenLimit(canonicalId, modelId) : getTokenLimit(canonicalId);
     };
 
-    return finalizeCatalogResponse(request, finalModels, getDefaultContextFallback, {
+    return await finalizeCatalogResponse(request, finalModels, getDefaultContextFallback, {
       ...corsHeaders,
       ...diagnosticHeaders,
     });

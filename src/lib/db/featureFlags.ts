@@ -15,11 +15,11 @@ const NAMESPACE = "feature_flags";
 /**
  * Returns all feature flag overrides as a key→value map.
  */
-export function getFeatureFlagOverrides(): Record<string, string> {
-  const db = getAsyncDb() as unknown as RawSyncDb;
-  const rows = db
+export async function getFeatureFlagOverrides(): Promise<Record<string, string>> {
+  const db = getAsyncDb();
+  const rows = (await db
     .prepare("SELECT key, value FROM key_value WHERE namespace = ?")
-    .all(NAMESPACE) as Array<{ key: string; value: string }>;
+    .all(NAMESPACE)) as Array<{ key: string; value: string }>;
 
   const result: Record<string, string> = {};
   for (const row of rows) {
@@ -31,13 +31,22 @@ export function getFeatureFlagOverrides(): Record<string, string> {
 /**
  * Returns the override value for a single flag, or undefined if no override
  * is stored.
+ *
+ * Kept synchronous because callers (guardrail paths) are on a sync chain.
+ * SQLite mode reads the live DB via the sync handle; PostgreSQL has no
+ * synchronous driver, so sync reads are unavailable there — returns
+ * undefined (env fallback), matching pre-PG behaviour for non-sqlite backends.
  */
 export function getFeatureFlagOverride(key: string): string | undefined {
-  const db = getAsyncDb() as unknown as RawSyncDb;
-  const row = db
-    .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(NAMESPACE, key) as { value: string } | undefined;
-  return row?.value;
+  try {
+    const db = getAsyncDb() as unknown as { raw: RawSyncDb };
+    const row = db.raw
+      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
+      .get(NAMESPACE, key) as { value: string } | undefined;
+    return row?.value;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

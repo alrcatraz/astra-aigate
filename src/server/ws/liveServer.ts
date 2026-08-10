@@ -59,10 +59,15 @@ const ALLOWED_HOSTS = buildAllowedHosts();
  * exists so the connection handler can read the closure-bound allow-lists
  * without re-parsing env on every connection.
  */
+const listenerHost = (process.env.LIVE_WS_HOST || DEFAULT_HOST).toLowerCase();
+const acceptLocalHosts =
+  listenerHost === "0.0.0.0" || listenerHost === "::" || listenerHost === "*";
+
 function isOriginAllowed(origin: string | undefined): boolean {
   return isOriginAllowedPure(origin, process.env, {
     allowedOrigins: ALLOWED_ORIGINS,
     allowedHosts: ALLOWED_HOSTS,
+    acceptLocalHosts,
   });
 }
 
@@ -608,9 +613,7 @@ export async function startLiveDashboardServer(
 // Build/test environments never auto-start regardless of the flag.
 
 function isBuildOrTest(): boolean {
-  return (
-    isBuildProcess() || isAutomatedTestProcess()
-  );
+  return isBuildProcess() || isAutomatedTestProcess();
 }
 
 export function isLiveWsEnabled(): boolean {

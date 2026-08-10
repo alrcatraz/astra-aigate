@@ -1462,7 +1462,7 @@ export async function isModelAllowedForKey(
       const discovered = allDiscoveredModels.some((m) => m.id === shortModelId);
       if (!discovered) return false;
 
-      const isPublic = !getModelIsHidden(providerId, shortModelId);
+      const isPublic = !(await getModelIsHidden(providerId, shortModelId));
       if (!isPublic) return false;
     }
   }

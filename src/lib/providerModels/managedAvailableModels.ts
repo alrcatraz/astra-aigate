@@ -128,7 +128,7 @@ export async function syncManagedAvailableModelAliases(
   const assignedAliases: string[] = [];
 
   for (const modelId of targetModelIds) {
-    if (getModelIsHidden(providerId, modelId)) {
+    if (await getModelIsHidden(providerId, modelId)) {
       const fullModel = `${storagePrefix}/${modelId}`;
       for (const [alias, value] of Object.entries(workingAliases)) {
         if (value !== fullModel) continue;

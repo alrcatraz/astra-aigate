@@ -87,15 +87,21 @@ async function fetchModelIds(baseUrl, apiKey) {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = await res.json();
-  const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+  const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
   return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
 }
 
 export async function runSetupCrushCommand(opts = {}) {
   const { baseUrl, apiKey } = resolveCrushTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const only = opts.only ? opts.only.split(",").map((s) => s.trim()).filter(Boolean) : null;
-  const configPath = opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".config", "crush", "crush.json");
+  const only = opts.only
+    ? opts.only
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
+  const configPath =
+    opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".config", "crush", "crush.json");
 
   printHeading("OmniRoute → Crush (openai-compat)");
   printInfo(`base_url: ${baseUrl}`);
@@ -120,13 +126,17 @@ export async function runSetupCrushCommand(opts = {}) {
 
   if (dryRun) {
     console.log("\n" + (out.length > 3500 ? out.slice(0, 3500) + "\n… (truncated)" : out));
-    printInfo(`[dry-run] ${provider.models.length} model(s) under providers.omniroute → ${configPath}`);
+    printInfo(
+      `[dry-run] ${provider.models.length} model(s) under providers.omniroute → ${configPath}`
+    );
     return 0;
   }
   mkdirSync(join(configPath, ".."), { recursive: true });
   writeFileSync(configPath, out, "utf8");
   printSuccess(`Wrote ${configPath} (${provider.models.length} models under providers.omniroute)`);
-  printInfo("Provide the key (config references $OMNIROUTE_API_KEY):  export OMNIROUTE_API_KEY=...");
+  printInfo(
+    "Provide the key (config references $OMNIROUTE_API_KEY):  export OMNIROUTE_API_KEY=..."
+  );
   printInfo("Then run:  crush");
   return 0;
 }
@@ -136,7 +146,7 @@ export function registerSetupCrush(program) {
     .command("setup-crush")
     .description("Generate the OmniRoute openai-compat provider in ~/.config/crush/crush.json")
     .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
+    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.1.100:20128")
     .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
     .option("--only <patterns>", "Comma-separated substrings — keep only matching model IDs")
     .option("--config-path <path>", "crush.json path (default: ~/.config/crush/crush.json)")

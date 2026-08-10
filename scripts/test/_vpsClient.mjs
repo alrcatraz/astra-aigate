@@ -8,7 +8,7 @@
  * Combo create/delete mechanism: SSH-sqlite fallback.
  * /api/combos requires management auth (returns 401 unauthenticated).
  * We insert/delete rows directly via:
- *   execFileSync("ssh", ["root@192.168.0.15", "sqlite3", "/root/.omniroute/storage.sqlite", SQL])
+ *   execFileSync("ssh", ["root@192.168.1.100", "sqlite3", "/root/.omniroute/storage.sqlite", SQL])
  * Values are static test-scoped data — no untrusted interpolation.
  *
  * combos table schema (PRAGMA table_info):
@@ -27,9 +27,9 @@ import { randomUUID } from "node:crypto";
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const BASE_URL = process.env.COMBO_LIVE_BASE_URL ?? "http://192.168.0.15:20128";
+const BASE_URL = process.env.COMBO_LIVE_BASE_URL ?? "http://192.168.1.100:20128";
 const API_KEY = process.env.COMBO_LIVE_API_KEY ?? null;
-const VPS_SSH_HOST = "root@192.168.0.15";
+const VPS_SSH_HOST = "root@192.168.1.100";
 const VPS_DB_PATH = "/root/.omniroute/storage.sqlite";
 
 // ---------------------------------------------------------------------------
@@ -51,7 +51,10 @@ function authHeaders() {
 
 async function fetchJson(path, options = {}) {
   const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, { ...options, headers: { ...authHeaders(), ...(options.headers ?? {}) } });
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...authHeaders(), ...(options.headers ?? {}) },
+  });
   let body;
   try {
     body = await res.json();
@@ -191,7 +194,9 @@ export function createCombo(def) {
  */
 export function deleteCombo(nameOrId) {
   if (!nameOrId.startsWith("__live_test__")) {
-    throw new Error(`deleteCombo safety guard: refusing to delete '${nameOrId}' — only __live_test__* combos allowed.`);
+    throw new Error(
+      `deleteCombo safety guard: refusing to delete '${nameOrId}' — only __live_test__* combos allowed.`
+    );
   }
   const safe = nameOrId.replace(/'/g, "''");
   // Try delete by name first, then by id
@@ -215,16 +220,14 @@ export async function listHealthyProviders(candidates) {
       return r.status === 200 && r.text ? c : null;
     })
   );
-  return results
-    .map((r) => (r.status === "fulfilled" ? r.value : null))
-    .filter(Boolean);
+  return results.map((r) => (r.status === "fulfilled" ? r.value : null)).filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------
 // Preflight self-check (run directly: node scripts/test/_vpsClient.mjs)
 // ---------------------------------------------------------------------------
-const isMain = process.argv[1]?.endsWith("_vpsClient.mjs") ||
-  import.meta.url === `file://${process.argv[1]}`;
+const isMain =
+  process.argv[1]?.endsWith("_vpsClient.mjs") || import.meta.url === `file://${process.argv[1]}`;
 
 if (isMain) {
   (async () => {
@@ -246,12 +249,21 @@ if (isMain) {
     // 2. Combo mechanism probe
     console.log();
     console.log("--- combo create/delete mechanism ---");
-    console.log("  /api/combos GET (unauthenticated):", (() => {
-      try {
-        const r = execFileSync("curl", ["-s", "-o", "/dev/null", "-w", "%{http_code}", `${BASE_URL}/api/combos`], { encoding: "utf8", timeout: 5000 });
-        return r.trim();
-      } catch { return "error"; }
-    })());
+    console.log(
+      "  /api/combos GET (unauthenticated):",
+      (() => {
+        try {
+          const r = execFileSync(
+            "curl",
+            ["-s", "-o", "/dev/null", "-w", "%{http_code}", `${BASE_URL}/api/combos`],
+            { encoding: "utf8", timeout: 5000 }
+          );
+          return r.trim();
+        } catch {
+          return "error";
+        }
+      })()
+    );
     console.log("  Mechanism: SSH sqlite fallback (management API requires auth)");
     console.log("  SSH host:", VPS_SSH_HOST);
     console.log("  DB path:", VPS_DB_PATH);
@@ -275,7 +287,9 @@ if (isMain) {
       console.error(`  ERROR: ${e.message}`);
       // Attempt cleanup on error
       if (probeId) {
-        try { deleteCombo(probeName); } catch {}
+        try {
+          deleteCombo(probeName);
+        } catch {}
       }
     }
 
@@ -308,7 +322,9 @@ if (isMain) {
     try {
       const healthy = await listHealthyProviders(candidates);
       console.log(`  tested: ${candidates.join(", ")}`);
-      console.log(`  healthy (${healthy.length}/${candidates.length}): ${healthy.join(", ") || "(none)"}`);
+      console.log(
+        `  healthy (${healthy.length}/${candidates.length}): ${healthy.join(", ") || "(none)"}`
+      );
     } catch (e) {
       console.error(`  ERROR: ${e.message}`);
     }

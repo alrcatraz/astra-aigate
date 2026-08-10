@@ -69,7 +69,7 @@ describe("POST /api/webhooks — SSRF guard on create", () => {
 
   it("rejects discord webhook pointing to RFC1918 (192.168/16)", async () => {
     const req = jsonRequest("http://localhost/api/webhooks", "POST", {
-      url: "http://192.168.0.15:8080/hook",
+      url: "http://192.168.1.100:8080/hook",
       kind: "discord",
     });
     const res = await webhooksRoute.POST(req);

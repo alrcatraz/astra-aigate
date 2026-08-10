@@ -11,6 +11,7 @@
  */
 
 import { DEFAULT_OMNIROUTE_BASE_URL } from "@/shared/utils/resolveOmniRouteBaseUrl";
+import { classifyHostLocality } from "@/server/authz/routeGuard";
 
 const DEFAULT_HOST = "127.0.0.1";
 
@@ -98,7 +99,11 @@ export function originHostMatches(origin: string, allowedHosts: Set<string>): bo
 export function isOriginAllowed(
   origin: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
-  options: { allowedOrigins?: Set<string>; allowedHosts?: Set<string> } = {}
+  options: {
+    allowedOrigins?: Set<string>;
+    allowedHosts?: Set<string>;
+    acceptLocalHosts?: boolean;
+  } = {}
 ): boolean {
   const allowedOrigins = options.allowedOrigins ?? buildAllowedOrigins(env);
   const allowedHosts = options.allowedHosts ?? buildAllowedHosts(env);
@@ -109,5 +114,15 @@ export function isOriginAllowed(
   }
   if (allowedOrigins.has(origin)) return true;
   if (originHostMatches(origin, allowedHosts)) return true;
+  // LAN exposure: when the listener is bound to 0.0.0.0, accept any origin
+  // whose host is a loopback/private-LAN literal (e.g. http://192.168.0.200:20128).
+  // No hard-coded host list — locality is derived from RFC1918/ULA patterns, so
+  // the operator never has to enumerate their LAN addresses. Remote/public
+  // origins (or domain-based Host, which may be DNS-rebound) still require an
+  // explicit entry in LIVE_WS_ALLOWED_ORIGINS/HOSTS.
+  if (options.acceptLocalHosts && origin) {
+    const parsed = originHost(origin);
+    if (parsed && classifyHostLocality(parsed.hostname) !== "remote") return true;
+  }
   return false;
 }
