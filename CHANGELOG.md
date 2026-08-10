@@ -3,6 +3,34 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.5.1] — Cross-provider context fixes + chat admission relaxation (2026-08-10)
+
+Bug-fix release: combo targets whose context length was unknown were silently
+dropped for large-context requests; new model steps defaulted to weight 0 and
+were never selected by weighted routing; and the chat body admission limiter
+rejected legitimate high-tool-count coding traffic with retryable 503s.
+
+### Fixed
+
+- Model context resolution for resellers: `deepseek-v4-flash-0731` is now a spec
+  alias of `deepseek-v4-flash` (1M context), so any provider serving it (e.g.
+  dmxapi-cn) resolves the correct context window instead of being excluded by
+  large-context request compatibility filtering.
+- Glm model context sync: models.dev `glm` provider map now includes zhipu/zhipuai,
+  so zhipu/glm-* combo targets gain their context window from the automatic sync.
+- Local model context override for the bundled llamacpp Ternary-Bonsai model (8192).
+- New model steps (manual, batch, string-form, and combo references) now default
+  to weight 1 so weighted routing selects them immediately; existing weight-0
+  rows were backfilled in production.
+- Chat admission (`chatBodyAdmission.ts`): raised the heavy-request tool threshold
+  from 64 to 400 and the heavy in-flight capacity from 1 to 3, so normal
+  high-tool-count coding traffic no longer exhausts the single heavy slot and
+  evicts ordinary large-body requests with a 503.
+
+### Changed
+
+- Version bump to 0.5.1.
+
 ## [0.5.0] — Skill Hub + routing fixes (2026-08-09)
 
 Skill Hub (M0-M5): multi-source skill aggregation with sources, artifacts,

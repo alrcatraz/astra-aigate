@@ -38,7 +38,7 @@ Built on [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT): LLM provi
 ## Quick Start
 
 ```bash
-# Pull the published image from GHCR (tagged releases, e.g. v0.5.0):
+# Pull the published image from GHCR (tagged releases, e.g. v0.5.1):
 podman pull ghcr.io/alrcatraz/astra-aigate:latest
 # Run it on the target host (IPv4 only):
 podman run -d --name astra-aigate --env-file .env -p <port>:20128 ghcr.io/alrcatraz/astra-aigate:latest
