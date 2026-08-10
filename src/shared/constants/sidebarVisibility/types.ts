@@ -5,6 +5,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "endpoints",
   "api-manager",
   "mcp-servers",
+  "skill-sources",
   "services",
   "cli-code",
   // OmniProxy — flat

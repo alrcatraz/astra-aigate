@@ -22,6 +22,7 @@ import {
 } from "./adapters/driverFactory";
 import { createPostgresAdapter, type PostgresAdapterConfig } from "./adapters/postgresAdapter";
 import path from "path";
+import os from "node:os";
 import fs from "fs";
 import { resolveWritableDataDir, getLegacyDotDataDir } from "../dataPaths";
 import { runMigrations } from "./migrationRunner";
@@ -1152,9 +1153,54 @@ export async function initDatabaseDriver(): Promise<void> {
         `${report.warnings.length} warnings`
     );
   } else {
-    throw new Error(
-      "[DB] Postgres driver requires either an existing PG schema or a SQLite file to bootstrap from (SQLITE_FILE missing)"
+    // ★ Fresh install: 空 PG 库 + 无 storage.sqlite。与 sqlite 全新部署等价的
+    // final schema 用「临时 sqlite 文件 + SCHEMA_SQL + full migrations」生成，
+    // 再迁到 PG —— 使 PG 全新安装无需预先存在任何 SQLite/Schema 即可自举。
+    const freshStarted = Date.now();
+    console.log("[DB] Postgres empty schema detected — bootstrapping fresh (no SQLITE_FILE)");
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aigate-fresh-"));
+    const tmpSqlite = path.join(tmpDir, "bootstrap.sqlite");
+    try {
+      const tmpDb = openSqliteDatabase(tmpSqlite);
+      tmpDb.pragma("busy_timeout = 2000");
+      tmpDb.pragma("synchronous = NORMAL");
+      tmpDb.exec(SCHEMA_SQL);
+      await ensureProviderConnectionsColumns(tmpDb);
+      await ensureUsageHistoryColumns(tmpDb);
+      await ensureCallLogsColumns(tmpDb);
+      tmpDb.exec(`
+        CREATE TABLE IF NOT EXISTS _omniroute_migrations (
+          version TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT OR IGNORE INTO _omniroute_migrations (version, name)
+        VALUES ('001', 'initial_schema');
+      `);
+      await runMigrations(sqliteAsyncAdapter(tmpDb), { isNewDb: true });
+      tmpDb.close();
+    } catch (err) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      throw new Error(
+        `[DB] Fresh PG bootstrap: failed to seed temporary SQLite schema: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
+    const { migrateSqliteToPostgres } = await import("./migrateToPostgres");
+    const report = await migrateSqliteToPostgres({
+      sqlitePath: tmpSqlite,
+      pgConfig: resolvePostgresConfig(),
+    });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    const rows = Object.values(report.rowsMigrated).reduce((a, b) => a + b, 0);
+    console.log(
+      `[DB] Postgres bootstrapped fresh (${Math.round((Date.now() - freshStarted) / 1000)}s): ` +
+        `${report.tablesCreated.length} tables, ${rows} rows, ${report.warnings.length} warnings`
     );
+    if (report.warnings.length > 0) {
+      console.log(`[DB] bootstrap warnings:\n${report.warnings.map((w) => `  - ${w}`).join("\n")}`);
+    }
   }
 }
 

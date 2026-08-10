@@ -26,7 +26,7 @@ export default defineConfig({
     ],
   ],
   use: {
-    baseURL: process.env.HOMOLOG_BASE_URL || "http://192.168.0.15:20128",
+    baseURL: process.env.HOMOLOG_BASE_URL || "http://192.168.1.100:20128",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

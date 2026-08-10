@@ -4,6 +4,7 @@ import { parsePaginationParams, buildPaginatedResponse } from "@/shared/types/pa
 import { getSkillsProviderSetting } from "@/lib/skills/providerSettings";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { matchesSearch } from "@/shared/utils/turkishText";
+import { SKILL_SOURCE_KINDS } from "@/lib/skills/sourceKind";
 
 const POPULAR_BY_PROVIDER = {
   skillsmp: ["web-search", "file-reader", "sql-assistant", "devops-helper", "docs-assistant"],
@@ -42,8 +43,10 @@ export async function GET(request?: Request) {
       );
     }
 
-    if (sourceFilter === "skillsmp" || sourceFilter === "skillssh" || sourceFilter === "local") {
-      allSkills = allSkills.filter((skill) => (skill.sourceProvider || "local") === sourceFilter);
+    if ((SKILL_SOURCE_KINDS as readonly string[]).includes(sourceFilter)) {
+      allSkills = allSkills.filter(
+        (skill) => (skill.sourceKind || skill.sourceProvider || "local") === sourceFilter
+      );
     }
 
     const params = parsePaginationParams(parsedUrl.searchParams);

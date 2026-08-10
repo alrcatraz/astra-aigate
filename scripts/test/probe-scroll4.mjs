@@ -1,6 +1,6 @@
 // Test: is main scroll preserved across client-side nav (sidebar Home link)?
 import { chromium } from "playwright";
-const BASE = "http://10.30.40.1:20129";
+const BASE = "http://10.0.40.1:20129";
 const PASSWORD = "CHANGEME";
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, locale: "en-US" });

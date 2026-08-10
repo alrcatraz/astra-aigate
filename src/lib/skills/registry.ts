@@ -1,4 +1,6 @@
 import { Skill, SkillSchema } from "./types";
+import type { AgentTarget, SkillArtifact, SkillSourceKind } from "./sourceKind";
+import { SKILL_SOURCE_KINDS } from "./sourceKind";
 import { SkillCreateInputSchema } from "./schemas";
 import { getDbInstance, getAsyncDb } from "../db/core";
 import { randomUUID } from "crypto";
@@ -65,6 +67,14 @@ class SkillRegistry {
     apiKeyId: string;
     mode?: "on" | "off" | "auto";
     sourceProvider?: "skillsmp" | "skillssh" | "local";
+    // ── Skill Hub 多源 (Phase 4 M0) ──
+    sourceKind?: SkillSourceKind;
+    sourceRef?: string;
+    sourceUrl?: string;
+    externalId?: string;
+    artifact?: SkillArtifact;
+    enabledTargets?: AgentTarget[];
+    updatePending?: boolean;
     tags?: string[];
     installCount?: number;
   }): Promise<Skill> {
@@ -72,6 +82,13 @@ class SkillRegistry {
       apiKeyId: _apiKeyId,
       mode: _mode,
       sourceProvider: _sourceProvider,
+      sourceKind: _sourceKind,
+      sourceRef: _sourceRef,
+      sourceUrl: _sourceUrl,
+      externalId: _externalId,
+      artifact: _artifact,
+      enabledTargets: _enabledTargets,
+      updatePending: _updatePending,
       tags: _tags,
       installCount: _installCount,
       ...parseableData
@@ -83,8 +100,8 @@ class SkillRegistry {
 
     await db
       .prepare(
-        `INSERT INTO skills (id, api_key_id, name, version, description, schema, handler, enabled, mode, source_provider, tags, install_count, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO skills (id, api_key_id, name, version, description, schema, handler, enabled, mode, source_provider, source_kind, source_ref, source_url, external_id, artifact, enabled_targets, update_pending, tags, install_count, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         id,
@@ -97,6 +114,13 @@ class SkillRegistry {
         parsed.enabled ? 1 : 0,
         skillData.mode || (parsed.enabled ? "on" : "off"),
         skillData.sourceProvider || null,
+        skillData.sourceKind || (skillData.sourceProvider as SkillSourceKind | undefined) || null,
+        skillData.sourceRef || null,
+        skillData.sourceUrl || null,
+        skillData.externalId || null,
+        skillData.artifact || "agentskill",
+        JSON.stringify(skillData.enabledTargets || []),
+        skillData.updatePending ? 1 : 0,
         JSON.stringify(skillData.tags || []),
         typeof skillData.installCount === "number" ? Math.max(0, skillData.installCount) : 0,
         now.toISOString(),
@@ -114,6 +138,13 @@ class SkillRegistry {
       enabled: parsed.enabled,
       mode: skillData.mode || (parsed.enabled ? "on" : "off"),
       sourceProvider: skillData.sourceProvider,
+      sourceKind: skillData.sourceKind,
+      sourceRef: skillData.sourceRef,
+      sourceUrl: skillData.sourceUrl,
+      externalId: skillData.externalId,
+      artifact: skillData.artifact,
+      enabledTargets: skillData.enabledTargets,
+      updatePending: skillData.updatePending,
       tags: skillData.tags || [],
       installCount:
         typeof skillData.installCount === "number" ? Math.max(0, skillData.installCount) : 0,
@@ -344,6 +375,13 @@ class SkillRegistry {
                 : row.source_provider
                   ? "local"
                   : undefined,
+            sourceKind: this.mapSourceKind(row.source_kind, row.source_provider),
+            sourceRef: row.source_ref || undefined,
+            sourceUrl: row.source_url || undefined,
+            externalId: row.external_id || undefined,
+            artifact: (row.artifact as SkillArtifact | undefined) || "agentskill",
+            enabledTargets: this.parseTargets(row.enabled_targets),
+            updatePending: row.update_pending === 1,
             tags,
             installCount: typeof row.install_count === "number" ? row.install_count : 0,
             createdAt: new Date(row.created_at),
@@ -369,6 +407,38 @@ class SkillRegistry {
       await this.pendingLoad;
     } finally {
       this.pendingLoad = null;
+    }
+  }
+
+  /**
+   * 将 DB 的 source_kind 列映射为受控枚举。兼容旧行（source_kind 为 NULL 时
+   * 回退到 source_provider / local）。
+   */
+  private mapSourceKind(rowKind?: string, rowProvider?: string): SkillSourceKind | undefined {
+    if (rowKind) {
+      return (SKILL_SOURCE_KINDS as readonly string[]).includes(rowKind)
+        ? (rowKind as SkillSourceKind)
+        : undefined;
+    }
+    // 旧行回退：skillsmp/skillssh → 同名；其它非空 → local
+    if (rowProvider) {
+      return (["skillsmp", "skillssh"] as const).includes(rowProvider as "skillsmp" | "skillssh")
+        ? (rowProvider as SkillSourceKind)
+        : "local";
+    }
+    return undefined;
+  }
+
+  /** 解析 enabled_targets JSON 数组（容错非法值）。 */
+  private parseTargets(raw?: string | null): AgentTarget[] | undefined {
+    if (!raw || raw === "[]") return undefined;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? (parsed.filter((t) => typeof t === "string") as AgentTarget[])
+        : undefined;
+    } catch {
+      return undefined;
     }
   }
 

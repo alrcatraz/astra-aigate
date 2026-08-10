@@ -23,9 +23,9 @@ npm run dev                 # Next.js dev server (see scripts/dev/run-next.mjs)
 
 ### Build constraint (important)
 
-- **NEVER run `next build` on HomeCentre01** — the 10.5K-file project with
+- **NEVER run `next build` on the desktop gateway host** — the 10.5K-file project with
   Expo + Tailwind OOMs the machine (network drops, forced reboot).
-- Build on the dedicated build host (SUSETLearn00):
+- Build on the dedicated build host:
   `podman build --build-arg AIGATE_BUILD_MEMORY_MB=8192 -t localhost/astra-aigate:webpack-verify .`
 - The Dockerfile forces webpack (`OMNIROUTE_USE_TURBOPACK=0`) — do not re-enable
   Turbopack without profiling memory usage first.

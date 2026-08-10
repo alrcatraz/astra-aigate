@@ -1719,7 +1719,9 @@
     "agentBridge": "代理橋接",
     "trafficInspector": "流量檢查器",
     "usage": "用量",
-    "mcpServers": "MCP 伺服器"
+    "mcpServers": "MCP 伺服器",
+    "skillSources": "Skill 中心",
+    "skillSourcesSubtitle": "技能來源與產物"
   },
   "home": {
     "quickStart": "快速入門",

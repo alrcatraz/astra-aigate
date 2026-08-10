@@ -17,6 +17,7 @@ import {
 
 import { CategoryDot } from "./CategoryDot";
 import type { MediaKind } from "../../media-providers/components/mediaKinds";
+import { getProviderServiceKinds } from "@/lib/providers/serviceKindIndex";
 
 interface ProviderStats {
   total?: number;
@@ -209,10 +210,12 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
     [providerId, innerRef, linkElementRef]
   );
 
-  // Show the Test button for LLM providers (when serviceKinds includes "llm"
-  // OR when the provider has no explicit serviceKinds but is a regular LLM provider
-  // i.e. not a search/audio/cloud-agent type).
-  const serviceKinds = provider.serviceKinds ?? [];
+  // Show the Test button for LLM providers (when the resolved serviceKinds
+  // include "llm" OR the provider has no kinds but is a regular LLM provider
+  // i.e. not a search/audio/cloud-agent type). Use the shared helper so the
+  // registry-derived media kinds are honoured consistently with the provider
+  // detail/media pages.
+  const serviceKinds = getProviderServiceKinds(providerId, provider.serviceKinds);
   const isLlmProvider =
     serviceKinds.includes("llm") ||
     (serviceKinds.length === 0 &&
@@ -371,12 +374,12 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
             </div>
 
             {/* Row 2 — Capabilities: service-kind chips + compatibility badges (deprecated shown as block icon in Row 1 header). Rendered only when content exists. */}
-            {((provider.serviceKinds && provider.serviceKinds.length > 0) ||
+            {(serviceKinds.length > 0 ||
               isCompatible ||
               isCcCompatible ||
               isAnthropicCompatible) && (
               <div className="flex flex-wrap items-center gap-1">
-                {provider.serviceKinds?.map((k) => (
+                {serviceKinds.map((k) => (
                   <span
                     key={k}
                     className="text-[10px] px-1.5 py-0.5 rounded bg-bg-subtle border border-border text-text-muted leading-none"

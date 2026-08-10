@@ -10,6 +10,8 @@ export interface OmniSkill {
   enabled: boolean;
   mode?: "on" | "off" | "auto";
   sourceProvider?: "skillsmp" | "skillssh" | "local";
+  sourceKind?: string;
+  updatePending?: boolean;
   tags?: string[];
   installCount?: number;
   createdAt: string;
@@ -66,8 +68,13 @@ export function OmniSkillCard({ skill, selected, onClick }: OmniSkillCardProps):
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface/60 text-text-muted shrink-0">
               v{skill.version}
             </span>
+            {skill.updatePending && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0">
+                {t("updateAvailable")}
+              </span>
+            )}
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface/60 text-text-muted shrink-0">
-              {(skill.sourceProvider || "local").toUpperCase()}
+              {(skill.sourceKind || skill.sourceProvider || "local").toUpperCase()}
             </span>
           </div>
           <p className="text-xs text-text-muted mt-0.5 line-clamp-2">{skill.description}</p>
@@ -87,7 +94,9 @@ export function OmniSkillCard({ skill, selected, onClick }: OmniSkillCardProps):
         <div className="flex items-center gap-1.5 shrink-0">
           <span className={`inline-block size-2 rounded-full ${modeDot}`} />
           <span className={`text-[10px] font-medium ${modeColor}`}>
-            {t(effectiveMode === "on" ? "onMode" : effectiveMode === "auto" ? "autoMode" : "offMode")}
+            {t(
+              effectiveMode === "on" ? "onMode" : effectiveMode === "auto" ? "autoMode" : "offMode"
+            )}
           </span>
         </div>
       </div>

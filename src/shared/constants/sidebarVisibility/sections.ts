@@ -30,11 +30,13 @@ const AI_GATE_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "api",
   },
   {
-    id: "api-manager",
-    href: "/dashboard/api-manager",
-    i18nKey: "apiManager",
-    subtitleKey: "apiManagerSubtitle",
-    icon: "vpn_key",
+    id: "skill-sources",
+    href: "/dashboard/skill-sources",
+    i18nKey: "skillSources",
+    subtitleKey: "skillSourcesSubtitle",
+    labelFallback: "Skill Hub",
+    subtitleFallback: "Skill sources and artifacts",
+    icon: "auto_fix_normal",
   },
   {
     id: "mcp-servers",
@@ -49,6 +51,13 @@ const AI_GATE_ITEMS: readonly SidebarItemDefinition[] = [
     i18nKey: "services",
     subtitleKey: "servicesSubtitle",
     icon: "monitor_heart",
+  },
+  {
+    id: "api-manager",
+    href: "/dashboard/api-manager",
+    i18nKey: "apiManager",
+    subtitleKey: "apiManagerSubtitle",
+    icon: "vpn_key",
   },
   {
     id: "cli-code",

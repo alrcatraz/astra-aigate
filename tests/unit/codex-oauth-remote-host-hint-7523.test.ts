@@ -26,7 +26,7 @@ test("null Host → no remote hint (fail-open: never block a local flow on a mis
 });
 
 test("remote Host → returns the reverse-tunnel hint with the exact callback port", () => {
-  const hint = buildRemoteOAuthHint("192.168.0.15:20128", 1455);
+  const hint = buildRemoteOAuthHint("192.168.1.100:20128", 1455);
   assert.equal(hint.remoteHost, true);
   assert.ok(hint.remoteHost === true); // narrow the union
   // The tunnel must forward the SAME port the callback server bound, both sides.

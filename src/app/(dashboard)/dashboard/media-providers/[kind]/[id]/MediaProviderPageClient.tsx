@@ -15,6 +15,9 @@ import { WebFetchExampleCard } from "../../components/WebFetchExampleCard";
 import { VideoExampleCard } from "../../components/VideoExampleCard";
 import { MusicExampleCard } from "../../components/MusicExampleCard";
 import { OcrExampleCard } from "../../components/OcrExampleCard";
+import { ModerationExampleCard } from "../../components/ModerationExampleCard";
+import { RerankExampleCard } from "../../components/RerankExampleCard";
+import { AudioTranslationExampleCard } from "../../components/AudioTranslationExampleCard";
 
 interface Connection {
   id: string;
@@ -60,6 +63,12 @@ function renderPlayground(
       return <MusicExampleCard providerId={providerId} />;
     case "ocr":
       return <OcrExampleCard providerId={providerId} />;
+    case "moderation":
+      return <ModerationExampleCard providerId={providerId} />;
+    case "rerank":
+      return <RerankExampleCard providerId={providerId} />;
+    case "audioTranslation":
+      return <AudioTranslationExampleCard providerId={providerId} />;
     case "imageToText":
       // Endpoint /api/v1/images/understanding does not exist yet — omitted.
       return (

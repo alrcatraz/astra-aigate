@@ -2,7 +2,7 @@
 // and pages have no console errors. Run: node scripts/test/component-qa.mjs
 import { chromium } from "playwright";
 
-const BASE = "http://10.30.40.1:20129";
+const BASE = "http://10.0.40.1:20129";
 const PASSWORD = "CHANGEME";
 
 const results = [];

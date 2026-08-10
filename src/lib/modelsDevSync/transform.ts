@@ -158,6 +158,10 @@ export const MODELS_DEV_PROVIDER_MAP: Record<string, string[]> = {
   "alibaba-cn": ["ali-cn", "alibaba-cn", "alibaba-china"],
   "alibaba-coding-plan": ["bcp", "bailian-coding-plan"],
   zai: ["zai", "glm"], // GLM models via Z.AI
+  // models.dev stores GLM under `glm`/`zai`; the domestic BigModel provider id
+  // `zhipu` also serves those models, so include it so `zhipu/glm-*` targets
+  // resolve context/capabilities from the synced GLM entries.
+  glm: ["glm", "zai", "zhipu", "zhipuai"],
   "zai-coding-plan": ["zai", "glm"],
   moonshotai: ["moonshot", "kimi"],
   "moonshotai-cn": ["moonshot", "kimi"],

@@ -572,9 +572,15 @@ export async function replaceSyncedAvailableModelsForConnection(
   // the synced store so they remain listed-but-hidden across re-syncs instead of
   // churning back on through the managed-alias path ("Auto Sync Enabling all
   // Models"). See getModelIsDeleted for the legacy-row caveat.
-  const normalizedModels = normalizeSyncedAvailableModels(models).filter(
-    (m) => !getModelIsDeleted(providerId, m.id)
+  const rawNormalized = normalizeSyncedAvailableModels(models);
+  // getModelIsDeleted is async — await each check before filtering. The old
+  // `.filter(m => !getModelIsDeleted(...))` compared against the raw Promise
+  // (always truthy), so every model was dropped and the store was cleared via
+  // the DELETE branch below (BUG: synced models never persisted under PG/SQLite).
+  const deletedChecks = await Promise.all(
+    rawNormalized.map((m) => getModelIsDeleted(providerId, m.id))
   );
+  const normalizedModels = rawNormalized.filter((_, i) => !deletedChecks[i]);
   if (normalizedModels.length === 0) {
     await db
       .prepare("DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")

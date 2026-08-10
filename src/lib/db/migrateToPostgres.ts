@@ -161,10 +161,8 @@ export function translateCreateTable(sql: string): { sql: string; skipped: boole
     // tolerates them mid-line; PG does not).
     const clean = col.replace(/--[^\n]*/g, "");
     // Table-level constraints pass through.
-    if (/^(PRIMARY|UNIQUE|CHECK|FOREIGN|CONSTRAINT)\\b/i.test(clean)) return clean;
-    const cm = /^(\"?[A-Za-z_][\\w]*\"?)\\s+([A-Za-z0-9_]+(?:\\s*\\(\\s*\\d+\\s*\\))?)(.*)$/.exec(
-      clean
-    );
+    if (/^(PRIMARY|UNIQUE|CHECK|FOREIGN|CONSTRAINT)\b/i.test(clean)) return clean;
+    const cm = /^(\"?[A-Za-z_][\w]*\"?)\s+([A-Za-z0-9_]+(?:\s*\(\s*\d+\s*\))?)(.*)$/.exec(clean);
     if (!cm) return clean;
     const [, colName, colType, rest] = cm;
     const restTrim = rest.trim();

@@ -286,7 +286,7 @@ const nextConfig = {
     "process",
   ],
   transpilePackages: ["@astra-aigate/open-sse", "@lobehub/icons", "fumadocs-ui", "fumadocs-core"],
-  allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.0.250"],
+  allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.1.100"],
   typescript: {
     // TODO: Re-enable after fixing all sub-component useTranslations scope issues
     ignoreBuildErrors: true,

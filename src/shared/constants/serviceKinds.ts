@@ -17,7 +17,10 @@ export type ServiceKind =
   | "webFetch"
   | "video"
   | "music"
-  | "ocr";
+  | "ocr"
+  | "moderation"
+  | "rerank"
+  | "audioTranslation";
 
 export const SERVICE_KIND_VALUES: readonly ServiceKind[] = [
   "llm",
@@ -31,4 +34,7 @@ export const SERVICE_KIND_VALUES: readonly ServiceKind[] = [
   "video",
   "music",
   "ocr",
+  "moderation",
+  "rerank",
+  "audioTranslation",
 ];

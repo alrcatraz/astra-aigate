@@ -9,7 +9,6 @@ One web UI to configure, monitor and route **LLM providers** (290), **MCP server
 [![License](https://badgen.net/github/license/alrcatraz/astra-aigate)](https://github.com/alrcatraz/astra-aigate/blob/main/LICENSE)
 [![Stars](https://badgen.net/github/stars/alrcatraz/astra-aigate)](https://github.com/alrcatraz/astra-aigate)
 [![Last commit](https://badgen.net/github/last-commit/alrcatraz/astra-aigate)](https://github.com/alrcatraz/astra-aigate)
-[![Star history](https://api.star-history.com/svg?repos=alrcatraz/astra-aigate&type=Date)](https://star-history.com/#alrcatraz/astra-aigate&Date)
 
 </div>
 
@@ -33,12 +32,13 @@ Built on [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT): LLM provi
 - **Independent scrolling** — fixed-height layout with sidebar-internal scrolling and main-content scroll resets on route change
 - **i18n** — 43 locales (English (British), zh-CN, zh-TW, and 40 more); language switcher in Settings > Appearance and docs layout
 - **Pluggable database** — SQLite by default (zero-ops), optional PostgreSQL via `DB_DRIVER=postgres`; unified async `DatabaseAdapter` interface with a dialect translation layer
+- **Skill hub** — multi-source skill aggregation: pull skills from git repos (tarball), SSH hosts or built-in catalogs, with dependency-aware artifact packaging for AI agents
 - **Podman deployment** — multi-stage standalone build, no Turbopack (webpack-only)
 
 ## Quick Start
 
 ```bash
-# Pull the published image from GHCR (tagged releases, e.g. v0.4.0):
+# Pull the published image from GHCR (tagged releases, e.g. v0.5.1):
 podman pull ghcr.io/alrcatraz/astra-aigate:latest
 # Run it on the target host (IPv4 only):
 podman run -d --name astra-aigate --env-file .env -p <port>:20128 ghcr.io/alrcatraz/astra-aigate:latest
@@ -77,14 +77,6 @@ with PostgreSQL instead of SQLite. The schema is created automatically on a
 fresh database; migrate an existing SQLite deployment with
 `scripts/migrate-sqlite-to-pg.ts`. In containers, reach the host database via
 `host.containers.internal` (see the dual-stack note above).
-
-> **PG mode status (Aug 2026):** PostgreSQL is a production-verified path, not
-> experimental. All management pages and the quota/analytics/gamification
-> surfaces have been regression-tested under `DB_DRIVER=postgres` with
-> Playwright (95 pages scanned; the management surface is clean). The sole
-> caveat is live-dashboard WebSocket (`LIVE_WS_PORT`) which is served on a
-> separate port that must be exposed in the container for `combos/live` and
-> `compression/live`. SQLite remains the zero-ops default.
 
 ## Tech Stack
 
@@ -176,6 +168,7 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
 - **独立滚动** — 固定高度布局，侧边栏内部滚动 + 路由切换时主内容滚动归零
 - **i18n** — 43 个 locale（英语（英式）、zh-CN、zh-TW 及另外 40 种）；Settings > Appearance 和 docs 布局中有语言切换器
 - **可插拔数据库** — 默认 SQLite（零运维），可选 PostgreSQL（`DB_DRIVER=postgres`）；统一异步 `DatabaseAdapter` 接口 + 方言翻译层
+- **Skill 中心** — 多源技能聚合：从 git 仓库（tarball）、SSH 主机或内置目录拉取技能，带依赖感知的产物打包供 AI 智能体使用
 - **Podman 部署** — 多阶段 standalone 构建，仅 webpack（禁用 Turbopack）
 
 ## 快速开始
@@ -210,12 +203,6 @@ podman run -d --name astra-aigate --env-file .env -p <port>:20128 localhost/astr
 替代 SQLite 作为网关存储。新库自动建表；迁移现有 SQLite 数据用
 `scripts/migrate-sqlite-to-pg.ts`。容器内访问宿主数据库须用
 `host.containers.internal`（见上文双栈说明）。
-
-> **PG 模式状态（2026-08）：** PostgreSQL 已是生产验证通路而非实验。整个管理面
-> 与 quota/analytics/gamification 页面均在 `DB_DRIVER=postgres` 下用 Playwright
-> 做过 95 页回归，管理面干净。唯一注意点：live-dashboard WebSocket
-> （`LIVE_WS_PORT`）跑在独立端口上，容器需额外暴露该端口 `combos/live` 与
-> `compression/live` 才能用。SQLite 仍是零运维默认。
 
 ## 技术栈
 

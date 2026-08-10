@@ -52,16 +52,23 @@ function buildTargetUrl(
 }
 
 async function bridge(request: NextRequest, id: string, path: string[]): Promise<Response> {
-  // Dual channel (Phase 3.6b pattern): admin session OR API key.
-  if (!hasServiceApiKeyAuth(request)) {
-    const authError = await requireManagementAuth(request);
-    if (authError) return authError;
-  }
-
   const resolved = await resolveServiceEndpoint(id);
   if (resolved.ok === false) return resolved.response;
 
   const service = resolved.service;
+
+  // 匿名开放：auth_type=none 且无 required_scope 的服务端点跳过第一道鉴权。
+  // 这类服务自身不需下游 key（Hermes 的 SEARXNG_URL 这类纯 URL 客户端无鉴权能力），
+  // required_scope 为 null 时 checkServiceScopeAccess 内部也直接放行。
+  const isPublic = service.auth_type === "none" && !service.required_scope;
+  if (!isPublic) {
+    // Dual channel (Phase 3.6b pattern): admin session OR API key.
+    if (!hasServiceApiKeyAuth(request)) {
+      const authError = await requireManagementAuth(request);
+      if (authError) return authError;
+    }
+  }
+
   const scopeError = await checkServiceScopeAccess(service, request);
   if (scopeError) return scopeError;
 

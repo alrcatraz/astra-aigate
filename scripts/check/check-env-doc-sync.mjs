@@ -101,7 +101,7 @@ const IGNORE_FROM_CODE = new Set([
   "OMNIROUTE_DISABLE_CLI_TOKEN",
   // Gated combo live-smoke harness (scripts/test/_vpsClient.mjs) — override the VPS HTTP
   // smoke target host/key. Test/CI-only signals with safe defaults
-  // ("http://192.168.0.15:20128" / null), never OmniRoute runtime config (#5151).
+  // ("http://192.168.1.100:20128" / null), never OmniRoute runtime config (#5151).
   "COMBO_LIVE_BASE_URL",
   "COMBO_LIVE_API_KEY",
   // Homologation E2E suite (npm run homolog) vars — configured via the dedicated

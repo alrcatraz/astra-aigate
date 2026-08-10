@@ -12,8 +12,8 @@ import { resolveStampedPeer } from "../../src/server/authz/peerStamp.ts";
 
 test("isPrivateLanHost: accepts RFC1918 IPv4 (incl. :port and ::ffff: mapped)", () => {
   for (const h of [
-    "192.168.0.15",
-    "192.168.0.15:54321",
+    "192.168.1.100",
+    "192.168.1.100:54321",
     "10.0.0.5",
     "172.16.0.9",
     "172.31.255.254",
@@ -65,7 +65,7 @@ test("isLoopbackHost: IPv4, hostname:port, bracketed + bare IPv6, ::ffff: mapped
   assert.equal(isLoopbackHost("::1"), true);
   assert.equal(isLoopbackHost("::ffff:127.0.0.1"), true);
   assert.equal(isLoopbackHost("[::1]:20128"), true);
-  assert.equal(isLoopbackHost("192.168.0.15"), false);
+  assert.equal(isLoopbackHost("192.168.1.100"), false);
   assert.equal(isLoopbackHost("8.8.8.8"), false);
 });
 
@@ -73,7 +73,7 @@ test("classifyHostLocality: loopback / lan / remote, with fail-closed null", () 
   assert.equal(classifyHostLocality("127.0.0.1"), "loopback");
   assert.equal(classifyHostLocality("::1"), "loopback");
   assert.equal(classifyHostLocality("::ffff:127.0.0.1"), "loopback");
-  assert.equal(classifyHostLocality("192.168.0.15"), "lan");
+  assert.equal(classifyHostLocality("192.168.1.100"), "lan");
   assert.equal(classifyHostLocality("::ffff:192.168.1.20"), "lan");
   assert.equal(classifyHostLocality("8.8.8.8"), "remote");
   assert.equal(classifyHostLocality("69.164.221.35"), "remote");
@@ -113,7 +113,7 @@ const TOK = "process-secret-token-abc";
 
 test("resolveStampedPeer: returns the IP only for a correctly-tokened stamp", () => {
   assert.equal(resolveStampedPeer(`${TOK}|127.0.0.1`, TOK), "127.0.0.1");
-  assert.equal(resolveStampedPeer(`${TOK}|192.168.0.15`, TOK), "192.168.0.15");
+  assert.equal(resolveStampedPeer(`${TOK}|192.168.1.100`, TOK), "192.168.1.100");
   assert.equal(resolveStampedPeer(`${TOK}|::1`, TOK), "::1");
   assert.equal(resolveStampedPeer(`${TOK}|::ffff:192.168.1.20`, TOK), "::ffff:192.168.1.20");
 });

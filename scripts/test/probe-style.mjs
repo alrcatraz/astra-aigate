@@ -1,7 +1,7 @@
 // Check computed styles of the appearance language dropdown panel
 import { chromium } from "playwright";
 
-const BASE = "http://10.30.40.1:20129";
+const BASE = "http://10.0.40.1:20129";
 const PASSWORD = "CHANGEME";
 
 const browser = await chromium.launch();
