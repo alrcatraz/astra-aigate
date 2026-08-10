@@ -27,7 +27,7 @@ export const CHAT_HARD_MAX_BODY_BYTES = parsePositiveInt(
 
 const CHAT_MAX_HEAVY_IN_FLIGHT = parsePositiveInt(
   process.env.OMNIROUTE_CHAT_MAX_HEAVY_IN_FLIGHT,
-  1
+  3
 );
 
 export const CHAT_HEAVY_MESSAGE_COUNT = parsePositiveInt(
@@ -36,7 +36,7 @@ export const CHAT_HEAVY_MESSAGE_COUNT = parsePositiveInt(
 );
 export const CHAT_HEAVY_TOOL_COUNT = parsePositiveInt(
   process.env.OMNIROUTE_CHAT_HEAVY_TOOL_COUNT,
-  64
+  400
 );
 export const CHAT_HEAVY_ESTIMATED_TOKENS = parsePositiveInt(
   process.env.OMNIROUTE_CHAT_HEAVY_ESTIMATED_TOKENS,
