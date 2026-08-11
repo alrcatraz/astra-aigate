@@ -24,6 +24,49 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/**
+ * Build the call-site param normaliser (array | named object → positional array)
+ * for a given translated SQL, AND produce the positional-SQL in which named
+ * SQLite placeholders (@name / :name) were rewritten to $N. The `?` placeholders
+ * were already numbered by the dialect layer; named ones are appended after them.
+ * The PG cast operator `::type` is excluded via negative lookbehind so
+ * `to_char((ts)::timestamptz ...)` survives untouched. Returns both so the caller
+ * can (a) execute the positional SQL and (b) map object args onto that order.
+ */
+function buildBinder(translatedSql: string): {
+  sql: string;
+  bind: (params: unknown[]) => unknown[];
+} {
+  let maxPositional = 0;
+  const positionalMatch = translatedSql.match(/\$(\d+)/g);
+  if (positionalMatch) {
+    for (const m of positionalMatch) {
+      maxPositional = Math.max(maxPositional, Number(m.slice(1)));
+    }
+  }
+  const namedOrder: string[] = [];
+  const sql = translatedSql.replace(/(?<!:)[@:]([a-zA-Z_][a-zA-Z0-9_]*)/g, (_m, name) => {
+    namedOrder.push(name);
+    return `$${++maxPositional}`;
+  });
+
+  const bind = (params: unknown[]): unknown[] => {
+    if (namedOrder.length > 0 && params.length === 1 && isPlainObject(params[0])) {
+      const obj = params[0] as Record<string, unknown>;
+      return namedOrder.map((name) => obj[name]);
+    }
+    if (params.length === 1 && isPlainObject(params[0])) {
+      // No named placeholders but an object was passed (better-sqlite3
+      // allows named params with object args) — map by object keys only if
+      // the SQL actually contains them; otherwise drop empty objects.
+      const keys = Object.keys(params[0] as Record<string, unknown>);
+      return keys.length === 0 ? [] : params;
+    }
+    return params;
+  };
+  return { sql, bind };
+}
+
 export interface PostgresAdapterConfig {
   connectionString?: string;
   host?: string;
@@ -84,6 +127,48 @@ export function createPostgresAdapter(config: PostgresAdapterConfig = {}): Datab
 
   let closed = false;
 
+  /**
+   * Per-instance warm guard for the PRIMARY-KEY cache.
+   *
+   * `pkCache` is module-scoped, and this module is bundled into MULTIPLE webpack
+   * chunks (it is pulled in both by the bootstrap/instrumentation chunk and by
+   * API-route chunks), so each copy keeps its OWN pkCache Map. `initDatabaseDriver`
+   * only warms whichever copy it was bundled with — a route that imports this
+   * module through a different chunk may hold a cold pkCache, in which case
+   * `INSERT OR REPLACE` silently degrades to `ON CONFLICT DO NOTHING` (existing
+   * keys are never updated — the root cause of provider-limits cache writes not
+   * persisting). To make every instance self-sufficient we warm lazily on first
+   * use, memoised so a single instance only ever queries information_schema once.
+   */
+  let warmPromise: Promise<void> | null = null;
+  function ensurePkWarmed(): Promise<void> {
+    if (!warmPromise) {
+      warmPromise = warmPrimaryKeyCache(pool).catch((err) => {
+        // Drop the memo on failure so a transient error can be retried later.
+        warmPromise = null;
+        throw err;
+      });
+    }
+    return warmPromise;
+  }
+  // Kick off the warm immediately (fire-and-forget) so the common case — a
+  // route request arriving after boot — finds the cache already populated.
+  void ensurePkWarmed();
+
+  /** True when the given SQLite SQL is an `INSERT OR REPLACE` upsert. */
+  function isInsertOrReplace(sql: string): boolean {
+    return /\bINSERT\s+OR\s+REPLACE\s+INTO\b/i.test(sql);
+  }
+
+  /**
+   * Translate `INSERT OR REPLACE` against the CURRENT pkCache. Returns the
+   * translated SQL; callers that need a correct arbiter can await ensurePkWarmed()
+   * first and re-translate.
+   */
+  function translateInsertOrReplace(sql: string): string {
+    return translateSqliteToPostgres(sql, arbiterFor);
+  }
+
   function clientFor(pool: pg.Pool): pg.PoolClient | pg.Pool {
     return txStorage.getStore() ?? pool;
   }
@@ -124,57 +209,46 @@ export function createPostgresAdapter(config: PostgresAdapterConfig = {}): Datab
           },
         };
       }
-      const translated = translateSqliteToPostgres(sql, arbiterFor);
-      // SQLite named placeholders (@name / :name) → positional $N so the pg
-      // driver can bind object params. Positional ? placeholders were already
-      // rewritten by the dialect layer; count those first so named ones append
-      // after them without clobbering.
-      let maxPositional = 0;
-      const positionalMatch = translated.match(/\$(\d+)/g);
-      if (positionalMatch) {
-        for (const m of positionalMatch) {
-          maxPositional = Math.max(maxPositional, Number(m.slice(1)));
-        }
-      }
-      const namedOrder: string[] = [];
-      // SQLite named placeholders are @name / :name — but NOT the PG cast
-      // operator `::type`. Negative lookbehind excludes the second colon of
-      // `::` so `to_char((ts)::timestamptz ...)` survives untouched.
-      const preparedSql = translated.replace(/(?<!:)[@:]([a-zA-Z_][a-zA-Z0-9_]*)/g, (_m, name) => {
-        namedOrder.push(name);
-        return `$${++maxPositional}`;
-      });
 
-      /** Normalise call-site params (array | named object) into a positional array. */
-      const bind = (params: unknown[]): unknown[] => {
-        if (namedOrder.length > 0 && params.length === 1 && isPlainObject(params[0])) {
-          const obj = params[0] as Record<string, unknown>;
-          return namedOrder.map((name) => obj[name]);
-        }
-        if (params.length === 1 && isPlainObject(params[0])) {
-          // No named placeholders but an object was passed (better-sqlite3
-          // allows named params with object args) — map by object keys only if
-          // the SQL actually contains them; otherwise drop empty objects.
-          const keys = Object.keys(params[0] as Record<string, unknown>);
-          return keys.length === 0 ? [] : params;
-        }
-        return params;
-      };
+      const upsert = isInsertOrReplace(sql);
+      // First-pass translation against the CURRENT pkCache. If this instance's
+      // cache is still cold, an INSERT OR REPLACE degrades to ON CONFLICT DO
+      // NOTHING — so for upserts we (a) ensure the cache is warm before the first
+      // execution, and (b) re-translate with the warmed cache to emit a real
+      // ON CONFLICT (...) DO UPDATE upsert. This makes every webpack copy of this
+      // module self-sufficient without depending on initDatabaseDriver having
+      // warmed this particular instance.
+      const translated = translateInsertOrReplace(sql);
+      const needsWarmRetranslate = upsert && /\bON\s+CONFLICT\s+DO\s+NOTHING\b/i.test(translated);
+
+      /** Positional SQL + binder for a given translation. */
+      const preparedFor = (t: string) => buildBinder(t);
+      const initial = preparedFor(translated);
+
+      /** Final positional SQL + binder, re-translating after the warm when needed. */
+      const resolve = (warmed: boolean) =>
+        warmed && needsWarmRetranslate ? preparedFor(translateInsertOrReplace(sql)) : initial;
 
       return {
         async run(...params: unknown[]): Promise<RunResult> {
-          const res = await clientFor(pool).query(preparedSql, bind(params));
+          if (needsWarmRetranslate) await ensurePkWarmed();
+          const { sql: finalSql, bind } = resolve(true);
+          const res = await clientFor(pool).query(finalSql, bind(params));
           return {
             changes: res.rowCount ?? 0,
             lastInsertRowid: (res.rows?.[0]?.id as number | bigint | undefined) ?? 0,
           };
         },
         async get(...params: unknown[]): Promise<unknown> {
-          const res = await clientFor(pool).query(preparedSql, bind(params));
+          if (needsWarmRetranslate) await ensurePkWarmed();
+          const { sql: finalSql, bind } = resolve(true);
+          const res = await clientFor(pool).query(finalSql, bind(params));
           return res.rows[0] ?? undefined;
         },
         async all(...params: unknown[]): Promise<unknown[]> {
-          const res = await clientFor(pool).query(preparedSql, bind(params));
+          if (needsWarmRetranslate) await ensurePkWarmed();
+          const { sql: finalSql, bind } = resolve(true);
+          const res = await clientFor(pool).query(finalSql, bind(params));
           return res.rows;
         },
       };

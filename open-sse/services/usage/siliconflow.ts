@@ -36,6 +36,26 @@ export async function getSiliconflowUsage(
 
     const payload = (await response.json()) as JsonRecord;
     const d = (payload.data as JsonRecord) ?? payload;
+    // /v1/user/info is not a documented API. Since 2026-08-08 the CN endpoint
+    // has been returning a degenerate payload where balance, chargeBalance and
+    // totalBalance are all the *string* "0" regardless of the real balance —
+    // surfacing that as "0 credits" is misleading (a genuinely exhausted
+    // account would return numeric 0s). Treat the all-string-zero shape as
+    // unavailable instead of as a real zero balance.
+    const allStringZero =
+      typeof d.balance === "string" &&
+      d.balance === "0" &&
+      typeof d.chargeBalance === "string" &&
+      d.chargeBalance === "0" &&
+      typeof d.totalBalance === "string" &&
+      d.totalBalance === "0";
+    if (allStringZero) {
+      return {
+        message:
+          "SiliconFlow /v1/user/info returned an invalid all-zero balance payload; " +
+          "verify the real balance in the SiliconFlow console.",
+      };
+    }
     const remaining = toNumber(d.totalBalance ?? d.balance, 0);
     const quotas: Record<string, UsageQuota> = {
       credits: {

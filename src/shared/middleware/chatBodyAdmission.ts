@@ -56,11 +56,23 @@ export interface ChatAdmissionLease {
  * Process-local heavyweight reservation. The capacity check and increment execute in one
  * synchronous JavaScript turn, making acquisition atomic within an AI Gate process.
  * Queueing is intentionally separate: unavailable capacity is a retryable 503.
+ *
+ * A lease is normally released when its SSE stream completes/cancels/errors. As a
+ * defensive backstop against a stuck upstream stream that never terminates (client
+ * disconnect that isn't propagated as cancel, a hung upstream, a leaky wrapper), each
+ * lease carries a TTL: if it is still held after `leaseTtlMs`, it is force-released so
+ * the slot drains and legitimate concurrent heavy traffic stops 503-ing indefinitely.
+ * A TTL has no effect on healthy streams (they finish well before it fires) and does
+ * not raise the concurrency ceiling, so it adds no OOM pressure beyond the existing
+ * in-flight cap.
  */
 export class ChatAdmissionController {
   #activeHeavy = 0;
 
-  constructor(readonly maxHeavyInFlight = 1) {
+  constructor(
+    readonly maxHeavyInFlight = 1,
+    readonly leaseTtlMs = 0
+  ) {
     if (!Number.isSafeInteger(maxHeavyInFlight) || maxHeavyInFlight < 1) {
       throw new RangeError("maxHeavyInFlight must be a positive integer");
     }
@@ -74,7 +86,7 @@ export class ChatAdmissionController {
     if (this.#activeHeavy >= this.maxHeavyInFlight) return null;
     this.#activeHeavy += 1;
     let released = false;
-    return {
+    const lease: ChatAdmissionLease = {
       get released() {
         return released;
       },
@@ -84,10 +96,26 @@ export class ChatAdmissionController {
         this.#activeHeavy = Math.max(0, this.#activeHeavy - 1);
       },
     };
+    if (this.leaseTtlMs > 0) {
+      const timer = setTimeout(() => lease.release(), this.leaseTtlMs);
+      // Do not keep the process alive solely for a lease backstop; the timer is
+      // cleaned up eagerly on normal release so it is inert for healthy streams.
+      timer.unref?.();
+    }
+    return lease;
   }
 }
 
-const defaultAdmissionController = new ChatAdmissionController(CHAT_MAX_HEAVY_IN_FLIGHT);
+/** Leases held longer than this are force-released (defensive anti-stuck-stream). */
+export const CHAT_HEAVY_LEASE_TTL_MS = parsePositiveInt(
+  process.env.OMNIROUTE_CHAT_HEAVY_LEASE_TTL_MS,
+  10 * 60 * 1000
+);
+
+const defaultAdmissionController = new ChatAdmissionController(
+  CHAT_MAX_HEAVY_IN_FLIGHT,
+  CHAT_HEAVY_LEASE_TTL_MS
+);
 
 export type ChatRequestAdmission =
   | { admit: true; request: Request; lease: ChatAdmissionLease | null }

@@ -97,8 +97,18 @@ type CriticalTableSpec = {
  */
 
 // ──────────────── Environment Detection ────────────────
-
-export const isCloud = typeof globalThis.caches === "object" && globalThis.caches !== null;
+// Cloud detection must NOT fire for self-hosted Next.js (nodejs runtime): Next 16
+// polyfills the Web Cache API (globalThis.caches) in the standalone server, which
+// used to make `typeof globalThis.caches === "object"` come back true on every
+// self-hosted deployment and silently short-circuit the provider-limits cache
+// (get/set both bailed out, so balance/limit data froze at the last pre-Next-16
+// write). Gate the probe to the edge runtime (true cloud: Vercel/Workers) and let
+// explicit `OMNIROUTE_CLOUD=true` force cloud semantics anywhere else.
+export const isCloud =
+  process.env.OMNIROUTE_CLOUD === "true" ||
+  (typeof globalThis.caches === "object" &&
+    globalThis.caches !== null &&
+    process.env.NEXT_RUNTIME === "edge");
 
 export const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 

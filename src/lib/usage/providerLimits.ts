@@ -684,7 +684,11 @@ export function getCachedProviderLimitsMap(): Record<string, ProviderLimitsCache
 export async function getSanitizedCachedProviderLimitsMap(): Promise<
   Record<string, ProviderLimitsCacheEntry>
 > {
-  const caches = getAllProviderLimitsCache();
+  // getAllProviderLimitsCache() is async — MUST be awaited. Without the await,
+  // Object.keys(caches) below runs against a Promise (no enumerable keys) and
+  // the map silently degrades to an empty {} on every call (PG-mode regression
+  // where this read became async; see AGENTS.md "consumed synchronously").
+  const caches = await getAllProviderLimitsCache();
   // Sanitization only rewrites Antigravity/agy quota keys; every other provider's cache
   // entry is returned untouched (see sanitizeProviderLimitsCacheForConnection). The
   // dashboard polls this on an auto-refresh interval, so avoid the unconditional

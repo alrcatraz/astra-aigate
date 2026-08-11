@@ -253,6 +253,18 @@ export async function registerNodejs(): Promise<void> {
   await import("@omniroute/open-sse/index.ts");
   console.log("[STARTUP] Global fetch proxy patch initialized");
 
+  // Initialize the async database driver (PG mode) and warm PK cache.
+  // This ensures INSERT OR REPLACE → ON CONFLICT DO UPDATE arbiter works
+  // for provider-limits cache writes (issue #7494).
+  try {
+    const { initDatabaseDriver } = await import("@/lib/db/core");
+    await initDatabaseDriver();
+    console.log("[STARTUP] Database driver initialized");
+  } catch (err) {
+    console.error("[STARTUP] Database driver initialization failed:", err);
+    throw err;
+  }
+
   // Guarantee the SQLite singleton — including a sql.js WASM pre-init when
   // both synchronous drivers (better-sqlite3, node:sqlite) are unavailable —
   // is ready before ANY other startup step reaches getDbInstance(). This

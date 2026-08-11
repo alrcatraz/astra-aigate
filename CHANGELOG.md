@@ -3,6 +3,49 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.5.2] — Provider-limits cache persistence + read fix, admission lease TTL (2026-08-11)
+
+Bug-fix release: on self-hosted PG deployments the provider-limits
+(balance/quota) cache froze, sync 500'd, and the dashboard read an empty
+map even though rows were present in Postgres. Also fixes a 503 admission
+regression from tight heavy-request limits.
+
+### Fixed
+
+- **Cloud-detection short-circuit**: the probe (`typeof globalThis.caches ===
+"object"`) fired on every standalone server because Next 16 polyfills the
+  Web Cache API, making balance/limit cache reads return empty and writes
+  silently no-op. Cloud semantics now require the edge runtime
+  (`NEXT_RUNTIME=nodejs` excluded) or explicit `OMNIROUTE_CLOUD=true`.
+- **SiliconFlow balance guard**: the `/v1/user/info` payload now reports a
+  degenerate all-string-zero shape as unavailable instead of a genuine 0
+  balance.
+- **`INSERT OR REPLACE` upsert broke under webpack module duplication**: the
+  Postgres adapter (and its module-scoped pk-cache) is bundled into several
+  chunks, each holding its own copy; a route served through a different chunk
+  held a cold pk-cache and degraded to `ON CONFLICT DO NOTHING`, so
+  already-cached connections never updated. Each adapter now warms its pk-cache
+  lazily on first use and re-translates to a real `ON CONFLICT (...) DO UPDATE`.
+- **Named-placeholder regression**: the adapter rework dropped the SQL rewrite
+  mapping named SQLite placeholders (`@name`/`:name`) to positional `$N`, so
+  queries like `is_active = @isActive` hit Postgres with `column "isactive"
+does not exist` and provider-limits sync returned 500. `buildBinder` now
+  returns both the positional SQL and the binder.
+- **Read path surfaced an empty map**: `getSanitizedCachedProviderLimitsMap`
+  consumed `await getAllProviderLimitsCache()` synchronously (no `await`), so
+  `Object.keys(caches)` ran against a Promise and the map degraded to `{}`
+  even though rows were present in Postgres.
+- **Admission lease TTL**: the chat heavyweight admission lease is now
+  force-released after a configurable TTL
+  (`OMNIROUTE_CHAT_HEAVY_LEASE_TTL_MS`, default 10 min) as a defensive
+  backstop against a stuck upstream SSE stream permanently occupying one of
+  the heavy in-flight slots, which would otherwise push legitimate concurrent
+  heavy traffic into retryable 503s (`chat_admission_busy`).
+
+### Changed
+
+- Version bump to 0.5.2.
+
 ## [0.5.1] — Cross-provider context fixes + chat admission relaxation (2026-08-10)
 
 Bug-fix release: combo targets whose context length was unknown were silently
