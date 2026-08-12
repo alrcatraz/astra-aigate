@@ -358,8 +358,8 @@ async function getHistoricalTargetMetrics(
       `WITH target_logs AS (
          SELECT
            id,
-           COALESCE(NULLIF(combo_execution_key, ''), NULLIF(combo_step_id, '')) AS executionKey,
-           NULLIF(combo_step_id, '') AS stepId,
+           COALESCE(NULLIF(combo_execution_key, ''), NULLIF(combo_step_id, '')) AS "executionKey",
+           NULLIF(combo_step_id, '') AS "stepId",
            status,
            duration,
            timestamp
@@ -370,41 +370,41 @@ async function getHistoricalTargetMetrics(
        ),
        aggregate_metrics AS (
          SELECT
-           executionKey,
-           MAX(stepId) AS stepId,
+           "executionKey",
+           MAX("stepId") AS "stepId",
            COUNT(*) AS requests,
-           SUM(CASE WHEN status >= 200 AND status < 400 THEN 1 ELSE 0 END) AS successCount,
-           AVG(duration) AS avgLatencyMs,
-           MAX(timestamp) AS lastUsedAt
+           SUM(CASE WHEN status >= 200 AND status < 400 THEN 1 ELSE 0 END) AS "successCount",
+           AVG(duration) AS "avgLatencyMs",
+           MAX(timestamp) AS "lastUsedAt"
          FROM target_logs
-         GROUP BY executionKey
+         GROUP BY "executionKey"
        ),
        latest_metrics AS (
-         SELECT executionKey, stepId, status AS lastStatusCode
+         SELECT "executionKey", "stepId", status AS "lastStatusCode"
          FROM (
            SELECT
-             executionKey,
-             stepId,
+             "executionKey",
+             "stepId",
              status,
              ROW_NUMBER() OVER (
-               PARTITION BY executionKey
+               PARTITION BY "executionKey"
                ORDER BY timestamp DESC, id DESC
-             ) AS rowRank
+             ) AS "rowRank"
            FROM target_logs
          )
-         WHERE rowRank = 1
+         WHERE "rowRank" = 1
        )
        SELECT
-         aggregate_metrics.executionKey,
-         COALESCE(latest_metrics.stepId, aggregate_metrics.stepId) AS stepId,
+         aggregate_metrics."executionKey",
+         COALESCE(latest_metrics."stepId", aggregate_metrics."stepId") AS "stepId",
          aggregate_metrics.requests,
-         aggregate_metrics.successCount,
-         aggregate_metrics.avgLatencyMs,
-         latest_metrics.lastStatusCode,
-         aggregate_metrics.lastUsedAt
+         aggregate_metrics."successCount",
+         aggregate_metrics."avgLatencyMs",
+         latest_metrics."lastStatusCode",
+         aggregate_metrics."lastUsedAt"
        FROM aggregate_metrics
-       LEFT JOIN latest_metrics ON latest_metrics.executionKey = aggregate_metrics.executionKey
-       ORDER BY aggregate_metrics.executionKey ASC`
+       LEFT JOIN latest_metrics ON latest_metrics."executionKey" = aggregate_metrics."executionKey"
+       ORDER BY aggregate_metrics."executionKey" ASC`
     )
     .all(comboName, since)) as HistoricalTargetAggregateRow[];
 

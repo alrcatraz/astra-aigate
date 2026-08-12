@@ -25,6 +25,12 @@ async function resetStorage() {
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  // resetDbInstance() closes the DB; the next getDbInstance() re-opens it and
+  // kicks off the async versioned migration (fire-and-forget). Await that run so
+  // seeding (createCombo etc.) never races ahead of the schema — otherwise the
+  // combos table can predate migration 005 (missing context_cache_protection).
+  core.getDbInstance(); // force the DB (re)open to start the migration
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {

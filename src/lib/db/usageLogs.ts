@@ -28,7 +28,7 @@ export async function getAutoRoutingTotalCount(): Promise<AutoRoutingTotalResult
     .prepare(
       `
       SELECT COUNT(*) as count
-      FROM usage_logs
+      FROM usage_history
       WHERE model = 'auto' OR model LIKE 'auto/%'
     `
     )
@@ -60,7 +60,7 @@ export async function getAutoRoutingVariantBreakdown(): Promise<AutoRoutingVaria
           ELSE 'other'
         END as variant,
         COUNT(*) as count
-      FROM usage_logs
+      FROM usage_history
       WHERE model = 'auto' OR model LIKE 'auto/%'
       GROUP BY variant
       ORDER BY count DESC
@@ -83,7 +83,7 @@ export async function getAutoRoutingTopProviders(): Promise<AutoRoutingTopProvid
     .prepare(
       `
       SELECT provider, COUNT(*) as count
-      FROM usage_logs
+      FROM usage_history
       WHERE model = 'auto' OR model LIKE 'auto/%'
       GROUP BY provider
       ORDER BY count DESC
