@@ -214,6 +214,54 @@ function appendOnConflictUpsert(sql: string, arbiterCols?: string[]): string {
   return `${trimmed} ON CONFLICT DO NOTHING`;
 }
 
+/**
+ * Rewrite assignments in an existing `ON CONFLICT ... DO UPDATE SET` clause so
+ * bare column references on the RIGHT side are qualified with the target table
+ * name. PostgreSQL reports `column reference "x" is ambiguous` for the
+ * sliding-window counter pattern `consumed = consumed + EXCLUDED.consumed` —
+ * the bare `consumed` on the RHS is ambiguous between the target-table column
+ * and the excluded row. SQLite accepts it; PG requires the RHS to be
+ * qualified: `consumed = quota_consumption.consumed + EXCLUDED.consumed`.
+ * (The assignment LHS must stay bare — `SET table.col = ...` is itself a PG
+ * syntax error.)
+ *
+ * Only statements that ALREADY carry `ON CONFLICT` are touched (hand-written
+ * upserts like quotaConsumption.ts). Statements rewritten by
+ * appendOnConflictUpsert emit `col = EXCLUDED.col` where the RHS is fully
+ * qualified, so they are safe — but they pass through here unchanged anyway.
+ */
+function rewriteConflictAssignments(sql: string): string {
+  if (!/\bON\s+CONFLICT\b/i.test(sql)) return sql;
+  const tableM = /^\s*INSERT\s+INTO\s+([A-Za-z_][A-Za-z0-9_]*)/i.exec(sql);
+  if (!tableM) return sql;
+  const table = tableM[1];
+
+  // Only touch `DO UPDATE SET` sections.
+  return sql.replace(
+    /\bDO\s+UPDATE\s+SET\s+([\s\S]*?)(?=\b(?:WHERE|RETURNING)\b|;|$)/i,
+    (_m: string, body: string) => {
+      // Split into assignment items on top-level commas, then qualify bare
+      // identifiers only on the RHS (after the first `=`).
+      const items = body.split(",");
+      const rewrittenItems = items.map((item) => {
+        const eqIdx = item.indexOf("=");
+        if (eqIdx === -1) return item; // no assignment — leave alone
+        const lhs = item.slice(0, eqIdx + 1);
+        const rhs = item.slice(eqIdx + 1);
+        const qualifiedRhs = rhs.replace(
+          /(?<![A-Za-z0-9_."])([a-z_][a-z0-9_]*)(?![A-Za-z0-9_."])/g,
+          (ident: string) => {
+            if (ident.toLowerCase() === "excluded") return ident;
+            return `${table}.${ident}`;
+          }
+        );
+        return lhs + qualifiedRhs;
+      });
+      return `DO UPDATE SET ${rewrittenItems.join(",")}`;
+    }
+  );
+}
+
 /** Rewrite AUTOINCREMENT and bare INTEGER PRIMARY KEY in DDL. */
 function rewriteDdl(sql: string): string {
   let out = sql;
@@ -466,8 +514,23 @@ export function translateSqliteToPostgres(
 ): string {
   let out = sql;
   out = rewriteInsertOr(out, arbiterFor);
+  out = rewriteConflictAssignments(out);
   out = rewriteDdl(out);
   out = rewriteTimeFns(out);
+  // PostgreSQL folds unquoted identifiers to lower case, so `as remainingPct`
+  // comes back as `remainingpct` and every JS reader that expects the camelCase
+  // alias reads undefined → 0. Quote camelCase aliases (and their GROUP BY /
+  // ORDER BY references) so PG preserves the case exactly as SQLite did.
+  // Lower-case aliases are unaffected (folding is a no-op for them), and
+  // expressions / function calls (uppercase or parenthesised) are left alone.
+  out = quoteCamelAliases(out);
+  // NOTE: no blanket camelCase quoting here. Bare camelCase identifiers also
+  // appear as SQLite named-parameter suffixes (@lastUsedAt) and as column
+  // references in SET/WHERE/JOIN clauses whose physical columns are
+  // snake_case (auth_type, is_active, last_used_at). Quoting those breaks
+  // binding and column resolution ("column \"authType\" does not exist").
+  // Alias references that genuinely need quoting are handled inside
+  // quoteSelectList / quoteGroupItems (SELECT/GROUP BY/ORDER BY items only).
   // COLLATE NOCASE → LOWER(<expr>). PostgreSQL has no NOCASE collation;
   // lowering the expression reproduces case-insensitive ordering/comparison.
   // Handles bare identifiers, quoted identifiers, and `?` placeholders (the
@@ -491,6 +554,434 @@ export function translateSqliteToPostgres(
   out = rewriteIsParam(out);
   out = rewritePlaceholders(out);
   return out;
+}
+
+/**
+ * Quote camelCase SQL aliases so PostgreSQL preserves their case.
+ *
+ * PostgreSQL folds unquoted identifiers to lower case, so `AS remainingPct`
+ * in a SELECT comes back as `remainingpct` and every JS reader expecting the
+ * camelCase alias reads undefined → 0 / null. SQLite returned the alias with
+ * its original case, so the fix is to make PG do the same by quoting it.
+ *
+ * Handles two shapes:
+ *   1. `AS <camelCase>` — the alias definition itself.
+ *   2. `<camelCase>` in GROUP BY / ORDER BY clauses — bare identifiers that
+ *      reference the quoted aliases. If only the SELECT alias were quoted, the
+ *      unquoted GROUP BY reference would fold to lower case and no longer
+ *      match the quoted alias → PG error. So both sides get quoted together.
+ *
+ * Only identifiers that START lower-case and CONTAIN an upper-case letter are
+ * touched: fully-lower-case aliases (e.g. `date`, `requests`) fold to
+ * themselves and need no quoting, and fully-upper-case tokens are function
+ * names (e.g. `LOWER(...)`) or keywords that must not be touched. Expressions
+ * (parenthesised, e.g. `substr(timestamp, 1, 10)`) are skipped because the
+ * identifier regex requires a word boundary after the identifier.
+ */
+function quoteCamelAliases(sql: string): string {
+  // 1. AS aliases: `AS serviceTier` → `AS "serviceTier"`.
+  //    Case-insensitive keyword (as/AS), but the identifier itself must be
+  //    strict camelCase (starts lower, contains upper) — a case-insensitive
+  //    character class would also match all-lower aliases and then GROUP BY
+  //    (which only quotes camelCase) would disagree with the SELECT list.
+  //    NOTE: performed last via quoteClauseRefs is intentionally avoided —
+  //    AS aliases live both inside and outside subqueries and are uniform, so
+  //    a plain global replace is correct here.
+  let out = sql.replace(/\b[Aa][Ss]\s+([a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*)\b/g, 'AS "$1"');
+  // 2+3. SELECT-list / GROUP BY / ORDER BY references, processed per top-level
+  //    clause so nested subqueries are handled independently (a GROUP BY inside
+  //    a subquery must not swallow an outer GROUP BY; a SELECT-list bare
+  //    camelCase identifier referencing a subquery alias must be quoted).
+  //    A single scan tracks paren depth and splits on top-level clause
+  //    keywords and on the top-level `)` that closes a subquery.
+  out = quoteClauseRefs(out);
+  return out;
+}
+
+/**
+ * Rewrite bare camelCase identifiers inside SELECT / GROUP BY / ORDER BY
+ * clauses, per top-level (depth-0) clause, so nested subqueries are treated
+ * independently.
+ *
+ * It scans the SQL tracking paren depth (and single/double-quoted string
+ * literals) and recognises the depth-0 keyword positions for SELECT,
+ * GROUP BY and ORDER BY. Each clause's body runs until the next depth-0
+ * clause keyword, a depth-0 `)` (subquery close), or EOF:
+ *
+ *   - SELECT body  → quoteSelectList  (quote bare camelCase item references)
+ *   - GROUP BY/ORDER BY body → quoteGroupItems (quote items, incl. ASC/DESC)
+ *
+ * The clause keyword itself and any `)`/other clause boundaries are re-emitted
+ * verbatim. Function-call parens (e.g. `strftime(...)`, `to_char(...)`) keep
+ * depth > 0 and therefore never terminate a clause or get treated as items.
+ */
+function quoteClauseRefs(sql: string): string {
+  // Depth-0 clause keywords that BOUND a SELECT/GROUP BY/ORDER BY body. Any of
+  // these terminates the current clause body during the scan. Only SELECT,
+  // GROUP BY and ORDER BY bodies are rewritten; the rest act purely as
+  // separators and are re-emitted verbatim.
+  const KW: string[] = [
+    "SELECT",
+    "FROM",
+    "JOIN",
+    "WHERE",
+    "GROUP BY",
+    "ORDER BY",
+    "HAVING",
+    "LIMIT",
+    "OFFSET",
+    "UNION",
+  ];
+
+  // Match a depth-0 keyword at pos (case-insensitive, word-boundary).
+  const matchKw = (pos: number, depth0: boolean): string | null => {
+    if (!depth0) return null;
+    const rest = sql;
+    for (const kw of KW) {
+      if (rest.slice(pos, pos + kw.length).toUpperCase() === kw) {
+        const after = rest[pos + kw.length];
+        if (after === undefined || /[\s(]/.test(after) || /[",)]/.test(after)) {
+          return kw;
+        }
+      }
+    }
+    return null;
+  };
+
+  const PROCESS = new Set(["SELECT", "GROUP BY", "ORDER BY"]);
+  const out: string[] = [];
+  let i = 0;
+  const n = sql.length;
+  let depth = 0;
+  let inSQuote = false;
+  let inDQuote = false;
+  let raw = "";
+
+  const flushRaw = () => {
+    if (raw) {
+      out.push(raw);
+      raw = "";
+    }
+  };
+
+  while (i < n) {
+    const ch = sql[i];
+
+    // String literals.
+    if (ch === "'") {
+      raw += ch;
+      if (!inDQuote) inSQuote = !inSQuote;
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      raw += ch;
+      if (!inSQuote) inDQuote = !inDQuote;
+      i++;
+      continue;
+    }
+    if (inSQuote || inDQuote) {
+      raw += ch;
+      i++;
+      continue;
+    }
+
+    // Paren depth.
+    if (ch === "(") {
+      depth++;
+      raw += ch;
+      i++;
+      continue;
+    }
+    if (ch === ")") {
+      if (depth > 0) depth--;
+      raw += ch;
+      i++;
+      continue;
+    }
+
+    // Clause keyword at ANY depth (CTEs and subqueries use parentheses, so a
+    // `SELECT` inside WITH ... AS (...) is at depth>0 and must still be
+    // rewritten). Bodies run to the matching close paren / next keyword.
+    const kw = matchKw(i, true);
+    if (kw) {
+      flushRaw();
+      out.push(kw);
+      let body = "";
+      let j = i + kw.length;
+      let bdepth = 0;
+      let bsQuote = false;
+      let bdQuote = false;
+      while (j < n) {
+        const c = sql[j];
+        if (c === "'") {
+          if (!bdQuote) bsQuote = !bsQuote;
+          body += c;
+          j++;
+          continue;
+        }
+        if (c === '"') {
+          if (!bsQuote) bdQuote = !bdQuote;
+          body += c;
+          j++;
+          continue;
+        }
+        if (bsQuote || bdQuote) {
+          body += c;
+          j++;
+          continue;
+        }
+        if (c === "(") {
+          bdepth++;
+          body += c;
+          j++;
+          continue;
+        }
+        if (c === ")") {
+          if (bdepth > 0) {
+            bdepth--;
+            body += c;
+            j++;
+            continue;
+          }
+          // depth-0 `)` closes a subquery → end clause body.
+          break;
+        }
+        if (bdepth === 0 && matchKw(j, true)) break;
+        body += c;
+        j++;
+      }
+      if (PROCESS.has(kw)) {
+        const processed = quoteFuncArgs(body);
+        out.push(kw === "SELECT" ? quoteSelectList(processed) : quoteGroupItems(processed));
+      } else {
+        out.push(body);
+      }
+      i = j;
+      continue;
+    }
+
+    raw += ch;
+    i++;
+  }
+  flushRaw();
+  return out.join("");
+}
+
+/**
+ * Apply the correct item-quoter to a clause body based on its keyword.
+ */
+function processClauseBody(kw: string, body: string): string {
+  if (kw === "SELECT") return quoteSelectList(body);
+  return quoteGroupItems(body);
+}
+
+/**
+ * Quote bare camelCase identifiers used as ARGUMENTS inside function calls,
+ * e.g. `SUM(totalTokens)` → `SUM("totalTokens")`. Handles nested calls
+ * (`COALESCE(SUM(totalTokens), 0)`) and quoted/string-literal arguments by
+ * scanning with bracket tracking. Function NAMES (upper-case like SUM/GROUP)
+ * and lower-case args (tokens_input, provider) are left untouched; already
+ * quoted identifiers (`"totalTokens"`) are skipped so we never double-quote.
+ */
+function quoteFuncArgs(body: string): string {
+  const out: string[] = [];
+  let i = 0;
+  const n = body.length;
+  while (i < n) {
+    const ch = body[i];
+    // Skip string literals verbatim.
+    if (ch === "'" || ch === '"') {
+      const q = ch;
+      let j = i + 1;
+      while (j < n && body[j] !== q) {
+        if (body[j] === "\\") j++;
+        j++;
+      }
+      out.push(body.slice(i, Math.min(j + 1, n)));
+      i = Math.min(j + 1, n);
+      continue;
+    }
+    // Identify function-name followed by `(`.
+    const fnMatch = /^[A-Za-z_][A-Za-z0-9_]*\s*\(/.exec(body.slice(i));
+    if (fnMatch) {
+      // The function name token:
+      const nameTok = fnMatch[0].slice(0, fnMatch[0].indexOf("(")).trim();
+      const openIdx = body.indexOf("(", i + nameTok.length);
+      // Find matching close paren (handling nesting + string literals).
+      let depth = 1;
+      let j = openIdx + 1;
+      while (j < n && depth > 0) {
+        const c = body[j];
+        if (c === "'" || c === '"') {
+          const q = c;
+          j++;
+          while (j < n && body[j] !== q) {
+            if (body[j] === "\\") j++;
+            j++;
+          }
+          j = Math.min(j + 1, n);
+          continue;
+        }
+        if (c === "(") depth++;
+        else if (c === ")") depth--;
+        if (depth > 0) j++;
+      }
+      const args = body.slice(openIdx + 1, j);
+      const closeIdx = j;
+      // Quote bare camelCase args inside (recursively for nested calls).
+      // Only touch args that are a standalone strict-camelCase identifier
+      // (not inside quotes, not preceded/followed by ident chars).
+      const quotedArgs = args.replace(
+        /(?<![A-Za-z0-9_"])([a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*)(?![A-Za-z0-9_"])/g,
+        '"$1"'
+      );
+      out.push(nameTok + "(" + quotedArgs + ")");
+      i = Math.min(closeIdx + 1, n);
+      continue;
+    }
+    // Plain text — advance one char.
+    out.push(ch);
+    i++;
+  }
+  return out.join("");
+}
+
+/**
+ * Quote bare camelCase identifiers in a GROUP BY / ORDER BY item list.
+ * Splits on top-level commas (parens tracked so `LOWER(p)` stays one item),
+ * then quotes exactly those items that are a single strict-camelCase
+ * identifier, optionally followed by ASC/DESC. Everything else (function
+ * calls, lower-case aliases, qualified names) is preserved verbatim.
+ */
+function quoteGroupItems(rest: string): string {
+  const parts: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of rest) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) {
+      parts.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  parts.push(cur);
+  return parts
+    .map((item) =>
+      item.replace(
+        /^(\s*)([a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*)(\s*)(?:\b(?:[Aa][Ss][Cc]|[Dd][Ee][Ss][Cc])\b)?(\s*)$/,
+        (_m: string, lead: string, ident: string, mid: string, tail: string, dir?: string) =>
+          dir
+            ? `${lead}"${ident}"${mid}${dir.toUpperCase()}${tail}`
+            : `${lead}"${ident}"${mid}${tail}`
+      )
+    )
+    .map((item) => quoteCamelTokens(item))
+    .join(", ");
+}
+
+/**
+ * Quote bare camelCase identifiers anywhere in a clause item — including
+ * qualified references (`alias.camelCase` → `alias."camelCase"`), window
+ * function partition/order expressions (`PARTITION BY camelCase`,
+ * `ORDER BY camelCase`), and nested subquery list items that were folded
+ * into an outer body by quoteClauseRefs.
+ *
+ * A strict-camelCase token is one that starts lower-case, contains at least
+ * one upper-case letter, and is bounded on both sides by a non-identifier
+ * character (whitespace, comma, paren, operator, `.`). Tokens are skipped
+ * when inside single/double-quoted string literals, backtick-quoted
+ * identifiers, or already double-quoted identifiers. Fully-lower-case
+ * columns and fully-upper-case function names/keywords are left untouched.
+ */
+function quoteCamelTokens(str: string): string {
+  const out: string[] = [];
+  let i = 0;
+  const n = str.length;
+  while (i < n) {
+    const ch = str[i];
+    // Skip string literals and quoted identifiers verbatim.
+    if (ch === "'" || ch === '"' || ch === "`") {
+      const q = ch;
+      let j = i + 1;
+      while (j < n && str[j] !== q) {
+        if (str[j] === "\\") j++;
+        j++;
+      }
+      out.push(str.slice(i, Math.min(j + 1, n)));
+      i = Math.min(j + 1, n);
+      continue;
+    }
+    // Match a strict-camelCase token at this position.
+    if (/[a-z]/.test(ch)) {
+      const m = /^([a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*)/.exec(str.slice(i));
+      if (m) {
+        const ident = m[1];
+        const before = i === 0 ? "" : str[i - 1];
+        const after = str[i + ident.length];
+        // Bounded: previous char is not an identifier char or `"`; next char
+        // is not an identifier char. `.` is deliberately NOT excluded so the
+        // qualified form `alias.camelCase` → `alias."camelCase"` is handled
+        // (a `.` right before the camelCase token is fine). A camelCase
+        // qualifier itself (`camelCaseColumn.col`) is left untouched because
+        // the token is followed by `.`, which IS excluded on the right only
+        // when it forms part of an identifier boundary — see below.
+        const isBoundedBefore = !/[A-Za-z0-9_"']/.test(before);
+        const isBoundedAfter = after === undefined || !/[A-Za-z0-9_".`]/.test(after);
+        if (isBoundedBefore && isBoundedAfter) {
+          out.push(`"${ident}"`);
+          i += ident.length;
+          continue;
+        }
+      }
+    }
+    out.push(ch);
+    i++;
+  }
+  return out.join("");
+}
+
+/**
+ * Quote bare camelCase identifiers in the SELECT list that are references to a
+ * subquery alias. Splits on top-level commas (parens tracked so function calls
+ * stay one item), then quotes exactly the items that are a single strict-
+ * camelCase identifier. Function calls (e.g. `COUNT(*)`, `LOWER(p)`),
+ * expressions, qualified names, `*`, lower-case columns, and quoted/cased
+ * identifiers are preserved verbatim — so only the subquery-alias-reference
+ * case (`SELECT dayOfWeek FROM (...) ...`) is touched, matching how
+ * quoteGroupItems treats the GROUP BY / ORDER BY side.
+ */
+function quoteSelectList(rest: string): string {
+  const parts: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of rest) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) {
+      parts.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  parts.push(cur);
+  // Per item: first try the whole item as a bare camelCase alias reference
+  // (`executionKey`), then quote any remaining bare camelCase tokens inside
+  // (qualified `alias.camelCase`, OVER(...) partition/order refs, nested
+  // subquery list items that were folded into the body).
+  return parts
+    .map((item) =>
+      item.replace(
+        /^(\s*)([a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*)(\s*)$/,
+        (_m: string, lead: string, ident: string, tail: string) => `${lead}"${ident}"${tail}`
+      )
+    )
+    .map((item) => quoteCamelTokens(item))
+    .join(",");
 }
 
 /**

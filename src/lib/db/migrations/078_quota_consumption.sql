@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS quota_consumption (
   dimension_key TEXT NOT NULL,
   bucket_index INTEGER NOT NULL,
   consumed REAL NOT NULL DEFAULT 0,
-  updated_at INTEGER NOT NULL,            -- epoch ms
+  updated_at BIGINT NOT NULL,             -- epoch ms (BIGINT: PG INTEGER is 32-bit and overflows for epoch ms)
   PRIMARY KEY (api_key_id, dimension_key, bucket_index)
 );
 

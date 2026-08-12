@@ -60,6 +60,31 @@ describe("postgresDialect.translateSqliteToPostgres", () => {
     );
   });
 
+  it("qualifies bare RHS columns in an existing DO UPDATE SET upsert", () => {
+    const sql = translateSqliteToPostgres(
+      `INSERT INTO quota_consumption (api_key_id, dimension_key, bucket_index, consumed, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(api_key_id, dimension_key, bucket_index)
+       DO UPDATE SET
+         consumed = consumed + excluded.consumed,
+         updated_at = excluded.updated_at`
+    );
+    // LHS stays bare (SET table.col = ... is a PG syntax error), RHS bare refs
+    // are qualified with the target table so PG does not report ambiguity.
+    assert.ok(sql.includes("consumed = quota_consumption.consumed + excluded.consumed"));
+    assert.ok(sql.includes("updated_at = excluded.updated_at"));
+    assert.ok(!sql.includes("quota_consumption.consumed ="));
+  });
+
+  it("keeps already-qualified EXCLUDED upserts unchanged", () => {
+    const sql = translateSqliteToPostgres("INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)", (t) =>
+      t === "kv" ? ["k"] : undefined
+    );
+    assert.ok(sql.includes('ON CONFLICT ("k") DO UPDATE SET v = EXCLUDED.v'));
+    // The generated assignments must not be double-qualified.
+    assert.ok(!sql.includes("kv.v = kv."));
+  });
+
   it("rewrites AUTOINCREMENT DDL", () => {
     assert.equal(
       translateSqliteToPostgres(
