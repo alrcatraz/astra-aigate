@@ -201,7 +201,9 @@ export async function getUsageForProvider(
     case "nanogpt":
       return await getNanoGptUsage(apiKey || "");
     case "deepseek":
-      return await getDeepseekUsage(id || "", apiKey || "");
+      return await getDeepseekUsage(id || "", apiKey || "", {
+        force: options?.forceRefresh === true,
+      });
     case "openrouter":
       return await getOpenrouterUsage(id || "", apiKey || "", providerSpecificData);
     case "opencode":

@@ -17,10 +17,14 @@ import { type UsageQuota } from "./quota.ts";
  * Fetches balance from the DeepSeek balance API.
  * Returns all balances (USD and CNY) as "credits" for credits-style UI display.
  */
-export async function getDeepseekUsage(connectionId: string, apiKey: string) {
+export async function getDeepseekUsage(
+  connectionId: string,
+  apiKey: string,
+  opts?: { force?: boolean }
+) {
   try {
     const connection = { apiKey };
-    const quota = await fetchDeepseekQuota(connectionId, connection);
+    const quota = await fetchDeepseekQuota(connectionId, connection, opts);
 
     if (!quota) {
       return { message: "DeepSeek API key not available. Add a key to view usage." };

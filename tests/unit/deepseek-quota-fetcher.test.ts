@@ -243,6 +243,38 @@ test("fetchDeepseekQuota caches results within TTL", async () => {
   assert.equal(calls.length, 2);
 });
 
+test("fetchDeepseekQuota bypasses cache when force is true", async () => {
+  const connectionId = `deepseek-force-${Date.now()}`;
+  const calls = [];
+
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return new Response(
+      JSON.stringify({
+        is_available: true,
+        balance_infos: [
+          {
+            currency: "USD",
+            total_balance: "75.00",
+            granted_balance: "5.00",
+            topped_up_balance: "70.00",
+          },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+
+  const first = await fetchDeepseekQuota(connectionId, { apiKey: "test-key" });
+  // Second call with force:true must bypass the 60s in-memory cache and re-fetch.
+  const second = await fetchDeepseekQuota(connectionId, { apiKey: "test-key" }, { force: true });
+
+  assert.equal(calls.length, 2);
+  assert.deepEqual(first, second);
+
+  invalidateDeepseekQuotaCache(connectionId);
+});
+
 test("fetchDeepseekQuota returns null on network error (fail-open)", async () => {
   const connectionId = `deepseek-network-${Date.now()}`;
 

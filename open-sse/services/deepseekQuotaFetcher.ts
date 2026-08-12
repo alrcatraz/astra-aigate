@@ -168,12 +168,16 @@ function parseAllBalanceInfos(data: unknown): BalanceInfo[] {
  */
 export async function fetchDeepseekQuota(
   connectionId: string,
-  connection?: Record<string, unknown>
+  connection?: Record<string, unknown>,
+  opts?: { force?: boolean }
 ): Promise<QuotaInfo | null> {
-  // Check cache first
-  const cached = quotaCache.get(connectionId);
-  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-    return cached.quota;
+  // Check cache first (skip when force-refreshing from an explicit refresh action)
+  const force = opts?.force === true;
+  if (!force) {
+    const cached = quotaCache.get(connectionId);
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+      return cached.quota;
+    }
   }
 
   // Extract API key from connection
