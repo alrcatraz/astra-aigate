@@ -54,9 +54,9 @@ function seed() {
   insert.run("b3", iso(4), 200, "claude-sonnet-5", "claude-sonnet-5", null, null);
 }
 
-test("resume a janela ignorando erro, fora-da-janela e linhas sem contabilidade", () => {
+test("resume a janela ignorando erro, fora-da-janela e linhas sem contabilidade", async () => {
   seed();
-  const r = buildCacheHealthResponse({ range: "1h", now: NOW });
+  const r = await buildCacheHealthResponse({ range: "1h", now: NOW });
 
   assert.equal(r.totalCalls, 4, "só as 4 chamadas 200 dentro de 1h com colunas de cache");
   assert.equal(r.cacheReadTotal, 0 + 11660 + 11674 + 37509);
@@ -69,9 +69,9 @@ test("resume a janela ignorando erro, fora-da-janela e linhas sem contabilidade"
   );
 });
 
-test("filtra por modelo quando pedido", () => {
+test("filtra por modelo quando pedido", async () => {
   seed();
-  const r = buildCacheHealthResponse({ range: "1h", model: "claude-opus-4-8", now: NOW });
+  const r = await buildCacheHealthResponse({ range: "1h", model: "claude-opus-4-8", now: NOW });
 
   assert.equal(r.totalCalls, 1);
   assert.equal(r.byModel.length, 1);

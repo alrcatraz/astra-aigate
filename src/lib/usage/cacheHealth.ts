@@ -252,13 +252,13 @@ export interface CacheHealthResponse extends CacheHealthSummary {
  * to hit. Rows where both counters are NULL are excluded at the SQL level —
  * those pre-date cache accounting and would show up as fake "uncached" calls.
  */
-export function buildCacheHealthResponse(opts: {
+export async function buildCacheHealthResponse(opts: {
   range: UtilizationTimeRange;
   model?: string;
   now?: number;
-}): CacheHealthResponse {
+}): Promise<CacheHealthResponse> {
   const since = new Date((opts.now ?? Date.now()) - RANGE_MS[opts.range]).toISOString();
-  const db = syncDb();
+  const db = await getAsyncDb();
 
   const params: (string | number)[] = [since];
   let modelFilter = "";
@@ -268,7 +268,7 @@ export function buildCacheHealthResponse(opts: {
   }
   params.push(MAX_ROWS + 1);
 
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT model, requested_model, tokens_cache_read, tokens_cache_creation, timestamp
          FROM call_logs
@@ -279,7 +279,7 @@ export function buildCacheHealthResponse(opts: {
         ORDER BY timestamp DESC
         LIMIT ?`
     )
-    .all(...params) as CacheHealthDbRow[];
+    .all(...params)) as CacheHealthDbRow[];
 
   const truncated = rows.length > MAX_ROWS;
   const summary = summarizeCacheHealth(

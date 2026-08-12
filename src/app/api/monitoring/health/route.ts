@@ -71,14 +71,18 @@ export async function GET() {
       getProviderConnections(),
     ]);
 
-    const circuitBreakers =
-      circuitBreakerModule.status === "fulfilled"
-        ? readHealthValue(
-            "circuit breakers",
-            () => circuitBreakerModule.value.getAllCircuitBreakerStatuses(),
-            []
-          )
-        : [];
+    let circuitBreakers: Parameters<typeof buildHealthPayload>[0]["circuitBreakers"] = [];
+    if (circuitBreakerModule.status === "fulfilled") {
+      try {
+        circuitBreakers = await (circuitBreakerModule.value as any).getAllCircuitBreakerStatuses();
+      } catch (error) {
+        console.warn(
+          "[API] GET /api/monitoring/health circuit breakers unavailable:",
+          error instanceof Error ? error.message : error
+        );
+        circuitBreakers = [];
+      }
+    }
     const rateLimitStatus =
       rateLimitModule.status === "fulfilled"
         ? readHealthValue("rate limits", () => rateLimitModule.value.getAllRateLimitStatus(), {})
@@ -206,7 +210,7 @@ export async function DELETE(request: Request) {
     const { resetAllCircuitBreakers, getAllCircuitBreakerStatuses } =
       await import("@/shared/utils/circuitBreaker");
 
-    const before = getAllCircuitBreakerStatuses();
+    const before = await getAllCircuitBreakerStatuses();
     const resetCount = before.length;
 
     resetAllCircuitBreakers();

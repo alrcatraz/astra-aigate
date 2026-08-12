@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(buildCacheHealthResponse(parsed.data));
+    return NextResponse.json(await buildCacheHealthResponse(parsed.data));
   } catch (error) {
     // Never echo the error: the message can carry the DATA_DIR path and the
     // SQL text. Details go to the server log, the caller gets a fixed string.

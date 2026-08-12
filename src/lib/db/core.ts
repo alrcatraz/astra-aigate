@@ -1061,8 +1061,46 @@ export function sqliteAsyncAdapter(sync: SqliteDatabase): DatabaseAdapter {
     pragma: (pragmaStr: string, options?: { simple?: boolean }) =>
       Promise.resolve(sync.pragma(pragmaStr, options)),
     transaction: <T>(fn: (...args: unknown[]) => Promise<T> | T) => {
-      const t = sync.transaction(fn as (...args: unknown[]) => T);
-      return (...args: unknown[]) => Promise.resolve(t(...args));
+      // better-sqlite3's sync.transaction() rejects an async callback
+      // ("Transaction function cannot return a promise"), but call sites like
+      // settings.updatePricing pass an async fn (they `await insert.run(...)`
+      // inside). In SQLite mode the underlying statement wrappers resolve
+      // synchronously anyway, so drive BEGIN/COMMIT/ROLLBACK manually and
+      // `await` the callback — this keeps async transaction bodies working
+      // identically in both drivers.
+      //
+      // Nested transactions must become SAVEPOINTs (migrationRunner.supportsFts5
+      // opens a transaction while runMigrations already holds one). Detect the
+      // outer transaction via better-sqlite3's own `inTransaction` flag.
+      const t = async (...args: unknown[]): Promise<T> => {
+        const raw = sync as unknown as { inTransaction: boolean; exec: (sql: string) => unknown };
+        if (raw.inTransaction) {
+          // Outer transaction already open → SAVEPOINT (matches PG adapter).
+          const sp = `sp_${Math.random().toString(36).slice(2, 10)}`;
+          raw.exec(`SAVEPOINT ${sp}`);
+          try {
+            return (await fn(...args)) as T;
+          } catch (err) {
+            raw.exec(`ROLLBACK TO ${sp}`);
+            raw.exec(`RELEASE ${sp}`);
+            throw err;
+          }
+        }
+        raw.exec("BEGIN");
+        try {
+          const result = (await fn(...args)) as T;
+          raw.exec("COMMIT");
+          return result;
+        } catch (err) {
+          try {
+            raw.exec("ROLLBACK");
+          } catch {
+            /* connection may be gone — nothing more to do */
+          }
+          throw err;
+        }
+      };
+      return t;
     },
     immediate: (fn: () => Promise<void> | void) =>
       Promise.resolve(sync.immediate(fn as () => void)),
@@ -1074,6 +1112,15 @@ export function sqliteAsyncAdapter(sync: SqliteDatabase): DatabaseAdapter {
 }
 
 let asyncDb: DatabaseAdapter | null = null;
+
+/**
+ * Tracks the fire-and-forget versioned migration run started by openSqliteDatabase
+ * (getDb). Exposed via awaitDbMigrations() so callers (tests that reset the DB,
+ * restore flows) can wait for the schema to be fully materialised instead of
+ * racing ahead of the async runner. Reset to null on close so a re-opened DB
+ * starts a fresh migration and the await target tracks the current instance.
+ */
+let migrationsPromise: Promise<void> | null = null;
 
 /**
  * The async database handle (PostgreSQL in postgres mode, SQLite-backed in
@@ -1518,9 +1565,11 @@ export function getDbInstance(): SqliteDatabase {
     VALUES ('001', 'initial_schema');
   `);
 
-  void runMigrations(db, { isNewDb }).catch((error: unknown) => {
-    console.error("[DB] Migration runner failed:", error);
-  });
+  migrationsPromise = runMigrations(db, { isNewDb })
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      console.error("[DB] Migration runner failed:", error);
+    });
   // Fresh installs need the same post-migration index guarantee as upgraded
   // databases, including recovery from an interrupted migration 127 attempt.
   ensureUsageHistoryAccountIndex(db);
@@ -1670,10 +1719,31 @@ export function closeDbInstance(options?: { checkpointMode?: CheckpointMode | nu
 }
 
 /**
+ * Wait for the fire-and-forget versioned migration run to finish.
+ *
+ * openSqliteDatabase (getDb) kicks off `migrationsPromise` without awaiting it.
+ * Tests / restore flows that reset the DB need the schema fully materialised
+ * before touching it, so they await this. Resolves immediately when no migration
+ * is in flight (e.g. no DB opened yet). Any runner failure is swallowed by the
+ * tracked promise (it logs); this simply resolves once the run has settled.
+ */
+export async function awaitDbMigrations(): Promise<void> {
+  if (migrationsPromise) await migrationsPromise;
+}
+
+/**
  * Reset the singleton (used by restore).
  */
 export function resetDbInstance() {
   closeDbInstance();
+  // The async handle may be a wrapper around the just-closed synchronous SQLite
+  // (sqlite mode). Drop it so the next getAsyncDb() re-wraps the freshly opened
+  // handle instead of preparing statements against a closed connection — the
+  // previous instance would throw "database connection is not open" (tests,
+  // backup restore). Postgres mode is unaffected (adapter is connection-less
+  // and re-wraps fine, though we clear it anyway for a clean slate).
+  asyncDb = null;
+  migrationsPromise = null;
   // Read caches outlive the SQLite singleton. A reset swaps the backing
   // database, so retaining cached rows can leak the previous database's
   // connections/settings into the newly opened instance (tests and restore).
