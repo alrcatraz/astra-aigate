@@ -48,7 +48,7 @@ type Template = {
   resetTime: string;
 };
 
-type ProviderBreakdown = { provider: string; cost: number; pct: number };
+type ProviderBreakdown = { provider: string; cost: number; pct: number; currency?: "USD" | "CNY" };
 
 const LS_TEMPLATES = "omniroute:budget:templates";
 
@@ -260,6 +260,7 @@ export default function BudgetTab() {
               provider: String(p?.provider ?? t("unknownProvider")),
               cost,
               pct: total > 0 ? (cost / total) * 100 : 0,
+              currency: p?.currency || undefined,
             };
           })
           .filter((p: ProviderBreakdown) => p.cost > 0)
@@ -922,7 +923,11 @@ function BudgetRowExpanded({
                     />
                   </div>
                   <span className="text-text-muted tabular-nums w-16 text-right">
-                    {formatCurrency(b.cost)}
+                    {b.cost < 0.01
+                      ? `${b.currency === "CNY" ? "¥" : "$"}${b.cost.toFixed(6)}`
+                      : b.cost < 1
+                        ? `${b.currency === "CNY" ? "¥" : "$"}${b.cost.toFixed(4)}`
+                        : `${b.currency === "CNY" ? "¥" : "$"}${b.cost.toFixed(2)}`}
                   </span>
                   <span className="text-text-muted tabular-nums w-10 text-right">
                     {Math.round(b.pct)}%

@@ -45,6 +45,10 @@ import { useApiKeyUsageLimits } from "./useApiKeyUsageLimits";
 
 interface UsageAnalyticsSummary {
   totalCost: number;
+  totalCostUsd: number;
+  totalCostCny: number;
+  costCurrency: "USD" | "CNY";
+  fxRateUsdCny: number;
   totalRequests: number;
   uniqueModels: number;
   uniqueAccounts: number;
@@ -67,6 +71,7 @@ interface UsageAnalyticsProviderRow {
   requests: number;
   totalTokens: number;
   cost: number;
+  currency?: "USD" | "CNY";
 }
 
 interface UsageAnalyticsModelRow {
@@ -97,6 +102,7 @@ interface UsageAnalyticsAccountRow {
   totalTokens: number;
   requests: number;
   cost: number;
+  currency?: "USD" | "CNY";
 }
 
 interface UsageAnalyticsServiceTierRow {
@@ -173,21 +179,25 @@ function formatWeekdayLabel(day: string, locale: string): string {
   );
 }
 
-export function createCurrencyFormatter(locale: string) {
+export function createCurrencyFormatter(locale: string, currency: "USD" | "CNY" = "USD") {
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
-function formatCurrencyCost(locale: string, value: number): string {
+function formatCurrencyCost(
+  locale: string,
+  value: number,
+  currency: "USD" | "CNY" = "USD"
+): string {
   const numericValue = Number(value || 0);
   if (!Number.isFinite(numericValue) || numericValue === 0) {
     return new Intl.NumberFormat(locale, {
       style: "currency",
-      currency: "USD",
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(0);
@@ -197,7 +207,7 @@ function formatCurrencyCost(locale: string, value: number): string {
   const fractionDigits = absValue < 0.01 ? 6 : absValue < 1 ? 4 : 2;
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   }).format(numericValue);
@@ -310,7 +320,20 @@ export default function CostOverviewTab() {
   const selectedApiKeyIds = useMemo(() => parseApiKeyIds(apiKeyIdsParam), [apiKeyIdsParam]);
   const selectedApiKeyId = selectedApiKeyIds.length === 1 ? selectedApiKeyIds[0] : null;
   const apiKeyFilter = useMemo(() => selectedApiKeyIds.join(","), [selectedApiKeyIds]);
-  const currencyFormatter = useMemo(() => createCurrencyFormatter(locale), [locale]);
+  const [costCurrency, setCostCurrency] = useState<"USD" | "CNY">(() => {
+    if (typeof window === "undefined") return "USD";
+    try {
+      const stored = localStorage.getItem("astra-aigate:cost-currency");
+      if (stored === "CNY") return "CNY";
+    } catch {
+      /* ignore */
+    }
+    return "USD";
+  });
+  const currencyFormatter = useMemo(
+    () => createCurrencyFormatter(locale, costCurrency),
+    [locale, costCurrency]
+  );
   const [range, setRange] = useState<CostRange>(() => parseCostRange(searchParams.get("range")));
   const [analytics, setAnalytics] = useState<UsageAnalyticsPayload | null>(null);
   const [presetCosts, setPresetCosts] = useState<Record<"1d" | "7d" | "30d", number>>({
@@ -344,6 +367,7 @@ export default function CostOverviewTab() {
         const params = new URLSearchParams({
           range,
           presets: "1d,7d,30d",
+          currency: costCurrency,
         });
         if (apiKeyFilter) params.set("apiKeyIds", apiKeyFilter);
         const response = await fetch(`/api/usage/analytics?${params.toString()}`);
@@ -377,13 +401,17 @@ export default function CostOverviewTab() {
     return () => {
       active = false;
     };
-  }, [apiKeyFilter, range, t]);
+  }, [apiKeyFilter, range, costCurrency, t]);
 
   const selectedRangeLabel = t(
     RANGE_OPTIONS.find((option) => option.value === range)?.labelKey || "range30d"
   );
   const summary = analytics?.summary || {
     totalCost: 0,
+    totalCostUsd: 0,
+    totalCostCny: 0,
+    costCurrency: costCurrency,
+    fxRateUsdCny: 7.1,
     totalRequests: 0,
     uniqueModels: 0,
     uniqueAccounts: 0,
@@ -531,6 +559,40 @@ export default function CostOverviewTab() {
                 </button>
               </div>
             )}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-muted">USD</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={costCurrency === "CNY"}
+                onClick={() => {
+                  const next = costCurrency === "CNY" ? "USD" : "CNY";
+                  setCostCurrency(next);
+                  try {
+                    localStorage.setItem("astra-aigate:cost-currency", next);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                style={{
+                  background: costCurrency === "CNY" ? "var(--primary)" : "rgba(255,255,255,0.15)",
+                }}
+              >
+                <span
+                  className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
+                  style={{
+                    transform: costCurrency === "CNY" ? "translateX(18px)" : "translateX(3px)",
+                  }}
+                />
+              </button>
+              <span
+                className="text-xs font-semibold"
+                style={{ color: costCurrency === "CNY" ? "var(--primary)" : "var(--text-muted)" }}
+              >
+                CNY
+              </span>
+            </div>
             <SegmentedControl
               options={RANGE_OPTIONS.map((option) => ({
                 value: option.value,
@@ -546,25 +608,25 @@ export default function CostOverviewTab() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label={t("spendToday")}
-          value={formatCurrencyCost(locale, presetCosts["1d"] || 0)}
+          value={formatCurrencyCost(locale, presetCosts["1d"] || 0, costCurrency)}
           loading={summaryLoading}
           color="text-emerald-400"
         />
         <MetricCard
           label={t("spend7d")}
-          value={formatCurrencyCost(locale, presetCosts["7d"] || 0)}
+          value={formatCurrencyCost(locale, presetCosts["7d"] || 0, costCurrency)}
           loading={summaryLoading}
           color="text-sky-400"
         />
         <MetricCard
           label={t("spend30d")}
-          value={formatCurrencyCost(locale, presetCosts["30d"] || 0)}
+          value={formatCurrencyCost(locale, presetCosts["30d"] || 0, costCurrency)}
           loading={summaryLoading}
           color="text-violet-400"
         />
         <MetricCard
           label={t("selectedWindow")}
-          value={formatCurrencyCost(locale, summary.totalCost || 0)}
+          value={formatCurrencyCost(locale, summary.totalCost || 0, costCurrency)}
           subValue={selectedRangeLabel}
           color="text-amber-400"
         />
@@ -575,6 +637,7 @@ export default function CostOverviewTab() {
           payload={apiKeyUsageLimits}
           loading={apiKeyUsageLimitsLoading}
           locale={locale}
+          currency={costCurrency}
           onSave={saveApiKeyUsageLimits}
         />
       )}
@@ -595,7 +658,7 @@ export default function CostOverviewTab() {
           />
           <CompactMetric
             label={t("avgCostPerRequest")}
-            value={formatCurrencyCost(locale, avgCostPerRequest)}
+            value={formatCurrencyCost(locale, avgCostPerRequest, costCurrency)}
           />
         </div>
       </Card>
@@ -613,6 +676,7 @@ export default function CostOverviewTab() {
         sortDirection={explorerSortDirection}
         locale={locale}
         hasCostData={hasCostData}
+        costCurrency={costCurrency}
         onGroupByChange={setExplorerGroupBy}
         onSearchChange={setExplorerSearch}
         onSort={handleExplorerSort}
@@ -812,11 +876,14 @@ export default function CostOverviewTab() {
                 title={t("costTrend")}
                 rows={analytics?.dailyTrend || []}
                 locale={locale}
+                currency={summary.costCurrency}
               />
               <ProviderSpendCard
                 title={t("providerShare")}
                 rows={providersByCost}
                 locale={locale}
+                baseCurrency={summary.costCurrency}
+                fxRateUsdCny={summary.fxRateUsdCny}
               />
             </div>
           )}
@@ -926,6 +993,7 @@ function CostExplorerCard({
   sortDirection,
   locale,
   hasCostData,
+  costCurrency,
   onGroupByChange,
   onSearchChange,
   onSort,
@@ -939,6 +1007,7 @@ function CostExplorerCard({
   sortDirection: CostExplorerSortDirection;
   locale: string;
   hasCostData: boolean;
+  costCurrency: "USD" | "CNY";
   onGroupByChange: (groupBy: CostExplorerGroupBy) => void;
   onSearchChange: (query: string) => void;
   onSort: (sortKey: CostExplorerSortKey) => void;
@@ -976,7 +1045,7 @@ function CostExplorerCard({
 
   function formatCost(value: number): string {
     if (!hasCostData && value <= 0) return t("legacyOrFree");
-    return formatCurrencyCost(locale, value);
+    return formatCurrencyCost(locale, value, costCurrency);
   }
 
   function formatRowCount(): string {

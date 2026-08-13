@@ -33,10 +33,10 @@ export interface ApiKeyUsageLimitSavePayload {
   weeklyUsageLimitUsd: number | null;
 }
 
-function createCurrencyFormatter(locale: string) {
+function createCurrencyFormatter(locale: string, currency: "USD" | "CNY" = "USD") {
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -74,11 +74,13 @@ export function ApiKeyUsageLimitCard({
   payload,
   loading,
   locale,
+  currency = "USD",
   onSave,
 }: {
   payload: ApiKeyUsageLimitPayload | null;
   loading: boolean;
   locale: string;
+  currency?: "USD" | "CNY";
   onSave: (next: ApiKeyUsageLimitSavePayload) => Promise<void>;
 }) {
   const t = useTranslations("usageLimits");
@@ -104,7 +106,7 @@ export function ApiKeyUsageLimitCard({
     setError(null);
   }, [payload]);
 
-  const formatter = useMemo(() => createCurrencyFormatter(locale), [locale]);
+  const formatter = useMemo(() => createCurrencyFormatter(locale, currency), [locale, currency]);
   const status = payload?.status;
 
   const handleSave = async () => {

@@ -42,15 +42,16 @@ interface Props {
   connection: any;
   providerLabel: string;
   accountLabel: string;
+  currency?: "USD" | "CNY";
 }
 
-function formatUsd(value: number | null | undefined): string {
+function formatUsd(value: number | null | undefined, currency: "USD" | "CNY" = "USD"): string {
   const numeric = Number(value || 0);
   const abs = Math.abs(numeric);
   const digits = abs > 0 && abs < 0.01 ? 6 : abs < 1 ? 4 : 2;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(numeric);
@@ -79,6 +80,7 @@ export default function ProviderUsdCostModal({
   connection,
   providerLabel,
   accountLabel,
+  currency = "USD",
 }: Props) {
   const t = useTranslations("usageLimits");
   const [payload, setPayload] = useState<ProviderWindowCostPayload | null>(null);
@@ -141,7 +143,9 @@ export default function ProviderUsdCostModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div>
-            <h2 className="m-0 text-lg font-semibold text-text-main">{t("usdCost")}</h2>
+            <h2 className="m-0 text-lg font-semibold text-text-main">
+              {currency === "CNY" ? "CNY Cost" : t("usdCost")}
+            </h2>
             <p className="mt-1 text-xs text-text-muted">
               {providerLabel} · {accountLabel || connection?.id}
             </p>
@@ -177,7 +181,7 @@ export default function ProviderUsdCostModal({
                     {t("used")}
                   </div>
                   <div className="mt-1 text-lg font-semibold tabular-nums text-text-main">
-                    {formatUsd(payload.totalCostUsd)}
+                    {formatUsd(payload.totalCostUsd, currency)}
                   </div>
                 </div>
                 <div className="rounded-md border border-border bg-bg-subtle px-3 py-2">
@@ -195,7 +199,7 @@ export default function ProviderUsdCostModal({
                   <div className="mt-1 text-lg font-semibold tabular-nums text-text-main">
                     {payload.estimatedFullQuotaUsd === null
                       ? "n/a"
-                      : formatUsd(payload.estimatedFullQuotaUsd)}
+                      : formatUsd(payload.estimatedFullQuotaUsd, currency)}
                   </div>
                 </div>
                 <div className="rounded-md border border-border bg-bg-subtle px-3 py-2">
@@ -229,7 +233,7 @@ export default function ProviderUsdCostModal({
                     <span className="font-medium text-text-main">{t("quotaEstimator")}</span>
                     <span className="tabular-nums text-text-main">
                       {simulatedPercent}% ={" "}
-                      {simulatedUsd === null ? "n/a" : formatUsd(simulatedUsd)}
+                      {simulatedUsd === null ? "n/a" : formatUsd(simulatedUsd, currency)}
                     </span>
                   </div>
                   <input
@@ -272,11 +276,12 @@ export default function ProviderUsdCostModal({
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-semibold tabular-nums text-text-main">
-                              {formatUsd(row.costUsd)}
+                              {formatUsd(row.costUsd, currency)}
                             </div>
                             {row.limitUsd ? (
                               <div className="mt-0.5 text-[11px] tabular-nums text-text-muted">
-                                {formatPercent(row.limitUsedPercent)} of {formatUsd(row.limitUsd)}
+                                {formatPercent(row.limitUsedPercent)} of{" "}
+                                {formatUsd(row.limitUsd, currency)}
                                 {row.limitPeriod ? ` ${row.limitPeriod}` : ""}
                               </div>
                             ) : (

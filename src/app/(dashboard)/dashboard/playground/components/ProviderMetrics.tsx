@@ -20,10 +20,11 @@ function formatTps(tps: number | null): string {
   return `${tps.toFixed(1)} t/s`;
 }
 
-function formatCost(usd: number | null): string {
+function formatCost(usd: number | null, currency: "USD" | "CNY" = "USD"): string {
   if (usd == null) return "—";
-  if (usd < 0.001) return `$${(usd * 1000).toFixed(3)}m`;
-  return `$${usd.toFixed(4)}`;
+  const symbol = currency === "CNY" ? "¥" : "$";
+  if (usd < 0.001) return `${symbol}${(usd * 1000).toFixed(3)}m`;
+  return `${symbol}${usd.toFixed(4)}`;
 }
 
 /**

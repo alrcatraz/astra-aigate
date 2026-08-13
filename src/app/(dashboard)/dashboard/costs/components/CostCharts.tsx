@@ -1,6 +1,8 @@
 "use client";
 
 import { Card } from "@/shared/components";
+import { convertAmount } from "@/lib/usage/currency";
+import type { BillingCurrency } from "@/lib/usage/currency";
 import {
   ResponsiveContainer,
   PieChart,
@@ -27,10 +29,10 @@ const CHART_COLORS = [
   "#ec4899",
 ];
 
-function createCurrencyFormatter(locale: string) {
+function createCurrencyFormatter(locale: string, currency: BillingCurrency = "USD") {
   return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -41,6 +43,7 @@ interface UsageAnalyticsProviderRow {
   requests: number;
   totalTokens: number;
   cost: number;
+  currency?: BillingCurrency;
 }
 
 interface UsageAnalyticsTrendRow {
@@ -52,17 +55,38 @@ export function ProviderSpendCard({
   title,
   rows,
   locale,
+  baseCurrency = "USD",
+  fxRateUsdCny = 7.1,
 }: {
   title: string;
   rows: UsageAnalyticsProviderRow[];
   locale: string;
+  baseCurrency?: BillingCurrency;
+  fxRateUsdCny?: number;
 }) {
-  const currencyFormatter = createCurrencyFormatter(locale);
-  const chartRows = rows.slice(0, 6).map((row, index) => ({
-    name: row.provider,
-    value: row.cost,
-    fill: CHART_COLORS[index % CHART_COLORS.length],
-  }));
+  const baseFormatter = createCurrencyFormatter(locale, baseCurrency);
+  const chartRows = rows.slice(0, 6).map((row, index) => {
+    const rowCurrency = row.currency || "USD";
+    const convertedCost =
+      rowCurrency !== baseCurrency
+        ? convertAmount(row.cost, rowCurrency, baseCurrency, fxRateUsdCny)
+        : row.cost;
+    return {
+      name: row.provider,
+      value: convertedCost,
+      originalCost: row.cost,
+      originalCurrency: rowCurrency,
+      fill: CHART_COLORS[index % CHART_COLORS.length],
+    };
+  });
+
+  function rowLabel(row: { originalCost: number; originalCurrency: string }): string {
+    const symbol = row.originalCurrency === "CNY" ? "¥" : "$";
+    const cost = row.originalCost || 0;
+    if (cost < 0.01) return `${symbol}${cost.toFixed(6)}`;
+    if (cost < 1) return `${symbol}${cost.toFixed(4)}`;
+    return `${symbol}${cost.toFixed(2)}`;
+  }
 
   return (
     <Card className="p-5">
@@ -86,7 +110,7 @@ export function ProviderSpendCard({
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: number) => currencyFormatter.format(value || 0)}
+                formatter={(value: number) => baseFormatter.format(value || 0)}
                 contentStyle={{
                   background: "var(--surface)",
                   border: "1px solid rgba(255,255,255,0.1)",
@@ -106,9 +130,7 @@ export function ProviderSpendCard({
                 />
                 <span className="font-medium truncate max-w-[120px]">{row.name}</span>
               </div>
-              <span className="text-text-muted shrink-0">
-                {currencyFormatter.format(row.value)}
-              </span>
+              <span className="text-text-muted shrink-0">{rowLabel(row)}</span>
             </div>
           ))}
         </div>
@@ -121,12 +143,14 @@ export function CostTrendCard({
   title,
   rows,
   locale,
+  currency = "USD",
 }: {
   title: string;
   rows: UsageAnalyticsTrendRow[];
   locale: string;
+  currency?: BillingCurrency;
 }) {
-  const currencyFormatter = createCurrencyFormatter(locale);
+  const currencyFormatter = createCurrencyFormatter(locale, currency);
   const chartRows = rows.map((row) => ({
     date: row.date.slice(5),
     cost: row.cost || 0,
