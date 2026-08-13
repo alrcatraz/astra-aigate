@@ -260,3 +260,6 @@ docker-compose.yml.bak
 astra-aigate-data/
 # Auto-generated pre-migration SQLite backups (local testing only)
 db_backups/
+
+# 0.6.0 executor dispatch (git-ignored)
+.task-brief.md

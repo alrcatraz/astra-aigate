@@ -1,6 +1,6 @@
 {
   "name": "astra-aigate",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "Unified AI router with 160+ providers, RTK+Caveman compression, auto fallback, MCP/A2A, desktop, PWA, and OpenAI-compatible APIs.",
   "type": "module",
   "bin": {
