@@ -504,6 +504,21 @@ export function sqliteStrftimeToPg(fmt: string): string {
 }
 
 /**
+ * SQLite accepts `BEGIN IMMEDIATE` / `BEGIN EXCLUSIVE` / `BEGIN DEFERRED`
+ * (transaction locking modes). PostgreSQL only accepts plain `BEGIN` /
+ * `START TRANSACTION`; `IMMEDIATE` / `EXCLUSIVE` / `DEFERRED` are a syntax
+ * error (42601, "syntax error at or near \"IMMEDIATE\""). Business code that
+ * calls `db.exec(\"BEGIN IMMEDIATE\")` (e.g. the api_keys scopes permission
+ * update, which wraps the SELECT-then-UPDATE audit check in a transaction)
+ * would therefore fail under DB_DRIVER=postgres. PG opens a transaction
+ * lazily on first write, so dropping the mode keyword preserves the
+ * transactional intent for these call sites.
+ */
+function rewriteTransactionModes(sql: string): string {
+  return sql.replace(/^\s*BEGIN\s+(?:IMMEDIATE|EXCLUSIVE|DEFERRED)\b/gi, "BEGIN");
+}
+
+/**
  * Main entry: translate a SQLite SQL statement to PostgreSQL.
  * Placeholder rewriting happens first so `$n` markers from rewritten
  * function calls are not re-scanned.
@@ -517,6 +532,7 @@ export function translateSqliteToPostgres(
   out = rewriteConflictAssignments(out);
   out = rewriteDdl(out);
   out = rewriteTimeFns(out);
+  out = rewriteTransactionModes(out);
   // PostgreSQL folds unquoted identifiers to lower case, so `as remainingPct`
   // comes back as `remainingpct` and every JS reader that expects the camelCase
   // alias reads undefined → 0. Quote camelCase aliases (and their GROUP BY /

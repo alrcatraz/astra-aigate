@@ -159,6 +159,21 @@ describe("postgresDialect.translateSqliteToPostgres", () => {
       "INSERT INTO usage_log (api_key_id, cost, created_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING"
     );
   });
+
+  it("rewrites BEGIN IMMEDIATE to plain BEGIN (PG transaction syntax)", () => {
+    assert.equal(translateSqliteToPostgres("BEGIN IMMEDIATE"), "BEGIN");
+  });
+
+  it("rewrites BEGIN EXCLUSIVE / BEGIN DEFERRED to plain BEGIN", () => {
+    assert.equal(translateSqliteToPostgres("BEGIN EXCLUSIVE"), "BEGIN");
+    assert.equal(translateSqliteToPostgres("BEGIN DEFERRED"), "BEGIN");
+  });
+
+  it("leaves plain BEGIN / COMMIT / ROLLBACK untouched", () => {
+    assert.equal(translateSqliteToPostgres("BEGIN"), "BEGIN");
+    assert.equal(translateSqliteToPostgres("COMMIT"), "COMMIT");
+    assert.equal(translateSqliteToPostgres("ROLLBACK"), "ROLLBACK");
+  });
 });
 
 describe("postgresDialect.pragmaToQuery", () => {

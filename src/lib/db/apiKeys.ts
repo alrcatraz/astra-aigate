@@ -152,6 +152,19 @@ interface StatementLike<TRow = unknown> {
 interface ApiKeysDbLike {
   prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
   exec: (sql: string) => void | Promise<void>;
+  /**
+   * Cross-backend transaction helper (better-sqlite3 / node:sqlite / sql.js /
+   * PostgreSQL). Use this instead of hand-rolling `BEGIN IMMEDIATE`/`COMMIT`/
+   * `ROLLBACK` via `exec()`: `BEGIN IMMEDIATE` is SQLite-specific and is a
+   * syntax error under PostgreSQL (42601). Every adapter implements
+   * `transaction()` with backend-appropriate semantics (SQLite: BEGIN
+   * IMMEDIATE; PG: connection-bound client + AsyncLocalStorage routing).
+   * Matches `DatabaseAdapter.transaction` (curried): call the returned
+   * function to run `fn` and obtain its result.
+   */
+  transaction: <T>(
+    fn: (...args: unknown[]) => Promise<T> | T
+  ) => (...args: unknown[]) => Promise<T>;
 }
 
 interface ApiKeysStatements {
@@ -966,34 +979,30 @@ export async function updateApiKeyPermissions(
     updates.push("scopes = @scopes");
     params.scopes = JSON.stringify(nextScopes);
 
-    // SELECT-then-UPDATE wrapped in an explicit transaction so a concurrent
+    // SELECT-then-UPDATE wrapped in a single transaction so a concurrent
     // writer can't slip between the read and the write and make the audit
-    // log lie about what changed. `exec("BEGIN"/"COMMIT")` works across all
-    // driver backends (better-sqlite3 / node:sqlite / sql.js) wired by the
-    // v3.8.1 db driver cascade — none of them expose `db.transaction()` via
-    // ApiKeysDbLike, which is intentionally minimal.
-    await db.exec("BEGIN IMMEDIATE");
-    try {
+    // log lie about what changed. `db.transaction()` is the cross-backend
+    // helper (SQLite: BEGIN IMMEDIATE; PG: connection-bound client); the
+    // previous hand-rolled `exec("BEGIN IMMEDIATE")` was SQLite-only syntax
+    // and broke under DB_DRIVER=postgres (42601 near "IMMEDIATE"). The
+    // adapter rolls back automatically if the callback throws, so there is
+    // no manual ROLLBACK to maintain.
+    type ScopeTxResult = { previousScopes: string[]; changedRows: number };
+    // `transaction(fn)` is curried — call the returned function to run `fn`.
+    // The intermediate function is invoked immediately so `result` is the
+    // resolved `ScopeTxResult`, not a Promise.
+    const result: ScopeTxResult = await db.transaction<ScopeTxResult>(async () => {
       const prevRow = await db
         .prepare<{ scopes: string | null }>("SELECT scopes FROM api_keys WHERE id = ?")
         .get(id);
-      previousScopes = parseStringList(prevRow?.scopes ?? null);
+      const prev = parseStringList(prevRow?.scopes ?? null);
       const upd = await db
         .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)
         .run(params);
-      changedRows = upd.changes ?? 0;
-      await db.exec("COMMIT");
-    } catch (err) {
-      // Guard the ROLLBACK: if it throws (e.g. transaction already ended
-      // due to an implicit commit, or backend in a bad state), the original
-      // error from the try block is the actionable one — don't shadow it.
-      try {
-        await db.exec("ROLLBACK");
-      } catch {
-        // swallow: original error is more important
-      }
-      throw err;
-    }
+      return { previousScopes: prev, changedRows: upd.changes ?? 0 };
+    })();
+    previousScopes = result.previousScopes;
+    changedRows = result.changedRows;
   } else {
     const upd = await db
       .prepare(`UPDATE api_keys SET ${updates.join(", ")} WHERE id = @id`)

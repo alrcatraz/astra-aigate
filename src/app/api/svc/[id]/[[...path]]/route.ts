@@ -96,10 +96,15 @@ async function bridge(request: NextRequest, id: string, path: string[]): Promise
 
   let upstream: Response;
   try {
+    const requestBody = ["GET", "HEAD"].includes(request.method) ? undefined : request.body;
     upstream = await safeOutboundFetch(target.url, {
       method: request.method,
       headers,
-      body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
+      body: requestBody,
+      // Node's fetch requires `duplex: "half"` when forwarding a stream body —
+      // without it, every POST/PUT/PATCH via the service proxy fails with
+      // "RequestInit: duplex option is required when sending a body."
+      ...(requestBody ? { duplex: "half" } : {}),
       timeoutMs: 30_000,
       allowRedirect: false,
       retry: false,
