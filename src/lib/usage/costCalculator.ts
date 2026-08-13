@@ -8,6 +8,7 @@
  */
 
 import { isFlatRateProvider } from "./flatRateProviders";
+import { getProviderBillingCurrency, type BillingCurrency, DEFAULT_USD_CNY_RATE } from "./currency";
 
 /**
  * Normalize model name — strip provider path prefixes.
@@ -35,6 +36,17 @@ export type CostCalculationOptions = {
    * `provider` to be set.
    */
   flatRateAsZero?: boolean;
+};
+
+/**
+ * A cost amount paired with its billing currency (0.6.0). The amount is
+ * expressed in the provider's REAL billing currency: a ¥-priced platform
+ * yields CNY, a $-priced platform yields USD. The USD↔CNY reference rate is
+ * only applied at aggregation/display time, never stored (PLAN.md 0.6.0).
+ */
+export type CostWithCurrency = {
+  amount: number;
+  currency: BillingCurrency;
 };
 
 /**
@@ -215,6 +227,35 @@ export async function calculateCost(
     console.error("Error calculating cost:", error);
     return 0;
   }
+}
+
+/**
+ * 0.6.0 — cost in the provider's REAL billing currency.
+ *
+ * The underlying estimate is always computed from USD pricing rows (the only
+ * source today: LiteLLM sync / defaults / user overrides are all USD). For a
+ * CNY-billing provider the USD estimate is converted to CNY at the configured
+ * reference rate; the provider's billing currency is returned as-is for
+ * USD-billing providers. Exact provider-reported costs (xAI ticks) are USD.
+ *
+ * The reference rate is applied HERE (calculation), not stored anywhere, so
+ * per-request costs carry `{ amount, currency }` for aggregation to convert
+ * between the two currencies without double conversion.
+ */
+export function computeCostWithCurrency(
+  pricing: Record<string, unknown> | null | undefined,
+  tokens: Record<string, number | undefined> | null | undefined,
+  options: CostCalculationOptions = {}
+): CostWithCurrency {
+  const usdCost = computeCostFromPricing(pricing, tokens, options);
+  const currency = getProviderBillingCurrency(options.provider);
+  if (currency === "CNY") {
+    return {
+      amount: usdCost * DEFAULT_USD_CNY_RATE,
+      currency: "CNY",
+    };
+  }
+  return { amount: usdCost, currency: "USD" };
 }
 
 type ModalPricing = Record<string, unknown>;

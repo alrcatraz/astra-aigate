@@ -75,6 +75,14 @@ type GetCodexFastCostMultiplier = (
   serviceTier: string | null | undefined
 ) => number;
 
+/** 0.6.0 — cost pair { amount, currency } in the provider's billing currency. */
+type CostWithCurrency = { amount: number; currency: "USD" | "CNY" };
+type ComputeCostWithCurrency = (
+  pricing: Record<string, unknown> | null | undefined,
+  tokens: Record<string, number | undefined> | null | undefined,
+  options?: Record<string, unknown>
+) => CostWithCurrency;
+
 function toStringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
@@ -273,6 +281,73 @@ function computeUsageRowCost(
   );
 }
 
+/**
+ * 0.6.0 — like computeUsageRowCost but returns the cost in the provider's REAL
+ * billing currency: `{ amount, currency }`. USD-priced platforms yield USD;
+ * CNY-priced platforms (siliconflow-cn, dmxapi-cn, zhipu, …) yield CNY. Used
+ * by per-provider / per-account aggregation so each row displays in the
+ * currency the platform actually bills in.
+ */
+function computeUsageRowCostWithCurrency(
+  row: Record<string, unknown>,
+  pricingByProvider: PricingByProvider,
+  providerAliasMap: Record<string, string>,
+  normalizeModelName: (model: string) => string,
+  computeCostWithCurrency: ComputeCostWithCurrency
+): CostWithCurrency {
+  const provider = toStringValue(row.provider);
+  const model = toStringValue(row.model);
+  if (!provider || !model) return { amount: 0, currency: "USD" };
+  const serviceTier = normalizeServiceTier(row.serviceTier ?? row.service_tier);
+
+  const pricing = resolveModelPricing(
+    pricingByProvider,
+    providerAliasMap,
+    provider,
+    model,
+    normalizeModelName
+  );
+  if (!pricing) return { amount: 0, currency: "USD" };
+
+  return computeCostWithCurrency(
+    pricing,
+    {
+      input: toNumber(row.promptTokens),
+      output: toNumber(row.completionTokens),
+      cacheRead: toNumber(row.cacheReadTokens),
+      cacheCreation: toNumber(row.cacheCreationTokens),
+      reasoning: toNumber(row.reasoningTokens),
+    },
+    {
+      provider,
+      model,
+      serviceTier,
+      flatRateAsZero: true,
+    }
+  );
+}
+
+/** Accumulate a { amount, currency } cost into its own-currency bucket. */
+function addCostToBuckets(buckets: Map<"USD" | "CNY", number>, cost: CostWithCurrency): void {
+  buckets.set(cost.currency, (buckets.get(cost.currency) || 0) + cost.amount);
+}
+
+/**
+ * Convert a per-currency bucket map to a single base-currency total.
+ * USD bucket converts at the reference rate when base is CNY; CNY bucket
+ * converts when base is USD. Unknown/missing buckets contribute 0.
+ */
+function bucketsToBaseTotal(
+  buckets: Map<"USD" | "CNY", number>,
+  baseCurrency: "USD" | "CNY",
+  rateUsdCny: number
+): number {
+  const usd = buckets.get("USD") || 0;
+  const cny = buckets.get("CNY") || 0;
+  if (baseCurrency === "CNY") return usd * rateUsdCny + cny;
+  return usd + cny / rateUsdCny;
+}
+
 function computeUsageRowStandardCost(
   row: Record<string, unknown>,
   pricingByProvider: PricingByProvider,
@@ -334,6 +409,10 @@ export async function GET(request: Request) {
     const endDate = searchParams.get("endDate") || undefined;
     const apiKeyIdsParam = searchParams.get("apiKeyIds") || "";
     const apiKeyIds = apiKeyIdsParam ? apiKeyIdsParam.split(",").filter(Boolean) : [];
+    // 0.6.0: base display currency for cross-provider totals ("USD" | "CNY").
+    // Per-provider rows keep their REAL billing currency regardless; this only
+    // selects how mixed-currency totals are presented. Default USD = legacy.
+    const baseCurrency = searchParams.get("currency") === "CNY" ? "CNY" : "USD";
 
     const sinceIso = startDate || getRangeStartIso(range);
     const untilIso = endDate || null;
@@ -408,9 +487,17 @@ export async function GET(request: Request) {
       }
       pricingByProvider[providerKey.toLowerCase()] = lowerProvider;
     }
-    const { computeCostFromPricing, getCodexFastCostMultiplier, normalizeModelName } =
-      await import("@/lib/usage/costCalculator");
+    const {
+      computeCostFromPricing,
+      computeCostWithCurrency,
+      getCodexFastCostMultiplier,
+      normalizeModelName,
+    } = await import("@/lib/usage/costCalculator");
     const { PROVIDER_ID_TO_ALIAS } = await import("@omniroute/open-sse/config/providerModels");
+    // 0.6.0 — reference rate used to convert mixed-currency buckets to the
+    // requested base currency (settings fxRateUsdCny, default 7.1).
+    const { getFxRateUsdCny } = await import("@/lib/usage/currencySettings");
+    const rateUsdCny = await getFxRateUsdCny();
 
     const summaryRow = (await getUsageSummary(unifiedSource, unifiedParams)) as Record<
       string,
@@ -511,6 +598,12 @@ export async function GET(request: Request) {
           : 0,
       avgLatencyMs: Math.round(Number(summaryRow?.avgLatencyMs || 0)),
       totalCost: 0,
+      // 0.6.0 — dual-currency reference pair + the base currency the totals
+      // above are expressed in (default "USD" = legacy behaviour).
+      totalCostUsd: 0,
+      totalCostCny: 0,
+      costCurrency: "USD" as "USD" | "CNY",
+      fxRateUsdCny: 7.1,
       firstRequest: summaryRow?.firstRequest || "",
       lastRequest: summaryRow?.lastRequest || "",
       fallbackCount: Number(fallbackRow?.fallbacks || 0),
@@ -548,20 +641,27 @@ export async function GET(request: Request) {
     const dailyByModelMap: Record<string, Record<string, number>> = {};
     const allModels = new Set<string>();
 
-    const dailyCostByDate = new Map<string, number>();
+    // 0.6.0: daily cost bucketed by REAL billing currency, then converted to
+    // the requested base currency at output time (no double conversion).
+    const dailyCostByDate = new Map<string, Map<"USD" | "CNY", number>>();
     for (const row of dailyCostRows) {
       const date = toStringValue(row.date);
       if (!date) continue;
 
       // Calculate costs
-      const cost = computeUsageRowCost(
+      const cost = computeUsageRowCostWithCurrency(
         row,
         pricingByProvider,
         PROVIDER_ID_TO_ALIAS,
         normalizeModelName,
-        computeCostFromPricing
+        computeCostWithCurrency
       );
-      dailyCostByDate.set(date, (dailyCostByDate.get(date) || 0) + cost);
+      let buckets = dailyCostByDate.get(date);
+      if (!buckets) {
+        buckets = new Map<"USD" | "CNY", number>();
+        dailyCostByDate.set(date, buckets);
+      }
+      addCostToBuckets(buckets, cost);
 
       // Group tokens by model for the day
       const model = normalizeModelName(row.model as string);
@@ -578,7 +678,13 @@ export async function GET(request: Request) {
       promptTokens: Number(row.promptTokens),
       completionTokens: Number(row.completionTokens),
       totalTokens: Number(row.totalTokens),
-      cost: roundCost(dailyCostByDate.get(toStringValue(row.date)) || 0),
+      cost: roundCost(
+        bucketsToBaseTotal(
+          dailyCostByDate.get(toStringValue(row.date)) || new Map<"USD" | "CNY", number>(),
+          baseCurrency,
+          rateUsdCny
+        )
+      ),
     }));
 
     const activityMap: Record<string, number> = {};
@@ -656,48 +762,80 @@ export async function GET(request: Request) {
       .sort((left, right) => Number(right.requests) - Number(left.requests))
       .slice(0, 50);
 
-    const totalCost = Array.from(dailyCostByDate.values()).reduce((sum, cost) => sum + cost, 0);
+    // 0.6.0: totals are converted from per-currency buckets to the requested
+    // base currency (default USD = legacy behaviour). We also expose the raw
+    // USD/CNY reference pair so the client can switch without refetching.
+    const totalBuckets = new Map<"USD" | "CNY", number>();
+    for (const buckets of dailyCostByDate.values()) {
+      for (const [currency, amount] of buckets) {
+        totalBuckets.set(currency, (totalBuckets.get(currency) || 0) + amount);
+      }
+    }
+    const totalCost = bucketsToBaseTotal(totalBuckets, baseCurrency, rateUsdCny);
     summary.totalCost = roundCost(totalCost);
+    summary.totalCostUsd = roundCost(bucketsToBaseTotal(totalBuckets, "USD", rateUsdCny));
+    summary.totalCostCny = roundCost(bucketsToBaseTotal(totalBuckets, "CNY", rateUsdCny));
+    summary.costCurrency = baseCurrency;
+    // Reference rate used for client-side conversions (e.g. mixing provider
+    // rows of different currencies in a chart) without refetching.
+    summary.fxRateUsdCny = rateUsdCny;
 
-    const providerCostByProvider = new Map<string, number>();
+    const providerCostByProvider = new Map<string, CostWithCurrency>();
     for (const row of providerCostRows) {
       const provider = toStringValue(row.provider);
       if (!provider) continue;
-      const cost = computeUsageRowCost(
+      const cost = computeUsageRowCostWithCurrency(
         row,
         pricingByProvider,
         PROVIDER_ID_TO_ALIAS,
         normalizeModelName,
-        computeCostFromPricing
+        computeCostWithCurrency
       );
-      providerCostByProvider.set(provider, (providerCostByProvider.get(provider) || 0) + cost);
+      const existing = providerCostByProvider.get(provider);
+      providerCostByProvider.set(
+        provider,
+        existing
+          ? {
+              amount: existing.amount + cost.amount,
+              currency: existing.currency,
+            }
+          : cost
+      );
     }
 
     const byProvider = await buildByProviderRows(providerRows, providerCostByProvider);
 
-    const accountCostByAccount = new Map<string, number>();
+    const accountCostByAccount = new Map<string, CostWithCurrency>();
     for (const row of accountCostRows) {
       const accountKey = toStringValue(row.accountKey, "unknown");
-      const cost = computeUsageRowCost(
+      const cost = computeUsageRowCostWithCurrency(
         row,
         pricingByProvider,
         PROVIDER_ID_TO_ALIAS,
         normalizeModelName,
-        computeCostFromPricing
+        computeCostWithCurrency
       );
-      accountCostByAccount.set(accountKey, (accountCostByAccount.get(accountKey) || 0) + cost);
+      const existing = accountCostByAccount.get(accountKey);
+      accountCostByAccount.set(
+        accountKey,
+        existing ? { amount: existing.amount + cost.amount, currency: existing.currency } : cost
+      );
     }
 
-    const byAccount = accountRows.map((row) => ({
-      account: toStringValue(row.account, "unknown"),
-      requests: Number(row.requests),
-      promptTokens: Number(row.promptTokens),
-      completionTokens: Number(row.completionTokens),
-      totalTokens: Number(row.totalTokens),
-      avgLatencyMs: Math.round(Number(row.avgLatencyMs)),
-      lastUsed: row.lastUsed,
-      cost: roundCost(accountCostByAccount.get(toStringValue(row.accountKey, "unknown")) || 0),
-    }));
+    const byAccount = accountRows.map((row) => {
+      const costEntry = accountCostByAccount.get(toStringValue(row.accountKey, "unknown"));
+      return {
+        account: toStringValue(row.account, "unknown"),
+        requests: Number(row.requests),
+        promptTokens: Number(row.promptTokens),
+        completionTokens: Number(row.completionTokens),
+        totalTokens: Number(row.totalTokens),
+        avgLatencyMs: Math.round(Number(row.avgLatencyMs)),
+        lastUsed: row.lastUsed,
+        cost: roundCost(costEntry?.amount || 0),
+        currency: costEntry?.currency || "USD",
+      };
+    });
 
     const apiKeyMap = new Map<
       string,

@@ -118,17 +118,22 @@ export function fmtFull(n: number | null | undefined) {
 }
 
 /**
- * Format a USD cost for display.
- * Sub-cent values show additional precision.
- * @param {number} usd - Cost in USD
+ * Format a cost for display in its billing currency.
+ * Sub-cent / sub-fen values show additional precision.
+ * @param {number} amount - Cost in the given currency
+ * @param {string} [currency] - "USD" (default, legacy) or "CNY"
  * @returns {string}
  */
-export function formatCost(usd: number | null | undefined): string {
-  const value = Number(usd || 0);
-  if (!Number.isFinite(value) || value === 0) return "$0.00";
-  if (value < 0.01) return `$${value.toFixed(6)}`;
-  if (value < 1) return `$${value.toFixed(4)}`;
-  return `$${value.toFixed(2)}`;
+export function formatCost(
+  amount: number | null | undefined,
+  currency: "USD" | "CNY" = "USD"
+): string {
+  const value = Number(amount || 0);
+  const symbol = currency === "CNY" ? "¥" : "$";
+  if (!Number.isFinite(value) || value === 0) return `${symbol}0.00`;
+  if (value < 0.01) return `${symbol}${value.toFixed(6)}`;
+  if (value < 1) return `${symbol}${value.toFixed(4)}`;
+  return `${symbol}${value.toFixed(2)}`;
 }
 
 export const fmtCost = formatCost;

@@ -14,6 +14,7 @@ import { requestBodyLimitMbFromEnv } from "@/shared/constants/bodySize";
 import { DEFAULT_RESPONSES_PREVIOUS_RESPONSE_ID_MODE } from "@/shared/constants/responsesPreviousResponseId";
 import { type JsonRecord, toRecord } from "./settings/shared";
 import { resolveNoAuthSharedProviderProxy } from "./settings/noAuthProxyFallback";
+import { DEFAULT_USD_CNY_RATE } from "@/lib/usage/currency";
 
 type ProxyValue = JsonRecord | string | null;
 type ProxyResolutionResult = {
@@ -160,6 +161,9 @@ export async function getSettings() {
     // ProviderLimits/utils.tsx) — this is a personal view preference, not an
     // admin model-catalog edit. Ported from upstream decolua/9router#2371.
     quotaVisibility: {},
+    // 0.6.0 — USD→CNY reference rate for cost display conversion
+    // (settings-overridable; used by src/lib/usage/currency.ts).
+    fxRateUsdCny: DEFAULT_USD_CNY_RATE,
     requestRetry: 3,
     maxRetryIntervalSec: 30,
     antigravitySignatureCacheMode: "enabled",
