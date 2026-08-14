@@ -52,15 +52,15 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
 
 ## Git & Versioning
 
-- Remotes: `gitea` (private) + `github` (public,
+- Remotes: `private` (private mirror) + `github` (public,
   alrcatraz/astra-aigate) — dual push
 - Branch hierarchy (user-confirmed 2026-08-03): `feature/<type>-<desc>` →
   merge to **development** (dev branch) → development→main via **PR**
-  (dual: Gitea + GitHub). **Never push directly to main; never push feature
+  (dual: private mirror + GitHub). **Never push directly to main; never push feature
   branches as deliverables; never have the build machine pull feature
   branches** (bypasses the PR review line). If development is missing at
   wrap-up, rebuild + dual-push it from main.
-- Build machine pulls Gitea main — symptom check: UI
+- Build machine pulls private-mirror main — symptom check: UI
   brand/feature mismatch with code = the changed branch was never merged
   to what the build machine pulls (or the build tree is stale), not "code
   not changed".
@@ -69,6 +69,48 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
 - Version: standard SemVer; 0.x per completed phase (0.1.0 = Phase 1),
   1.0.0 = all PLAN phases done
 - `alrcatraz` is the author; all commits GPG-signed
+
+## Public-release Guard (2026-08-14)
+
+**Before finalising ANY file that will reach a public remote, the agent must
+decide whether the repository is dual-maintained, and scrub accordingly.**
+
+Assessment (run on every release / public-facing change):
+
+1. Does the maintainer run a **private/self-hosted Git forge** (any
+   self-hosted hosting product) that mirrors this project?
+2. Is that private host still an actively tracked remote for THIS repo
+   (e.g. `git remote -v` lists it)?
+3. If **both** are true → this repo IS dual-maintained (private + public).
+   Then scrub every public-facing file (AGENTS.md, README, docs, CHANGELOG,
+   any tracked .md) so it never names, describes, or hints at the private
+   host: no self-host brand name, no self-host domain, no "dual push to
+   private" phrasing, no build-machine hostnames or internal `.internal`
+   suffixes. Refer to the private remote **only** as `private` / `private
+mirror` / `internal remote`.
+4. If either check is false (no private host, or not tracked here) → no
+   scrubbing is needed for that aspect.
+
+If scrubbing is required, the private remote's concrete name (brand +
+host) is still used locally in `git remote -v`, but that name is
+**never written into a tracked file**.
+
+**Release checklist (every version bump):** after the version-bump commit
+lands on development and is dual-pushed, complete ALL of:
+
+1. **main merge** — merge development→main via PR on BOTH remotes; verify
+   both `main` refs move. (A missed merge strands every later version —
+   root cause of v0.5.2→v0.6.0 never reaching main.)
+2. **tag** — `git tag -s vX.Y.Z -m "astra-aigate vX.Y.Z — <summary>"` ON the
+   release commit (not a feature/merge node); push tags to BOTH remotes
+   (`git push <public> --tags` + `git push <private> --tags`).
+3. **release** — create the GitHub release (gh) AND the private-host release
+   (API, Basic auth from pass store) for the same tag, bodies in sync.
+4. **verify** — `git ls-remote --tags <public> <private>` lists the new tag
+   on both; `gh release list` + private-host API show it. If any step is
+   skipped, the version is NOT released.
+   Recurring mistake to avoid: tags/releases created on development while
+   `main` stays behind — keep the two release lines in lockstep.
 
 ## Design Decisions
 
