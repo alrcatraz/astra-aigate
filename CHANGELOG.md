@@ -136,7 +136,7 @@ Phase 2 (Provider Access Layer) 修复收敛：PostgreSQL 模式下媒体提供�
 ### 验证
 
 - 本机回归: PG 模式 `/v1/models`=1361 全非空、combo 48 个、WS 0.0.0.0:20132、searxng/camofox up
-- 双端推送（gitea + github）+ tag `v0.4.4`
+- 双端推送（private mirror + github）+ tag `v0.4.4`
 
 ---
 

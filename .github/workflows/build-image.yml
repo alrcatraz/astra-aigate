@@ -11,9 +11,10 @@
 # in a single job; the dedicated manual build machine remains the fallback
 # for local verification.
 #
-# Gitea CI is intentionally NOT configured (2026-08-06): the NAS-hosted
-# act_runner has limited performance for a 20-minute openSUSE image build.
-# Revisit if the NAS is upgraded or a stronger runner becomes available.
+# Self-hosted CI is intentionally NOT configured (2026-08-06): the
+# on-premises runner has limited performance for a 20-minute openSUSE
+# image build. Revisit if the hardware is upgraded or a stronger runner
+# becomes available.
 
 name: Build Image
 
