@@ -19,7 +19,7 @@ import { computeComboContextLength } from "@/lib/combos/comboContext";
 import { ComboInvariantError } from "@/lib/combos/invariants";
 import { buildComboNameCollisionWarning } from "@/lib/combos/modelNameCollision";
 
-// GET /api/combos - Get all combos
+// GET /api/combos - Get all combos (optionally filtered by ?q= / ?search= name filter)
 export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
@@ -35,9 +35,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
+    // Case-insensitive name filter, capped at 100 chars. `q` and `search`
+    // are aliases; both are ignored by the pagination schema, so unknown
+    // extra params never break this route.
+    const nameFilter = (searchParams.get("q") ?? searchParams.get("search") ?? "").trim();
+    const safeFilter = nameFilter.slice(0, 100);
+
     const range = validation.data;
-    const total = await getCombosCount();
-    const rawCombos = await getCombos(range.limit, range.offset);
+    const total = await getCombosCount(safeFilter || undefined);
+    const rawCombos = await getCombos(range.limit, range.offset, safeFilter || undefined);
     const combos = await Promise.all(
       rawCombos.map(async (combo) => ({
         ...combo,

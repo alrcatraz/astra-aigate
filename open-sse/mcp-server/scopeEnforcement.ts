@@ -1,4 +1,5 @@
 import { MCP_TOOL_MAP } from "./schemas/tools.ts";
+import { extractApiKey } from "../../src/sse/services/auth.ts";
 
 type AuthInfoLike = {
   clientId?: string;
@@ -69,6 +70,19 @@ export function scopeMatches(grantedScope: string, requiredScope: string): boole
   return false;
 }
 
+/**
+ * B2: true when the request carries an API-key credential (Authorization:
+ * Bearer, x-api-key, x-goog-api-key, or path token) at all — regardless of
+ * whether that key is recognised. Used to distinguish "no credential" from
+ * "a credential that failed to resolve": an invalid/unrecognised key must be
+ * rejected outright rather than silently granted the OMNIROUTE_MCP_SCOPES
+ * env fallback. This closes the fail-open where a bad key looked like an
+ * anonymous caller.
+ */
+export function requestPresentsApiKey(request: Request): boolean {
+  return extractApiKey(request, { allowUrl: false }) !== null;
+}
+
 export function resolveCallerScopeContext(
   extra: McpToolExtraLike | undefined,
   fallbackScopes: readonly string[] = []
@@ -105,6 +119,13 @@ export function evaluateToolScopes(
   const provided = normalizeScopeList(callerScopes);
 
   if (!enforceScopes) {
+    // B2: fail-open is intentional for heads-down / stdio mode, but it must be
+    // loud so operators know tool scopes are NOT enforced. Without this log an
+    // unset OMNIROUTE_MCP_ENFORCE_SCOPES silently disables every per-tool gate.
+    console.warn(
+      `[MCP][scopeEnforcement] enforceScopes=false — per-tool scope gate DISABLED for "${toolName}". ` +
+        `Set OMNIROUTE_MCP_ENFORCE_SCOPES=true to enforce. Caller provided ${provided.length} scope(s).`
+    );
     return { allowed: true, required: [], provided, missing: [] };
   }
 

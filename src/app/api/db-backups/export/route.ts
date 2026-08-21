@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import { getDbInstance, SQLITE_FILE } from "@/lib/db/core";
+import { getDbInstance, getDbDriver, SQLITE_FILE } from "@/lib/db/core";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
@@ -21,6 +21,15 @@ export async function GET(request: Request) {
     }
   }
   try {
+    // B1: SQLite-native backup API cannot snapshot a Postgres backend — and
+    // getDbInstance() degrades to an in-memory scratch DB under DB_DRIVER=postgres.
+    // Return a clear 400 instead of silently exporting an empty/non-persistent file.
+    if (getDbDriver() === "postgres") {
+      return NextResponse.json(
+        { error: "Database export is SQLite-only and is unavailable in PostgreSQL mode" },
+        { status: 400 }
+      );
+    }
     if (!SQLITE_FILE || !fs.existsSync(SQLITE_FILE)) {
       return NextResponse.json({ error: "Database file not found" }, { status: 404 });
     }

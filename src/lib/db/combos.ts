@@ -95,11 +95,16 @@ async function getNextSortOrder() {
   return (sortOrder ?? 0) + 1;
 }
 
-export async function getCombos(limit?: number, offset?: number) {
+export async function getCombos(limit?: number, offset?: number, nameFilter?: string) {
   const db = await getAsyncDb();
-  let sql =
-    "SELECT data, sort_order, context_cache_protection FROM combos ORDER BY sort_order ASC, name COLLATE NOCASE ASC";
+  let sql = "SELECT data, sort_order, context_cache_protection FROM combos";
   const params: unknown[] = [];
+  const trimmedFilter = typeof nameFilter === "string" ? nameFilter.trim().slice(0, 100) : "";
+  if (trimmedFilter.length > 0) {
+    sql += " WHERE name LIKE '%' || ? || '%' COLLATE NOCASE";
+    params.push(trimmedFilter);
+  }
+  sql += " ORDER BY sort_order ASC, name COLLATE NOCASE ASC";
   if (limit !== undefined) {
     sql += " LIMIT ? OFFSET ?";
     params.push(limit, offset ?? 0);
@@ -119,9 +124,16 @@ export async function getCombos(limit?: number, offset?: number) {
   );
 }
 
-export async function getCombosCount(): Promise<number> {
+export async function getCombosCount(nameFilter?: string): Promise<number> {
   const db = await getAsyncDb();
-  const row = (await db.prepare("SELECT count(*) as cnt FROM combos").get()) as { cnt: number };
+  const trimmedFilter = typeof nameFilter === "string" ? nameFilter.trim().slice(0, 100) : "";
+  const params: unknown[] = [];
+  let sql = "SELECT count(*) as cnt FROM combos";
+  if (trimmedFilter.length > 0) {
+    sql += " WHERE name LIKE '%' || ? || '%' COLLATE NOCASE";
+    params.push(trimmedFilter);
+  }
+  const row = (await db.prepare(sql).get(...params)) as { cnt: number };
   return row.cnt;
 }
 

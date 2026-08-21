@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/shared/components";
 import { useTranslations } from "next-intl";
 import type { SkillsProvider } from "@/lib/skills/providerSettings";
@@ -47,6 +47,9 @@ export default function MemorySkillsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
+  // C: coalesce rapid slider changes (maxTokens/retention) into single PUTs.
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingConfigRef = useRef<MemoryConfig | null>(null);
 
   const [qdrant, setQdrant] = useState<QdrantSettings>({
     enabled: false,
@@ -114,6 +117,17 @@ export default function MemorySkillsTab() {
       .finally(() => {
         setLoading(false);
       });
+  }, []);
+
+  // Clear the debounce timer on unmount so a rapid edit navigated away from
+  // never leaks an in-flight PUT or a post-unmount setState.
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) {
+        clearTimeout(autosaveTimer.current);
+        autosaveTimer.current = null;
+      }
+    };
   }, []);
 
   const saveQdrant = useCallback(
@@ -268,33 +282,38 @@ export default function MemorySkillsTab() {
     }
   }, []);
 
-  const save = async (updates: Partial<MemoryConfig>) => {
-    const previousConfig = config;
-    const newConfig = { ...config, ...updates };
+  const save = (updates: Partial<MemoryConfig>) => {
+    // Optimistic local update so sliders/toggles track the user's intent.
+    const base = pendingConfigRef.current ?? config;
+    const newConfig = { ...base, ...updates };
+    pendingConfigRef.current = newConfig;
     setConfig(newConfig);
-    setSaving(true);
     setStatus("");
-    try {
-      const res = await fetch("/api/settings/memory", {
+
+    // Debounce: range sliders fire many change events while dragging; coalesce
+    // them into one PUT ~400ms after the last change.
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      const toSend = pendingConfigRef.current ?? newConfig;
+      pendingConfigRef.current = null;
+      setSaving(true);
+      fetch("/api/settings/memory", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newConfig),
-      });
-      if (res.ok) {
-        const savedConfig = await res.json().catch(() => newConfig);
-        setConfig(savedConfig);
-        setStatus("saved");
-        setTimeout(() => setStatus(""), 2000);
-      } else {
-        setConfig(previousConfig);
-        setStatus("error");
-      }
-    } catch {
-      setConfig(previousConfig);
-      setStatus("error");
-    } finally {
-      setSaving(false);
-    }
+        body: JSON.stringify(toSend),
+      })
+        .then((res) => {
+          if (res.ok) {
+            setConfig(toSend);
+            setStatus("saved");
+            setTimeout(() => setStatus(""), 2000);
+          } else {
+            setStatus("error");
+          }
+        })
+        .catch(() => setStatus("error"))
+        .finally(() => setSaving(false));
+    }, 400);
   };
 
   if (loading) {
@@ -369,7 +388,10 @@ export default function MemorySkillsTab() {
             role="note"
             data-testid="memory-token-cost-warning"
           >
-            <span className="material-symbols-outlined text-[18px] leading-none mt-0.5" aria-hidden="true">
+            <span
+              className="material-symbols-outlined text-[18px] leading-none mt-0.5"
+              aria-hidden="true"
+            >
               info
             </span>
             <p className="text-xs leading-relaxed">

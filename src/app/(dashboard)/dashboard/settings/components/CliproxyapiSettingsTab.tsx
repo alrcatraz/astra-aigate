@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Card, Button, Input, Toggle } from "@/shared/components";
@@ -9,6 +9,7 @@ interface Settings {
   cliproxyapi_fallback_enabled?: boolean;
   cliproxyapi_url?: string;
   cliproxyapi_fallback_codes?: string;
+  settingsRevision?: number;
   [key: string]: unknown;
 }
 
@@ -41,6 +42,14 @@ export default function CliproxyapiSettingsTab() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
 
+  // A2: local drafts for the free-text fields so typing does not fire a PATCH
+  // per keystroke. Persisted once on blur (SecurityTab.tsx:328-334 pattern).
+  const [cpaUrlDraft, setCpaUrlDraft] = useState("http://127.0.0.1:8317");
+  const [cpaCodesDraft, setCpaCodesDraft] = useState("502,401,403,429,503");
+  // B3: the settings CAS gate (/api/settings PATCH) is exercised by echoing
+  // the GET /api/settings `settingsRevision` back in the request body.
+  const settingsRevisionRef = useRef<number | undefined>(undefined);
+
   const handleImportAuth = useCallback(async () => {
     setImporting(true);
     setImportResult(null);
@@ -69,6 +78,20 @@ export default function CliproxyapiSettingsTab() {
       })
       .then((data) => {
         setSettings(data);
+        setCpaUrlDraft(
+          typeof data.cliproxyapi_url === "string" && data.cliproxyapi_url.trim() !== ""
+            ? data.cliproxyapi_url
+            : "http://127.0.0.1:8317"
+        );
+        setCpaCodesDraft(
+          typeof data.cliproxyapi_fallback_codes === "string" &&
+            data.cliproxyapi_fallback_codes.trim() !== ""
+            ? data.cliproxyapi_fallback_codes
+            : "502,401,403,429,503"
+        );
+        if (typeof data.settingsRevision === "number") {
+          settingsRevisionRef.current = data.settingsRevision;
+        }
         setLoading(false);
       })
       .catch((err) => {
@@ -106,15 +129,47 @@ export default function CliproxyapiSettingsTab() {
     setSaving(true);
     setMessage(null);
     try {
+      // B3: echo the settings revision back so the server-side CAS gate
+      // (settings/route.ts updateSettings expectedRevision) is exercised.
+      const body: Record<string, string | boolean | number> = { [key]: value };
+      if (typeof settingsRevisionRef.current === "number") {
+        body.expectedRevision = settingsRevisionRef.current;
+      }
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [key]: value }),
+        body: JSON.stringify(body),
       });
+      if (res.status === 409) {
+        // Concurrent change — refresh the revision and retry the write once.
+        const fresh = await fetch("/api/settings").then((r) => (r.ok ? r.json() : null));
+        if (fresh && typeof fresh.settingsRevision === "number") {
+          settingsRevisionRef.current = fresh.settingsRevision;
+        }
+        const retryBody: Record<string, string | boolean | number> = { [key]: value };
+        if (typeof settingsRevisionRef.current === "number") {
+          retryBody.expectedRevision = settingsRevisionRef.current;
+        }
+        const retry = await fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(retryBody),
+        });
+        if (!retry.ok) {
+          throw new Error(`Server returned ${retry.status}`);
+        }
+        await retry.json();
+        setSettings((prev) => ({ ...prev, [key]: value }));
+        setMessage({ type: "success", text: "Setting saved" });
+        return;
+      }
       if (!res.ok) {
         throw new Error(`Server returned ${res.status}`);
       }
-      await res.json();
+      const saved = await res.json();
+      if (typeof saved.settingsRevision === "number") {
+        settingsRevisionRef.current = saved.settingsRevision;
+      }
       setSettings((prev) => ({ ...prev, [key]: value }));
       setMessage({ type: "success", text: "Setting saved" });
     } catch {
@@ -125,8 +180,14 @@ export default function CliproxyapiSettingsTab() {
   }, []);
 
   const cpaEnabled = settings.cliproxyapi_fallback_enabled === true;
-  const cpaUrl = settings.cliproxyapi_url || "http://127.0.0.1:8317";
-  const cpaCodes = settings.cliproxyapi_fallback_codes || "502,401,403,429,503";
+
+  const commitUrlDraft = () => {
+    const trimmed = cpaUrlDraft.trim();
+    updateSetting("cliproxyapi_url", trimmed);
+  };
+  const commitCodesDraft = () => {
+    updateSetting("cliproxyapi_fallback_codes", cpaCodesDraft.trim());
+  };
 
   const statusColor =
     toolState?.status === "running"
@@ -203,8 +264,9 @@ export default function CliproxyapiSettingsTab() {
                   {t("cliproxyapiUrl")}
                 </label>
                 <Input
-                  value={cpaUrl}
-                  onChange={(e) => updateSetting("cliproxyapi_url", e.target.value)}
+                  value={cpaUrlDraft}
+                  onChange={(e) => setCpaUrlDraft(e.target.value)}
+                  onBlur={commitUrlDraft}
                   placeholder="http://127.0.0.1:8317"
                   className="w-full"
                 />
@@ -215,8 +277,9 @@ export default function CliproxyapiSettingsTab() {
                   Fallback Status Codes (comma-separated)
                 </label>
                 <Input
-                  value={cpaCodes}
-                  onChange={(e) => updateSetting("cliproxyapi_fallback_codes", e.target.value)}
+                  value={cpaCodesDraft}
+                  onChange={(e) => setCpaCodesDraft(e.target.value)}
+                  onBlur={commitCodesDraft}
                   placeholder="502,401,403,429,503"
                   className="w-full"
                 />

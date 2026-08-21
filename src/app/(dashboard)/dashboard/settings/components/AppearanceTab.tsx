@@ -23,6 +23,11 @@ export default function AppearanceTab() {
 
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  // A2: local drafts for free-text whitelabel fields — typing updates the
+  // draft only; the PATCH fires once on blur (SecurityTab.tsx:328-334 pattern).
+  const [instanceNameDraft, setInstanceNameDraft] = useState("");
+  const [customLogoUrlDraft, setCustomLogoUrlDraft] = useState("");
+  const [customFaviconUrlDraft, setCustomFaviconUrlDraft] = useState("");
   const [uploadError, setUploadError] = useState<{
     target: "logo" | "favicon";
     message: string;
@@ -73,6 +78,11 @@ export default function AppearanceTab() {
       })
       .then((data) => {
         setSettings(data);
+        setInstanceNameDraft(typeof data.instanceName === "string" ? data.instanceName : "");
+        setCustomLogoUrlDraft(typeof data.customLogoUrl === "string" ? data.customLogoUrl : "");
+        setCustomFaviconUrlDraft(
+          typeof data.customFaviconUrl === "string" ? data.customFaviconUrl : ""
+        );
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -92,6 +102,13 @@ export default function AppearanceTab() {
       console.error("Failed to update", key, err);
     }
   };
+
+  // A2: free-text fields persist on blur. Drafts keep the controlled value
+  // free of the `|| APP_CONFIG.name` fallback, which pushed the resolved
+  // constant back into the input while typing.
+  const commitInstanceName = () => updateSetting("instanceName", instanceNameDraft);
+  const commitCustomLogoUrl = () => updateSetting("customLogoUrl", customLogoUrlDraft);
+  const commitCustomFaviconUrl = () => updateSetting("customFaviconUrl", customFaviconUrlDraft);
 
   const presetThemes = [
     { id: "coral", color: COLOR_THEMES.coral, label: t("themeCoral") },
@@ -555,8 +572,9 @@ export default function AppearanceTab() {
               </div>
               <input
                 type="text"
-                value={settings.instanceName || APP_CONFIG.name}
-                onChange={(e) => updateSetting("instanceName", e.target.value)}
+                value={instanceNameDraft}
+                onChange={(e) => setInstanceNameDraft(e.target.value)}
+                onBlur={commitInstanceName}
                 placeholder={APP_CONFIG.name}
                 maxLength={100}
                 className="h-10 px-3 rounded-lg bg-surface border border-border text-sm text-text-main focus:outline-none focus:border-primary w-48"
@@ -571,8 +589,9 @@ export default function AppearanceTab() {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  value={settings.customLogoUrl || ""}
-                  onChange={(e) => updateSetting("customLogoUrl", e.target.value)}
+                  value={customLogoUrlDraft}
+                  onChange={(e) => setCustomLogoUrlDraft(e.target.value)}
+                  onBlur={commitCustomLogoUrl}
                   className="flex-1 h-10 px-3 rounded-lg bg-surface border border-border text-sm text-text-main focus:outline-none focus:border-primary"
                   placeholder="https://example.com/logo.png"
                   maxLength={2000}
@@ -637,6 +656,7 @@ export default function AppearanceTab() {
                   onClick={() => {
                     updateSetting("customLogoUrl", "");
                     updateSetting("customLogoBase64", "");
+                    setCustomLogoUrlDraft("");
                   }}
                 >
                   {t("resetLogo")}
@@ -665,8 +685,9 @@ export default function AppearanceTab() {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  value={settings.customFaviconUrl || ""}
-                  onChange={(e) => updateSetting("customFaviconUrl", e.target.value)}
+                  value={customFaviconUrlDraft}
+                  onChange={(e) => setCustomFaviconUrlDraft(e.target.value)}
+                  onBlur={commitCustomFaviconUrl}
                   className="flex-1 h-10 px-3 rounded-lg bg-surface border border-border text-sm text-text-main focus:outline-none focus:border-primary"
                   placeholder="https://example.com/favicon.ico"
                   maxLength={2000}
@@ -737,6 +758,7 @@ export default function AppearanceTab() {
                   onClick={() => {
                     updateSetting("customFaviconUrl", "");
                     updateSetting("customFaviconBase64", "");
+                    setCustomFaviconUrlDraft("");
                   }}
                 >
                   {t("resetFavicon")}

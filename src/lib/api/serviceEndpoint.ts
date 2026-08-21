@@ -16,7 +16,10 @@ import { NextResponse } from "next/server";
 
 import { getService, type Service } from "@/lib/db/services";
 import { resolveMcpCallerAuthInfo } from "@omniroute/open-sse/mcp-server/httpAuthContext";
-import { scopeMatches } from "@omniroute/open-sse/mcp-server/scopeEnforcement";
+import {
+  requestPresentsApiKey,
+  scopeMatches,
+} from "@omniroute/open-sse/mcp-server/scopeEnforcement";
 import { hasMcpApiKeyAuth } from "./mcpEndpoint";
 
 export type ServiceEndpointResolution =
@@ -67,6 +70,15 @@ export async function checkServiceScopeAccess(
   if (!service.required_scope) return null;
 
   const authInfo = await resolveMcpCallerAuthInfo(request);
+
+  // B2: a presented-but-invalid key must not silently gain the env fallback.
+  if (!authInfo && requestPresentsApiKey(request)) {
+    return NextResponse.json(
+      { error: `Invalid API key for service ${service.id}` },
+      { status: 401 }
+    );
+  }
+
   const envScopes = (process.env.OMNIROUTE_MCP_SCOPES || "")
     .split(",")
     .map((scope) => scope.trim())

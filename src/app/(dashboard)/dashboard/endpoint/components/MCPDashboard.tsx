@@ -30,9 +30,18 @@ type McpStatusResponse = {
   } | null;
   httpTransport: {
     online: boolean;
+    activeSession?: boolean;
     transport: "sse" | "streamable-http" | null;
     startedAt: number | null;
     uptime: string | null;
+    endpoints: Array<{
+      id: string;
+      kind: string;
+      ready: boolean;
+      error: string | null;
+      bridge: string;
+      tools: number;
+    }>;
   };
   activity: {
     totalCalls24h: number;
@@ -245,9 +254,6 @@ export default function McpDashboardPage() {
         const json = await combosRes.json();
         const nextCombos = Array.isArray(json?.combos) ? json.combos : [];
         setCombos(nextCombos);
-        if (!selectedComboId && nextCombos.length > 0) {
-          setSelectedComboId(nextCombos[0].id);
-        }
       }
 
       if (serversRes.ok) {
@@ -257,7 +263,7 @@ export default function McpDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedComboId]);
+  }, []);
 
   const refreshAudit = useCallback(async () => {
     setAuditLoading(true);
@@ -289,6 +295,15 @@ export default function McpDashboardPage() {
     const interval = setInterval(refreshSummary, 30000);
     return () => clearInterval(interval);
   }, [refreshSummary]);
+
+  // C: pick the first combo once the initial combos list has been fetched.
+  // Kept outside refreshSummary so a state change here never re-fires the
+  // summary fetch (previously created a redundant mount double-fetch).
+  useEffect(() => {
+    if (!selectedComboId && combos.length > 0) {
+      setSelectedComboId(combos[0].id);
+    }
+  }, [selectedComboId, combos]);
 
   useEffect(() => {
     refreshAudit();
@@ -391,6 +406,14 @@ export default function McpDashboardPage() {
   const heartbeatLabel =
     status?.transport === "stdio" ? formatDuration(status?.heartbeat?.heartbeatAgeMs ?? null) : "—";
 
+  // A3: map endpoint id → live transport readiness ({ ready, error }) surfaced
+  // from /api/mcp/status httpTransport.endpoints[]. Falls back to null when the
+  // endpoint has not been materialised yet (lazy start) so the card still
+  // renders its configured `enabled` state.
+  const endpointRuntimeById = new Map<string, { ready: boolean; error: string | null }>(
+    (status?.httpTransport?.endpoints ?? []).map((endpoint) => [endpoint.id, endpoint])
+  );
+
   if (loading) {
     return <div className="text-sm text-text-muted">{t("loading")}</div>;
   }
@@ -421,9 +444,22 @@ export default function McpDashboardPage() {
                       {t("requiredScope")}: {server.required_scope}
                     </span>
                   )}
-                  <span className={server.enabled ? "text-green-500" : "text-text-muted"}>
-                    {server.enabled ? t("active") : t("endpointDisabled")}
-                  </span>
+                  {(() => {
+                    const runtime = endpointRuntimeById.get(server.id);
+                    if (server.enabled && runtime?.error) {
+                      // Bridge/downstream failure — red with the error on hover.
+                      return (
+                        <span className="text-red-500" title={runtime.error}>
+                          {t("failed")}
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className={server.enabled ? "text-green-500" : "text-text-muted"}>
+                        {server.enabled ? t("active") : t("endpointDisabled")}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
               {[

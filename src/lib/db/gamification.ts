@@ -114,9 +114,9 @@ export async function updateScore(apiKeyId: string, scope: string, points: numbe
   await db()
     .prepare(
       `INSERT INTO leaderboard (api_key_id, scope, score, updated_at)
-     VALUES (?, ?, ?, NOW())
+     VALUES (?, ?, ?, datetime('now'))
      ON CONFLICT(api_key_id, scope)
-     DO UPDATE SET score = score + excluded.score, updated_at = NOW()`
+     DO UPDATE SET score = score + excluded.score, updated_at = datetime('now')`
     )
     .run(apiKeyId, scope, points);
 }
@@ -174,9 +174,9 @@ export async function addXp(
   await db()
     .prepare(
       `INSERT INTO user_levels (api_key_id, total_xp, current_level, updated_at)
-     VALUES (?, ?, ?, NOW())
+     VALUES (?, ?, ?, datetime('now'))
      ON CONFLICT(api_key_id)
-     DO UPDATE SET total_xp = user_levels.total_xp + excluded.total_xp, updated_at = NOW()`
+     DO UPDATE SET total_xp = user_levels.total_xp + excluded.total_xp, updated_at = datetime('now')`
     )
     .run(apiKeyId, amount, calculateLevel(amount));
 }
@@ -207,9 +207,9 @@ export async function updateLevel(apiKeyId: string, level: number): Promise<void
   await db()
     .prepare(
       `INSERT INTO user_levels (api_key_id, total_xp, current_level, updated_at)
-     VALUES (?, 0, ?, NOW())
+     VALUES (?, 0, ?, datetime('now'))
      ON CONFLICT(api_key_id)
-     DO UPDATE SET current_level = ?, updated_at = NOW()`
+     DO UPDATE SET current_level = ?, updated_at = datetime('now')`
     )
     .run(apiKeyId, level, level);
 }
@@ -487,14 +487,14 @@ export async function redeemInvite(code: string, usedBy: string): Promise<boolea
     SET use_count = use_count + 1, used_by = ?
     WHERE code = ? AND revoked_at IS NULL
       AND use_count < max_uses
-      AND (expires_at IS NULL OR expires_at > NOW())`
+      AND (expires_at IS NULL OR expires_at > datetime('now'))`
     )
     .run(usedBy, code);
   return result.changes > 0;
 }
 
 export async function revokeInvite(id: string): Promise<void> {
-  await db().prepare(`UPDATE invite_tokens SET revoked_at = NOW() WHERE id = ?`).run(id);
+  await db().prepare(`UPDATE invite_tokens SET revoked_at = datetime('now') WHERE id = ?`).run(id);
 }
 
 // ──────────────── Community Servers ────────────────
