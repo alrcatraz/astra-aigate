@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDbInstance } from "@/lib/db/core";
+import { getDbInstance, getDbDriver } from "@/lib/db/core";
 import { backupDbFile } from "@/lib/db/backup";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
 import { runJsonMigration, type LegacyJsonData } from "@/lib/db/jsonMigration";
@@ -25,6 +25,15 @@ export async function POST(request: Request) {
   }
 
   try {
+    // B1: legacy JSON migration writes via the synchronous DB instance, which
+    // degrades to an in-memory scratch under DB_DRIVER=postgres. Reject clearly
+    // rather than silently importing into a non-persistent store.
+    if (getDbDriver() === "postgres") {
+      return NextResponse.json(
+        { error: "JSON database import is SQLite-only and is unavailable in PostgreSQL mode" },
+        { status: 400 }
+      );
+    }
     let rawText: string | null = null;
     const contentType = request.headers.get("content-type") ?? "";
 

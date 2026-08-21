@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDbInstance, SQLITE_FILE } from "@/lib/db/core";
+import { getDbInstance, getDbDriver, SQLITE_FILE } from "@/lib/db/core";
 import { exportAllSummaryRows } from "@/lib/db/backup";
 import { CALL_LOGS_DIR } from "@/lib/usage/callLogArtifacts";
 import fs from "fs";
@@ -19,6 +19,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    // B1: full backup bundles storage.sqlite via the SQLite backup API, which
+    // does not exist for a Postgres backend. Fail clearly instead of exporting
+    // an empty scratch database or misusing the in-memory fallback.
+    if (getDbDriver() === "postgres") {
+      return NextResponse.json(
+        { error: "Full database export is SQLite-only and is unavailable in PostgreSQL mode" },
+        { status: 400 }
+      );
+    }
     if (!SQLITE_FILE) {
       return NextResponse.json(
         { error: "Export is only available in local (non-cloud) mode" },

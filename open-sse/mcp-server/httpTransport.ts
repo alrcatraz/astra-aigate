@@ -20,7 +20,7 @@
 import { randomUUID } from "node:crypto";
 import { createMcpServer, type McpToolDomain } from "./server.ts";
 import { resolveMcpCallerAuthInfo, withMcpHttpAuthContext } from "./httpAuthContext.ts";
-import { scopeMatches } from "./scopeEnforcement.ts";
+import { requestPresentsApiKey, scopeMatches } from "./scopeEnforcement.ts";
 import {
   closeBridge,
   getBridgeStatus,
@@ -261,6 +261,15 @@ export async function checkEndpointScopeAccess(
   if (!row.required_scope) return null;
 
   const authInfo = await resolveMcpCallerAuthInfo(request);
+
+  // B2: a presented-but-invalid key must not silently gain the
+  // OMNIROUTE_MCP_SCOPES env fallback. resolveMcpCallerAuthInfo returns
+  // undefined for BOTH "no key" and "unrecognised key", so distinguish them:
+  // a key header present with no resolved authInfo = failed auth → 401.
+  if (!authInfo && requestPresentsApiKey(request)) {
+    return errorResponse(`Invalid API key for MCP endpoint ${row.id}`, -32001, 401);
+  }
+
   const envScopes = (process.env.OMNIROUTE_MCP_SCOPES || "")
     .split(",")
     .map((s) => s.trim())
@@ -467,6 +476,10 @@ export async function handleMcpSSE(request: Request, endpointId: string): Promis
 
 export function getMcpHttpStatus(): {
   online: boolean;
+  /** True when at least one endpoint holds an active session/SSE transport.
+   * This is session activity, NOT transport readiness. Prefer per-endpoint
+   * `ready` for readiness and `activeSession` for session activity. */
+  activeSession: boolean;
   transport: string | null;
   startedAt: number | null;
   uptime: string | null;
@@ -503,6 +516,7 @@ export function getMcpHttpStatus(): {
   const startedAt = startedAts.length > 0 ? Math.min(...startedAts) : null;
   return {
     online: transport !== null,
+    activeSession: transport !== null,
     transport,
     startedAt,
     uptime: startedAt ? `${Math.floor((Date.now() - startedAt) / 1000)}s` : null,

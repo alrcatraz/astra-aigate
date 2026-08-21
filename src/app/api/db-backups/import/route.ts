@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import { getDbInstance, resetDbInstance, SQLITE_FILE } from "@/lib/db/core";
+import { getDbInstance, getDbDriver, resetDbInstance, SQLITE_FILE } from "@/lib/db/core";
 import { openDatabaseAsync } from "@/lib/db/adapters/driverFactory";
 import type { SqliteAdapter } from "@/lib/db/adapters/types";
 import {
@@ -59,6 +59,15 @@ export async function POST(request: Request) {
   let tmpPath: string | null = null;
 
   try {
+    // B1: .sqlite import replaces the SQLite file on disk. Under
+    // DB_DRIVER=postgres the scratch/logic in this route is meaningless, so
+    // reject before any file is buffered or the live DB is touched.
+    if (getDbDriver() === "postgres") {
+      return NextResponse.json(
+        { error: "Database import is SQLite-only and is unavailable in PostgreSQL mode" },
+        { status: 400 }
+      );
+    }
     let fileBuffer: Buffer | null = null;
     let fileName = "";
     const contentType = request.headers.get("content-type") || "";

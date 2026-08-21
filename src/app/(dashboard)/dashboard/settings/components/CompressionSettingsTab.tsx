@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, Button } from "@/shared/components";
 import { useTranslations } from "next-intl";
 import CompressionTokenSaverCard, {
@@ -215,6 +215,9 @@ export default function CompressionSettingsTab() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<"" | "saved" | "error">("");
   const [ruleMetadata, setRuleMetadata] = useState<RuleMetadata[]>([]);
+  // C: coalesce rapid changes from sliders/number inputs into a single PUT.
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingConfigRef = useRef<CompressionConfig | null>(null);
 
   useEffect(() => {
     fetch("/api/settings/compression")
@@ -232,28 +235,50 @@ export default function CompressionSettingsTab() {
       .catch(() => {});
   }, []);
 
-  const save = async (updates: Partial<CompressionConfig>) => {
-    const newConfig = { ...config, ...updates };
+  // Flush a pending debounced write and clear the timer on unmount so a rapid
+  // edit navigated away from never leaves an orphaned in-flight PUT or a
+  // state update after unmount.
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) {
+        clearTimeout(autosaveTimer.current);
+        autosaveTimer.current = null;
+      }
+    };
+  }, []);
+
+  const save = (updates: Partial<CompressionConfig>) => {
+    // Optimistic local update so the controlled inputs track typing.
+    const base = pendingConfigRef.current ?? config;
+    const newConfig = { ...base, ...updates };
+    pendingConfigRef.current = newConfig;
     setConfig(newConfig);
-    setSaving(true);
     setStatus("");
-    try {
-      const res = await fetch("/api/settings/compression", {
+
+    // Debounce the network write: rapid slider/number changes coalesce into
+    // one PUT ~400ms after the last change, instead of one PUT per keystroke.
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      const toSend = pendingConfigRef.current ?? newConfig;
+      pendingConfigRef.current = null;
+      setSaving(true);
+      fetch("/api/settings/compression", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newConfig),
-      });
-      if (res.ok) {
-        setStatus("saved");
-        setTimeout(() => setStatus(""), 2000);
-      } else {
-        setStatus("error");
-      }
-    } catch {
-      setStatus("error");
-    } finally {
-      setSaving(false);
-    }
+        body: JSON.stringify(toSend),
+      })
+        .then((res) => {
+          if (res.ok) {
+            setConfig(toSend);
+            setStatus("saved");
+            setTimeout(() => setStatus(""), 2000);
+          } else {
+            setStatus("error");
+          }
+        })
+        .catch(() => setStatus("error"))
+        .finally(() => setSaving(false));
+    }, 400);
   };
 
   const toggleCavemanRole = (role: "user" | "assistant" | "system") => {

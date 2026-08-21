@@ -17,6 +17,61 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
  */
 export async function GET() {
   try {
+    // Driver-aware: in PostgreSQL mode the health endpoint must report the
+    // PG database (a network server), not the on-disk SQLite file which is a
+    // stale/scratch artifact in that mode.
+    const { getDbDriver, getAsyncDb } = await import("@/lib/db/core");
+    const driver = getDbDriver();
+
+    if (driver === "postgres") {
+      // Report the live PG database. Row-count/size come straight from PG.
+      const pg = getAsyncDb();
+      try {
+        const dbName = process.env.DATABASE_URL?.match(/\/\/([^/]+)\/([^?]+)/)?.[2] ?? "aigate";
+        const stats = (await pg
+          .prepare(
+            "SELECT pg_database_size(current_database()) AS size, " +
+              "(SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public') AS tables"
+          )
+          .get()) as { size: string | number; tables: string | number } | undefined;
+        const sizeBytes = Number(stats?.size ?? 0);
+        const tableCount = Number(stats?.tables ?? 0);
+        return NextResponse.json({
+          driver: "postgres",
+          dbPath: `postgres://${dbName} (${tableCount} tables)`,
+          sizeBytes,
+          lastBackupAt: null,
+          backupCount: 0,
+          retentionDays: {
+            app: getAppLogRetentionDays(),
+            call: getCallLogRetentionDays(),
+          },
+          tableMaxRows: {
+            callLogs: getCallLogsTableMaxRows(),
+            proxyLogs: getProxyLogsTableMaxRows(),
+          },
+          backupRetention: {
+            maxFiles: getDbBackupMaxFiles(),
+            days: getDbBackupRetentionDays(),
+          },
+          dataDir: "postgres",
+        });
+      } catch (err) {
+        // PG unresponsive — degrade gracefully, still report the driver.
+        return NextResponse.json({
+          driver: "postgres",
+          dbPath: process.env.DATABASE_URL?.match(/\/\/([^/]+)\/([^?]+)/)?.[2] ?? "aigate",
+          sizeBytes: 0,
+          lastBackupAt: null,
+          backupCount: 0,
+          retentionDays: { app: 7, call: 7 },
+          tableMaxRows: { callLogs: 0, proxyLogs: 0 },
+          backupRetention: { maxFiles: getDbBackupMaxFiles(), days: getDbBackupRetentionDays() },
+          dataDir: "postgres",
+        });
+      }
+    }
+
     const dataDir = resolveDataDir({});
     const dbFilePath = path.join(dataDir, "storage.sqlite");
     const backupsDir = path.join(dataDir, "db_backups");
