@@ -3,6 +3,36 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.1] — PG-mode async guards + gamification upsert fix (2026-08-22)
+
+Bug-fix release, both fixes landed in the self-hosted **PostgreSQL** run mode:
+
+### Fixed
+
+- **Async proxy guards never awaited** (`src/lib/db/proxies/guards.ts`,
+  `src/lib/db/domainState.ts`, `src/lib/db/proxies.ts`, `src/sse/handlers/chatHelpers.ts`):
+  the `DatabaseAdapter` PreparedStatement `.get()`/`.all()` always returns a
+  Promise (PG and SQLite async interface), but the three guards consumed the
+  results without `await` — so `Promise` was truthy and every DIRECT-only
+  provider was rejected with `PROXY_ASSIGNED_UNAVAILABLE` even with zero
+  proxy-assignment rows (and the provider-level guard inverted the fault,
+  never failing closed). Guards are now `async` and `await` every read through
+  `getAsyncDb()`; the PG-mode scratch `.raw` is guarded so `no such table:
+domain_budgets` no longer escapes as an unhandledRejection and
+  `loadCostTotal` degrades to 0 instead of throwing.
+- **Postgres dialect mangled `datetime('now')` on `ON CONFLICT ... DO UPDATE`
+  RHS** (`src/lib/db/adapters/postgresDialect.ts`): `rewriteConflictAssignments`
+  qualified every bare identifier on the right-hand side, so `datetime('now')`
+  got a table prefix and the time function was then mis-translated into
+  `to_timestamp('user_levels.now')` — Postgres failed every gamification upsert
+  with `schema "user_levels" does not exist`. The qualifier now skips function
+  calls (identifier followed by `(`) and quoted strings, so `NOW()` /
+  `datetime('now')` survive intact while bare-column sliding counters
+  (`consumed = consumed + EXCLUDED.consumed`) still get the required table
+  qualification.
+
+---
+
 ## [0.5.2] — Provider-limits cache persistence + read fix, admission lease TTL (2026-08-11)
 
 Bug-fix release: on self-hosted PG deployments the provider-limits
