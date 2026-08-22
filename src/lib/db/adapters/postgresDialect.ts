@@ -249,7 +249,7 @@ function rewriteConflictAssignments(sql: string): string {
         const lhs = item.slice(0, eqIdx + 1);
         const rhs = item.slice(eqIdx + 1);
         const qualifiedRhs = rhs.replace(
-          /(?<![A-Za-z0-9_."])([a-z_][a-z0-9_]*)(?![A-Za-z0-9_."])/g,
+          /(?<![A-Za-z0-9_."'])([a-z_][a-z0-9_]*)(?![A-Za-z0-9_."'(])/g,
           (ident: string) => {
             if (ident.toLowerCase() === "excluded") return ident;
             return `${table}.${ident}`;
