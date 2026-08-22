@@ -871,7 +871,7 @@ export async function bulkAssignProxyToScope(
 export async function resolveProxyForProvider(providerId: string) {
   try {
     const db = await getAsyncDb();
-    if (!isGlobalProxyEnabled(db)) return null;
+    if (!(await isGlobalProxyEnabled(db))) return null;
 
     // Resolve by specificity across both storage backends. The GUI Custom tab
     // still writes provider/global proxies to the legacy config, while Saved

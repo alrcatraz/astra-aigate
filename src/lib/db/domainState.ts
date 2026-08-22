@@ -75,53 +75,74 @@ function toNumber(value: unknown, fallback = 0): number {
 function ensureBudgetSchema() {
   if (_budgetSchemaChecked) return;
 
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-  const columns = raw.prepare("PRAGMA table_info(domain_budgets)").all() as JsonRecord[];
-  const columnNames = new Set(
-    columns
-      .map((column) => {
-        const record = asRecord(column);
-        return typeof record.name === "string" ? record.name : "";
-      })
-      .filter(Boolean)
-  );
+  try {
+    const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
+    // PG mode degrades `.raw` to an EMPTY in-memory SQLite scratch handle (no
+    // tables at all — see postgresAdapter.ts). `ALTER TABLE ... ADD COLUMN`
+    // against a missing table throws `no such table: domain_budgets`, which
+    // escaped as an unhandledRejection in the request path. Probe the table
+    // first: sqlite_master is safe on both drivers (on the empty scratch it
+    // just returns no row, it never throws), and skip all ALTERs when the
+    // table is absent — reads below already degrade to empty results. In PG
+    // mode the bootstrap/migrations already materialise the full column set,
+    // so skipping here loses nothing.
+    const exists = raw
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'domain_budgets'")
+      .get() as { name?: string } | undefined;
+    if (!exists) {
+      _budgetSchemaChecked = true;
+      return;
+    }
 
-  if (!columnNames.has("weekly_limit_usd")) {
-    raw.exec("ALTER TABLE domain_budgets ADD COLUMN weekly_limit_usd REAL DEFAULT 0");
-  }
-  if (!columnNames.has("reset_interval")) {
-    raw.exec("ALTER TABLE domain_budgets ADD COLUMN reset_interval TEXT DEFAULT 'daily'");
-  }
-  if (!columnNames.has("reset_time")) {
-    raw.exec("ALTER TABLE domain_budgets ADD COLUMN reset_time TEXT DEFAULT '00:00'");
-  }
-  if (!columnNames.has("budget_reset_at")) {
-    raw.exec("ALTER TABLE domain_budgets ADD COLUMN budget_reset_at INTEGER");
-  }
-  if (!columnNames.has("last_budget_reset_at")) {
-    raw.exec("ALTER TABLE domain_budgets ADD COLUMN last_budget_reset_at INTEGER");
-  }
-  if (!columnNames.has("warning_emitted_at")) {
-    raw.exec("ALTER TABLE domain_budgets ADD COLUMN warning_emitted_at INTEGER");
-  }
-  if (!columnNames.has("warning_period_start")) {
-    raw.exec("ALTER TABLE domain_budgets ADD COLUMN warning_period_start INTEGER");
-  }
-
-  raw.exec(`
-    CREATE TABLE IF NOT EXISTS domain_budget_reset_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      api_key_id TEXT NOT NULL,
-      reset_interval TEXT NOT NULL,
-      previous_spend REAL NOT NULL DEFAULT 0,
-      reset_at INTEGER NOT NULL,
-      next_reset_at INTEGER NOT NULL,
-      period_start INTEGER NOT NULL,
-      period_end INTEGER NOT NULL
+    const columns = raw.prepare("PRAGMA table_info(domain_budgets)").all() as JsonRecord[];
+    const columnNames = new Set(
+      columns
+        .map((column) => {
+          const record = asRecord(column);
+          return typeof record.name === "string" ? record.name : "";
+        })
+        .filter(Boolean)
     );
-    CREATE INDEX IF NOT EXISTS idx_dbrl_key_reset
-      ON domain_budget_reset_logs(api_key_id, reset_at DESC);
-  `);
+
+    if (!columnNames.has("weekly_limit_usd")) {
+      raw.exec("ALTER TABLE domain_budgets ADD COLUMN weekly_limit_usd REAL DEFAULT 0");
+    }
+    if (!columnNames.has("reset_interval")) {
+      raw.exec("ALTER TABLE domain_budgets ADD COLUMN reset_interval TEXT DEFAULT 'daily'");
+    }
+    if (!columnNames.has("reset_time")) {
+      raw.exec("ALTER TABLE domain_budgets ADD COLUMN reset_time TEXT DEFAULT '00:00'");
+    }
+    if (!columnNames.has("budget_reset_at")) {
+      raw.exec("ALTER TABLE domain_budgets ADD COLUMN budget_reset_at INTEGER");
+    }
+    if (!columnNames.has("last_budget_reset_at")) {
+      raw.exec("ALTER TABLE domain_budgets ADD COLUMN last_budget_reset_at INTEGER");
+    }
+    if (!columnNames.has("warning_emitted_at")) {
+      raw.exec("ALTER TABLE domain_budgets ADD COLUMN warning_emitted_at INTEGER");
+    }
+    if (!columnNames.has("warning_period_start")) {
+      raw.exec("ALTER TABLE domain_budgets ADD COLUMN warning_period_start INTEGER");
+    }
+
+    raw.exec(`
+      CREATE TABLE IF NOT EXISTS domain_budget_reset_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        api_key_id TEXT NOT NULL,
+        reset_interval TEXT NOT NULL,
+        previous_spend REAL NOT NULL DEFAULT 0,
+        reset_at INTEGER NOT NULL,
+        next_reset_at INTEGER NOT NULL,
+        period_start INTEGER NOT NULL,
+        period_end INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_dbrl_key_reset
+        ON domain_budget_reset_logs(api_key_id, reset_at DESC);
+    `);
+  } catch {
+    // Schema-ensure is best-effort; never throw out of the request path.
+  }
 
   _budgetSchemaChecked = true;
 }
@@ -413,13 +434,20 @@ export async function batchSaveCostEntries(
 
 export function loadCostTotal(apiKeyId: string, sinceTimestamp: number): number {
   ensureBudgetSchema();
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-  const row = raw
-    .prepare(
-      "SELECT COALESCE(SUM(cost), 0) AS total FROM domain_cost_history WHERE api_key_id = ? AND timestamp >= ?"
-    )
-    .get(apiKeyId, sinceTimestamp) as { total?: number } | undefined;
-  return Number(row?.total || 0);
+  try {
+    const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
+    const row = raw
+      .prepare(
+        "SELECT COALESCE(SUM(cost), 0) AS total FROM domain_cost_history WHERE api_key_id = ? AND timestamp >= ?"
+      )
+      .get(apiKeyId, sinceTimestamp) as { total?: number } | undefined;
+    return Number(row?.total || 0);
+  } catch {
+    // On the PG-mode scratch `.raw` handle the domain_cost_history table is
+    // absent, so this synchronously throws "no such table" — degrade to 0
+    // (the same value the scratch path would produce) instead of propagating.
+    return 0;
+  }
 }
 
 /**

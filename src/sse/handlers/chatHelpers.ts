@@ -721,7 +721,7 @@ export async function safeResolveProxy(
     // opts back into direct). Explicit "proxy off" is not a leak (see the guard).
     if (
       !(resolved as { proxy?: unknown } | null)?.proxy &&
-      hasBlockingProxyAssignment(connectionId, providerId)
+      (await hasBlockingProxyAssignment(connectionId, providerId))
     ) {
       return decideProxyResolutionFailure(
         Object.assign(
