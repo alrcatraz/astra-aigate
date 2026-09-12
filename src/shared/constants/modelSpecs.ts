@@ -546,6 +546,34 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsTools: true,
   },
 
+  // ── Z.AI GLM-5.3 family (1M context) ─────────────────────────────
+  // Needed because getCanonicalModelSpecId() only inherits a prefix spec when
+  // the remainder starts with a variant qualifier (- : @): "glm-5.3-flash"
+  // must NOT inherit the 200K "glm-5" spec across a version boundary. Explicit
+  // entries keep the family resolved at its true 1M window (models.dev: every
+  // channel ≥1M; DMXAPI-observed: 1M).
+  "glm-5.3": {
+    maxOutputTokens: 131072,
+    contextWindow: 1000000,
+    thinkingBudgetCap: 38912,
+    supportsThinking: true,
+    supportsTools: true,
+  },
+  "glm-5.3-flash": {
+    maxOutputTokens: 131072,
+    contextWindow: 1000000,
+    thinkingBudgetCap: 38912,
+    supportsThinking: true,
+    supportsTools: true,
+  },
+  "glm-5.3-highspeed": {
+    maxOutputTokens: 131072,
+    contextWindow: 1000000,
+    thinkingBudgetCap: 38912,
+    supportsThinking: true,
+    supportsTools: true,
+  },
+
   // ── MiniMax M3 (1M context, 512K max output) ─────────────────────
   // max output verified against MiniMax docs / OpenRouter / Artificial
   // Analysis (Nov 2025 launch): 1,048,576-token context, up to 512K output.
@@ -626,9 +654,20 @@ export function getCanonicalModelSpecId(modelId: string): string | null {
     if (spec.aliases?.some((alias) => alias.toLowerCase() === lower)) return canonical;
   }
 
-  // Prefix matching (case-insensitive)
+  // Prefix matching (case-insensitive) — variant-qualifier only.
+  // A shorter spec id may cover a longer id ONLY when the remainder starts
+  // with a variant qualifier (- : @): "deepseek-v4-flash-vision-exp" inherits
+  // from "deepseek-v4-flash", but a VERSION-continuation must not —
+  // "glm-5.3-flash".startsWith("glm-5") is a different model GENERATION
+  // (200K) and must not absorb the 1M glm-5.3 family (#ctx glm-5.3-flash).
+  // Exact and alias matches above still win first.
   for (const key of Object.keys(MODEL_SPECS)) {
-    if (key !== "__default__" && lower.startsWith(key.toLowerCase())) return key;
+    if (key === "__default__") continue;
+    const keyLower = key.toLowerCase();
+    if (!lower.startsWith(keyLower)) continue;
+    const rest = lower.slice(keyLower.length);
+    if (rest.length === 0) continue; // exact match already returned above
+    if (rest.startsWith("-") || rest.startsWith(":") || rest.startsWith("@")) return key;
   }
 
   return null;

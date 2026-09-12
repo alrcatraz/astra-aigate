@@ -353,6 +353,14 @@ const SYNCED_CAPABILITY_FALLBACK_ALIASES: Record<string, string[]> = {
   opencode: ["opencode-zen"],
   "opencode-zen": ["opencode"],
   "opencode-go": ["opencode-zen"],
+  // DMXAPI (dmxapi-cn / family) is an aggregator reselling the Z.AI / GLM and
+  // DeepSeek upstreams under the SAME model ids, but models.dev has no dmxapi
+  // channel, so synced rows never land under this provider key. On a lookup
+  // miss, fall back to the upstream channels so truth flows in per model:
+  // glm-5.3-flash → zhipuai (1M), deepseek-v4-flash* → deepseek (1M). Only
+  // ids that genuinely exist upstream inherit anything; DMXAPI-exclusive ids
+  // keep falling through to registry/spec/defaults.
+  "dmxapi-cn": ["zhipuai", "zai", "alibaba", "deepseek"],
 };
 
 export async function getSyncedCapability(
