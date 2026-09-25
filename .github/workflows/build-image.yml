@@ -43,6 +43,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # GHCR publishing is GitHub-Actions-only by design (2026-09-25): the
+    # internal mirror's runner cannot authenticate to ghcr.io (its workflow
+    # JWT is forge-local). Internal consumers pull images from GHCR/releases.
+    if: github.server_url == 'https://github.com'
     timeout-minutes: 60
     steps:
       - name: Checkout
