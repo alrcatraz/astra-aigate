@@ -80,8 +80,13 @@ function jsonSchemaToZod(schema: Record<string, unknown> | undefined): z.ZodType
         required.includes(name) && converted ? converted : (converted ?? z.unknown()).optional();
     }
     if (Object.keys(shape).length > 0) return z.object(shape);
-    // zod v4 requires an explicit key type for record().
-    return z.record(z.string(), z.unknown());
+    // Empty/absent properties: accept any object, and accept omitted
+    // `arguments` (clients omit it when tools/list shows no required
+    // fields). A bare `z.record()` is normalised to `undefined` by the SDK
+    // (record has no `shape`), so `tools/call` fails validation with -32602
+    // when the client omits `arguments`. An optional passthrough object is
+    // recognised as an object schema and still validates `undefined`.
+    return z.object({}).passthrough().optional();
   }
 
   if (type === "string") return z.string();
