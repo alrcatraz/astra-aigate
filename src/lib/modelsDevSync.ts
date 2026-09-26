@@ -390,19 +390,24 @@ export async function getSyncedCapability(
   const stmt = await db.prepare(
     "SELECT * FROM model_capabilities WHERE provider = ? AND model_id = ? LIMIT 1"
   );
-  const lookupDb = (p: string): ModelCapabilityEntry | null => {
-    const row = stmt.get(p, modelId);
+  const lookupDb = async (p: string): Promise<ModelCapabilityEntry | null> => {
+    // All DatabaseAdapter implementations return Promises from .get() — the row
+    // MUST be awaited. Consuming it synchronously made `!row` always false
+    // (Promise is truthy), so mapCapabilityRecord() received a Promise and every
+    // field came back undefined: synced capabilities silently degraded to
+    // "unknown" on the cold path, breaking combo vision routing (#8332 gate).
+    const row = await stmt.get(p, modelId);
     if (!row) return null;
     return mapCapabilityRecord(toRecord(row));
   };
 
-  const direct = lookupDb(provider);
+  const direct = await lookupDb(provider);
   if (direct) return direct;
 
   const fallbacks = SYNCED_CAPABILITY_FALLBACK_ALIASES[provider];
   if (fallbacks) {
     for (const alt of fallbacks) {
-      const found = lookupDb(alt);
+      const found = await lookupDb(alt);
       if (found) return found;
     }
   }
