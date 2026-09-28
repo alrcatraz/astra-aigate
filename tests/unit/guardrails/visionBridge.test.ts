@@ -133,7 +133,10 @@ test("VB-S06: skips when disabledGuardrails includes vision-bridge", async () =>
 // ── VB-S02: Vision-capable model passthrough ────────────────────────────────
 
 test("VB-S02: passthroughs for vision-capable model (gpt-4o)", async () => {
-  const guardrail = createGuardrail();
+  // No combo mapping: isolate the native-vision passthrough contract from the
+  // separate combo-mapping path (which intentionally describes images when a
+  // mapping exists). Without this the guardrail reads the real (empty) DB.
+  const guardrail = createGuardrail({ deps: { checkModelHasComboMapping: async () => false } });
   const payload = createPayload({
     model: "openai/gpt-4o",
     messages: [
@@ -154,7 +157,7 @@ test("VB-S02: passthroughs for vision-capable model (gpt-4o)", async () => {
 
   // If supportsVision is true, it should passthrough (no modification)
   // If supportsVision is null/undefined (no sync data), it will process — that's correct behavior
-  const capabilities = getResolvedModelCapabilities("openai/gpt-4o");
+  const capabilities = await getResolvedModelCapabilities("openai/gpt-4o");
   if (capabilities.supportsVision === true) {
     assert.strictEqual(result.block, false);
     assert.strictEqual(result.modifiedPayload, undefined);
@@ -195,7 +198,7 @@ test("VB-S02b: respects native vision support for GPT-family models", async () =
     // If supportsVision is true, payload should be unmodified.
     // If supportsVision is null, the guardrail reroutes (modifiedPayload defined, model changed).
     // Both are correct behavior — the key invariant is no describe call.
-    const caps = getResolvedModelCapabilities(model);
+    const caps = await getResolvedModelCapabilities(model);
     if (caps.supportsVision === true) {
       assert.strictEqual(
         result.modifiedPayload,
@@ -206,8 +209,8 @@ test("VB-S02b: respects native vision support for GPT-family models", async () =
   }
 });
 
-test("VB-S02: model capabilities returns supportsVision for known models", () => {
-  const gpt4oCaps = getResolvedModelCapabilities("openai/gpt-4o");
+test("VB-S02: model capabilities returns supportsVision for known models", async () => {
+  const gpt4oCaps = await getResolvedModelCapabilities("openai/gpt-4o");
   // supportsVision may be true (if sync data exists) or null (if not synced)
   assert.ok(gpt4oCaps.supportsVision === true || gpt4oCaps.supportsVision === null);
 });
@@ -771,21 +774,11 @@ test("VB-CRED-02: does NOT reroute to a vision model known to lack credentials",
 });
 
 test("isProviderConnectionUsable rejects noauth without api key", async () => {
-  const { isProviderConnectionUsable } = await import(
-    "../../../src/lib/guardrails/visionBridge.ts"
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "noauth", apiKey: null }),
-    false
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "apikey", apiKey: "sk-real" }),
-    true
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "oauth", refreshToken: "rt" }),
-    true
-  );
+  const { isProviderConnectionUsable } =
+    await import("../../../src/lib/guardrails/visionBridge.ts");
+  assert.strictEqual(isProviderConnectionUsable({ authType: "noauth", apiKey: null }), false);
+  assert.strictEqual(isProviderConnectionUsable({ authType: "apikey", apiKey: "sk-real" }), true);
+  assert.strictEqual(isProviderConnectionUsable({ authType: "oauth", refreshToken: "rt" }), true);
   assert.strictEqual(
     isProviderConnectionUsable({ authType: "apikey", apiKey: "x", testStatus: "banned" }),
     false

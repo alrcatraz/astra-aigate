@@ -4,7 +4,7 @@
 
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
-import { getAsyncDb, rowToCamel } from "./core";
+import { getAsyncDb, getDbDriver, getDbInstance, rowToCamel } from "./core";
 import { backupDbFile } from "./backup";
 import { registerDbStateResetter } from "./stateReset";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
@@ -382,7 +382,13 @@ function ensureApiKeyColumn(
   console.log(`[DB] Added api_keys.${column.name} column`);
 }
 
-// Ensure api_keys extension columns exist (memoized)
+// Ensure api_keys extension columns exist (memoized).
+// The ALTERs must COMPLETE before `getPreparedStatements` prepares statements
+// referencing these columns — an un-awaited async wrapper deferred them to a
+// microtask and the first prepare on a fresh connection hit "no such column:
+// expires_at" (#8716 family). SQLite mode runs them synchronously inline; PG
+// mode awaits the same adapter calls (its migrations already created them, so
+// this is a no-op there). Callers must await this before preparing.
 async function ensureApiKeysColumns(db: ApiKeysDbLike): Promise<void> {
   if (_schemaChecked) return;
 
@@ -400,12 +406,48 @@ async function ensureApiKeysColumns(db: ApiKeysDbLike): Promise<void> {
 }
 
 /**
+ * Synchronous schema pass for the SQLite path only (the raw sync handle under
+ * the async wrapper executes every statement inline). See ensureApiKeysColumns.
+ */
+function ensureApiKeysColumnsSync(): void {
+  if (_schemaChecked) return;
+  try {
+    const raw = getDbInstance().raw as unknown as {
+      prepare: (sql: string) => { all: () => Array<{ name?: string }> };
+      exec: (sql: string) => void;
+    };
+    const columnNames = new Set(
+      raw
+        .prepare("PRAGMA table_info(api_keys)")
+        .all()
+        .map((c) => String(c.name ?? ""))
+    );
+    for (const column of API_KEY_COLUMN_FALLBACKS) {
+      if (columnNames.has(column.name)) continue;
+      raw.exec(`ALTER TABLE api_keys ADD COLUMN ${column.definition}`);
+      console.log(`[DB] Added api_keys.${column.name} column`);
+    }
+    _schemaChecked = true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("[DB] Failed to verify api_keys schema:", message);
+  }
+}
+
+/**
  * Initialize prepared statements (lazy initialization)
  * Re-creates statements if the underlying DB connection changed (HMR, backup restore).
  */
 let _stmtDb: ApiKeysDbLike | null = null;
 function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
-  ensureApiKeysColumns(db);
+  // SQLite mode: run the schema pass synchronously so the ALTERs are visible
+  // to the prepares below (PG migrations already created these columns; the
+  // async wrapper's Promise was never awaited here — #8716 family).
+  if (getDbDriver() === "sqlite") {
+    ensureApiKeysColumnsSync();
+  } else {
+    void ensureApiKeysColumns(db);
+  }
 
   if (
     !_stmtGetAllKeys ||

@@ -180,7 +180,7 @@ test("chatCore integration: disabled prompt compression leaves combo override re
       { role: "user", content: `${"Keep   spacing.\n\n\n".repeat(450)}Final question.` },
     ],
   };
-  const contextLimit = getTokenLimit(provider, model);
+  const contextLimit = await getTokenLimit(provider, model);
   const proactiveThreshold = Math.floor(contextLimit * 0.7);
   const estimatedBodyTokens = estimateTokens(JSON.stringify(body.messages));
   assert.ok(
@@ -247,7 +247,7 @@ test("chatCore integration: compressContext NOT called when context is below 85%
     defaultMode: "off",
     autoTriggerTokens: 0,
   });
-  const contextLimit = getTokenLimit(provider, model);
+  const contextLimit = await getTokenLimit(provider, model);
   const threshold = Math.floor(contextLimit * 0.85);
 
   const smallMessage = "Hello, how are you?";

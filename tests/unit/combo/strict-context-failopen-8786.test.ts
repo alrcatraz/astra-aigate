@@ -22,9 +22,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../../src/lib/db/core.ts");
 const { getModelContextLimit } = await import("../../../src/lib/modelCapabilities.ts");
-const { applyContextRequirements } = await import(
-  "../../../open-sse/services/combo/contextRequirements.ts"
-);
+const { applyContextRequirements } =
+  await import("../../../open-sse/services/combo/contextRequirements.ts");
 
 test.after(() => {
   core.resetDbInstance();
@@ -59,17 +58,17 @@ const UNKNOWN_TARGETS = [
   target("custom-unknown-8786", "deepseek-proxy-model"),
 ];
 
-test("catalog sanity: fixture models have unknown context limits", () => {
+test("catalog sanity: fixture models have unknown context limits", async () => {
   for (const t of UNKNOWN_TARGETS) {
     assert.equal(
-      getModelContextLimit(t.provider, t.modelStr),
+      await getModelContextLimit(t.provider, t.modelStr),
       null,
       `${t.provider}/${t.modelStr} must be unknown in the catalog for this regression`
     );
   }
 });
 
-test("#8786: strict mode with ALL-unknown targets fails open instead of emptying the pool", () => {
+test("#8786: strict mode with ALL-unknown targets fails open instead of emptying the pool", async () => {
   const warnings: string[] = [];
   const log = {
     ...noopLog,
@@ -78,7 +77,7 @@ test("#8786: strict mode with ALL-unknown targets fails open instead of emptying
     },
   };
 
-  const result = applyContextRequirements(
+  const result = await applyContextRequirements(
     UNKNOWN_TARGETS,
     {
       minContextWindow: 372000,
@@ -103,18 +102,18 @@ test("#8786: strict mode with ALL-unknown targets fails open instead of emptying
   );
 });
 
-test("#8786: strict mode still drops unknowns when at least one known-good target remains", () => {
+test("#8786: strict mode still drops unknowns when at least one known-good target remains", async () => {
   // gpt-4o ships in the static capability catalog (~128k); keep threshold below that.
   const knownOk = target("openai", "gpt-4o");
   const unknown = target("custom-unknown-8786", "ghost-model");
 
   assert.ok(
-    (getModelContextLimit(knownOk.provider, knownOk.modelStr) ?? 0) >= 32000,
+    ((await getModelContextLimit(knownOk.provider, knownOk.modelStr)) ?? 0) >= 32000,
     "known fixture must clear minContextWindow"
   );
-  assert.equal(getModelContextLimit(unknown.provider, unknown.modelStr), null);
+  assert.equal(await getModelContextLimit(unknown.provider, unknown.modelStr), null);
 
-  const result = applyContextRequirements(
+  const result = await applyContextRequirements(
     [knownOk, unknown],
     {
       minContextWindow: 32000,
@@ -130,9 +129,9 @@ test("#8786: strict mode still drops unknowns when at least one known-good targe
   );
 });
 
-test("#8786: strict mode with only known-below-threshold targets stays empty (no false fail-open)", () => {
+test("#8786: strict mode with only known-below-threshold targets stays empty (no false fail-open)", async () => {
   const small = target("openai", "gpt-4o"); // 128k
-  const result = applyContextRequirements(
+  const result = await applyContextRequirements(
     [small],
     {
       minContextWindow: 500000,
@@ -143,11 +142,11 @@ test("#8786: strict mode with only known-below-threshold targets stays empty (no
   assert.equal(result.length, 0, "known-too-small must not be resurrected");
 });
 
-test("#8786: strict mode with known-below + unknowns fails open to unknowns only", () => {
+test("#8786: strict mode with known-below + unknowns fails open to unknowns only", async () => {
   const small = target("openai", "gpt-4o"); // 128k < 372k
   const unknown = target("custom-unknown-8786", "maybe-large-model");
 
-  const result = applyContextRequirements(
+  const result = await applyContextRequirements(
     [small, unknown],
     {
       minContextWindow: 372000,
@@ -160,8 +159,8 @@ test("#8786: strict mode with known-below + unknowns fails open to unknowns only
   assert.equal(result[0].modelStr, unknown.modelStr);
 });
 
-test("#8786: lenient mode still includes unknowns (unchanged)", () => {
-  const result = applyContextRequirements(
+test("#8786: lenient mode still includes unknowns (unchanged)", async () => {
+  const result = await applyContextRequirements(
     UNKNOWN_TARGETS.slice(0, 2),
     {
       minContextWindow: 372000,

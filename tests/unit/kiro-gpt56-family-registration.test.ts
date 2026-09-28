@@ -17,23 +17,23 @@ test("kiro registry exposes the GPT-5.6 Sol/Terra/Luna model ids", () => {
   }
 });
 
-test("kiro GPT-5.6 models resolve the announced 272k context window", () => {
+test("kiro GPT-5.6 models resolve the announced 272k context window", async () => {
   for (const model of GPT_5_6_KIRO_MODELS) {
-    const caps = getResolvedModelCapabilities({ provider: "kiro", model });
+    const caps = await getResolvedModelCapabilities({ provider: "kiro", model });
     assert.equal(caps.contextWindow, 272000, `${model} must resolve a 272k context window`);
   }
 });
 
-test("kiro GPT-5.6 models resolve a 128k max output budget", () => {
+test("kiro GPT-5.6 models resolve a 128k max output budget", async () => {
   for (const model of GPT_5_6_KIRO_MODELS) {
-    const caps = getResolvedModelCapabilities({ provider: "kiro", model });
+    const caps = await getResolvedModelCapabilities({ provider: "kiro", model });
     assert.equal(caps.maxOutputTokens, 128000, `${model} must resolve a 128k max output`);
   }
 });
 
-test("kiro GPT-5.6 models resolve through the 'kr' provider alias too", () => {
+test("kiro GPT-5.6 models resolve through the 'kr' provider alias too", async () => {
   for (const model of GPT_5_6_KIRO_MODELS) {
-    const caps = getResolvedModelCapabilities({ provider: "kr", model });
+    const caps = await getResolvedModelCapabilities({ provider: "kr", model });
     assert.equal(caps.contextWindow, 272000, `${model} must resolve via the 'kr' alias`);
   }
 });

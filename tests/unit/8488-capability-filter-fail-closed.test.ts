@@ -75,7 +75,7 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#8488 filter: some tool-capable targets kept (unchanged)", () => {
+test("#8488 filter: some tool-capable targets kept (unchanged)", async () => {
   saveModelsDevCapabilities({
     openai: {
       "with-tools": capabilityEntry(128000, { tool_call: true }),
@@ -83,7 +83,7 @@ test("#8488 filter: some tool-capable targets kept (unchanged)", () => {
     },
   });
 
-  const kept = filterTargetsByRequestCompatibility(
+  const kept = await filterTargetsByRequestCompatibility(
     [target("openai", "openai/with-tools"), target("openai", "openai/no-tools")],
     {
       messages: [{ role: "user", content: "hi" }],
@@ -97,7 +97,7 @@ test("#8488 filter: some tool-capable targets kept (unchanged)", () => {
   );
 });
 
-test("#8488 filter: zero tool-capable targets → empty (fail closed)", () => {
+test("#8488 filter: zero tool-capable targets → empty (fail closed)", async () => {
   saveModelsDevCapabilities({
     openai: {
       "no-tools-a": capabilityEntry(128000, { tool_call: false }),
@@ -110,7 +110,7 @@ test("#8488 filter: zero tool-capable targets → empty (fail closed)", () => {
     messages: [{ role: "user", content: "hi" }],
     tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
   };
-  const kept = filterTargetsByRequestCompatibility(targets, body, log);
+  const kept = await filterTargetsByRequestCompatibility(targets, body, log);
   assert.equal(kept.length, 0);
 
   const exhaustion = describeCapabilityFilterExhaustion(targets, body, "tools-combo");
@@ -120,7 +120,7 @@ test("#8488 filter: zero tool-capable targets → empty (fail closed)", () => {
   assert.ok(exhaustion!.excluded.some((e) => e.reason.includes("tools")));
 });
 
-test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#5240)", () => {
+test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#5240)", async () => {
   // Registry honestly tags chatgpt-web models toolCalling:false; the prompt
   // shim is what makes tools work. Fail-closed must not hard-reject them.
   assert.equal(providerSupportsEmulatedToolCalling("chatgpt-web"), true);
@@ -128,11 +128,8 @@ test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#52
   assert.equal(providerSupportsEmulatedToolCalling("claude-web"), false); // toolCalling:"none"
   assert.equal(providerSupportsEmulatedToolCalling("openai"), false);
 
-  const kept = filterTargetsByRequestCompatibility(
-    [
-      target("chatgpt-web", "chatgpt-web/gpt-5.5"),
-      target("chatgpt-web", "chatgpt-web/o3"),
-    ],
+  const kept = await filterTargetsByRequestCompatibility(
+    [target("chatgpt-web", "chatgpt-web/gpt-5.5"), target("chatgpt-web", "chatgpt-web/o3")],
     {
       messages: [{ role: "user", content: "Use a tool." }],
       tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
@@ -146,10 +143,7 @@ test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#52
   );
 
   const exhaustion = describeCapabilityFilterExhaustion(
-    [
-      target("chatgpt-web", "chatgpt-web/gpt-5.5"),
-      target("chatgpt-web", "chatgpt-web/o3"),
-    ],
+    [target("chatgpt-web", "chatgpt-web/gpt-5.5"), target("chatgpt-web", "chatgpt-web/o3")],
     {
       messages: [{ role: "user", content: "Use a tool." }],
       tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
@@ -175,14 +169,17 @@ test("#8488 auto: chatgpt-web emulation survives tool pre-filter (#5240)", async
     buildAutoCandidates: (async () => []) as never,
   });
 
-  assert.ok(!("earlyResponse" in result), "must not 400 capability_mismatch for emulation providers");
+  assert.ok(
+    !("earlyResponse" in result),
+    "must not 400 capability_mismatch for emulation providers"
+  );
   if ("orderedTargets" in result) {
     assert.equal(result.orderedTargets.length, 1);
     assert.equal(result.orderedTargets[0].modelStr, "chatgpt-web/gpt-5.5");
   }
 });
 
-test("#8488 filter: opt-in compatFilterFailOpen restores full pool", () => {
+test("#8488 filter: opt-in compatFilterFailOpen restores full pool", async () => {
   saveModelsDevCapabilities({
     openai: {
       "no-tools-a": capabilityEntry(128000, { tool_call: false }),
@@ -190,7 +187,7 @@ test("#8488 filter: opt-in compatFilterFailOpen restores full pool", () => {
     },
   });
 
-  const kept = filterTargetsByRequestCompatibility(
+  const kept = await filterTargetsByRequestCompatibility(
     [target("openai", "openai/no-tools-a"), target("openai", "openai/no-tools-b")],
     {
       messages: [{ role: "user", content: "hi" }],
@@ -203,14 +200,14 @@ test("#8488 filter: opt-in compatFilterFailOpen restores full pool", () => {
   assert.equal(kept.length, 2);
 });
 
-test("#8488 filter: vision with no confirmed target → empty (fail closed)", () => {
+test("#8488 filter: vision with no confirmed target → empty (fail closed)", async () => {
   saveModelsDevCapabilities({
     openai: {
       "text-only": capabilityEntry(128000, { attachment: false, tool_call: true }),
     },
   });
 
-  const kept = filterTargetsByRequestCompatibility(
+  const kept = await filterTargetsByRequestCompatibility(
     [target("openai", "openai/text-only")],
     {
       messages: [

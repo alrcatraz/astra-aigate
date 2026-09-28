@@ -18,27 +18,29 @@ const originalDataDir = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../../src/lib/db/core.ts");
-core.resetDbInstance();
+await core.resetDbInstanceDrained();
 
 const { getDefaultCompressionCombo, setEngineInDefaultCombo, getCompressionCombo } =
   await import("../../../src/lib/db/compressionCombos.ts");
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function resetDb(): void {
-  core.resetDbInstance();
+async function resetDb(): Promise<void> {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // ─── lifecycle ────────────────────────────────────────────────────────────────
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
@@ -46,14 +48,14 @@ test.after(() => {
 
 // ─── tests ────────────────────────────────────────────────────────────────────
 
-test("Fix #1: normalizePipeline passes through new engine IDs (headroom, session-dedup, ccr, llmlingua)", () => {
+test("Fix #1: normalizePipeline passes through new engine IDs (headroom, session-dedup, ccr, llmlingua)", async () => {
   // The default combo is seeded with [rtk, caveman]. Directly update the DB
   // to include new engine IDs, then read back via getDefaultCompressionCombo
   // to verify normalizePipeline no longer strips them.
   const db = core.getDbInstance();
 
   // Ensure the table is created by triggering a read first.
-  const combo = getDefaultCompressionCombo();
+  const combo = await getDefaultCompressionCombo();
   assert.ok(combo, "default combo should exist after table init");
 
   const newPipeline = JSON.stringify([
@@ -65,7 +67,7 @@ test("Fix #1: normalizePipeline passes through new engine IDs (headroom, session
   ]);
   db.prepare("UPDATE compression_combos SET pipeline = ? WHERE id = ?").run(newPipeline, combo.id);
 
-  const reloaded = getCompressionCombo(combo.id);
+  const reloaded = await getCompressionCombo(combo.id);
   assert.ok(reloaded, "should reload the combo");
   const engineIds = reloaded.pipeline.map((s) => s.engine);
   assert.ok(engineIds.includes("headroom"), `expected headroom in pipeline, got: ${engineIds}`);
@@ -82,10 +84,10 @@ test("Fix #1: normalizePipeline passes through new engine IDs (headroom, session
   );
 });
 
-test("enabling headroom adds it to the pipeline sorted by stackPriority", () => {
+test("enabling headroom adds it to the pipeline sorted by stackPriority", async () => {
   // Default pipeline is [rtk(10), caveman(20)].
   // headroom has stackPriority=15 so it should be inserted between rtk and caveman.
-  const result = setEngineInDefaultCombo("headroom", true);
+  const result = await setEngineInDefaultCombo("headroom", true);
   assert.ok(result, "should return the updated combo");
 
   const engineIds = result.pipeline.map((s) => s.engine);
@@ -109,9 +111,9 @@ test("enabling headroom adds it to the pipeline sorted by stackPriority", () => 
   );
 });
 
-test("enabling an engine with config persists the config", () => {
+test("enabling an engine with config persists the config", async () => {
   const customConfig = { minRows: 5 };
-  const result = setEngineInDefaultCombo("headroom", true, customConfig);
+  const result = await setEngineInDefaultCombo("headroom", true, customConfig);
   assert.ok(result, "should return the updated combo");
 
   const headroomStep = result.pipeline.find((s) => s.engine === "headroom");
@@ -123,11 +125,11 @@ test("enabling an engine with config persists the config", () => {
   );
 });
 
-test("updating config on an already-present engine merges correctly", () => {
+test("updating config on an already-present engine merges correctly", async () => {
   // First enable headroom
-  setEngineInDefaultCombo("headroom", true);
+  await setEngineInDefaultCombo("headroom", true);
   // Then re-enable with a config — should update the existing step, not add a duplicate
-  const result = setEngineInDefaultCombo("headroom", true, { minRows: 8 });
+  const result = await setEngineInDefaultCombo("headroom", true, { minRows: 8 });
   assert.ok(result, "should return the updated combo");
 
   const headroomSteps = result.pipeline.filter((s) => s.engine === "headroom");
@@ -135,15 +137,15 @@ test("updating config on an already-present engine merges correctly", () => {
   assert.deepEqual(headroomSteps[0].config, { minRows: 8 });
 });
 
-test("disabling an engine removes it from the pipeline", () => {
-  setEngineInDefaultCombo("headroom", true);
-  const before = getDefaultCompressionCombo();
+test("disabling an engine removes it from the pipeline", async () => {
+  await setEngineInDefaultCombo("headroom", true);
+  const before = await getDefaultCompressionCombo();
   assert.ok(
     before?.pipeline.some((s) => s.engine === "headroom"),
     "headroom should be in pipeline before disabling"
   );
 
-  const result = setEngineInDefaultCombo("headroom", false);
+  const result = await setEngineInDefaultCombo("headroom", false);
   assert.ok(result, "should return the updated combo");
   assert.ok(
     !result.pipeline.some((s) => s.engine === "headroom"),
@@ -151,16 +153,16 @@ test("disabling an engine removes it from the pipeline", () => {
   );
 });
 
-test("Fix #8: setEngineInDefaultCombo with unknown engineId returns null and does not modify the pipeline", () => {
-  const before = getDefaultCompressionCombo();
+test("Fix #8: setEngineInDefaultCombo with unknown engineId returns null and does not modify the pipeline", async () => {
+  const before = await getDefaultCompressionCombo();
   assert.ok(before, "default combo must exist");
   const originalPipeline = JSON.stringify(before.pipeline);
 
-  const result = setEngineInDefaultCombo("not-a-real-engine", true);
+  const result = await setEngineInDefaultCombo("not-a-real-engine", true);
   assert.equal(result, null, "should return null for unknown engine id");
 
   // The combo must be unchanged
-  const after = getDefaultCompressionCombo();
+  const after = await getDefaultCompressionCombo();
   assert.ok(after, "default combo should still exist");
   assert.equal(
     JSON.stringify(after.pipeline),
@@ -169,11 +171,11 @@ test("Fix #8: setEngineInDefaultCombo with unknown engineId returns null and doe
   );
 });
 
-test("Fix #2: disabling last engine produces an empty pipeline (not silently reverted to default)", () => {
+test("Fix #2: disabling last engine produces an empty pipeline (not silently reverted to default)", async () => {
   // Start with a pipeline that only has one engine by disabling everything except headroom.
   // First set a pipeline with only one known engine via a raw DB update.
   const db = core.getDbInstance();
-  const combo = getDefaultCompressionCombo();
+  const combo = await getDefaultCompressionCombo();
   assert.ok(combo, "default combo must exist");
 
   db.prepare("UPDATE compression_combos SET pipeline = ? WHERE id = ?").run(
@@ -182,7 +184,7 @@ test("Fix #2: disabling last engine produces an empty pipeline (not silently rev
   );
 
   // Now disable headroom — result should be empty pipeline, not a fallback.
-  const result = setEngineInDefaultCombo("headroom", false);
+  const result = await setEngineInDefaultCombo("headroom", false);
   assert.ok(result, "should return the updated combo");
   assert.equal(
     result.pipeline.length,

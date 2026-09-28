@@ -46,8 +46,8 @@ function createAdapter(
   };
 }
 
-test("database stats tolerate virtual tables whose module is unavailable", () => {
-  const stats = getDatabaseStats(createAdapter());
+test("database stats tolerate virtual tables whose module is unavailable", async () => {
+  const stats = await getDatabaseStats(createAdapter());
 
   assert.deepEqual(stats.tables, [
     { name: "regular", rowCount: 3, size: 1024 },
@@ -55,14 +55,14 @@ test("database stats tolerate virtual tables whose module is unavailable", () =>
   ]);
 });
 
-test("database stats do not mask unrelated table errors", () => {
-  assert.throws(() => getDatabaseStats(createAdapter("database disk image is malformed")), {
+test("database stats do not mask unrelated table errors", async () => {
+  await assert.rejects(() => getDatabaseStats(createAdapter("database disk image is malformed")), {
     message: "database disk image is malformed",
   });
 });
 
-test("database stats tolerate an undefined COUNT result", () => {
-  const stats = getDatabaseStats(createAdapter("no such module: vec0", { count: 3 }, true));
+test("database stats tolerate an undefined COUNT result", async () => {
+  const stats = await getDatabaseStats(createAdapter("no such module: vec0", { count: 3 }, true));
 
   assert.equal(stats.tables[0]?.rowCount, 0);
 });

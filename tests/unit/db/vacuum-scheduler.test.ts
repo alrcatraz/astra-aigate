@@ -31,7 +31,7 @@ const originalDataDir = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../../src/lib/db/core.ts");
-core.resetDbInstance();
+await core.resetDbInstanceDrained();
 
 const scheduler = await import("../../../src/lib/db/vacuumScheduler.ts");
 
@@ -51,9 +51,9 @@ test.beforeEach(() => {
   db.prepare("DELETE FROM key_value WHERE namespace IN ('scheduler', 'databaseSettings')").run();
 });
 
-test.after(() => {
+test.after(async () => {
   scheduler.__resetForTests();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
@@ -107,28 +107,28 @@ test("resolveNextRunAt respects Storage frequency and vacuumHour", () => {
   );
 });
 
-test("init() honors Storage scheduledVacuum=never", () => {
+test("init() honors Storage scheduledVacuum=never", async () => {
   setOptimizationSettings({ scheduledVacuum: "never", vacuumHour: 4 });
-  const state = scheduler.init();
+  const state = await scheduler.init();
   assert.equal(state.enabled, false);
   assert.equal(state.intervalMs, 0);
   assert.equal(state.nextRunAt, null);
 });
 
-test("init() honors Storage schedule settings", () => {
+test("init() honors Storage schedule settings", async () => {
   setOptimizationSettings({ scheduledVacuum: "weekly", vacuumHour: 4 });
-  const state = scheduler.init();
+  const state = await scheduler.init();
   assert.equal(state.enabled, true);
   assert.equal(state.intervalMs, 7 * 24 * 60 * 60 * 1000);
   assert.notEqual(state.nextRunAt, null);
 });
 
-test("refresh() applies Storage setting changes without restart", () => {
+test("refresh() applies Storage setting changes without restart", async () => {
   setOptimizationSettings({ scheduledVacuum: "daily", vacuumHour: 1 });
-  assert.equal(scheduler.init().enabled, true);
+  assert.equal((await scheduler.init()).enabled, true);
 
   setOptimizationSettings({ scheduledVacuum: "never" });
-  const state = scheduler.refresh();
+  const state = await scheduler.refresh();
   assert.equal(state.enabled, false);
   assert.equal(state.nextRunAt, null);
 });
@@ -140,17 +140,17 @@ test("init() is idempotent — calling it twice does not throw", () => {
   scheduler.stop();
 });
 
-test("stop() is safe to call before init() and is idempotent", () => {
+test("stop() is safe to call before init() and is idempotent", async () => {
   setOptimizationSettings({ scheduledVacuum: "never" });
   assert.doesNotThrow(() => scheduler.stop());
-  scheduler.init();
+  await scheduler.init();
   assert.doesNotThrow(() => scheduler.stop());
   assert.doesNotThrow(() => scheduler.stop());
 });
 
 test("runNow() succeeds on a healthy DB and persists lastRunAt", async () => {
   setOptimizationSettings({ scheduledVacuum: "never" });
-  scheduler.init();
+  await scheduler.init();
   try {
     const result = await scheduler.runNow();
     assert.equal(result.success, true);
@@ -172,7 +172,7 @@ test("runNow() can be called repeatedly; each run succeeds and refreshes lastRun
   // triggered by overlapping awaits in-process. The realistic contract is that
   // sequential runs each succeed and update lastRunAt.
   setOptimizationSettings({ scheduledVacuum: "never" });
-  scheduler.init();
+  await scheduler.init();
   try {
     const first = await scheduler.runNow();
     assert.equal(first.success, true);
@@ -187,7 +187,7 @@ test("runNow() can be called repeatedly; each run succeeds and refreshes lastRun
 
 test("lastRunAt survives a simulated restart (state reloaded from key_value)", async () => {
   setOptimizationSettings({ scheduledVacuum: "never" });
-  scheduler.init();
+  await scheduler.init();
   await scheduler.runNow();
   const beforeRestart = scheduler.getState().lastRunAt;
   assert.notEqual(beforeRestart, null);
@@ -197,7 +197,7 @@ test("lastRunAt survives a simulated restart (state reloaded from key_value)", a
   scheduler.__resetForTests();
   assert.equal(scheduler.getState().lastRunAt, null);
 
-  scheduler.init();
+  await scheduler.init();
   const afterRestart = scheduler.getState().lastRunAt;
   assert.equal(afterRestart, beforeRestart);
   scheduler.stop();

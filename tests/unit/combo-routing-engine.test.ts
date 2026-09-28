@@ -173,7 +173,7 @@ test.after(async () => {
   await cleanupTestDataDir();
 });
 
-test("getComboFromData and getComboModelsFromData resolve combos from array and object containers", () => {
+test("getComboFromData and getComboModelsFromData resolve combos from array and object containers", async () => {
   const combos = [
     { name: "alpha", models: ["openai/gpt-4o-mini", { model: "claude/sonnet", weight: 2 }] },
   ];
@@ -187,7 +187,7 @@ test("getComboFromData and getComboModelsFromData resolve combos from array and 
   assert.deepEqual(models, ["openai/gpt-4o-mini", "claude/sonnet"]);
 });
 
-test("validateComboDAG rejects circular references and resolveNestedComboModels expands nested combos", () => {
+test("validateComboDAG rejects circular references and resolveNestedComboModels expands nested combos", async () => {
   const combos = [
     { name: "root", models: ["child-a", "openai/gpt-4o-mini"] },
     { name: "child-a", models: ["child-b", "claude/sonnet"] },
@@ -211,7 +211,7 @@ test("validateComboDAG rejects circular references and resolveNestedComboModels 
   );
 });
 
-test("resolveNestedComboModels expands explicit combo-ref steps", () => {
+test("resolveNestedComboModels expands explicit combo-ref steps", async () => {
   const combos = [
     {
       name: "root",
@@ -235,7 +235,7 @@ test("resolveNestedComboModels expands explicit combo-ref steps", () => {
   ]);
 });
 
-test("validateComboDAG enforces maximum nesting depth", () => {
+test("validateComboDAG enforces maximum nesting depth", async () => {
   const combos = [
     { name: "c1", models: ["c2"] },
     { name: "c2", models: ["c3"] },
@@ -1071,7 +1071,7 @@ test("handleComboChat round-robin starts from composite tier default ordering", 
   assert.deepEqual(calls, ["claude/sonnet", "openai/gpt-4o-mini"]);
 });
 
-test("combo helpers short-circuit safely for missing combos, cycles, and excessive depth", () => {
+test("combo helpers short-circuit safely for missing combos, cycles, and excessive depth", async () => {
   assert.equal(getComboFromData("missing", null), null);
   assert.equal(getComboModelsFromData("missing", { combos: [] }), null);
 
@@ -3148,22 +3148,22 @@ test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds m
   });
 
   assert.equal(
-    resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", 64000),
+    await resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", 64000),
     64000,
     "near-cap requests should not be inflated beyond the model's accepted range"
   );
   assert.equal(
-    resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "4096"),
+    await resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "4096"),
     6144,
     "numeric string max_tokens should be normalized before applying a safe buffer"
   );
   assert.equal(
-    resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "not-a-number"),
+    await resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "not-a-number"),
     null,
     "non-numeric string max_tokens should not be changed"
   );
   assert.equal(
-    resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", 70000),
+    await resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", 70000),
     65536,
     "already over-cap max_tokens should be clamped to a known explicit cap"
   );
@@ -3193,7 +3193,7 @@ test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds m
 
 test("#3587 reasoning buffer is disabled without explicit model capability data", async () => {
   assert.equal(
-    resolveReasoningBufferedMaxTokens("missing-provider/unknown-reasoning-model", 100),
+    await resolveReasoningBufferedMaxTokens("missing-provider/unknown-reasoning-model", 100),
     null,
     "unknown models must not receive heuristic token inflation"
   );
@@ -3212,12 +3212,12 @@ test("#3587 reasoning buffer is disabled without explicit model capability data"
   });
 
   assert.equal(
-    resolveReasoningBufferedMaxTokens("openai/capless-reasoning", 100),
+    await resolveReasoningBufferedMaxTokens("openai/capless-reasoning", 100),
     null,
     "reasoning metadata without an explicit output cap is not safe enough to inflate"
   );
   assert.equal(
-    resolveReasoningBufferedMaxTokens("openai/default-cap-reasoning", 300),
+    await resolveReasoningBufferedMaxTokens("openai/default-cap-reasoning", 300),
     1300,
     "explicit default-sized caps are treated as real capability data"
   );
@@ -3231,7 +3231,7 @@ test("#3588 reasoning token buffer feature flag preserves client max_tokens", as
   });
 
   assert.equal(
-    resolveReasoningBufferedMaxTokens("openai/flagged-reasoning", 4096, { enabled: false }),
+    await resolveReasoningBufferedMaxTokens("openai/flagged-reasoning", 4096, { enabled: false }),
     null,
     "disabled feature flag should skip reasoning token inflation"
   );

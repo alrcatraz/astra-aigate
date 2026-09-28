@@ -120,10 +120,17 @@ export async function resolveAutoStrategyOrder(
   if (requestHasTools) {
     // Keep #5240 prompt-emulation providers (toolCalling:"emulated") even when
     // registry/capability rows honestly report toolCalling:false.
-    const filtered = eligibleTargets.filter(
-      (target) =>
-        supportsToolCalling(target.modelStr) || providerSupportsEmulatedToolCalling(target.provider)
-    );
+    // supportsToolCalling is async: a sync `.filter()` predicate would get a
+    // (truthy) Promise and admit every target.
+    const filtered: typeof eligibleTargets = [];
+    for (const target of eligibleTargets) {
+      if (
+        (await supportsToolCalling(target.modelStr)) ||
+        providerSupportsEmulatedToolCalling(target.provider)
+      ) {
+        filtered.push(target);
+      }
+    }
     if (filtered.length > 0) {
       eligibleTargets = filtered;
     } else if (compatFilterFailOpen) {

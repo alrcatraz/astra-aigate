@@ -26,34 +26,44 @@ after(() => {
 });
 
 describe("getModelContextLimit override precedence (5004)", () => {
-  it("an override wins over the catalog, and removing it falls back to the catalog", () => {
+  it("an override wins over the catalog, and removing it falls back to the catalog", async () => {
     // Read the override-free catalog value dynamically (non-brittle for any model).
-    const catalog = caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" })
-      .contextWindow;
+    const catalog = (
+      await caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" })
+    ).contextWindow;
     const distinct = (catalog ?? 0) + 12345;
 
     mco.setModelContextOverride("openai", "gpt-4o", distinct);
-    assert.equal(caps.getModelContextLimit("openai", "gpt-4o"), distinct, "override must win");
+    assert.equal(
+      await caps.getModelContextLimit("openai", "gpt-4o"),
+      distinct,
+      "override must win"
+    );
 
     mco.removeModelContextOverride("openai", "gpt-4o");
     assert.equal(
-      caps.getModelContextLimit("openai", "gpt-4o"),
+      await caps.getModelContextLimit("openai", "gpt-4o"),
       catalog,
       "absence must fall back to the catalog"
     );
   });
 
-  it("an override surfaces a window for a model the catalog does not know", () => {
-    assert.equal(caps.getModelContextLimit("custom-local", "my-7b-128k"), null);
+  it("an override surfaces a window for a model the catalog does not know", async () => {
+    assert.equal(await caps.getModelContextLimit("custom-local", "my-7b-128k"), null);
     mco.setModelContextOverride("custom-local", "my-7b-128k", 131072);
-    assert.equal(caps.getModelContextLimit("custom-local", "my-7b-128k"), 131072);
+    assert.equal(await caps.getModelContextLimit("custom-local", "my-7b-128k"), 131072);
   });
 
-  it("leaves getResolvedModelCapabilities override-free (so the reconciler sees the catalog)", () => {
+  it("leaves getResolvedModelCapabilities override-free (so the reconciler sees the catalog)", async () => {
     mco.setModelContextOverride("openai", "gpt-4o", 999999, "auto:discovery");
-    const catalog = caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" })
-      .contextWindow;
+    const catalog = (
+      await caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" })
+    ).contextWindow;
     assert.notEqual(catalog, 999999, "getResolvedModelCapabilities must not reflect the override");
-    assert.equal(caps.getModelContextLimit("openai", "gpt-4o"), 999999, "but getModelContextLimit does");
+    assert.equal(
+      await caps.getModelContextLimit("openai", "gpt-4o"),
+      999999,
+      "but getModelContextLimit does"
+    );
   });
 });

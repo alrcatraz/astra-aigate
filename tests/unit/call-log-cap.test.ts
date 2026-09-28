@@ -17,9 +17,17 @@ const detailedLogs = await import("../../src/lib/db/detailedLogs.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  // Drained variant: waits for the fire-and-forget migration runner before
+  // closing, so the next open never races a closed connection.
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  // Open + fully drain the fresh DB (schema backfill + deferred migrations)
+  // BEFORE the first test statement runs. getDbInstance() is sync and returns
+  // while runMigrations is still in flight; without this await every early
+  // write races a half-migrated call_logs table.
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function restorePipelineEnv() {
@@ -82,9 +90,9 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
+test.after(async () => {
   restorePipelineEnv();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -249,7 +257,11 @@ test("rotateCallLogs removes expired rows and orphaned artifacts but keeps fresh
   assert.equal(fs.existsSync(oldAbsPath), true);
   assert.equal(fs.existsSync(freshAbsPath), true);
 
-  callLogs.rotateCallLogs();
+  // rotateCallLogs is async (bounded paged deletes over the async adapter);
+  // asserting without awaiting it races the deletion against the next test's
+  // beforeEach reset — the drained close kills the in-flight rotation and the
+  // expired row survives into the fresh DB. Await it. (#8716 family)
+  await callLogs.rotateCallLogs();
 
   const db = core.getDbInstance();
   assert.equal(
@@ -268,7 +280,7 @@ test("rotateCallLogs removes expired rows and orphaned artifacts but keeps fresh
   const orphanFile = path.join(orphanDir, "orphan.json");
   fs.mkdirSync(orphanDir, { recursive: true });
   fs.writeFileSync(orphanFile, "{}");
-  callLogs.cleanupOrphanCallLogFiles();
+  await callLogs.cleanupOrphanCallLogFiles();
   assert.equal(fs.existsSync(orphanFile), false);
 
   process.env.CALL_LOG_RETENTION_DAYS = "3650";
@@ -708,6 +720,11 @@ test("CALL_LOG_PIPELINE_MAX_SIZE_KB does not cap artifacts without pipeline deta
 });
 
 test("saveCallLog logs and returns when sqlite persistence throws unexpectedly", async () => {
+  // Drain the deferred migration runner FIRST: it starts one macrotask after
+  // open and reads through this same connection. Patching prepare() while it
+  // is in flight makes the runner fail on a half-migrated schema (migration
+  // 116 never lands) and poisons every later test with a closed connection.
+  await core.awaitDbMigrations();
   const db = core.getDbInstance();
   const originalPrepare = db.prepare;
   const originalConsoleError = console.error;

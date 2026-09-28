@@ -24,12 +24,7 @@ import {
 import { translateRequest } from "../../open-sse/translator/index.ts";
 import { getResolvedModelCapabilities } from "../../src/lib/modelCapabilities.ts";
 
-const EXPECTED_MODELS = [
-  "kimi-k3",
-  "kimi-k2.7-code",
-  "kimi-k2.7-code-highspeed",
-  "kimi-k2.6",
-];
+const EXPECTED_MODELS = ["kimi-k3", "kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6"];
 
 function registryModelIds(provider: string): string[] {
   const entry = getRegistryEntry(provider);
@@ -56,8 +51,11 @@ test("Moonshot and hidden legacy Kimi ids share the curated model catalog", () =
   assert.deepEqual(registryModelIds("kimi"), EXPECTED_MODELS);
 });
 
-test("Kimi K3 advertises its 1M context/output and native capabilities", () => {
-  const capabilities = getResolvedModelCapabilities({ provider: "moonshot", model: "kimi-k3" });
+test("Kimi K3 advertises its 1M context/output and native capabilities", async () => {
+  const capabilities = await getResolvedModelCapabilities({
+    provider: "moonshot",
+    model: "kimi-k3",
+  });
 
   assert.equal(capabilities.contextWindow, 1048576);
   assert.equal(capabilities.maxOutputTokens, 1048576);

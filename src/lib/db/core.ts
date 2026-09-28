@@ -411,7 +411,11 @@ const SCHEMA_SQL = `
     has_response_body INTEGER DEFAULT 0,
     has_pipeline_details INTEGER DEFAULT 0,
     request_summary TEXT,
-    correlation_id TEXT
+    correlation_id TEXT,
+    model_pinned INTEGER DEFAULT 0,
+    session_tag TEXT DEFAULT NULL,
+    reasoning_source TEXT DEFAULT NULL,
+    reasoning_chars INTEGER DEFAULT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_cl_timestamp ON call_logs(timestamp);
   CREATE INDEX IF NOT EXISTS idx_cl_status ON call_logs(status);
@@ -596,6 +600,119 @@ function listProbeFailureBackups(sqliteFile: string): string[] {
     .map((backup) => backup.path);
 }
 
+/**
+ * Synchronous table-existence check for raw SQLite handles. The async
+ * `hasTable()` from schemaColumns returns a Promise — truthy even when the
+ * table is absent — so every sync call site MUST use this instead (#8716
+ * family). PG mode never reaches these paths (sync raw handles are SQLite-only).
+ */
+/**
+ * Synchronous schema-backfill column sets for the SQLite path. Mirrors the
+ * async ensure*Columns wrappers in schemaColumns.ts (which only await a
+ * PRAGMA read; their ALTERs are sync). Keep in sync when adding columns —
+ * the PG path still uses the async wrappers via initDatabaseDriver().
+ */
+const SCHEMA_BACKFILL_COLUMNS: Array<[string, Array<[string, string]>]> = [
+  [
+    "provider_connections",
+    [
+      ["auth_type", "TEXT"],
+      ["name", "TEXT"],
+      ["email", "TEXT"],
+      ["display_name", "TEXT"],
+      ["provider_specific_data", "TEXT"],
+      ["rate_limit_protection", "INTEGER DEFAULT 0"],
+      ["last_used_at", "TEXT"],
+      ["group", "TEXT"],
+      ["max_concurrent", "INTEGER"],
+      ["proxy_enabled", "INTEGER NOT NULL DEFAULT 1"],
+      ["per_key_proxy_enabled", "INTEGER NOT NULL DEFAULT 0"],
+      ["quota_visible", "INTEGER NOT NULL DEFAULT 1"],
+      ["quota_window_thresholds_json", "TEXT"],
+      ["rate_limit_overrides_json", "TEXT"],
+      ["refresh_token", "TEXT"],
+    ],
+  ],
+  [
+    "usage_history",
+    [
+      ["success", "INTEGER DEFAULT 1"],
+      ["latency_ms", "INTEGER DEFAULT 0"],
+      ["ttft_ms", "INTEGER DEFAULT 0"],
+      ["error_code", "TEXT"],
+      ["service_tier", "TEXT DEFAULT 'standard'"],
+      ["combo_strategy", "TEXT DEFAULT 'direct'"],
+      ["account_key", "TEXT"],
+      ["account_label", "TEXT"],
+      ["account_label_priority", "INTEGER DEFAULT 0"],
+      // Migration 105 lives in usageHistory-related callers; backfill here too
+      // so SQLite DBs whose migration 105 failed mid-run (same defect class as
+      // call_logs_v1_legacy) can still write the `endpoint` column.
+      ["endpoint", "TEXT"],
+    ],
+  ],
+  [
+    "call_logs",
+    [
+      ["artifact_relpath", "TEXT"],
+      ["has_pipeline_details", "INTEGER DEFAULT 0"],
+      ["requested_model", "TEXT DEFAULT NULL"],
+      ["request_type", "TEXT DEFAULT NULL"],
+      ["tokens_cache_read", "INTEGER DEFAULT NULL"],
+      ["tokens_cache_creation", "INTEGER DEFAULT NULL"],
+      ["tokens_reasoning", "INTEGER DEFAULT NULL"],
+      ["cache_source", "TEXT DEFAULT 'upstream'"],
+      ["combo_step_id", "TEXT DEFAULT NULL"],
+      ["combo_execution_key", "TEXT DEFAULT NULL"],
+      ["error_summary", "TEXT DEFAULT NULL"],
+      ["detail_state", "TEXT DEFAULT 'none'"],
+      ["artifact_size_bytes", "INTEGER DEFAULT NULL"],
+      ["artifact_sha256", "TEXT DEFAULT NULL"],
+      ["has_request_body", "INTEGER DEFAULT 0"],
+      ["has_response_body", "INTEGER DEFAULT 0"],
+      ["request_summary", "TEXT DEFAULT NULL"],
+      ["correlation_id", "TEXT DEFAULT NULL"],
+      ["model_pinned", "INTEGER DEFAULT 0"],
+      ["session_tag", "TEXT DEFAULT NULL"],
+      ["reasoning_source", "TEXT DEFAULT NULL"],
+      ["reasoning_chars", "INTEGER DEFAULT NULL"],
+    ],
+  ],
+];
+
+/**
+ * Apply the column backfills synchronously on the raw SQLite handle. Shared by
+ * the on-disk open path and the in-memory build/cloud path — both are inside
+ * synchronous functions, so the async ensure* wrappers would leak un-awaited
+ * Promises and leave call_logs half-backfilled for the first writers.
+ */
+function applySchemaBackfillsSync(db: SqliteDatabase): void {
+  const rawBf = db.raw as unknown as RawSyncDb;
+  for (const [table, adds] of SCHEMA_BACKFILL_COLUMNS) {
+    const have = new Set(
+      (rawBf.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name?: string }>).map((c) =>
+        String(c.name ?? "")
+      )
+    );
+    for (const [column, type] of adds) {
+      if (!have.has(column)) {
+        rawBf.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+      }
+    }
+  }
+}
+
+function tableExistsSyncRaw(db: SqliteDatabase, tableName: string): boolean {
+  try {
+    const row = (db.raw as RawSyncDb)
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(tableName) as { name?: string } | undefined;
+    return row?.name === tableName;
+  } catch {
+    return false;
+  }
+}
+
 function captureCriticalDbState(sqliteFile: string): PreservedCriticalDbState {
   const snapshot: PreservedCriticalDbState = {
     captureSucceeded: false,
@@ -614,7 +731,10 @@ function captureCriticalDbState(sqliteFile: string): PreservedCriticalDbState {
     probe = openSqliteDatabase(sqliteFile, { readonly: true });
 
     for (const tableSpec of CRITICAL_DB_TABLES) {
-      if (!hasTable(probe, tableSpec.table)) continue;
+      // Sync raw check: `probe` is a synchronous readonly handle and this
+      // whole function is sync — the async hasTable() would return a Promise,
+      // which is always truthy and silently skipped every table (#8716 family).
+      if (!tableExistsSyncRaw(probe, tableSpec.table)) continue;
 
       const maxRows = tableSpec.maxRows ?? DEFAULT_CRITICAL_TABLE_ROW_LIMIT;
       const rows = (tableSpec.readRows?.(probe) ??
@@ -667,7 +787,9 @@ function restoreCriticalDbState(
   const restore = db.transaction(() => {
     for (const table of snapshot.preservedTables) {
       if (table.rows.length === 0) continue;
-      if (!hasTable(db, table.table)) {
+      // Sync raw check — see captureCriticalDbState note; an un-awaited
+      // Promise here made the guard always pass and masked missing tables.
+      if (!tableExistsSyncRaw(db, table.table)) {
         throw new Error(`Current schema is missing preserved table "${table.table}"`);
       }
 
@@ -719,7 +841,7 @@ function parseLegacyError(value: unknown): unknown {
 }
 
 async function offloadLegacyCallLogDetails(db: SqliteDatabase) {
-  if (!hasTable(db, "call_logs_v1_legacy")) return;
+  if (!(await hasTable(db, "call_logs_v1_legacy"))) return;
 
   type LegacyCallLogRow = {
     id: string;
@@ -1122,6 +1244,38 @@ let asyncDb: DatabaseAdapter | null = null;
  */
 let migrationsPromise: Promise<void> | null = null;
 
+/** Deferred startup passes (health check, legacy re-encrypt) — tracked so a
+ * drained close/reset can wait for them instead of closing under their feet. */
+const deferredStartupWork = new Set<Promise<void>>();
+
+function trackDeferredStartupWork(promise: Promise<unknown>): void {
+  const settled = promise.then(() => undefined).catch(() => undefined);
+  deferredStartupWork.add(settled);
+  void settled.finally(() => deferredStartupWork.delete(settled));
+}
+
+async function flushDeferredStartupWork(): Promise<void> {
+  while (deferredStartupWork.size > 0) {
+    await Promise.all([...deferredStartupWork]);
+  }
+}
+
+/**
+ * Schema backfill barrier (ensure*Columns + account index). Async wrappers
+ * over the sync connection — callers that must see the final schema before
+ * their first statement (boot hook, call-log writers in tests) await this via
+ * `awaitDbColumnBackfills()`. Reassigned on every DB open.
+ */
+let columnBackfillsPromise: Promise<void> = Promise.resolve();
+
+/**
+ * Post-migration startup maintenance (legacy call-log offload). Kicked off by
+ * `awaitDbStartupTasks()` — never inline during open, because its final
+ * wal_checkpoint(TRUNCATE)+VACUUM would race the migration transaction on the
+ * same connection. Tracked so resetDbInstance() can await it before closing.
+ */
+let startupTasksPromise: Promise<void> | null = null;
+
 /**
  * The async database handle (PostgreSQL in postgres mode, SQLite-backed in
  * sqlite mode). Async call paths (usage, quota, settings) should prefer this
@@ -1341,10 +1495,10 @@ export function getDbInstance(): SqliteDatabase {
     const memoryDb = openSqliteDatabase(":memory:");
     memoryDb.pragma("journal_mode = WAL");
     memoryDb.exec(SCHEMA_SQL);
-    ensureUsageHistoryColumns(memoryDb);
+    // Sync backfill (same as the on-disk path): the async wrappers would be
+    // fire-and-forget Promises here and never complete before first use.
+    applySchemaBackfillsSync(memoryDb);
     ensureUsageHistoryAccountIndex(memoryDb);
-    ensureCallLogsColumns(memoryDb);
-    ensureProviderConnectionsColumns(memoryDb);
     setDb(memoryDb);
     return unwrapRawSync(memoryDb);
   }
@@ -1548,9 +1702,14 @@ export function getDbInstance(): SqliteDatabase {
   db.pragma(`cache_size = -${DEFAULT_DATABASE_SETTINGS.optimization.cacheSize}`);
   db.pragma("temp_store = MEMORY");
   db.exec(SCHEMA_SQL);
-  ensureProviderConnectionsColumns(db);
-  ensureUsageHistoryColumns(db);
-  ensureCallLogsColumns(db);
+  // Column backfills run SYNCHRONOUSLY on the raw handle before anything else
+  // touches this connection. The async wrappers in schemaColumns only await a
+  // PRAGMA read; their ALTERs are sync — but awaiting the wrapper's Promise
+  // defers the whole function body to a microtask, so early writers raced a
+  // half-backfilled call_logs ("no column named reasoning_source") and the
+  // migration runner interleaved statements against later closes. Sync raw
+  // exec removes the race entirely (SQLite mode; PG never reaches this path).
+  applySchemaBackfillsSync(db);
 
   // ── Versioned Migrations ──
   // Auto-seed 001 as applied (the inline SCHEMA_SQL already created these tables)
@@ -1565,13 +1724,25 @@ export function getDbInstance(): SqliteDatabase {
     VALUES ('001', 'initial_schema');
   `);
 
-  migrationsPromise = runMigrations(db, { isNewDb })
+  // Kick the versioned migration run off AFTER the current synchronous call
+  // chain finishes. runMigrations is async (its adapter awaits every step), so
+  // starting it inline interleaved its statements with the next sync caller's
+  // work on this same connection — a test that closes/resets the DB right after
+  // getDbInstance() then killed the runner mid-flight ("database connection is
+  // not open", migration 116 never applied). setTimeout(0) drains the sync
+  // stack first; consumers join via awaitDbMigrations().
+  migrationsPromise = new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  })
+    .then(() => runMigrations(sqliteAsyncAdapter(db), { isNewDb }))
     .then(() => undefined)
     .catch((error: unknown) => {
       console.error("[DB] Migration runner failed:", error);
     });
   // Fresh installs need the same post-migration index guarantee as upgraded
   // databases, including recovery from an interrupted migration 127 attempt.
+  // Sync now — runs immediately after the schema backfill above, before any
+  // async work can interleave on this connection.
   ensureUsageHistoryAccountIndex(db);
 
   applyStoredDatabaseOptimizationSettings(db);
@@ -1589,9 +1760,14 @@ export function getDbInstance(): SqliteDatabase {
     // mmap_size is best-effort; not available in all runtimes (e.g. web)
   }
 
-  void offloadLegacyCallLogDetails(db).catch((error: unknown) => {
-    console.warn("[DB] Legacy call-log offload failed:", error);
-  });
+  // Legacy call-log offload is deferred to `awaitDbStartupTasks()` (called by
+  // the boot hook and by tests before touching the DB). It ends with
+  // wal_checkpoint(TRUNCATE)+VACUUM, which cannot run here: migrationsPromise
+  // may still hold a transaction on this connection ("cannot VACUUM from
+  // within a transaction"), and firing it inline raced migrations into
+  // "database is not open" cascades that killed ~1200 DB tests under
+  // concurrency. The tracked promise also lets resetDbInstance() cancel any
+  // in-flight offload before closing the handle.
 
   // Auto-migrate from db.json if exists
   if (jsonDbFile && fs.existsSync(jsonDbFile)) {
@@ -1634,23 +1810,38 @@ export function getDbInstance(): SqliteDatabase {
     if (skipIntegrityCheck) {
       console.log("[DB] Health check skipped (OMNIROUTE_SKIP_DB_HEALTHCHECK=1)");
     }
-    void runDbHealthCheck(db, {
-      autoRepair: true,
-      expectedSchemaVersion: "1",
-      skipIntegrityCheck,
-      createBackupBeforeRepair: () => createHealthCheckBackup(db),
-    }).catch((error: unknown) => {
-      console.warn("[DB] Startup health-check failed:", error);
-    });
+    // Join the deferred migration run first: the runner is async over this
+    // same connection, so a health check starting while it runs interleaves
+    // statements against a half-migrated schema.
+    trackDeferredStartupWork(
+      awaitDbMigrations()
+        .then(() =>
+          runDbHealthCheck(db, {
+            autoRepair: true,
+            expectedSchemaVersion: "1",
+            skipIntegrityCheck,
+            createBackupBeforeRepair: () => createHealthCheckBackup(db),
+          })
+        )
+        .catch((error: unknown) => {
+          console.warn("[DB] Startup health-check failed:", error);
+        })
+    );
   }
 
   setDb(db);
 
   // Re-encrypt any tokens using the legacy dynamic salt to canonical static salt
   try {
-    void autoMigrateLegacyEncryptedConnections(db).catch((error: unknown) => {
-      console.warn("[DB] Legacy connection encryption migration failed:", error);
-    });
+    // Defer until the migration run settles (async statements on the same
+    // connection must never interleave).
+    trackDeferredStartupWork(
+      awaitDbMigrations()
+        .then(() => autoMigrateLegacyEncryptedConnections(db))
+        .catch((error: unknown) => {
+          console.warn("[DB] Legacy connection encryption migration failed:", error);
+        })
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[DB] Legacy encryption migration failed: ${message}`);
@@ -1732,6 +1923,71 @@ export async function awaitDbMigrations(): Promise<void> {
 }
 
 /**
+ * Wait for the schema-backfill barrier (ensure*Columns + usage-history index)
+ * of the CURRENT database instance. Sync modules that write columns owned by
+ * those backfills (call_logs.reasoning_source et al.) must await this once at
+ * boot so early statements never hit a half-migrated schema.
+ */
+export async function awaitDbColumnBackfills(): Promise<void> {
+  await columnBackfillsPromise;
+}
+
+/**
+ * Await post-migration startup maintenance (currently: the legacy call-log
+ * offload). Must run AFTER `awaitDbMigrations()` — VACUUM cannot start inside
+ * an open migration transaction on the same connection. Idempotent: the first
+ * caller kicks the work off, later callers just join the settled promise.
+ */
+export async function awaitDbStartupTasks(): Promise<void> {
+  if (getDbDriver() === "postgres") return;
+  const db = getDb();
+  if (!db) return;
+  if (!startupTasksPromise) {
+    startupTasksPromise = offloadLegacyCallLogDetails(db)
+      .catch((error: unknown) => {
+        console.warn("[DB] Legacy call-log offload failed:", error);
+      })
+      .then(() => undefined);
+  }
+  await startupTasksPromise;
+}
+
+/**
+ * Async variant of closeDbInstance(): drains the fire-and-forget migration
+ * runner BEFORE closing, so a test reset / restore never yanks the connection
+ * out from under `runMigrations` ("database connection is not open" cascade).
+ * The sync close stays for shutdown paths where nothing may be in flight.
+ */
+export async function closeDbInstanceDrained(options?: {
+  checkpointMode?: CheckpointMode | null;
+}): Promise<boolean> {
+  await awaitDbMigrations();
+  // The deferred startup passes (health check, legacy re-encrypt) run on this
+  // same connection; a reset that closes mid-flight makes them throw "the
+  // database connection is not open" and leaves the next open racing stale
+  // work. Give them a chance to settle before closing.
+  await flushDeferredStartupWork();
+  const closed = closeDbInstance(options);
+  // resetDbInstance() clears these; the drained variant must too, or a test
+  // reset leaves asyncDb wrapping the just-closed connection and every later
+  // getAsyncDb() call throws "database connection is not open" (call-log-cap
+  // cascade, 2026-09-28). startupTasksPromise belongs to the old instance as
+  // well — clearing it lets the next DB kick off its own offload.
+  asyncDb = null;
+  migrationsPromise = null;
+  columnBackfillsPromise = Promise.resolve();
+  startupTasksPromise = null;
+  return closed;
+}
+
+/**
+ * Async variant of resetDbInstance() — see closeDbInstanceDrained.
+ */
+export async function resetDbInstanceDrained(): Promise<void> {
+  await closeDbInstanceDrained();
+}
+
+/**
  * Reset the singleton (used by restore).
  */
 export function resetDbInstance() {
@@ -1744,6 +2000,9 @@ export function resetDbInstance() {
   // and re-wraps fine, though we clear it anyway for a clean slate).
   asyncDb = null;
   migrationsPromise = null;
+  // The old backfill barrier belongs to the closed instance; drop it so a
+  // pending await never resolves against the next DB's half-migrated schema.
+  columnBackfillsPromise = Promise.resolve();
   // Read caches outlive the SQLite singleton. A reset swaps the backing
   // database, so retaining cached rows can leak the previous database's
   // connections/settings into the newly opened instance (tests and restore).
@@ -1782,7 +2041,10 @@ export async function ensureDbInitialized(): Promise<void> {
     return;
   }
 
-  if (getDb()) return;
+  if (getDb()) {
+    await awaitDbMigrations();
+    return;
+  }
 
   // Cloud/build: getDbInstance() cria in-memory, sem necessidade de pré-init
   if (isCloud || isBuildPhase || !SQLITE_FILE) {
@@ -1796,6 +2058,7 @@ export async function ensureDbInitialized(): Promise<void> {
     // Drivers síncronos disponíveis — fechar o probe, getDbInstance() vai abrir com setup completo
     sync.close();
     getDbInstance();
+    await awaitDbMigrations();
     return;
   }
 
@@ -1804,6 +2067,7 @@ export async function ensureDbInitialized(): Promise<void> {
   await preInitSqlJs(SQLITE_FILE);
   // Agora getSqlJsAdapter() retornará o adapter, e getDbInstance() vai usá-lo
   getDbInstance();
+  await awaitDbMigrations();
 }
 
 // ──────────────── JSON → SQLite Migration ────────────────

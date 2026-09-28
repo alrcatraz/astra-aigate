@@ -33,20 +33,20 @@ test("estimateTokens: handles null", () => {
 
 // ─── getTokenLimit ──────────────────────────────────────────────────────────
 
-test("getTokenLimit: detects claude", () => {
-  assert.equal(getTokenLimit("claude", "claude-sonnet-4"), 200000);
+test("getTokenLimit: detects claude", async () => {
+  assert.equal(await getTokenLimit("claude", "claude-sonnet-4"), 200000);
 });
 
-test("getTokenLimit: detects gemini", () => {
-  assert.equal(getTokenLimit("gemini", "gemini-2.5-pro"), 1048576);
+test("getTokenLimit: detects gemini", async () => {
+  assert.equal(await getTokenLimit("gemini", "gemini-2.5-pro"), 1048576);
 });
 
-test("getTokenLimit: uses GPT-5.5 Codex model context", () => {
-  assert.equal(getTokenLimit("codex", "gpt-5.5"), 400000);
+test("getTokenLimit: uses GPT-5.5 Codex model context", async () => {
+  assert.equal(await getTokenLimit("codex", "gpt-5.5"), 400000);
 });
 
-test("getTokenLimit: default fallback", () => {
-  assert.equal(getTokenLimit("unknown"), 128000);
+test("getTokenLimit: default fallback", async () => {
+  assert.equal(await getTokenLimit("unknown"), 128000);
 });
 
 // Regression for #8496: hyperagent Claude-family agents (fable/opus/sonnet) must
@@ -65,26 +65,26 @@ const HYPERAGENT_FALLBACK_MODEL_IDS = [
 ];
 
 for (const modelId of HYPERAGENT_FALLBACK_MODEL_IDS) {
-  test(`getTokenLimit: hyperagent/${modelId} resolves to 1M context`, () => {
-    assert.equal(getTokenLimit("hyperagent", modelId), 1_000_000);
+  test(`getTokenLimit: hyperagent/${modelId} resolves to 1M context`, async () => {
+    assert.equal(await getTokenLimit("hyperagent", modelId), 1_000_000);
   });
 
-  test(`getTokenLimit: ha (alias)/${modelId} resolves to 1M context`, () => {
-    assert.equal(getTokenLimit("ha", modelId), 1_000_000);
+  test(`getTokenLimit: ha (alias)/${modelId} resolves to 1M context`, async () => {
+    assert.equal(await getTokenLimit("ha", modelId), 1_000_000);
   });
 }
 
-test("getTokenLimit: does not force 1M onto non-hyperagent providers serving the same model ids", () => {
+test("getTokenLimit: does not force 1M onto non-hyperagent providers serving the same model ids", async () => {
   // windsurf declares an explicit per-model contextLength of 200000 for this exact id —
   // a provider-unscoped substring match on "claude-opus-4" would have clobbered it to 1M.
-  assert.equal(getTokenLimit("windsurf", "claude-opus-4.7-max"), 200000);
+  assert.equal(await getTokenLimit("windsurf", "claude-opus-4.7-max"), 200000);
   // bluesminds likewise pins its own claude-opus-4-5 entry to 200000.
-  assert.equal(getTokenLimit("bluesminds", "claude-opus-4-5"), 200000);
+  assert.equal(await getTokenLimit("bluesminds", "claude-opus-4-5"), 200000);
 });
 
 // ─── compressContext ────────────────────────────────────────────────────────
 
-test("compressContext: returns unchanged if fits", () => {
+test("compressContext: returns unchanged if fits", async () => {
   const body = {
     model: "claude-sonnet-4",
     messages: [
@@ -92,11 +92,11 @@ test("compressContext: returns unchanged if fits", () => {
       { role: "user", content: "Hello" },
     ],
   };
-  const result = compressContext(body);
+  const result = await compressContext(body);
   assert.equal(result.compressed, false);
 });
 
-test("compressContext: default reserve scales down for smaller context windows", () => {
+test("compressContext: default reserve scales down for smaller context windows", async () => {
   const body = {
     model: "gpt-4",
     messages: [
@@ -105,18 +105,18 @@ test("compressContext: default reserve scales down for smaller context windows",
     ],
   };
 
-  const result = compressContext(body, { provider: "openai", maxTokens: 8192 });
+  const result = await compressContext(body, { provider: "openai", maxTokens: 8192 });
   assert.equal(result.compressed, false);
   assert.equal(result.stats.final, result.stats.original);
 });
 
-test("compressContext: handles null/empty body", () => {
-  assert.equal(compressContext(null).compressed, false);
-  assert.equal(compressContext({}).compressed, false);
-  assert.equal(compressContext({ messages: null }).compressed, false);
+test("compressContext: handles null/empty body", async () => {
+  assert.equal((await compressContext(null)).compressed, false);
+  assert.equal((await compressContext({})).compressed, false);
+  assert.equal((await compressContext({ messages: null })).compressed, false);
 });
 
-test("compressContext: Layer 1 — trims long tool messages", () => {
+test("compressContext: Layer 1 — trims long tool messages", async () => {
   const longContent = "x".repeat(10000);
   const body = {
     model: "test",
@@ -132,14 +132,14 @@ test("compressContext: Layer 1 — trims long tool messages", () => {
     ],
   };
   // Use target limit that allows the truncated tool message (~1000 tokens) to survive
-  const result = compressContext(body, { maxTokens: 2000, reserveTokens: 100 });
+  const result = await compressContext(body, { maxTokens: 2000, reserveTokens: 100 });
   assert.ok(result.compressed);
   const toolMsg = (result.body.messages as any).find((m: any) => m.role === "tool");
   assert.ok(toolMsg.content.length < longContent.length);
   assert.ok(toolMsg.content.includes("[truncated]"));
 });
 
-test("compressContext: Layer 2 — compresses thinking in old messages", () => {
+test("compressContext: Layer 2 — compresses thinking in old messages", async () => {
   const body = {
     model: "test",
     messages: [
@@ -161,7 +161,7 @@ test("compressContext: Layer 2 — compresses thinking in old messages", () => {
       },
     ],
   };
-  const result = compressContext(body, { maxTokens: 2000, reserveTokens: 500 });
+  const result = await compressContext(body, { maxTokens: 2000, reserveTokens: 500 });
   // First assistant should have thinking removed
   const firstAssistant = (result.body as any).messages.find((m: any) => m.role === "assistant");
   if (Array.isArray(firstAssistant.content)) {
@@ -170,7 +170,7 @@ test("compressContext: Layer 2 — compresses thinking in old messages", () => {
   }
 });
 
-test("compressContext: Layer 2 preserves prompt-format thinking tags in string content", () => {
+test("compressContext: Layer 2 preserves prompt-format thinking tags in string content", async () => {
   const body = {
     model: "test",
     messages: [
@@ -191,7 +191,7 @@ test("compressContext: Layer 2 preserves prompt-format thinking tags in string c
       { role: "assistant", content: "answer3" },
     ],
   };
-  const result = compressContext(body, { maxTokens: 2000, reserveTokens: 500 });
+  const result = await compressContext(body, { maxTokens: 2000, reserveTokens: 500 });
   const firstAssistant = (result.body as any).messages.find(
     (m: any) => m.role === "assistant" && typeof m.content === "string"
   );
@@ -202,7 +202,7 @@ test("compressContext: Layer 2 preserves prompt-format thinking tags in string c
   );
 });
 
-test("compressContext: Layer 3 — drops old messages to fit", () => {
+test("compressContext: Layer 3 — drops old messages to fit", async () => {
   const messages = [
     { role: "system", content: "You are helpful" },
     ...Array.from({ length: 100 }, (_, i) => [
@@ -211,7 +211,7 @@ test("compressContext: Layer 3 — drops old messages to fit", () => {
     ]).flat(),
   ];
   const body = { model: "test", messages };
-  const result = compressContext(body, { maxTokens: 3000, reserveTokens: 500 });
+  const result = await compressContext(body, { maxTokens: 3000, reserveTokens: 500 });
   assert.ok(result.compressed);
   assert.ok((result as any).body.messages.length < messages.length);
   assert.equal(result.body.messages[0].role, "system");
@@ -219,7 +219,7 @@ test("compressContext: Layer 3 — drops old messages to fit", () => {
 
 // ─── fixToolPairs (Layer 3 tool pair integrity) ─────────────────────────────
 
-test("Layer 3: removes orphaned tool_result (OpenAI format) when tool_use is dropped", () => {
+test("Layer 3: removes orphaned tool_result (OpenAI format) when tool_use is dropped", async () => {
   const messages = [
     { role: "system", content: "system" },
     ...Array.from({ length: 40 }, (_, i) => [
@@ -242,7 +242,7 @@ test("Layer 3: removes orphaned tool_result (OpenAI format) when tool_use is dro
     { role: "assistant", content: "Here is the summary" },
   ];
   const body = { model: "test", messages };
-  const result = compressContext(body, { maxTokens: 800, reserveTokens: 200 });
+  const result = await compressContext(body, { maxTokens: 800, reserveTokens: 200 });
   assert.ok(result.compressed);
 
   const toolCallIds = new Set();
@@ -261,7 +261,7 @@ test("Layer 3: removes orphaned tool_result (OpenAI format) when tool_use is dro
   }
 });
 
-test("Layer 3: removes orphaned tool_result (Claude format) when tool_use is dropped", () => {
+test("Layer 3: removes orphaned tool_result (Claude format) when tool_use is dropped", async () => {
   const messages = [
     { role: "system", content: "system" },
     ...Array.from({ length: 40 }, (_, i) => [
@@ -287,7 +287,7 @@ test("Layer 3: removes orphaned tool_result (Claude format) when tool_use is dro
     { role: "user", content: "Final question" },
   ];
   const body = { model: "test", messages };
-  const result = compressContext(body, { maxTokens: 800, reserveTokens: 200 });
+  const result = await compressContext(body, { maxTokens: 800, reserveTokens: 200 });
   assert.ok(result.compressed);
 
   const toolUseIds = new Set();
@@ -312,7 +312,7 @@ test("Layer 3: removes orphaned tool_result (Claude format) when tool_use is dro
   }
 });
 
-test("Layer 3: preserves intact tool_use/tool_result pairs after compression", () => {
+test("Layer 3: preserves intact tool_use/tool_result pairs after compression", async () => {
   const messages = [
     { role: "system", content: "system" },
     { role: "user", content: "Read file" },
@@ -326,7 +326,7 @@ test("Layer 3: preserves intact tool_use/tool_result pairs after compression", (
     { role: "assistant", content: "It says hello" },
   ];
   const body = { model: "test", messages };
-  const result = compressContext(body, { maxTokens: 50000, reserveTokens: 10000 });
+  const result = await compressContext(body, { maxTokens: 50000, reserveTokens: 10000 });
   const toolMsg = (result.body.messages as any).find(
     (m: any) => m.role === "tool" && m.tool_call_id === "call_1"
   );

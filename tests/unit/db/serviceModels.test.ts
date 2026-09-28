@@ -19,18 +19,20 @@ const core = await import("../../../src/lib/db/core.ts");
 const { getServiceModels, saveServiceModels, markAllUnavailable } =
   await import("../../../src/lib/db/serviceModels.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

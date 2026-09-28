@@ -57,7 +57,11 @@ function capabilityEntry(limitContext: number | null) {
   };
 }
 
-function capabilityEntryWithLimits(limitInput: number | null, limitContext: number | null, limitOutput = 4096) {
+function capabilityEntryWithLimits(
+  limitInput: number | null,
+  limitContext: number | null,
+  limitOutput = 4096
+) {
   return {
     ...capabilityEntry(limitContext),
     limit_input: limitInput,
@@ -97,7 +101,7 @@ function bigContextBody(tokens: number) {
 
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
-test("known compatible context target wins over unknown-context targets", () => {
+test("known compatible context target wins over unknown-context targets", async () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
@@ -105,7 +109,7 @@ test("known compatible context target wins over unknown-context targets", () => 
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [
       target("unit-unknown-context/mystery-a"),
       target("unit-known-context/tiny"),
@@ -122,14 +126,14 @@ test("known compatible context target wins over unknown-context targets", () => 
   );
 });
 
-test("unknown-context targets keep strategy order when no known limit was rejected", () => {
+test("unknown-context targets keep strategy order when no known limit was rejected", async () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
       million: capabilityEntry(1_000_000),
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [target("unit-unknown-context/mystery-a"), target("unit-known-context/million")],
     { messages: [{ role: "user", content: "hello" }] },
     noopLog
@@ -141,14 +145,14 @@ test("unknown-context targets keep strategy order when no known limit was reject
   );
 });
 
-test("unknown-context targets do not become the only survivors when no known-compatible context target exists", () => {
+test("unknown-context targets do not become the only survivors when no known-compatible context target exists", async () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [
       target("unit-unknown-context/mystery-a"),
       target("unit-known-context/tiny"),
@@ -164,7 +168,7 @@ test("unknown-context targets do not become the only survivors when no known-com
   );
 });
 
-test("all known-too-small context targets still fall back to strategy order", () => {
+test("all known-too-small context targets still fall back to strategy order", async () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
@@ -172,7 +176,7 @@ test("all known-too-small context targets still fall back to strategy order", ()
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [target("unit-known-context/tiny"), target("unit-known-context/small")],
     largeContextBody(),
     noopLog
@@ -270,7 +274,7 @@ test("combo rejects a known oversized request before upstream dispatch", async (
   assert.equal(body.diagnostics.attempted, 0);
 });
 
-test("input-only maxInputTokens is not double-counted against the output reserve (#7039)", () => {
+test("input-only maxInputTokens is not double-counted against the output reserve (#7039)", async () => {
   // Faithful reproduction of #7039 (Codex gpt-5.5-xhigh):
   //   maxInputTokens = 272_000, contextWindow = 400_000, maxOutputTokens = 128_000
   // With max_tokens = 32_000 the OLD code required
@@ -286,7 +290,7 @@ test("input-only maxInputTokens is not double-counted against the output reserve
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [target("unit-7039/codex-like"), target("unit-7039/huge")],
     { ...bigContextBody(256_000), max_tokens: 32_000 },
     noopLog
@@ -298,7 +302,7 @@ test("input-only maxInputTokens is not double-counted against the output reserve
   );
 });
 
-test("small input-only maxInputTokens keeps a target whose input fits even though output reserve would overflow the cap (#7039)", () => {
+test("small input-only maxInputTokens keeps a target whose input fits even though output reserve would overflow the cap (#7039)", async () => {
   // A second, lightweight reproduction: with maxInputTokens = 100 the input-only
   // cap comfortably holds the ~11-token input, but the old code compared it
   // against input + output (~411) and rejected the target. The fix keeps it.
@@ -309,7 +313,7 @@ test("small input-only maxInputTokens keeps a target whose input fits even thoug
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [target("unit-7039-small/input-capped"), target("unit-7039-small/huge")],
     { messages: [{ role: "user", content: "hello" }], max_tokens: 400 },
     noopLog
@@ -321,7 +325,7 @@ test("small input-only maxInputTokens keeps a target whose input fits even thoug
   );
 });
 
-test("input-only maxInputTokens still rejects when the input itself exceeds the cap", () => {
+test("input-only maxInputTokens still rejects when the input itself exceeds the cap", async () => {
   // The fix must not let a genuinely-too-small input cap pass. `too-small` has
   // maxInputTokens = 1, which cannot even hold the ~11-token input, so it must
   // still be dropped while the compatible target survives.
@@ -332,7 +336,7 @@ test("input-only maxInputTokens still rejects when the input itself exceeds the 
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [target("unit-7039-too-small/too-small"), target("unit-7039-too-small/huge")],
     { messages: [{ role: "user", content: "hello" }], max_tokens: 400 },
     noopLog
@@ -344,7 +348,7 @@ test("input-only maxInputTokens still rejects when the input itself exceeds the 
   );
 });
 
-test("maxInputTokens defaulting to contextWindow still rejects when input + output exceeds the total window (#7039 follow-up)", () => {
+test("maxInputTokens defaulting to contextWindow still rejects when input + output exceeds the total window (#7039 follow-up)", async () => {
   // Shared-window model where maxInputTokens equals the total window size.
   // The input alone fits the input cap, but input + output overflows the
   // window, so the target must be rejected instead of passing on the input cap.
@@ -355,7 +359,7 @@ test("maxInputTokens defaulting to contextWindow still rejects when input + outp
     },
   });
 
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [target("unit-7039-window/shared-window"), target("unit-7039-window/huge")],
     { messages: [{ role: "user", content: "x".repeat(350_000 * 4) }], max_tokens: 100_000 },
     noopLog
@@ -373,7 +377,7 @@ test("maxInputTokens defaulting to contextWindow still rejects when input + outp
 // catalog `maxInputTokens` is a deliberately smaller client-facing hint (set
 // below the true window so coding agents auto-compact, #6191) gets wrongly
 // dropped for large-context requests, collapsing the fallback pool.
-test("model_context_override lets a small-catalog target survive a large-context request", () => {
+test("model_context_override lets a small-catalog target survive a large-context request", async () => {
   saveModelsDevCapabilities({
     "unit-override": {
       big: capabilityEntry(1_000_000),
@@ -382,21 +386,21 @@ test("model_context_override lets a small-catalog target survive a large-context
   });
   setModelContextOverride("unit-override", "capped", 1_000_000);
   try {
-    const out = filterTargetsByRequestCompatibility(
+    const out = await filterTargetsByRequestCompatibility(
       [target("unit-override/capped"), target("unit-override/big")],
       largeContextBody(),
       noopLog
     );
-    assert.deepEqual(
-      out.map((entry) => entry.modelStr).sort(),
-      ["unit-override/big", "unit-override/capped"]
-    );
+    assert.deepEqual(out.map((entry) => entry.modelStr).sort(), [
+      "unit-override/big",
+      "unit-override/capped",
+    ]);
   } finally {
     removeModelContextOverride("unit-override", "capped");
   }
 });
 
-test("without an override the small-catalog target is still dropped for the large request", () => {
+test("without an override the small-catalog target is still dropped for the large request", async () => {
   saveModelsDevCapabilities({
     "unit-override": {
       big: capabilityEntry(1_000_000),
@@ -405,7 +409,7 @@ test("without an override the small-catalog target is still dropped for the larg
   });
   // No override: capped (8K) is genuinely too small and must be filtered out,
   // guarding the override read-path from masking a real too-small target.
-  const out = filterTargetsByRequestCompatibility(
+  const out = await filterTargetsByRequestCompatibility(
     [target("unit-override/capped"), target("unit-override/big")],
     largeContextBody(),
     noopLog

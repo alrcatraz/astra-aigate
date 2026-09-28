@@ -523,7 +523,7 @@ async function applyContinuityFilters(
   // #8786: capture pre-filter pool so a strict/minContextWindow wipe can
   // surface context_requirements_exhausted instead of a generic 404.
   const preContextTargets = orderedTargets;
-  orderedTargets = applyContextRequirements(orderedTargets, config.contextRequirements, log);
+  orderedTargets = await applyContextRequirements(orderedTargets, config.contextRequirements, log);
   if (orderedTargets.length === 0 && preContextTargets.length > 0) {
     const effectiveSessionId: string | null = combo.context_cache_protection
       ? (relayOptions?.sessionId ?? null)

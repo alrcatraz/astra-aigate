@@ -100,31 +100,51 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("mimo-v2.5-pro stays text-only even when models.dev says attachment:true", () => {
+test("mimo-v2.5-pro stays text-only even when models.dev says attachment:true", async () => {
   seedMimoCapabilities();
-  const pro = modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2.5-pro");
+  const pro = await modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2.5-pro");
   // attachment is the seeded synced value, but the override forces vision false.
-  assert.equal(pro.attachment, true, "synced attachment row is present (proves override, not absence)");
-  assert.equal(pro.supportsVision, false, "text-only override must beat the wrong synced attachment");
+  assert.equal(
+    pro.attachment,
+    true,
+    "synced attachment row is present (proves override, not absence)"
+  );
+  assert.equal(
+    pro.supportsVision,
+    false,
+    "text-only override must beat the wrong synced attachment"
+  );
 });
 
-test("mimo-v2-pro stays text-only even when models.dev says attachment:true", () => {
+test("mimo-v2-pro stays text-only even when models.dev says attachment:true", async () => {
   seedMimoCapabilities();
-  const pro = modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2-pro");
-  assert.equal(pro.supportsVision, false, "text-only override must beat the wrong synced attachment");
+  const pro = await modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2-pro");
+  assert.equal(
+    pro.supportsVision,
+    false,
+    "text-only override must beat the wrong synced attachment"
+  );
 });
 
-test("genuinely multimodal mimo models keep vision (override is precise, not broad)", () => {
+test("genuinely multimodal mimo models keep vision (override is precise, not broad)", async () => {
   seedMimoCapabilities();
-  const v25 = modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2.5");
-  const omni = modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2-omni");
-  assert.equal(v25.supportsVision, true, "mimo-v2.5 is multimodal — must NOT be caught by the override");
-  assert.equal(omni.supportsVision, true, "mimo-v2-omni is multimodal — must NOT be caught by the override");
+  const v25 = await modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2.5");
+  const omni = await modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2-omni");
+  assert.equal(
+    v25.supportsVision,
+    true,
+    "mimo-v2.5 is multimodal — must NOT be caught by the override"
+  );
+  assert.equal(
+    omni.supportsVision,
+    true,
+    "mimo-v2-omni is multimodal — must NOT be caught by the override"
+  );
 });
 
-test("the bare (unqualified) text-only id is also overridden", () => {
+test("the bare (unqualified) text-only id is also overridden", async () => {
   seedMimoCapabilities();
   // No provider prefix — exercises the `^...$` branch of the override regex.
-  const bare = modelCapabilities.getResolvedModelCapabilities("mimo-v2.5-pro");
+  const bare = await modelCapabilities.getResolvedModelCapabilities("mimo-v2.5-pro");
   assert.equal(bare.supportsVision, false, "bare text-only id must also be overridden");
 });

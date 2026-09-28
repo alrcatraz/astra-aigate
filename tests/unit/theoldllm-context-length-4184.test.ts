@@ -41,17 +41,19 @@ test("#4184 GPT_4o carries no explicit contextLength (relies on defaultContextLe
   assert.equal(model("GPT_4o")?.contextLength, undefined);
 });
 
-test("#4184 resolved context window reflects the override (null before the fix)", () => {
+test("#4184 resolved context window reflects the override (null before the fix)", async () => {
   assert.equal(
-    getResolvedModelCapabilities({ provider: "theoldllm", model: "GPT_5_4" }).contextWindow,
+    (await getResolvedModelCapabilities({ provider: "theoldllm", model: "GPT_5_4" })).contextWindow,
     400000
   );
   assert.equal(
-    getResolvedModelCapabilities({ provider: "theoldllm", model: "gemini_3_pro" }).contextWindow,
+    (await getResolvedModelCapabilities({ provider: "theoldllm", model: "gemini_3_pro" }))
+      .contextWindow,
     1000000
   );
   assert.equal(
-    getResolvedModelCapabilities({ provider: "theoldllm", model: "claude_opus_4" }).contextWindow,
+    (await getResolvedModelCapabilities({ provider: "theoldllm", model: "claude_opus_4" }))
+      .contextWindow,
     200000
   );
 });

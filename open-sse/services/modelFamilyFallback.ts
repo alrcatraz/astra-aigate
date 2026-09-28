@@ -250,14 +250,14 @@ export function getModelFamily(model: string): string[] {
  * Find a model with larger context window from a list of candidate models.
  * Uses models.dev synced capabilities to compare context limits.
  */
-export function findLargerContextModel(
+export async function findLargerContextModel(
   currentModel: string,
   availableModels: string[]
-): string | null {
+): Promise<string | null> {
   const currentParsed = parseModel(currentModel);
   const currentProvider = currentParsed.provider || currentParsed.providerAlias || "unknown";
   const currentModelId = currentParsed.model || currentModel;
-  const currentLimit = getModelContextLimit(currentProvider, currentModelId) ?? 0;
+  const currentLimit = (await getModelContextLimit(currentProvider, currentModelId)) ?? 0;
 
   let bestModel: string | null = null;
   let bestLimit = currentLimit;
@@ -267,7 +267,7 @@ export function findLargerContextModel(
     const parsed = parseModel(candidate);
     const provider = parsed.provider || parsed.providerAlias || "unknown";
     const modelId = parsed.model || candidate;
-    const limit = getModelContextLimit(provider, modelId) ?? 0;
+    const limit = (await getModelContextLimit(provider, modelId)) ?? 0;
 
     if (limit > bestLimit) {
       bestLimit = limit;

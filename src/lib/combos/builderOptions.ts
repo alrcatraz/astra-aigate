@@ -360,18 +360,18 @@ function addModelOption(
   );
 }
 
-function buildModelOptions(
+async function buildModelOptions(
   providerId: string,
   builtInModels: RegistryModel[],
   syncedModels: SyncedModelLike[],
   customModels: CustomModelLike[],
   hiddenSet: Set<string>
-): Map<string, ComboBuilderModelOption> {
+): Promise<Map<string, ComboBuilderModelOption>> {
   const modelMap = new Map<string, ComboBuilderModelOption>();
   const fallbackModels = getCompatibleFallbackModels(providerId, builtInModels);
 
   for (const model of syncedModels) {
-    const resolved = getResolvedModelCapabilities({
+    const resolved = await getResolvedModelCapabilities({
       provider: providerId,
       model: toStringOrNull(model.id),
     });
@@ -458,7 +458,7 @@ function buildModelOptions(
   }
 
   for (const model of builtInModels) {
-    const resolved = getResolvedModelCapabilities({
+    const resolved = await getResolvedModelCapabilities({
       provider: providerId,
       model: toStringOrNull(model.id),
     });
@@ -484,7 +484,7 @@ function buildModelOptions(
     )
       ? "imported"
       : ("custom" as BuilderModelSource);
-    const resolved = getResolvedModelCapabilities({
+    const resolved = await getResolvedModelCapabilities({
       provider: providerId,
       model: toStringOrNull(model.id),
     });
@@ -510,7 +510,7 @@ function buildModelOptions(
 
   if (Array.isArray(fallbackModels)) {
     for (const model of fallbackModels) {
-      const resolved = getResolvedModelCapabilities({
+      const resolved = await getResolvedModelCapabilities({
         provider: providerId,
         model: toStringOrNull(model.id),
       });
@@ -668,7 +668,7 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
       isOpenAICompatibleProvider(providerId) ||
       isAnthropicCompatibleProvider(providerId) ||
       isClaudeCodeCompatibleProvider(providerId);
-    const modelMap = buildModelOptions(
+    const modelMap = await buildModelOptions(
       providerId,
       builtInModels as RegistryModel[],
       syncedModels,
@@ -729,7 +729,7 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
       isOpenAICompatibleProvider(providerId) ||
       isAnthropicCompatibleProvider(providerId) ||
       isClaudeCodeCompatibleProvider(providerId);
-    const modelMap = buildModelOptions(
+    const modelMap = await buildModelOptions(
       providerId,
       builtInModels as RegistryModel[],
       syncedModels,

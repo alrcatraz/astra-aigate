@@ -278,6 +278,26 @@ export async function registerNodejs(): Promise<void> {
   // free no-op re-read of the same connection — no double-init cost.
   await ensureDbReadyForBoot();
 
+  // Schema backfill barrier: ensure*Columns run async over the sync handle;
+  // every later DB consumer (ensureSecrets, usage migrations, route handlers)
+  // must see the final schema first, or early writes hit missing columns.
+  {
+    const { awaitDbColumnBackfills } = await import("@/lib/db/core");
+    await awaitDbColumnBackfills();
+  }
+
+  // Post-migration maintenance (legacy call-log offload → VACUUM). Runs after
+  // boot init so it never races the migration transaction on this connection;
+  // failures are logged, never fatal. Fire-and-forget: startup must not block
+  // on a large one-time compaction.
+  void import("@/lib/db/core")
+    .then(({ awaitDbMigrations, awaitDbStartupTasks }) =>
+      awaitDbMigrations().then(() => awaitDbStartupTasks())
+    )
+    .catch((error: unknown) => {
+      console.warn("[DB] Startup tasks failed:", error);
+    });
+
   await ensureSecrets();
   await Promise.all([
     import("@/lib/env/runtimeEnv").then(({ enforceWebRuntimeEnv }) => enforceWebRuntimeEnv()),

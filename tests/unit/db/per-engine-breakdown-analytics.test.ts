@@ -20,29 +20,31 @@ const originalDataDir = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../../src/lib/db/core.ts");
-core.resetDbInstance();
+await core.resetDbInstanceDrained();
 
 const { insertCompressionAnalyticsRow, insertCompressionEngineBreakdown, getPerEngineAnalytics } =
   await import("../../../src/lib/db/compressionAnalytics.ts");
 
-function resetDb(): void {
-  core.resetDbInstance();
+async function resetDb(): Promise<void> {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });
 
-test("per-engine breakdown from a stacked run is attributed to each engine", () => {
+test("per-engine breakdown from a stacked run is attributed to each engine", async () => {
   const now = new Date().toISOString();
 
   // One aggregate row for the stacked request (engine column = mode, NOT per-engine).
@@ -76,18 +78,18 @@ test("per-engine breakdown from a stacked run is attributed to each engine", () 
     },
   ]);
 
-  const headroom = getPerEngineAnalytics("headroom");
+  const headroom = await getPerEngineAnalytics("headroom");
   assert.equal(headroom.runs, 1, "headroom ran once (inside the stacked pipeline)");
   assert.equal(headroom.tokensSaved, 100, "headroom's own contribution");
   // avg = round(((800-700)/800)*1000)/10 = round(125)/10 = 12.5
   assert.equal(headroom.avgSavingsPercent, 12.5);
 
-  const rtk = getPerEngineAnalytics("rtk");
+  const rtk = await getPerEngineAnalytics("rtk");
   assert.equal(rtk.runs, 1);
   assert.equal(rtk.tokensSaved, 200);
 });
 
-test("legacy single-engine rows still count (no breakdown present)", () => {
+test("legacy single-engine rows still count (no breakdown present)", async () => {
   const now = new Date().toISOString();
   insertCompressionAnalyticsRow({
     timestamp: now,
@@ -99,12 +101,12 @@ test("legacy single-engine rows still count (no breakdown present)", () => {
     tokens_saved: 100,
   });
 
-  const aggressive = getPerEngineAnalytics("aggressive");
+  const aggressive = await getPerEngineAnalytics("aggressive");
   assert.equal(aggressive.runs, 1, "single-engine run counted via the legacy engine column");
   assert.equal(aggressive.tokensSaved, 100);
 });
 
-test("breakdown + legacy combine for the same engine without double counting", () => {
+test("breakdown + legacy combine for the same engine without double counting", async () => {
   const now = new Date().toISOString();
 
   // Stacked run where headroom contributed 100 (recorded in breakdown).
@@ -139,12 +141,12 @@ test("breakdown + legacy combine for the same engine without double counting", (
     tokens_saved: 50,
   });
 
-  const headroom = getPerEngineAnalytics("headroom");
+  const headroom = await getPerEngineAnalytics("headroom");
   assert.equal(headroom.runs, 2, "one stacked contribution + one single-engine run");
   assert.equal(headroom.tokensSaved, 150, "100 (stacked) + 50 (single), counted once each");
 });
 
-test("a stacked run does NOT double-count the aggregate row under its breakdown engines", () => {
+test("a stacked run does NOT double-count the aggregate row under its breakdown engines", async () => {
   const now = new Date().toISOString();
   insertCompressionAnalyticsRow({
     timestamp: now,
@@ -167,7 +169,7 @@ test("a stacked run does NOT double-count the aggregate row under its breakdown 
   ]);
 
   // caveman gets exactly the breakdown contribution, not also the "stacked" aggregate.
-  const caveman = getPerEngineAnalytics("caveman");
+  const caveman = await getPerEngineAnalytics("caveman");
   assert.equal(caveman.runs, 1);
   assert.equal(caveman.tokensSaved, 300);
 });

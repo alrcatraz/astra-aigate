@@ -264,3 +264,4 @@ db_backups/
 
 # 0.6.0 executor dispatch (git-ignored)
 .task-brief.md
+.graphlint/

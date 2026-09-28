@@ -289,10 +289,9 @@ function getNoAuthCandidates(
  */
 const DEFAULT_ADVERTISED_MAX_OUTPUT_TOKENS = 8192;
 
-export function computeAdvertisedLimits(candidates: Array<{ provider: string; model: string }>): {
-  contextLength: number | null;
-  maxOutputTokens: number | null;
-} {
+export async function computeAdvertisedLimits(
+  candidates: Array<{ provider: string; model: string }>
+): Promise<{ contextLength: number | null; maxOutputTokens: number | null }> {
   if (!Array.isArray(candidates) || candidates.length === 0) {
     return { contextLength: null, maxOutputTokens: null };
   }
@@ -300,14 +299,16 @@ export function computeAdvertisedLimits(candidates: Array<{ provider: string; mo
   let contextLength: number | null = null;
   let maxOutputTokens: number | null = null;
   for (const candidate of candidates) {
-    const limit = getTokenLimit(candidate.provider, candidate.model);
+    const limit = await getTokenLimit(candidate.provider, candidate.model);
     if (Number.isFinite(limit) && limit > 0) {
       contextLength = contextLength === null ? limit : Math.max(contextLength, limit);
     }
-    const output = getResolvedModelCapabilities({
-      provider: candidate.provider,
-      model: candidate.model,
-    }).maxOutputTokens;
+    const output = (
+      await getResolvedModelCapabilities({
+        provider: candidate.provider,
+        model: candidate.model,
+      })
+    ).maxOutputTokens;
     if (typeof output === "number" && Number.isFinite(output) && output > 0) {
       maxOutputTokens = maxOutputTokens === null ? output : Math.max(maxOutputTokens, output);
     }
@@ -510,9 +511,13 @@ export async function createVirtualAutoCombo(
       ? buildAutoCandidateFilter(spec.category, spec.tier)
       : null;
   if (candidateFilter) {
-    const narrowed = candidatePool.filter((c) =>
-      candidateFilter({ provider: c.provider, model: c.model })
-    );
+    // Capability-aware filters are async (they resolve DB-backed capabilities), so
+    // the pool is narrowed sequentially instead of via Array#filter — a sync
+    // `.filter()` would keep every candidate because a pending Promise is truthy.
+    const narrowed: typeof candidatePool = [];
+    for (const c of candidatePool) {
+      if (await candidateFilter({ provider: c.provider, model: c.model })) narrowed.push(c);
+    }
     const label = spec?.family
       ? `auto/${spec.family}`
       : `auto/${spec?.category ?? ""}${spec?.tier ? `:${spec.tier}` : ""}`;
@@ -644,7 +649,7 @@ export async function createVirtualAutoCombo(
     chaosModels = models;
   }
 
-  const advertisedLimits = computeAdvertisedLimits(effectivePool);
+  const advertisedLimits = await computeAdvertisedLimits(effectivePool);
 
   return {
     id: `virtual-auto-${variant || "default"}`,

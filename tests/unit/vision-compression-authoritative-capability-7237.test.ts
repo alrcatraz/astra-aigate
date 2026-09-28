@@ -36,23 +36,25 @@ function imageBody() {
 }
 
 describe("#7237 vision-capable models keep their images through compression", () => {
-  it("documents the drift: the conservative id-fragment heuristic disagrees with the authoritative spec for gpt-5.5", () => {
+  it("documents the drift: the conservative id-fragment heuristic disagrees with the authoritative spec for gpt-5.5", async () => {
     assert.equal(
       isVisionModelId("gpt-5.5"),
       false,
       "the fragment-list heuristic has no gpt-5.x entry — it is a deliberately conservative fallback, not the source of truth"
     );
     assert.equal(
-      getResolvedModelCapabilities({ model: "gpt-5.5" }).supportsVision,
+      (await getResolvedModelCapabilities({ model: "gpt-5.5" })).supportsVision,
       true,
       "modelSpecs.ts registers gpt-5.5 with supportsVision:true — this is the authoritative source chatCore must use"
     );
   });
 
-  it("replaceImageUrls preserves the image when fed the authoritative capability (the fixed chatCore.ts:1330 behavior)", () => {
-    const authoritativeSupportsVision = getResolvedModelCapabilities({
-      model: "gpt-5.5",
-    }).supportsVision;
+  it("replaceImageUrls preserves the image when fed the authoritative capability (the fixed chatCore.ts:1330 behavior)", async () => {
+    const authoritativeSupportsVision = (
+      await getResolvedModelCapabilities({
+        model: "gpt-5.5",
+      })
+    ).supportsVision;
     const result = replaceImageUrls(imageBody(), { supportsVision: authoritativeSupportsVision });
     assert.equal(result.applied, false, "the image must be KEPT, not stripped to a placeholder");
     const content = result.body.messages?.[0]?.content as Array<Record<string, unknown>>;
@@ -71,7 +73,7 @@ describe("#7237 vision-capable models keep their images through compression", ()
 
   it("applyCompressionAsync end-to-end (lite mode) keeps image_url blocks for gpt-5.5 when fed the authoritative capability", async () => {
     const model = "gpt-5.5";
-    const supportsVision = getResolvedModelCapabilities({ model }).supportsVision;
+    const supportsVision = (await getResolvedModelCapabilities({ model })).supportsVision;
     const result = await applyCompressionAsync(imageBody(), "lite", { model, supportsVision });
     const content = (result.body as { messages: Array<{ content: unknown }> }).messages[0]
       .content as Array<Record<string, unknown>>;

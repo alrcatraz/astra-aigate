@@ -13,8 +13,10 @@ const { parseModel } = await import("../../open-sse/services/model.ts");
 const { getTokenLimit, getComboTargetTokenLimit } =
   await import("../../open-sse/services/contextManager.ts");
 
-test("#8716 getTokenLimit(null provider) throws via toUpperCase (documents crash)", () => {
-  assert.throws(
+test("#8716 getTokenLimit(null provider) throws via toUpperCase (documents crash)", async () => {
+  // getTokenLimit is async: the provider.toUpperCase() crash surfaces as a
+  // rejected promise, so the assertion must use rejects (not throws).
+  await assert.rejects(
     () => getTokenLimit(null as unknown as string, "gpt-4o"),
     (err: unknown) => err instanceof TypeError && String(err.message).includes("toUpperCase")
   );
@@ -26,20 +28,20 @@ test("#8716 parseModel without provider prefix yields null provider", () => {
   assert.equal(parsed.model, "gpt-4o");
 });
 
-test("#8716 getComboTargetTokenLimit falls back to target.provider (no throw)", () => {
+test("#8716 getComboTargetTokenLimit falls back to target.provider (no throw)", async () => {
   assert.equal(typeof getComboTargetTokenLimit, "function");
 
   const parsed = parseModel("gpt-4o");
   assert.equal(parsed.provider, null);
 
-  const limit = getComboTargetTokenLimit({
+  const limit = await getComboTargetTokenLimit({
     modelStr: "gpt-4o",
     provider: "openai",
   });
   assert.ok(Number.isFinite(limit) && limit > 0);
 
   // Same inputs via pre-parsed fields (matches chatCore call shape).
-  const limit2 = getComboTargetTokenLimit({
+  const limit2 = await getComboTargetTokenLimit({
     parsedProvider: parsed.provider,
     parsedModel: parsed.model,
     targetProvider: "openai",
@@ -47,12 +49,12 @@ test("#8716 getComboTargetTokenLimit falls back to target.provider (no throw)", 
   assert.equal(limit2, limit);
 });
 
-test("#8716 getComboTargetTokenLimit prefers parseModel provider when present", () => {
-  const withPrefix = getComboTargetTokenLimit({
+test("#8716 getComboTargetTokenLimit prefers parseModel provider when present", async () => {
+  const withPrefix = await getComboTargetTokenLimit({
     modelStr: "anthropic/claude-sonnet-4-6",
     provider: "openai",
   });
-  const fromParsedOnly = getComboTargetTokenLimit({
+  const fromParsedOnly = await getComboTargetTokenLimit({
     parsedProvider: "anthropic",
     parsedModel: "claude-sonnet-4-6",
     targetProvider: "openai",
@@ -60,8 +62,8 @@ test("#8716 getComboTargetTokenLimit prefers parseModel provider when present", 
   assert.equal(withPrefix, fromParsedOnly);
 });
 
-test("#8716 getComboTargetTokenLimit uses unknown when both providers missing", () => {
-  const limit = getComboTargetTokenLimit({
+test("#8716 getComboTargetTokenLimit uses unknown when both providers missing", async () => {
+  const limit = await getComboTargetTokenLimit({
     parsedProvider: null,
     parsedModel: "some-model",
     targetProvider: null,

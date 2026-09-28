@@ -116,9 +116,9 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#8250 kimi-coding-apikey/k3: attachment=false + image modalities → vision=true and fields agree", () => {
+test("#8250 kimi-coding-apikey/k3: attachment=false + image modalities → vision=true and fields agree", async () => {
   seedContradictoryK3Capabilities();
-  const caps = modelCapabilities.getResolvedModelCapabilities("kimi-coding-apikey/k3");
+  const caps = await modelCapabilities.getResolvedModelCapabilities("kimi-coding-apikey/k3");
 
   assert.equal(caps.supportsVision, true, "K3 must resolve as vision-capable");
   assert.equal(caps.attachment, true, "exposed attachment must agree with supportsVision");
@@ -132,10 +132,10 @@ test("#8250 kimi-coding-apikey/k3: attachment=false + image modalities → visio
   );
 });
 
-test("#8250 alias providers (kimi-coding / kmc / kmca) reconcile the same way", () => {
+test("#8250 alias providers (kimi-coding / kmc / kmca) reconcile the same way", async () => {
   seedContradictoryK3Capabilities();
   for (const id of ["kimi-coding/k3", "kmc/k3", "kmca/k3"]) {
-    const caps = modelCapabilities.getResolvedModelCapabilities(id);
+    const caps = await modelCapabilities.getResolvedModelCapabilities(id);
     assert.equal(caps.supportsVision, true, `${id} supportsVision`);
     assert.equal(caps.attachment, true, `${id} attachment`);
     assert.ok(
@@ -197,7 +197,7 @@ test("#8250 sync transform leaves consistent text-only rows alone", () => {
   assert.equal(caps.minimal["text-only"].attachment, false);
 });
 
-test("#8250 known text-only override still beats wrong image modalities (#4071)", () => {
+test("#8250 known text-only override still beats wrong image modalities (#4071)", async () => {
   // Guard: the #8250 modalities-over-false-attachment reconcile must NOT undo
   // the #4071 hard text-only override for mimo-v2.5-pro.
   modelsDevSync.saveModelsDevCapabilities({
@@ -209,6 +209,6 @@ test("#8250 known text-only override still beats wrong image modalities (#4071)"
       }),
     },
   });
-  const pro = modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2.5-pro");
+  const pro = await modelCapabilities.getResolvedModelCapabilities("xiaomi-mimo/mimo-v2.5-pro");
   assert.equal(pro.supportsVision, false, "text-only override must still win");
 });

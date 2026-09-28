@@ -19,10 +19,12 @@ const core = await import("../../../src/lib/db/core.ts");
 const qp = await import("../../../src/lib/db/quotaPools.ts");
 const { getDbInstance } = await import("../../../src/lib/db/core.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // Insert a pool + optional connection row directly (bypass create for speed).
@@ -38,12 +40,12 @@ function insertPool(
   ).run(id, name, "default", connectionId, createdAt);
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -51,46 +53,46 @@ test.after(() => {
 // listPools — pagination
 // ─────────────────────────────────────────────────────────────────────────────
 
-test("listPools without limit/offset returns all pools", () => {
+test("listPools without limit/offset returns all pools", async () => {
   insertPool("p1", "Alpha", "c1");
   insertPool("p2", "Beta", "c2");
-  const result = qp.listPools();
+  const result = await qp.listPools();
   assert.equal(result.total, 2);
   assert.equal(result.items.length, 2);
 });
 
-test("listPools with limit returns ≤ limit items, total unchanged", () => {
+test("listPools with limit returns ≤ limit items, total unchanged", async () => {
   insertPool("p1", "Alpha", "c1");
   insertPool("p2", "Beta", "c2");
   insertPool("p3", "Gamma", "c3");
-  const result = qp.listPools({ limit: 2 });
+  const result = await qp.listPools({ limit: 2 });
   assert.equal(result.total, 3);
   assert.equal(result.items.length, 2);
 });
 
-test("listPools with limit+offset returns correct slice", () => {
+test("listPools with limit+offset returns correct slice", async () => {
   insertPool("p1", "Alpha", "c1", "2024-01-01T00:00:00Z");
   insertPool("p2", "Beta", "c2", "2024-01-02T00:00:00Z");
   insertPool("p3", "Gamma", "c3", "2024-01-03T00:00:00Z");
-  const result = qp.listPools({ limit: 1, offset: 1 });
+  const result = await qp.listPools({ limit: 1, offset: 1 });
   assert.equal(result.total, 3);
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0].name, "Beta");
 });
 
-test("listPools with only offset (no limit) ignores offset", () => {
+test("listPools with only offset (no limit) ignores offset", async () => {
   insertPool("p1", "Alpha", "c1");
   insertPool("p2", "Beta", "c2");
   // offset without limit — should not add OFFSET clause (was a bug)
-  const result = qp.listPools({ offset: 1 });
+  const result = await qp.listPools({ offset: 1 });
   assert.equal(result.total, 2);
   assert.equal(result.items.length, 2);
 });
 
-test("listPools with zero limit treated as no limit", () => {
+test("listPools with zero limit treated as no limit", async () => {
   insertPool("p1", "Alpha", "c1");
   // limit=0 is invalid in SQL — code treats it as "no limit"
-  const result = qp.listPools({ limit: 0 });
+  const result = await qp.listPools({ limit: 0 });
   assert.equal(result.total, 1);
   assert.equal(result.items.length, 1);
 });
@@ -99,31 +101,31 @@ test("listPools with zero limit treated as no limit", () => {
 // getPoolsByGroup — pagination
 // ─────────────────────────────────────────────────────────────────────────────
 
-test("getPoolsByGroup with limit returns correct count", () => {
+test("getPoolsByGroup with limit returns correct count", async () => {
   insertPool("p1", "A", "c1");
   insertPool("p2", "B", "c2");
-  const items = qp.getPoolsByGroup("default", 1);
+  const items = await qp.getPoolsByGroup("default", 1);
   assert.equal(items.length, 1);
 });
 
-test("getPoolsByGroup with limit+offset returns correct slice", () => {
+test("getPoolsByGroup with limit+offset returns correct slice", async () => {
   insertPool("p1", "Alpha", "c1", "2024-01-01T00:00:00Z");
   insertPool("p2", "Beta", "c2", "2024-01-02T00:00:00Z");
   insertPool("p3", "Gamma", "c3", "2024-01-03T00:00:00Z");
-  const items = qp.getPoolsByGroup("default", 1, 2);
+  const items = await qp.getPoolsByGroup("default", 1, 2);
   assert.equal(items.length, 1);
   assert.equal(items[0].name, "Gamma");
 });
 
-test("getPoolsByGroup with only offset ignores offset", () => {
+test("getPoolsByGroup with only offset ignores offset", async () => {
   insertPool("p1", "Alpha", "c1");
   insertPool("p2", "Beta", "c2");
-  const items = qp.getPoolsByGroup("default", undefined, 1);
+  const items = await qp.getPoolsByGroup("default", undefined, 1);
   assert.equal(items.length, 2);
 });
 
-test("getPoolsByGroup with empty group returns []", () => {
-  const items = qp.getPoolsByGroup("nonexistent");
+test("getPoolsByGroup with empty group returns []", async () => {
+  const items = await qp.getPoolsByGroup("nonexistent");
   assert.deepEqual(items, []);
 });
 
@@ -131,7 +133,7 @@ test("getPoolsByGroup with empty group returns []", () => {
 // batchBuildPools — allocations loaded in batch
 // ─────────────────────────────────────────────────────────────────────────────
 
-test("batchBuildPools loads allocations in single query", () => {
+test("batchBuildPools loads allocations in single query", async () => {
   const db = getDbInstance();
   db.prepare(
     "INSERT INTO quota_pools (id, name, group_id, connection_id, created_at) VALUES (?, ?, ?, ?, ?)"
@@ -140,7 +142,7 @@ test("batchBuildPools loads allocations in single query", () => {
     "INSERT INTO quota_allocations (pool_id, api_key_id, weight, cap_value) VALUES (?, ?, ?, ?)"
   ).run("p1", "ak_test", 1, 100);
 
-  const result = qp.listPools();
+  const result = await qp.listPools();
   assert.equal(result.items.length, 1);
   assert.equal(result.total, 1);
   const pool = result.items[0];

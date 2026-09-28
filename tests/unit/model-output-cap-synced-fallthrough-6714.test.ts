@@ -95,7 +95,7 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#6714 synced row present but limit_output missing falls through to the registry output cap", () => {
+test("#6714 synced row present but limit_output missing falls through to the registry output cap", async () => {
   // Seed a synced capability row for this exact provider/model with
   // limit_output left null (mirrors real models.dev rows that omit it).
   modelsDevSync.saveModelsDevCapabilities({
@@ -104,7 +104,7 @@ test("#6714 synced row present but limit_output missing falls through to the reg
     },
   });
 
-  const cap = modelCapabilities.getExplicitModelOutputCap(`${provider}/${modelId}`);
+  const cap = await modelCapabilities.getExplicitModelOutputCap(`${provider}/${modelId}`);
   assert.equal(
     cap,
     maxOutputTokens,
@@ -112,7 +112,7 @@ test("#6714 synced row present but limit_output missing falls through to the reg
   );
 });
 
-test("#6714 synced row with a real numeric limit_output still wins over the registry cap", () => {
+test("#6714 synced row with a real numeric limit_output still wins over the registry cap", async () => {
   const syncedOutputCap = maxOutputTokens + 1234;
   modelsDevSync.saveModelsDevCapabilities({
     [provider]: {
@@ -120,11 +120,11 @@ test("#6714 synced row with a real numeric limit_output still wins over the regi
     },
   });
 
-  const cap = modelCapabilities.getExplicitModelOutputCap(`${provider}/${modelId}`);
+  const cap = await modelCapabilities.getExplicitModelOutputCap(`${provider}/${modelId}`);
   assert.equal(cap, syncedOutputCap, "a real numeric synced limit_output must take precedence");
 });
 
-test("#6714 no synced row at all still resolves the registry output cap (no regression)", () => {
-  const cap = modelCapabilities.getExplicitModelOutputCap(`${provider}/${modelId}`);
+test("#6714 no synced row at all still resolves the registry output cap (no regression)", async () => {
+  const cap = await modelCapabilities.getExplicitModelOutputCap(`${provider}/${modelId}`);
   assert.equal(cap, maxOutputTokens);
 });

@@ -1095,7 +1095,7 @@ export async function handleChatCore({
   // combo-resolved override survives to the final enforceOutputTokenBudget() call
   // further down — see #8378 (context limit resolved by the combo was silently
   // discarded because it only existed inside this `if` block).
-  let contextLimit = getTokenLimit(provider, effectiveModel);
+  let contextLimit = await getTokenLimit(provider, effectiveModel);
   if (body && Array.isArray(allMessages) && allMessages.length > 0) {
     let estimatedTokens = estimateTokens(allMessages);
     const compressionSettingsResult = await resolveCompressionSettings(log);
@@ -1396,7 +1396,7 @@ export async function handleChatCore({
       // Adaptive context-budget (Sub-project C): model context window + request max_tokens drive
       // the budget target. getTokenLimit is already imported; provider/effectiveModel resolved above.
       const adaptiveModelContextLimit =
-        provider && effectiveModel ? getTokenLimit(provider, effectiveModel) : null;
+        provider && effectiveModel ? await getTokenLimit(provider, effectiveModel) : null;
       const requestMaxTokens =
         typeof (compressionInputBody as Record<string, unknown>)?.max_tokens === "number"
           ? ((compressionInputBody as Record<string, unknown>).max_tokens as number)
@@ -1461,7 +1461,7 @@ export async function handleChatCore({
           // fragment list), and lite.ts's gate (`supportsVision !== false`) treated that
           // false as "strip every image_url block". Resolves to `null` for genuinely unknown
           // models, which is intentionally NOT `false` so the gate still preserves images.
-          supportsVision: getResolvedModelCapabilities({ provider, model: effectiveModel })
+          supportsVision: (await getResolvedModelCapabilities({ provider, model: effectiveModel }))
             .supportsVision,
           // Rotas diretas oficiais ('anthropic' API key e 'claude' OAuth) vs agregadores:
           // o engine omniglyph exige 'direct' — agregadores redimensionam imagens
@@ -1704,21 +1704,27 @@ export async function handleChatCore({
             comboConfig as unknown as { name: string; models: unknown[] },
             allCombosData as unknown as { name: string; models: unknown[] }[]
           );
-          comboTargetLimits = targets.map((t: { modelStr?: string; provider?: string }) =>
+          // Resolve each target's limit sequentially: getComboTargetTokenLimit is
+          // async (it consults the DB), so a bare `.map()` would produce Promise[]
+          // and every downstream numeric comparison would read NaN.
+          comboTargetLimits = [];
+          for (const t of targets as Array<{ modelStr?: string; provider?: string }>) {
             // Fall back to ResolvedComboTarget.provider when modelStr lacks a
             // provider/ prefix — parseModel alone returns provider:null (#8716).
-            getComboTargetTokenLimit({
-              modelStr: t.modelStr,
-              provider: t.provider,
-            })
-          );
+            comboTargetLimits.push(
+              await getComboTargetTokenLimit({
+                modelStr: t.modelStr,
+                provider: t.provider,
+              })
+            );
+          }
         }
         // chatCore executes per concrete target (handleSingleModel resolves
         // provider/effectiveModel before delegating). Compress against THIS
         // target's window; min(...allTargets) is only a defensive fallback —
         // the old unconditional min compressed a 1M-target request at the
         // smallest sibling's window ("agent keeps forgetting things").
-        const resolved = resolveComboContextLimit({
+        const resolved = await resolveComboContextLimit({
           provider,
           model: effectiveModel,
           comboTargetLimits,
@@ -1877,7 +1883,7 @@ export async function handleChatCore({
   // wrong synced `limit_output`. Clamping against a stale spec while the operator
   // raised the ceiling would silently truncate output.
   const modelOutputCap = toPositiveInteger(
-    getExplicitModelOutputCap({ provider, model: effectiveModel })
+    await getExplicitModelOutputCap({ provider, model: effectiveModel })
   );
   const outputBudget = enforceOutputTokenBudget(
     body as Record<string, unknown>,
@@ -2476,7 +2482,7 @@ export async function handleChatCore({
   );
 
   // Rename max_tokens to max_completion_tokens if not supported (#1961)
-  if (!supportsMaxTokens({ provider, model })) {
+  if (!(await supportsMaxTokens({ provider, model }))) {
     if (translatedBody.max_tokens !== undefined) {
       if (translatedBody.max_completion_tokens === undefined) {
         translatedBody.max_completion_tokens = translatedBody.max_tokens;
@@ -3907,7 +3913,7 @@ export async function handleChatCore({
         (m) => m !== currentModel && !triedModels.has(m)
       );
       const nextModel =
-        findLargerContextModel(currentModel, familyCandidates) ??
+        (await findLargerContextModel(currentModel, familyCandidates)) ??
         getNextFamilyFallback(currentModel, triedModels);
       if (nextModel) {
         triedModels.add(nextModel);
