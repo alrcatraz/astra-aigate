@@ -265,3 +265,7 @@ db_backups/
 # 0.6.0 executor dispatch (git-ignored)
 .task-brief.md
 .graphlint/
+
+# One-shot migration/audit scripts for PR #40 test-isolation fix (local only;
+# the durable guard is scripts/check/check-test-db-invariants.mjs)
+.tmp-fix/

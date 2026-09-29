@@ -9,8 +9,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -27,7 +27,10 @@ test("#8065 a renewed quota written by one module instance is invisible to anoth
   // Instance W: simulates providerLimitsSyncScheduler's instrumentation-node.ts chunk.
   const quotaCacheW = await import("../../src/domain/quotaCache.ts?instance=W");
   quotaCacheW.setQuotaCache(connectionId, "codex", {
-    session: { remainingPercentage: 100, resetAt: new Date(Date.now() + 7 * 86400000).toISOString() },
+    session: {
+      remainingPercentage: 100,
+      resetAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+    },
   });
   assert.equal(quotaCacheW.isQuotaExhaustedForRequest(connectionId, "codex"), false);
 

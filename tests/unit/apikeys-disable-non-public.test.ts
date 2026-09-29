@@ -12,7 +12,7 @@ const core = await import("../../src/lib/db/core.ts");
 const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
 
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -32,6 +32,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -39,7 +41,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -97,10 +99,7 @@ test("3 columns coexist: disableNonPublicModels, allowedQuotas, streamDefaultMod
   );
 
   // Verify streamDefaultMode is still present
-  assert.ok(
-    metadata.streamDefaultMode !== undefined,
-    "streamDefaultMode should be present"
-  );
+  assert.ok(metadata.streamDefaultMode !== undefined, "streamDefaultMode should be present");
   assert.equal(metadata.streamDefaultMode, "json", "streamDefaultMode should be 'json'");
 });
 

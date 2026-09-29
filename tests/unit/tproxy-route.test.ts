@@ -29,7 +29,7 @@ test("the tproxy route is classified LOCAL_ONLY (spawns iptables + installs a CA
 });
 
 test("GET reports running:false and an available boolean when idle", async () => {
-  const res = GET();
+  const res = await GET();
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.running, false);

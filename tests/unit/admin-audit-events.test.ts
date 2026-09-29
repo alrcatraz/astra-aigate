@@ -22,14 +22,16 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const originalGetLoginCookieStore = loginRoute.authRouteInternals.getCookieStore;
 const originalGetLogoutCookieStore = logoutRoute.logoutRouteInternals.getCookieStore;
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
 test.afterEach(() => {
@@ -37,8 +39,8 @@ test.afterEach(() => {
   logoutRoute.logoutRouteInternals.getCookieStore = originalGetLogoutCookieStore;
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

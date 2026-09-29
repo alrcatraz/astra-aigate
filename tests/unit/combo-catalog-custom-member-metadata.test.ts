@@ -138,7 +138,7 @@ function capabilityEntry(limitContext: number, overrides: Record<string, unknown
  * `saveModelsDevCapabilities()`.
  */
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   v1ModelsCatalog.__resetCatalogBuilderRunsForTest();
@@ -168,7 +168,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -33,19 +33,21 @@ async function enableManagementAuth() {
   await localDb.updateSettings({ requireLogin: true, password: "" });
 }
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
-  resetDb();
-  compliance.initAuditLog();
+  await resetDb();
+  await compliance.initAuditLog();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -91,7 +93,9 @@ test("GET /api/quota/plans includes DB override plans", async () => {
   // List should include the override
   const listReq = await makeManagementSessionRequest("http://localhost/api/quota/plans");
   const listRes = await plansRoute.GET(listReq);
-  const body = (await listRes.json()) as { plans: Array<{ connectionId: string | null; source: string }> };
+  const body = (await listRes.json()) as {
+    plans: Array<{ connectionId: string | null; source: string }>;
+  };
   const override = body.plans.find((p) => p.connectionId === "conn-override-1");
   assert.ok(override, "Override plan should appear in list");
   assert.equal(override?.source, "manual");
@@ -160,13 +164,10 @@ test("PUT /api/quota/plans/[connectionId] without auth → 401", async () => {
 });
 
 test("PUT /api/quota/plans/[connectionId] with invalid body → 400", async () => {
-  const req = await makeManagementSessionRequest(
-    "http://localhost/api/quota/plans/conn-bad-body",
-    {
-      method: "PUT",
-      body: { dimensions: [] }, // PlanUpsertSchema requires min(1) dimensions
-    }
-  );
+  const req = await makeManagementSessionRequest("http://localhost/api/quota/plans/conn-bad-body", {
+    method: "PUT",
+    body: { dimensions: [] }, // PlanUpsertSchema requires min(1) dimensions
+  });
   const res = await planIdRoute.PUT(req, {
     params: Promise.resolve({ connectionId: "conn-bad-body" }),
   });
@@ -193,7 +194,7 @@ test("PUT /api/quota/plans/[connectionId] with valid body → source=manual + au
   assert.equal(body.plan.source, "manual");
 
   // Audit event
-  const logs = compliance.getAuditLog({ action: "quota.plan.updated", limit: 10 });
+  const logs = await compliance.getAuditLog({ action: "quota.plan.updated", limit: 10 });
   const events = Array.isArray(logs) ? logs : [];
   const evt = events.find(
     (e) =>
@@ -226,7 +227,9 @@ test("DELETE /api/quota/plans/[connectionId] clears override → 204; GET revert
     `http://localhost/api/quota/plans/${connectionId}`,
     { method: "DELETE" }
   );
-  const deleteRes = await planIdRoute.DELETE(deleteReq, { params: Promise.resolve({ connectionId }) });
+  const deleteRes = await planIdRoute.DELETE(deleteReq, {
+    params: Promise.resolve({ connectionId }),
+  });
   assert.equal(deleteRes.status, 204);
 
   // GET should now return auto/empty plan (no DB override)
@@ -240,7 +243,7 @@ test("DELETE /api/quota/plans/[connectionId] clears override → 204; GET revert
   assert.ok(["auto", "manual"].includes(body.plan.source));
 
   // B26: DELETE must emit logAuditEvent with quota.plan.updated + metadata.reverted=true
-  const logs = compliance.getAuditLog({ action: "quota.plan.updated", limit: 20 });
+  const logs = await compliance.getAuditLog({ action: "quota.plan.updated", limit: 20 });
   const events = Array.isArray(logs) ? logs : [];
   const deleteEvt = events.find(
     (e) =>
@@ -250,7 +253,10 @@ test("DELETE /api/quota/plans/[connectionId] clears override → 204; GET revert
       (e as Record<string, unknown>).target === connectionId &&
       (e as { metadata?: { reverted?: boolean } }).metadata?.reverted === true
   );
-  assert.ok(deleteEvt, "quota.plan.updated audit event (reverted=true) must be present after DELETE");
+  assert.ok(
+    deleteEvt,
+    "quota.plan.updated audit event (reverted=true) must be present after DELETE"
+  );
 });
 
 test("DELETE /api/quota/plans/[connectionId] is idempotent → 204 even when not found", async () => {

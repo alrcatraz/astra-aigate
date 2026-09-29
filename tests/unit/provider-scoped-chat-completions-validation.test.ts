@@ -21,7 +21,7 @@ const { POST } =
 after(async () => {
   try {
     const core = await import("../../src/lib/db/core.ts");
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
   } catch {
     // best-effort cleanup — never fail the suite on teardown
   }

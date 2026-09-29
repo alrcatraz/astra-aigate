@@ -38,7 +38,7 @@ test("OpenAI API catalog exposes the public GPT-5.6 family and keeps GPT-5.4", (
   }
 });
 
-test("OpenAI API GPT-5.6 pricing matches the published standard tier", () => {
+test("OpenAI API GPT-5.6 pricing matches the published standard tier", async () => {
   const expectedPricing = {
     "gpt-5.6": { input: 5, cached: 0.5, cache_creation: 6.25, output: 30 },
     "gpt-5.6-sol": { input: 5, cached: 0.5, cache_creation: 6.25, output: 30 },
@@ -47,7 +47,7 @@ test("OpenAI API GPT-5.6 pricing matches the published standard tier", () => {
   };
 
   for (const [modelId, expected] of Object.entries(expectedPricing)) {
-    const pricing = getPricingForModel("openai", modelId);
+    const pricing = await getPricingForModel("openai", modelId);
     assert.ok(pricing, `missing openai pricing for ${modelId}`);
     assert.equal(pricing.input, expected.input, `${modelId} input`);
     assert.equal(pricing.cached, expected.cached, `${modelId} cached`);

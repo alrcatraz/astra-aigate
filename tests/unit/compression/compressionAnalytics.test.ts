@@ -8,7 +8,9 @@ const tmpDir = mkdtempSync(join(tmpdir(), "omniroute-test-"));
 process.env.DATA_DIR = tmpDir;
 
 const core = await import("../../../src/lib/db/core.ts");
-core.resetDbInstance();
+await core.resetDbInstanceDrained();
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { insertCompressionAnalyticsRow, getCompressionAnalyticsSummary } =
   await import("../../../src/lib/db/compressionAnalytics.ts");
 const { attachCompressionUsageReceipt } =
@@ -45,8 +47,8 @@ describe("compressionAnalytics", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("empty table returns zeroed summary", () => {
-    const summary = getCompressionAnalyticsSummary();
+  it("empty table returns zeroed summary", async () => {
+    const summary = await getCompressionAnalyticsSummary();
     assert.deepEqual(summary, {
       totalRequests: 0,
       totalTokensSaved: 0,
@@ -78,7 +80,7 @@ describe("compressionAnalytics", () => {
     assert.equal(summary.last24h.length, 24);
   });
 
-  it("insert single row does not throw", () => {
+  it("insert single row does not throw", async () => {
     const row = {
       timestamp: new Date().toISOString(),
       mode: "lite",
@@ -87,7 +89,7 @@ describe("compressionAnalytics", () => {
       tokens_saved: 200,
     };
     assert.doesNotThrow(() => insertCompressionAnalyticsRow(row));
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.totalRequests, 1);
   });
 
@@ -122,7 +124,7 @@ describe("compressionAnalytics", () => {
     assert.equal(row.rtk_raw_output_total_bytes, 250);
   });
 
-  it("summary counts correctly after multiple inserts", () => {
+  it("summary counts correctly after multiple inserts", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "lite",
@@ -144,11 +146,11 @@ describe("compressionAnalytics", () => {
       compressed_tokens: 400,
       tokens_saved: 100,
     });
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.totalRequests, 3);
   });
 
-  it("totalTokensSaved sums correctly", () => {
+  it("totalTokensSaved sums correctly", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "lite",
@@ -163,11 +165,11 @@ describe("compressionAnalytics", () => {
       compressed_tokens: 280,
       tokens_saved: 20,
     });
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.totalTokensSaved, 220);
   });
 
-  it("byMode groups correctly", () => {
+  it("byMode groups correctly", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "lite",
@@ -189,13 +191,13 @@ describe("compressionAnalytics", () => {
       compressed_tokens: 270,
       tokens_saved: 30,
     });
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.byMode["lite"].count, 2);
     assert.equal(summary.byMode["lite"].tokensSaved, 300);
     assert.equal(summary.byMode["standard"].count, 1);
   });
 
-  it("byProvider groups correctly", () => {
+  it("byProvider groups correctly", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "lite",
@@ -212,12 +214,12 @@ describe("compressionAnalytics", () => {
       tokens_saved: 100,
       provider: "ProviderB",
     });
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.deepEqual(summary.byProvider["ProviderA"], { count: 1, tokensSaved: 200 });
     assert.deepEqual(summary.byProvider["ProviderB"], { count: 1, tokensSaved: 100 });
   });
 
-  it("since=24h filters rows older than 24h", () => {
+  it("since=24h filters rows older than 24h", async () => {
     const oldTimestamp = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const recentTimestamp = new Date().toISOString();
 
@@ -236,12 +238,12 @@ describe("compressionAnalytics", () => {
       tokens_saved: 100,
     });
 
-    const summary24h = getCompressionAnalyticsSummary("24h");
+    const summary24h = await getCompressionAnalyticsSummary("24h");
     assert.equal(summary24h.totalRequests, 1);
     assert.equal(summary24h.totalTokensSaved, 100);
   });
 
-  it("since=undefined returns all rows including old ones", () => {
+  it("since=undefined returns all rows including old ones", async () => {
     const oldTimestamp = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const recentTimestamp = new Date().toISOString();
 
@@ -260,12 +262,12 @@ describe("compressionAnalytics", () => {
       tokens_saved: 100,
     });
 
-    const summaryAll = getCompressionAnalyticsSummary();
+    const summaryAll = await getCompressionAnalyticsSummary();
     assert.equal(summaryAll.totalRequests, 2);
     assert.equal(summaryAll.totalTokensSaved, 300);
   });
 
-  it("avgSavingsPct calculates correctly", () => {
+  it("avgSavingsPct calculates correctly", async () => {
     // 200/1000 = 20%, 100/500 = 20% → avg = 20%
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
@@ -281,11 +283,11 @@ describe("compressionAnalytics", () => {
       compressed_tokens: 400,
       tokens_saved: 100,
     });
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.avgSavingsPct, 20);
   });
 
-  it("last24h hourly buckets have correct shape", () => {
+  it("last24h hourly buckets have correct shape", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "lite",
@@ -293,7 +295,7 @@ describe("compressionAnalytics", () => {
       compressed_tokens: 800,
       tokens_saved: 200,
     });
-    const hourly = getCompressionAnalyticsSummary("24h").last24h;
+    const hourly = (await getCompressionAnalyticsSummary("24h")).last24h;
     assert(Array.isArray(hourly));
     assert(hourly.length <= 24);
     hourly.forEach((bucket) => {
@@ -303,7 +305,7 @@ describe("compressionAnalytics", () => {
     });
   });
 
-  it("attaches real usage receipts to the latest compression row", () => {
+  it("attaches real usage receipts to the latest compression row", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "standard",
@@ -322,7 +324,7 @@ describe("compressionAnalytics", () => {
       },
       "provider"
     );
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.realUsage.requestsWithReceipts, 1);
     assert.equal(summary.realUsage.promptTokens, 710);
     assert.equal(summary.realUsage.completionTokens, 42);
@@ -332,7 +334,7 @@ describe("compressionAnalytics", () => {
     assert.equal(summary.realUsage.bySource.provider, 1);
   });
 
-  it("aggregates estimated USD savings separately from token estimates", () => {
+  it("aggregates estimated USD savings separately from token estimates", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "standard",
@@ -344,12 +346,12 @@ describe("compressionAnalytics", () => {
     });
     attachCompressionUsageReceipt("req-usd", { prompt_tokens: 700, total_tokens: 700 }, "provider");
 
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.realUsage.requestsWithReceipts, 1);
     assert.equal(summary.realUsage.estimatedUsdSaved, 0.0015);
   });
 
-  it("summarizes validation fallback and output mode rows", () => {
+  it("summarizes validation fallback and output mode rows", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "output-caveman",
@@ -366,14 +368,14 @@ describe("compressionAnalytics", () => {
       "provider"
     );
 
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.validationFallbacks, 1);
     assert.equal(summary.byMode["output-caveman"].count, 1);
     assert.equal(summary.realUsage.requestsWithReceipts, 1);
     assert.equal(summary.realUsage.totalTokens, 1020);
   });
 
-  it("summarizes MCP description estimates without counting them as provider receipts", () => {
+  it("summarizes MCP description estimates without counting them as provider receipts", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "mcp-description",
@@ -384,7 +386,7 @@ describe("compressionAnalytics", () => {
       mcp_description_tokens_saved: 8,
     });
 
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.mcpDescriptionCompression.snapshots, 1);
     assert.equal(summary.mcpDescriptionCompression.estimatedTokensSaved, 8);
     assert.equal(summary.realUsage.requestsWithReceipts, 0);
@@ -393,7 +395,7 @@ describe("compressionAnalytics", () => {
 
   // #4268: attempted-but-no-op runs are recorded with skip_reason so Stacked is
   // visible even when it saves nothing, while saving aggregates stay net-saving-only.
-  it("records skipped (no-op) runs separately without polluting saving aggregates", () => {
+  it("records skipped (no-op) runs separately without polluting saving aggregates", async () => {
     // One real saving run...
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
@@ -420,7 +422,7 @@ describe("compressionAnalytics", () => {
       skip_reason: "no_savings",
     });
 
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
 
     // Saving aggregates count the net-saving run ONLY (skip rows excluded).
     assert.equal(summary.totalRequests, 1, "totalRequests must exclude skip rows");
@@ -434,7 +436,7 @@ describe("compressionAnalytics", () => {
     assert.equal(summary.bySkipReason.no_savings, 2);
   });
 
-  it("a mode with only no-op runs still appears (count 0, skipped > 0)", () => {
+  it("a mode with only no-op runs still appears (count 0, skipped > 0)", async () => {
     insertCompressionAnalyticsRow({
       timestamp: new Date().toISOString(),
       mode: "stacked",
@@ -444,7 +446,7 @@ describe("compressionAnalytics", () => {
       skip_reason: "no_savings",
     });
 
-    const summary = getCompressionAnalyticsSummary();
+    const summary = await getCompressionAnalyticsSummary();
     assert.equal(summary.totalRequests, 0, "no net-saving runs");
     assert.ok(summary.byMode.stacked, "stacked must appear even with only skip rows");
     assert.equal(summary.byMode.stacked.count, 0);

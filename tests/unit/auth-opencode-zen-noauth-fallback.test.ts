@@ -21,8 +21,8 @@ const core = await import("../../src/lib/db/core.ts");
 const { getProviderCredentials } = await import("../../src/sse/services/auth.ts");
 const { createProviderConnection } = await import("../../src/lib/db/providers.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

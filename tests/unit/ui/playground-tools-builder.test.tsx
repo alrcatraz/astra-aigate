@@ -4,12 +4,10 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { useToolsBuilder } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/hooks/useToolsBuilder"
-);
-const { default: ToolsBuilder } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/components/ToolsBuilder"
-);
+const { useToolsBuilder } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/hooks/useToolsBuilder");
+const { default: ToolsBuilder } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/components/ToolsBuilder");
 
 if (typeof Element.prototype.scrollIntoView === "undefined") {
   Object.defineProperty(Element.prototype, "scrollIntoView", {
@@ -19,21 +17,22 @@ if (typeof Element.prototype.scrollIntoView === "undefined") {
   });
 }
 
-function setInputValue(
-  el: HTMLTextAreaElement | HTMLInputElement,
-  value: string,
-): void {
+async function setInputValue(el: HTMLTextAreaElement | HTMLInputElement, value: string): void {
   const nativeSetter =
     el instanceof HTMLTextAreaElement
       ? Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
       : Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
   nativeSetter?.call(el, value);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-  el.dispatchEvent(new Event("change", { bubbles: true }));
+  await el.dispatchEvent(new Event("input", { bubbles: true }));
+  await el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 // Wrapper component to expose the useToolsBuilder hook
-function ToolsBuilderWrapper({ onReady }: { onReady?: (builder: ReturnType<typeof useToolsBuilder>) => void }) {
+function ToolsBuilderWrapper({
+  onReady,
+}: {
+  onReady?: (builder: ReturnType<typeof useToolsBuilder>) => void;
+}) {
   const builder = useToolsBuilder();
   React.useEffect(() => {
     onReady?.(builder);
@@ -43,7 +42,9 @@ function ToolsBuilderWrapper({ onReady }: { onReady?: (builder: ReturnType<typeo
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
-function renderToolsBuilder(onReady?: (b: ReturnType<typeof useToolsBuilder>) => void): HTMLDivElement {
+function renderToolsBuilder(
+  onReady?: (b: ReturnType<typeof useToolsBuilder>) => void
+): HTMLDivElement {
   const el = document.createElement("div");
   document.body.appendChild(el);
   const root = createRoot(el);
@@ -75,10 +76,14 @@ describe("ToolsBuilder", () => {
     const addBtn = el.querySelector("button[class*='bg-primary']") as HTMLButtonElement;
     expect(addBtn?.textContent?.trim()).toBe("+ Add tool");
 
-    await act(async () => { addBtn.click(); });
+    await act(async () => {
+      addBtn.click();
+    });
 
     // Zod validation should show error
-    expect(el.textContent).toMatch(/String must contain at least 1 character|Too small|name|required/i);
+    expect(el.textContent).toMatch(
+      /String must contain at least 1 character|Too small|name|required/i
+    );
   });
 
   it("adds a valid tool to the list", async () => {
@@ -96,7 +101,9 @@ describe("ToolsBuilder", () => {
 
     // Parameters textarea already has valid JSON by default
     const addBtn = el.querySelector("button[class*='bg-primary']") as HTMLButtonElement;
-    await act(async () => { addBtn.click(); });
+    await act(async () => {
+      addBtn.click();
+    });
 
     // Should show the tool in the list
     expect(el.textContent).toContain("get_weather");
@@ -116,7 +123,9 @@ describe("ToolsBuilder", () => {
     act(() => setInputValue(paramsTextarea, "not valid json"));
 
     const addBtn = el.querySelector("button[class*='bg-primary']") as HTMLButtonElement;
-    await act(async () => { addBtn.click(); });
+    await act(async () => {
+      addBtn.click();
+    });
 
     // Should show JSON parse error
     expect(el.textContent).toContain("valid JSON");
@@ -129,14 +138,18 @@ describe("ToolsBuilder", () => {
     const inputs = el.querySelectorAll("input[type='text']") as NodeListOf<HTMLInputElement>;
     act(() => setInputValue(inputs[0], "to_remove"));
     const addBtn = el.querySelector("button[class*='bg-primary']") as HTMLButtonElement;
-    await act(async () => { addBtn.click(); });
+    await act(async () => {
+      addBtn.click();
+    });
 
     expect(el.textContent).toContain("to_remove");
 
     // Click delete button
     const deleteBtn = el.querySelector("[aria-label='Remove tool to_remove']") as HTMLButtonElement;
     expect(deleteBtn).not.toBeNull();
-    await act(async () => { deleteBtn.click(); });
+    await act(async () => {
+      deleteBtn.click();
+    });
 
     expect(el.textContent).not.toContain("to_remove");
     expect(el.textContent).not.toContain("Tools (1)");
@@ -149,12 +162,16 @@ describe("ToolsBuilder", () => {
     const inputs = el.querySelectorAll("input[type='text']") as NodeListOf<HTMLInputElement>;
     act(() => setInputValue(inputs[0], "edit_me"));
     const addBtn = el.querySelector("button[class*='bg-primary']") as HTMLButtonElement;
-    await act(async () => { addBtn.click(); });
+    await act(async () => {
+      addBtn.click();
+    });
 
     // Click edit button
     const editBtn = el.querySelector("[aria-label='Edit tool edit_me']") as HTMLButtonElement;
     expect(editBtn).not.toBeNull();
-    await act(async () => { editBtn.click(); });
+    await act(async () => {
+      editBtn.click();
+    });
 
     // Should show Save/Cancel buttons
     expect(el.textContent).toContain("Save");

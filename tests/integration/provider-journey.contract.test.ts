@@ -117,16 +117,18 @@ async function fetchCatalog(
 }
 
 test.before(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // requireLogin + requireAuthForModels ON so the API-key surface is gated.
   await localDb.updateSettings({ requireLogin: true, requireAuthForModels: true, password: "" });
   v1ModelsCatalog.__resetCatalogBuilderRunsForTest();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

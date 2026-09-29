@@ -13,7 +13,7 @@ const catalog = await import("../../src/lib/providers/catalog.ts");
 const apiKeyRotator = await import("../../open-sse/services/apiKeyRotator.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
@@ -26,13 +26,15 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

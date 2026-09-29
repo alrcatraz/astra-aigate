@@ -22,7 +22,7 @@ const core = await import("../../src/lib/db/core.ts");
 const plansDb = await import("../../src/lib/db/providerPlans.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -38,6 +38,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -45,7 +47,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -53,35 +55,35 @@ test.after(async () => {
 // upsertPlan — idempotence
 // ---------------------------------------------------------------------------
 
-test("upsertPlan creates a plan row", () => {
-  plansDb.upsertPlan(
+test("upsertPlan creates a plan row", async () => {
+  await plansDb.upsertPlan(
     "conn-1",
     "codex",
     [{ unit: "percent", window: "5h", limit: 100 }],
     "auto"
   );
 
-  const all = plansDb.listPlans();
+  const all = await plansDb.listPlans();
   assert.equal(all.length, 1);
   assert.equal(all[0].connectionId, "conn-1");
   assert.equal(all[0].provider, "codex");
 });
 
-test("upsertPlan with same connectionId twice yields exactly 1 row", () => {
-  plansDb.upsertPlan(
+test("upsertPlan with same connectionId twice yields exactly 1 row", async () => {
+  await plansDb.upsertPlan(
     "conn-idempotent",
     "kimi",
     [{ unit: "requests", window: "hourly", limit: 1500 }],
     "auto"
   );
-  plansDb.upsertPlan(
+  await plansDb.upsertPlan(
     "conn-idempotent",
     "kimi",
     [{ unit: "requests", window: "hourly", limit: 2000 }], // updated limit
     "manual"
   );
 
-  const all = plansDb.listPlans();
+  const all = await plansDb.listPlans();
   assert.equal(all.length, 1, "should have exactly 1 row after 2 upserts");
   assert.equal(all[0].dimensions[0].limit, 2000, "should have the latest limit");
   assert.equal(all[0].source, "manual", "should have the latest source");
@@ -91,13 +93,13 @@ test("upsertPlan with same connectionId twice yields exactly 1 row", () => {
 // getPlan — parse dimensions_json
 // ---------------------------------------------------------------------------
 
-test("getPlan returns null for unknown connectionId", () => {
-  const plan = plansDb.getPlan("no-such-conn");
+test("getPlan returns null for unknown connectionId", async () => {
+  const plan = await plansDb.getPlan("no-such-conn");
   assert.equal(plan, null);
 });
 
-test("getPlan returns a plan with correctly parsed dimensions", () => {
-  plansDb.upsertPlan(
+test("getPlan returns a plan with correctly parsed dimensions", async () => {
+  await plansDb.upsertPlan(
     "conn-parse",
     "bailian",
     [
@@ -107,7 +109,7 @@ test("getPlan returns a plan with correctly parsed dimensions", () => {
     "auto"
   );
 
-  const plan = plansDb.getPlan("conn-parse");
+  const plan = await plansDb.getPlan("conn-parse");
   assert.ok(plan, "should return a plan");
   assert.equal(plan!.provider, "bailian");
   assert.equal(plan!.dimensions.length, 2);
@@ -118,7 +120,7 @@ test("getPlan returns a plan with correctly parsed dimensions", () => {
   assert.equal(plan!.source, "auto");
 });
 
-test("getPlan parses all QuotaUnit and QuotaWindow variants correctly", () => {
+test("getPlan parses all QuotaUnit and QuotaWindow variants correctly", async () => {
   const dims = [
     { unit: "percent" as const, window: "5h" as const, limit: 100 },
     { unit: "requests" as const, window: "hourly" as const, limit: 1500 },
@@ -126,8 +128,8 @@ test("getPlan parses all QuotaUnit and QuotaWindow variants correctly", () => {
     { unit: "usd" as const, window: "monthly" as const, limit: 10 },
   ];
 
-  plansDb.upsertPlan("conn-variants", "multi", dims, "manual");
-  const plan = plansDb.getPlan("conn-variants");
+  await plansDb.upsertPlan("conn-variants", "multi", dims, "manual");
+  const plan = await plansDb.getPlan("conn-variants");
   assert.ok(plan);
   assert.equal(plan!.dimensions.length, 4);
   for (let i = 0; i < dims.length; i++) {
@@ -141,29 +143,34 @@ test("getPlan parses all QuotaUnit and QuotaWindow variants correctly", () => {
 // listPlans
 // ---------------------------------------------------------------------------
 
-test("listPlans returns all stored plans", () => {
-  plansDb.upsertPlan("conn-a", "codex", [{ unit: "percent", window: "5h", limit: 100 }], "auto");
-  plansDb.upsertPlan(
+test("listPlans returns all stored plans", async () => {
+  await plansDb.upsertPlan(
+    "conn-a",
+    "codex",
+    [{ unit: "percent", window: "5h", limit: 100 }],
+    "auto"
+  );
+  await plansDb.upsertPlan(
     "conn-b",
     "kimi",
     [{ unit: "requests", window: "hourly", limit: 1500 }],
     "manual"
   );
-  plansDb.upsertPlan(
+  await plansDb.upsertPlan(
     "conn-c",
     "bailian",
     [{ unit: "percent", window: "monthly", limit: 100 }],
     "auto"
   );
 
-  const plans = plansDb.listPlans();
+  const plans = await plansDb.listPlans();
   assert.equal(plans.length, 3);
   const providers = plans.map((p) => p.provider).sort();
   assert.deepEqual(providers, ["bailian", "codex", "kimi"]);
 });
 
-test("listPlans returns empty array when no plans exist", () => {
-  const plans = plansDb.listPlans();
+test("listPlans returns empty array when no plans exist", async () => {
+  const plans = await plansDb.listPlans();
   assert.deepEqual(plans, []);
 });
 
@@ -171,22 +178,22 @@ test("listPlans returns empty array when no plans exist", () => {
 // deletePlan
 // ---------------------------------------------------------------------------
 
-test("deletePlan removes the plan and returns true", () => {
-  plansDb.upsertPlan(
+test("deletePlan removes the plan and returns true", async () => {
+  await plansDb.upsertPlan(
     "conn-delete-me",
     "codex",
     [{ unit: "percent", window: "5h", limit: 100 }],
     "auto"
   );
 
-  const deleted = plansDb.deletePlan("conn-delete-me");
+  const deleted = await plansDb.deletePlan("conn-delete-me");
   assert.equal(deleted, true);
   assert.equal(plansDb.getPlan("conn-delete-me"), null);
   assert.equal(plansDb.listPlans().length, 0);
 });
 
-test("deletePlan returns false for unknown connectionId", () => {
-  const deleted = plansDb.deletePlan("ghost-connection");
+test("deletePlan returns false for unknown connectionId", async () => {
+  const deleted = await plansDb.deletePlan("ghost-connection");
   assert.equal(deleted, false);
 });
 
@@ -194,9 +201,14 @@ test("deletePlan returns false for unknown connectionId", () => {
 // upsertPlan + upsert doesn't destroy other rows
 // ---------------------------------------------------------------------------
 
-test("upserting one plan does not affect other connection plans", () => {
-  plansDb.upsertPlan("conn-x", "openai", [{ unit: "usd", window: "monthly", limit: 50 }], "manual");
-  plansDb.upsertPlan(
+test("upserting one plan does not affect other connection plans", async () => {
+  await plansDb.upsertPlan(
+    "conn-x",
+    "openai",
+    [{ unit: "usd", window: "monthly", limit: 50 }],
+    "manual"
+  );
+  await plansDb.upsertPlan(
     "conn-y",
     "anthropic",
     [{ unit: "tokens", window: "daily", limit: 100_000 }],
@@ -204,9 +216,14 @@ test("upserting one plan does not affect other connection plans", () => {
   );
 
   // Update conn-x
-  plansDb.upsertPlan("conn-x", "openai", [{ unit: "usd", window: "monthly", limit: 100 }], "manual");
+  await plansDb.upsertPlan(
+    "conn-x",
+    "openai",
+    [{ unit: "usd", window: "monthly", limit: 100 }],
+    "manual"
+  );
 
-  const planY = plansDb.getPlan("conn-y");
+  const planY = await plansDb.getPlan("conn-y");
   assert.ok(planY, "conn-y should still exist");
   assert.equal(planY!.dimensions[0].limit, 100_000);
 });

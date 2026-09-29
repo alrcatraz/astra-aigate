@@ -11,7 +11,7 @@ const core = await import("../../src/lib/db/core.ts");
 const rk = await import("../../src/lib/db/registeredKeys.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -24,6 +24,7 @@ async function resetStorage() {
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 await resetStorage();
@@ -32,7 +33,7 @@ await resetStorage();
 
 test("issueRegisteredKey creates a key and returns it with rawKey", async () => {
   await resetStorage();
-  const result = rk.issueRegisteredKey({
+  const result = await rk.issueRegisteredKey({
     name: "Test Key",
     provider: "openai",
     accountId: "acc-1",
@@ -50,12 +51,12 @@ test("issueRegisteredKey creates a key and returns it with rawKey", async () => 
 
 test("issueRegisteredKey with idempotency key", async () => {
   await resetStorage();
-  const first = rk.issueRegisteredKey({
+  const first = await rk.issueRegisteredKey({
     name: "Idempotent",
     idempotencyKey: "idem-1",
   });
 
-  const second = rk.issueRegisteredKey({
+  const second = await rk.issueRegisteredKey({
     name: "Should Conflict",
     idempotencyKey: "idem-1",
   });
@@ -67,7 +68,7 @@ test("issueRegisteredKey with idempotency key", async () => {
 
 test("issueRegisteredKey with expiresAt and budgets", async () => {
   await resetStorage();
-  const result = rk.issueRegisteredKey({
+  const result = await rk.issueRegisteredKey({
     name: "Budgeted Key",
     provider: "anthropic",
     expiresAt: "2027-01-01T00:00:00Z",
@@ -83,7 +84,7 @@ test("issueRegisteredKey with expiresAt and budgets", async () => {
 
 test("issueRegisteredKey without provider skips provider quotas", async () => {
   await resetStorage();
-  const result = rk.issueRegisteredKey({ name: "No Provider Key" });
+  const result = await rk.issueRegisteredKey({ name: "No Provider Key" });
   assert.ok("rawKey" in result);
 });
 
@@ -92,7 +93,7 @@ test("issueRegisteredKey without provider skips provider quotas", async () => {
 test("getRegisteredKey returns key by id", async () => {
   await resetStorage();
   const created = rk.issueRegisteredKey({ name: "Get Me" }) as any;
-  const loaded = rk.getRegisteredKey(created.id);
+  const loaded = await rk.getRegisteredKey(created.id);
   assert.ok(loaded !== null);
   assert.equal(loaded.name, "Get Me");
   assert.equal(loaded.id, created.id);
@@ -106,29 +107,29 @@ test("getRegisteredKey returns null for missing id", () => {
 
 test("listRegisteredKeys returns all keys", async () => {
   await resetStorage();
-  rk.issueRegisteredKey({ name: "Key A", provider: "openai" });
-  rk.issueRegisteredKey({ name: "Key B", provider: "anthropic" });
+  await rk.issueRegisteredKey({ name: "Key A", provider: "openai" });
+  await rk.issueRegisteredKey({ name: "Key B", provider: "anthropic" });
 
-  const all = rk.listRegisteredKeys();
+  const all = await rk.listRegisteredKeys();
   assert.equal(all.length, 2);
 });
 
 test("listRegisteredKeys filters by provider", async () => {
   await resetStorage();
-  rk.issueRegisteredKey({ name: "OA", provider: "openai" });
-  rk.issueRegisteredKey({ name: "AN", provider: "anthropic" });
+  await rk.issueRegisteredKey({ name: "OA", provider: "openai" });
+  await rk.issueRegisteredKey({ name: "AN", provider: "anthropic" });
 
-  const filtered = rk.listRegisteredKeys({ provider: "openai" });
+  const filtered = await rk.listRegisteredKeys({ provider: "openai" });
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].name, "OA");
 });
 
 test("listRegisteredKeys filters by accountId", async () => {
   await resetStorage();
-  rk.issueRegisteredKey({ name: "Acc1 Key", accountId: "acc-1" });
-  rk.issueRegisteredKey({ name: "Acc2 Key", accountId: "acc-2" });
+  await rk.issueRegisteredKey({ name: "Acc1 Key", accountId: "acc-1" });
+  await rk.issueRegisteredKey({ name: "Acc2 Key", accountId: "acc-2" });
 
-  const filtered = rk.listRegisteredKeys({ accountId: "acc-1" });
+  const filtered = await rk.listRegisteredKeys({ accountId: "acc-1" });
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].name, "Acc1 Key");
 });
@@ -140,10 +141,10 @@ test("revokeRegisteredKey deactivates a key", async () => {
   const created = rk.issueRegisteredKey({ name: "Revoke Me" }) as any;
   assert.equal(created.isActive, true);
 
-  const revoked = rk.revokeRegisteredKey(created.id);
+  const revoked = await rk.revokeRegisteredKey(created.id);
   assert.equal(revoked, true);
 
-  const loaded = rk.getRegisteredKey(created.id);
+  const loaded = await rk.getRegisteredKey(created.id);
   assert.equal(loaded!.isActive, false);
   assert.ok(loaded!.revokedAt);
 });
@@ -153,7 +154,7 @@ test("revokeRegisteredKey returns false for already revoked or missing key", asy
   assert.equal(rk.revokeRegisteredKey("no-such-id"), false);
 
   const created = rk.issueRegisteredKey({ name: "To Revoke" }) as any;
-  rk.revokeRegisteredKey(created.id);
+  await rk.revokeRegisteredKey(created.id);
   assert.equal(rk.revokeRegisteredKey(created.id), false);
 });
 
@@ -163,7 +164,7 @@ test("validateRegisteredKey validates raw key by hash", async () => {
   await resetStorage();
   const created = rk.issueRegisteredKey({ name: "Validate Me" }) as any;
 
-  const validated = rk.validateRegisteredKey(created.rawKey);
+  const validated = await rk.validateRegisteredKey(created.rawKey);
   assert.ok(validated !== null);
   assert.equal(validated.name, "Validate Me");
 });
@@ -175,7 +176,7 @@ test("validateRegisteredKey returns null for invalid key", () => {
 test("validateRegisteredKey returns null for revoked key", async () => {
   await resetStorage();
   const created = rk.issueRegisteredKey({ name: "Soon Revoked" }) as any;
-  rk.revokeRegisteredKey(created.id);
+  await rk.revokeRegisteredKey(created.id);
   assert.equal(rk.validateRegisteredKey(created.rawKey), null);
 });
 
@@ -192,8 +193,8 @@ test("incrementRegisteredKeyUsage bumps counters", async () => {
   assert.equal(created.dailyUsed, 0);
   assert.equal(created.hourlyUsed, 0);
 
-  rk.incrementRegisteredKeyUsage(created.id);
-  const loaded = rk.getRegisteredKey(created.id);
+  await rk.incrementRegisteredKeyUsage(created.id);
+  const loaded = await rk.getRegisteredKey(created.id);
   assert.equal(loaded!.dailyUsed, 1);
   assert.equal(loaded!.hourlyUsed, 1);
 });
@@ -206,9 +207,9 @@ test("validateRegisteredKey respects budget limits", async () => {
   }) as any;
 
   assert.ok(rk.validateRegisteredKey(created.rawKey) !== null);
-  rk.incrementRegisteredKeyUsage(created.id);
-  rk.incrementRegisteredKeyUsage(created.id);
-  rk.incrementRegisteredKeyUsage(created.id);
+  await rk.incrementRegisteredKeyUsage(created.id);
+  await rk.incrementRegisteredKeyUsage(created.id);
+  await rk.incrementRegisteredKeyUsage(created.id);
   // After 3 increments, daily_used == daily_budget == 3
   assert.equal(rk.validateRegisteredKey(created.rawKey), null);
 });
@@ -217,42 +218,42 @@ test("validateRegisteredKey respects budget limits", async () => {
 
 test("checkQuota returns allowed true when no limits set", async () => {
   await resetStorage();
-  const result = rk.checkQuota("openai", "acc-1");
+  const result = await rk.checkQuota("openai", "acc-1");
   assert.equal(result.allowed, true);
 });
 
-test("checkQuota returns allowed true with no provider or account", () => {
-  const result = rk.checkQuota("", "");
+test("checkQuota returns allowed true with no provider or account", async () => {
+  const result = await rk.checkQuota("", "");
   assert.equal(result.allowed, true);
 });
 
 test("checkQuota rejects when hourly limit exceeded", async () => {
   await resetStorage();
-  rk.setProviderKeyLimit("limited-provider", { hourlyIssueLimit: 2 });
-  rk.issueRegisteredKey({ name: "K1", provider: "limited-provider" });
-  rk.issueRegisteredKey({ name: "K2", provider: "limited-provider" });
+  await rk.setProviderKeyLimit("limited-provider", { hourlyIssueLimit: 2 });
+  await rk.issueRegisteredKey({ name: "K1", provider: "limited-provider" });
+  await rk.issueRegisteredKey({ name: "K2", provider: "limited-provider" });
 
-  const result = rk.checkQuota("limited-provider");
+  const result = await rk.checkQuota("limited-provider");
   assert.equal(result.allowed, false);
   assert.equal(result.errorCode, "PROVIDER_QUOTA_EXCEEDED");
 });
 
 test("checkQuota rejects when max active keys exceeded", async () => {
   await resetStorage();
-  rk.setProviderKeyLimit("maxed-provider", { maxActiveKeys: 1 });
-  rk.issueRegisteredKey({ name: "Only One", provider: "maxed-provider" });
+  await rk.setProviderKeyLimit("maxed-provider", { maxActiveKeys: 1 });
+  await rk.issueRegisteredKey({ name: "Only One", provider: "maxed-provider" });
 
-  const result = rk.checkQuota("maxed-provider");
+  const result = await rk.checkQuota("maxed-provider");
   assert.equal(result.allowed, false);
   assert.equal(result.errorCode, "MAX_ACTIVE_KEYS_EXCEEDED");
 });
 
 test("checkQuota account-level rejection", async () => {
   await resetStorage();
-  rk.setAccountKeyLimit("limited-account", { dailyIssueLimit: 1 });
-  rk.issueRegisteredKey({ name: "Only", accountId: "limited-account" });
+  await rk.setAccountKeyLimit("limited-account", { dailyIssueLimit: 1 });
+  await rk.issueRegisteredKey({ name: "Only", accountId: "limited-account" });
 
-  const result = rk.checkQuota("", "limited-account");
+  const result = await rk.checkQuota("", "limited-account");
   assert.equal(result.allowed, false);
   assert.equal(result.errorCode, "ACCOUNT_QUOTA_EXCEEDED");
 });
@@ -261,13 +262,13 @@ test("checkQuota account-level rejection", async () => {
 
 test("setProviderKeyLimit and getProviderKeyLimit round-trip", async () => {
   await resetStorage();
-  rk.setProviderKeyLimit("test-provider", {
+  await rk.setProviderKeyLimit("test-provider", {
     maxActiveKeys: 5,
     dailyIssueLimit: 100,
     hourlyIssueLimit: 20,
   });
 
-  const limit = rk.getProviderKeyLimit("test-provider");
+  const limit = await rk.getProviderKeyLimit("test-provider");
   assert.ok(limit !== null);
   assert.equal(limit.provider, "test-provider");
   assert.equal(limit.maxActiveKeys, 5);
@@ -281,8 +282,8 @@ test("getProviderKeyLimit returns null for unknown provider", () => {
 
 test("setProviderKeyLimit with partial limits", async () => {
   await resetStorage();
-  rk.setProviderKeyLimit("partial-provider", { maxActiveKeys: 3 });
-  const limit = rk.getProviderKeyLimit("partial-provider");
+  await rk.setProviderKeyLimit("partial-provider", { maxActiveKeys: 3 });
+  const limit = await rk.getProviderKeyLimit("partial-provider");
   assert.equal(limit!.maxActiveKeys, 3);
   assert.equal(limit!.dailyIssueLimit, null);
   assert.equal(limit!.hourlyIssueLimit, null);
@@ -292,13 +293,13 @@ test("setProviderKeyLimit with partial limits", async () => {
 
 test("setAccountKeyLimit and getAccountKeyLimit round-trip", async () => {
   await resetStorage();
-  rk.setAccountKeyLimit("test-account", {
+  await rk.setAccountKeyLimit("test-account", {
     maxActiveKeys: 10,
     dailyIssueLimit: 200,
     hourlyIssueLimit: 50,
   });
 
-  const limit = rk.getAccountKeyLimit("test-account");
+  const limit = await rk.getAccountKeyLimit("test-account");
   assert.ok(limit !== null);
   assert.equal(limit.accountId, "test-account");
   assert.equal(limit.maxActiveKeys, 10);

@@ -14,12 +14,12 @@ test("hashKey in apiKeys handles null/undefined safely", async () => {
   assert.equal(resultUndefined, false);
 });
 
-test("hashKey in registeredKeys handles null/undefined safely", () => {
+test("hashKey in registeredKeys handles null/undefined safely", async () => {
   // @ts-ignore - testing runtime safety
-  const resultNull = registeredKeysDb.validateRegisteredKey(null);
+  const resultNull = await registeredKeysDb.validateRegisteredKey(null);
   assert.equal(resultNull, null);
 
   // @ts-ignore - testing runtime safety
-  const resultUndefined = registeredKeysDb.validateRegisteredKey(undefined);
+  const resultUndefined = await registeredKeysDb.validateRegisteredKey(undefined);
   assert.equal(resultUndefined, null);
 });

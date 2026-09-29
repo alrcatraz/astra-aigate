@@ -22,7 +22,7 @@ const route = await import("../../src/app/api/usage/combo-forecast/route.ts");
 const { normalizeComboStep } = await import("../../src/lib/combos/steps.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // resetDbInstance() closes the DB; the next getDbInstance() re-opens it and
@@ -135,7 +135,7 @@ test("combo forecast projects cost and quota risk from combo history", async () 
     comboExecutionKey: secondStep.id,
   });
 
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "openai",
     connection_id: "forecast-conn-a",
     window_key: "daily",
@@ -145,7 +145,7 @@ test("combo forecast projects cost and quota risk from combo history", async () 
     window_duration_ms: 86_400_000,
     raw_data: null,
   });
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "openai",
     connection_id: "forecast-conn-a",
     window_key: "daily",

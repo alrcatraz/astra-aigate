@@ -27,9 +27,11 @@ const proxiesDb = await import("../../src/lib/db/proxies.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function setGlobalProxyEnabled(enabled: boolean) {
@@ -50,7 +52,7 @@ async function makeConnection(): Promise<string> {
 }
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

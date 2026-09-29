@@ -22,17 +22,19 @@ const { getMcpAccessibilityConfig, setMcpAccessibilityConfig } =
   await import("../../../src/lib/db/compression.ts");
 const route = await import("../../../src/app/api/settings/compression/mcp-accessibility/route.ts");
 
-function resetDir() {
-  core.resetDbInstance();
+async function resetDir() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 describe("mcpAccessibility config reachability", () => {
   beforeEach(resetDir);
-  afterEach(() => core.resetDbInstance());
-  after(() => {
-    core.resetDbInstance();
+  afterEach(async () => await core.resetDbInstanceDrained());
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
     if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = ORIGINAL_DATA_DIR;
@@ -78,7 +80,7 @@ describe("mcpAccessibility config reachability", () => {
     assert.equal(putBody.minLengthToProcess, 500);
 
     // Survives a fresh read from a new DB handle (not just the write-path return value).
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     const getRes = await route.GET(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       new Request("http://localhost/api/settings/compression/mcp-accessibility") as any
@@ -87,6 +89,8 @@ describe("mcpAccessibility config reachability", () => {
     const getBody = await getRes.json();
     assert.equal(getBody.maxTextChars, 12000);
     assert.equal(getBody.minLengthToProcess, 500);
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 
   it("PUT merges over the current config (does not reset untouched fields)", async () => {

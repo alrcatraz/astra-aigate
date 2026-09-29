@@ -30,18 +30,20 @@ const core = await import("../../../src/lib/db/core.ts");
 const { getCompressionSettings, updateCompressionSettings } =
   await import("../../../src/lib/db/compression.ts");
 
-beforeEach(() => {
-  core.resetDbInstance();
+beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-afterEach(() => {
-  core.resetDbInstance();
+afterEach(async () => {
+  await core.resetDbInstanceDrained();
 });
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -93,17 +95,17 @@ describe("#8056 headroom minRows persistence", () => {
     assert.equal(reread.headroom?.minRows, 5);
   });
 
-  it("headroom engine applies with stepConfig.minRows=5 on a 5-row array", () => {
+  it("headroom engine applies with stepConfig.minRows=5 on a 5-row array", async () => {
     const json = JSON.stringify(makeRows(5));
     const body = {
       messages: [{ role: "user", content: json }],
     };
     // Default minRows=8 must NOT compact a 5-row array.
-    const withDefault = headroomEngine.apply(body);
+    const withDefault = await headroomEngine.apply(body);
     assert.equal(withDefault.compressed, false, "default minRows=8 should skip 5-row array");
 
     // With minRows=5 it MUST compact.
-    const withFive = headroomEngine.apply(body, { stepConfig: { minRows: 5 } });
+    const withFive = await headroomEngine.apply(body, { stepConfig: { minRows: 5 } });
     assert.equal(withFive.compressed, true, "minRows=5 should compact a 5-row array");
   });
 

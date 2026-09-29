@@ -24,9 +24,11 @@ function resetRuntime() {
 
 async function resetStorage() {
   resetRuntime();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 async function registerRuntimeSkills() {
@@ -68,9 +70,9 @@ test.beforeEach(async () => {
   await registerRuntimeSkills();
 });
 
-test.after(() => {
+test.after(async () => {
   resetRuntime();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -307,7 +309,10 @@ test("handleToolCallExecution intercepts a registered skill alongside an unregis
     },
     { type: "tool_use", id: "tool-native", name: "Bash", input: { command: "ls" } },
   ]);
-  assert.equal(mixed.content.some((b: { type: string }) => b.type === "tool_result"), false);
+  assert.equal(
+    mixed.content.some((b: { type: string }) => b.type === "tool_result"),
+    false
+  );
   assert.equal(mixed.stop_reason, "tool_use");
 });
 
@@ -337,7 +342,10 @@ test("handleToolCallExecution loads registry from DB on cold cache (covers loadF
       text: '[Skill result: lookup@1.0.0]\n{"record":"resolved:cold"}',
     },
   ]);
-  assert.equal(result.content.some((b: { type: string }) => b.type === "tool_result"), false);
+  assert.equal(
+    result.content.some((b: { type: string }) => b.type === "tool_result"),
+    false
+  );
   assert.equal(result.stop_reason, "end_turn");
   assert.equal(result.stop_sequence, null);
 });

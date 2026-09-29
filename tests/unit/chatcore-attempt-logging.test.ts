@@ -70,8 +70,8 @@ before(async () => {
   await coreDb.ensureDbInitialized();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(testDataDir, { recursive: true, force: true });
 });
 

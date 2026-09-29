@@ -82,8 +82,8 @@ test.beforeEach(() => {
   resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {
@@ -134,7 +134,7 @@ test("B1: syncQuotaCombos — 2-connection same-provider pool produces ONE combo
   const idA = (connA as Record<string, unknown>).id as string;
   const idB = (connB as Record<string, unknown>).id as string;
 
-  const pool = poolsDb.createPool({
+  const pool = await poolsDb.createPool({
     connectionId: idA,
     name: "BalancingPool B1",
     connectionIds: [idA, idB],
@@ -215,7 +215,7 @@ test("B2: syncQuotaCombos — single-connection pool still produces 1-step combo
   });
   const connId = (conn as Record<string, unknown>).id as string;
 
-  const pool = poolsDb.createPool({
+  const pool = await poolsDb.createPool({
     connectionId: connId,
     name: "SingleConnPool B2",
   });
@@ -257,7 +257,7 @@ test("B3: syncQuotaCombos — idempotent on 2-connection pool (no duplicates aft
   const idA = (connA as Record<string, unknown>).id as string;
   const idB = (connB as Record<string, unknown>).id as string;
 
-  const pool = poolsDb.createPool({
+  const pool = await poolsDb.createPool({
     connectionId: idA,
     name: "IdempotentBalancingPool B3",
     connectionIds: [idA, idB],
@@ -310,7 +310,7 @@ test("B4: syncQuotaCombos — after removing one connection from pool, re-sync c
   });
   const idA = (connA as Record<string, unknown>).id as string;
 
-  const pool = poolsDb.createPool({
+  const pool = await poolsDb.createPool({
     connectionId: idA,
     name: "CollapsePool B4",
     connectionIds: [idA, (connB as Record<string, unknown>).id as string],
@@ -330,7 +330,7 @@ test("B4: syncQuotaCombos — after removing one connection from pool, re-sync c
   }
 
   // Remove connB — pool now has only connA.
-  poolsDb.updatePool(pool.id, { connectionIds: [idA] });
+  await poolsDb.updatePool(pool.id, { connectionIds: [idA] });
 
   // Drain the fire-and-forget from updatePool so it cannot overwrite the
   // 1-step result that the following explicit sync will produce.
@@ -370,7 +370,7 @@ test("B5: after syncQuotaCombos on 2-connection pool, getComboByName returns the
   const idA = (connA as Record<string, unknown>).id as string;
   const idB = (connB as Record<string, unknown>).id as string;
 
-  const pool = poolsDb.createPool({
+  const pool = await poolsDb.createPool({
     connectionId: idA,
     name: "GetByNamePool B5",
     connectionIds: [idA, idB],

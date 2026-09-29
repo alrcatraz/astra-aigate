@@ -13,9 +13,8 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omni-comp-cache-test-
 process.env.DATA_DIR = testDataDir;
 
 const coreDb = await import("../../src/lib/db/core.ts");
-const { recordCompressionCacheStats } = await import(
-  "../../open-sse/handlers/chatCore/compressionCacheStats.ts"
-);
+const { recordCompressionCacheStats } =
+  await import("../../open-sse/handlers/chatCore/compressionCacheStats.ts");
 
 function rowsFor(provider: string): Array<Record<string, unknown>> {
   return coreDb
@@ -39,8 +38,8 @@ before(async () => {
   await coreDb.ensureDbInitialized();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   try {
     fs.rmSync(testDataDir, { recursive: true, force: true });
   } catch {

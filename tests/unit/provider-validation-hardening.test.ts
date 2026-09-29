@@ -193,7 +193,7 @@ test("qoder regular API key validates against dashscope, not the Cosy PAT endpoi
   const calls: string[] = [];
   globalThis.fetch = async (url: any, init: any) => {
     calls.push(String(url));
-    const auth = new Headers(init?.headers as HeadersInit | undefined).get("authorization");
+    const auth = await new Headers(init?.headers as HeadersInit | undefined).get("authorization");
     assert.equal(auth, "Bearer sk-qoder-regular", "dashscope probe must forward the API key");
     return new Response(JSON.stringify({ data: [] }), { status: 200 });
   };

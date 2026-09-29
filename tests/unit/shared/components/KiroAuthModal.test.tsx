@@ -16,10 +16,10 @@ function makeContainer(): HTMLElement {
   return container;
 }
 
-function setInputValue(input: HTMLInputElement, value: string): void {
+async function setInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
   setter?.call(input, value);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 function withIntl(children: React.ReactNode) {

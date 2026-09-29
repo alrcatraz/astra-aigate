@@ -19,7 +19,7 @@ const LEGACY_DEFAULT = [
 
 test.after(async () => {
   const coreDb = await import("../../src/lib/db/core.ts");
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;

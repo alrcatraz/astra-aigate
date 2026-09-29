@@ -26,9 +26,9 @@ describe("middleware hooks DB", () => {
     runCount: 0,
   };
 
-  it("createMiddlewareHook creates a hook", () => {
-    createMiddlewareHook(hookConfig);
-    const found = getMiddlewareHook(hookName);
+  it("createMiddlewareHook creates a hook", async () => {
+    await createMiddlewareHook(hookConfig);
+    const found = await getMiddlewareHook(hookName);
     assert.ok(found, "should find created hook");
     assert.equal(found!.name, hookName);
     assert.equal(found!.enabled, true);
@@ -40,9 +40,9 @@ describe("middleware hooks DB", () => {
     assert.ok(all.length >= 1);
   });
 
-  it("getEnabledMiddlewareHooks returns only enabled", () => {
+  it("getEnabledMiddlewareHooks returns only enabled", async () => {
     const disabledName = `disabled-${Date.now()}`;
-    createMiddlewareHook({
+    await createMiddlewareHook({
       ...hookConfig,
       name: disabledName,
       enabled: false,
@@ -51,28 +51,28 @@ describe("middleware hooks DB", () => {
     assert.ok(enabled.every((h) => h.enabled));
   });
 
-  it("updateMiddlewareHook updates existing hook", () => {
-    updateMiddlewareHook(hookName, { description: "updated" });
-    const found = getMiddlewareHook(hookName);
+  it("updateMiddlewareHook updates existing hook", async () => {
+    await updateMiddlewareHook(hookName, { description: "updated" });
+    const found = await getMiddlewareHook(hookName);
     assert.equal(found!.description, "updated");
   });
 
-  it("recordHookExecution increments run count", () => {
-    recordHookExecution(hookName);
-    const found = getMiddlewareHook(hookName);
+  it("recordHookExecution increments run count", async () => {
+    await recordHookExecution(hookName);
+    const found = await getMiddlewareHook(hookName);
     assert.ok(found!.runCount >= 1);
   });
 
-  it("recordHookExecution with error sets lastError", () => {
-    recordHookExecution(hookName, "test error");
-    const found = getMiddlewareHook(hookName);
+  it("recordHookExecution with error sets lastError", async () => {
+    await recordHookExecution(hookName, "test error");
+    const found = await getMiddlewareHook(hookName);
     assert.equal(found!.lastError, "test error");
   });
 
-  it("deleteMiddlewareHook removes hook", () => {
+  it("deleteMiddlewareHook removes hook", async () => {
     const delName = `del-hook-${Date.now()}`;
-    createMiddlewareHook({ ...hookConfig, name: delName });
-    deleteMiddlewareHook(delName);
+    await createMiddlewareHook({ ...hookConfig, name: delName });
+    await deleteMiddlewareHook(delName);
     assert.equal(getMiddlewareHook(delName), undefined);
   });
 });

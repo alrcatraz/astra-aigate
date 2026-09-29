@@ -22,10 +22,12 @@ const {
   getCcAliasGlobalState,
 } = await import("../../src/lib/db/ccDiscoveryAliases.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // ──────────────────────────────────────────────────────
@@ -89,12 +91,12 @@ describe("resolveCcAliasEnabled precedence", () => {
 // Group 3 — storage round-trip
 // ──────────────────────────────────────────────────────
 describe("ccDiscoveryAliases storage", () => {
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -102,19 +104,19 @@ describe("ccDiscoveryAliases storage", () => {
     assert.strictEqual(getCcAliasProviderSetting("openai"), null);
   });
 
-  it("setCcAliasProviderSetting('on') round-trips", () => {
-    setCcAliasProviderSetting("openai", "on");
+  it("setCcAliasProviderSetting('on') round-trips", async () => {
+    await setCcAliasProviderSetting("openai", "on");
     assert.strictEqual(getCcAliasProviderSetting("openai"), "on");
   });
 
-  it("setCcAliasProviderSetting('off') round-trips", () => {
-    setCcAliasProviderSetting("openai", "off");
+  it("setCcAliasProviderSetting('off') round-trips", async () => {
+    await setCcAliasProviderSetting("openai", "off");
     assert.strictEqual(getCcAliasProviderSetting("openai"), "off");
   });
 
-  it("setCcAliasProviderSetting(null) removes the key (back to inherit)", () => {
-    setCcAliasProviderSetting("openai", "on");
-    setCcAliasProviderSetting("openai", null);
+  it("setCcAliasProviderSetting(null) removes the key (back to inherit)", async () => {
+    await setCcAliasProviderSetting("openai", "on");
+    await setCcAliasProviderSetting("openai", null);
     assert.strictEqual(getCcAliasProviderSetting("openai"), null);
   });
 
@@ -122,39 +124,39 @@ describe("ccDiscoveryAliases storage", () => {
     assert.strictEqual(getCcAliasModelSetting("openai", "gpt-5"), null);
   });
 
-  it("setCcAliasModelSetting round-trips independently per model", () => {
-    setCcAliasModelSetting("openai", "gpt-5", "on");
+  it("setCcAliasModelSetting round-trips independently per model", async () => {
+    await setCcAliasModelSetting("openai", "gpt-5", "on");
     assert.strictEqual(getCcAliasModelSetting("openai", "gpt-5"), "on");
     assert.strictEqual(getCcAliasModelSetting("openai", "gpt-5-mini"), null);
   });
 
-  it("setCcAliasModelSetting(null) removes the key", () => {
-    setCcAliasModelSetting("openai", "gpt-5", "off");
-    setCcAliasModelSetting("openai", "gpt-5", null);
+  it("setCcAliasModelSetting(null) removes the key", async () => {
+    await setCcAliasModelSetting("openai", "gpt-5", "off");
+    await setCcAliasModelSetting("openai", "gpt-5", null);
     assert.strictEqual(getCcAliasModelSetting("openai", "gpt-5"), null);
   });
 
-  it("provider and model settings do not collide across provider ids", () => {
-    setCcAliasProviderSetting("openai", "on");
-    setCcAliasProviderSetting("anthropic", "off");
+  it("provider and model settings do not collide across provider ids", async () => {
+    await setCcAliasProviderSetting("openai", "on");
+    await setCcAliasProviderSetting("anthropic", "off");
     assert.strictEqual(getCcAliasProviderSetting("openai"), "on");
     assert.strictEqual(getCcAliasProviderSetting("anthropic"), "off");
   });
 
-  it("getCcAliasSettingsBulk returns both maps in one call", () => {
-    setCcAliasProviderSetting("openai", "on");
-    setCcAliasProviderSetting("anthropic", "off");
-    setCcAliasModelSetting("openai", "gpt-5", "off");
+  it("getCcAliasSettingsBulk returns both maps in one call", async () => {
+    await setCcAliasProviderSetting("openai", "on");
+    await setCcAliasProviderSetting("anthropic", "off");
+    await setCcAliasModelSetting("openai", "gpt-5", "off");
 
-    const { providers, models } = getCcAliasSettingsBulk();
+    const { providers, models } = await getCcAliasSettingsBulk();
     assert.strictEqual(providers.get("openai"), "on");
     assert.strictEqual(providers.get("anthropic"), "off");
     assert.strictEqual(models.get("openai/gpt-5"), "off");
     assert.strictEqual(models.has("openai/gpt-5-mini"), false);
   });
 
-  it("getCcAliasSettingsBulk returns empty maps when nothing set", () => {
-    const { providers, models } = getCcAliasSettingsBulk();
+  it("getCcAliasSettingsBulk returns empty maps when nothing set", async () => {
+    const { providers, models } = await getCcAliasSettingsBulk();
     assert.strictEqual(providers.size, 0);
     assert.strictEqual(models.size, 0);
   });
@@ -164,13 +166,13 @@ describe("ccDiscoveryAliases storage", () => {
 // Group 4 — global state resolver (env vs DB vs default)
 // ──────────────────────────────────────────────────────
 describe("global CC alias state (env / DB / default)", () => {
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
     delete process.env.EXPOSE_CC_DISCOVERY_ALIASES;
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     delete process.env.EXPOSE_CC_DISCOVERY_ALIASES;
   });

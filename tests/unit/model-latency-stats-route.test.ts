@@ -19,9 +19,11 @@ const usageHistory = await import("../../src/lib/usage/usageHistory.ts");
 const route = await import("../../src/app/api/usage/model-latency-stats/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {
@@ -205,6 +207,7 @@ test("model latency stats route returns sanitized 500 body when the aggregate th
     assert.ok(typeof body.error.message === "string");
     assert.ok(!body.error.message.includes("at /"));
   } finally {
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
   }
+  await core.awaitDbMigrations();
 });

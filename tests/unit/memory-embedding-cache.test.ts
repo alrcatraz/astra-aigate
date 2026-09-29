@@ -7,30 +7,30 @@ describe("memory-embedding-cache", () => {
     invalidate();
   });
 
-  it("returns undefined for unknown key", () => {
-    const result = get("nonexistent-key");
+  it("returns undefined for unknown key", async () => {
+    const result = await get("nonexistent-key");
     assert.strictEqual(result, undefined);
   });
 
-  it("set + get returns the stored vector", () => {
+  it("set + get returns the stored vector", async () => {
     const vec = new Float32Array([1.0, 2.0, 3.0]);
     const key = buildCacheKey("remote", "openai/text-embedding-3-small", 3, "hello");
     set(key, vec);
-    const retrieved = get(key);
+    const retrieved = await get(key);
     assert.ok(retrieved instanceof Float32Array);
     assert.strictEqual(retrieved.length, 3);
     assert.strictEqual(retrieved[0], 1.0);
   });
 
-  it("tracks hits and misses correctly", () => {
+  it("tracks hits and misses correctly", async () => {
     const key = buildCacheKey("static", "potion-base-8M", 256, "test");
     const vec = new Float32Array([0.5, 0.6]);
     set(key, vec);
 
-    get(key); // hit
-    get(key); // hit
-    get("missing"); // miss
-    get("missing2"); // miss
+    await get(key); // hit
+    await get(key); // hit
+    await get("missing"); // miss
+    await get("missing2"); // miss
 
     const s = stats();
     assert.strictEqual(s.hits, 2);
@@ -38,7 +38,7 @@ describe("memory-embedding-cache", () => {
     assert.strictEqual(s.size, 1);
   });
 
-  it("cache expires after TTL", () => {
+  it("cache expires after TTL", async () => {
     // Override Date.now for TTL test via fake ts injection
     const key = buildCacheKey("remote", "openai/text-embedding-3-small", 1536, "expire-test");
     const vec = new Float32Array([9.0]);
@@ -52,7 +52,7 @@ describe("memory-embedding-cache", () => {
 
       // Restore Date.now to "current" time = 6 minutes later (360000ms)
       (Date as unknown as { now: () => number }).now = () => 360_000;
-      const result = get(key);
+      const result = await get(key);
       assert.strictEqual(result, undefined, "Expired entry should return undefined");
     } finally {
       (Date as unknown as { now: () => number }).now = origNow;
@@ -117,10 +117,10 @@ describe("memory-embedding-cache", () => {
     assert.strictEqual(k1, k2);
   });
 
-  it("invalidate clears cache and resets counters", () => {
+  it("invalidate clears cache and resets counters", async () => {
     const key = buildCacheKey("remote", "m", 1, "text");
     set(key, new Float32Array([1]));
-    get(key);
+    await get(key);
     invalidate();
     const s = stats();
     assert.strictEqual(s.size, 0);

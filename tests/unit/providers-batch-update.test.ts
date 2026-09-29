@@ -9,9 +9,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
-const { batchUpdateProviderConnectionsSchema, providersBatchTestSchema } = await import(
-  "../../src/shared/validation/schemas.ts"
-);
+const { batchUpdateProviderConnectionsSchema, providersBatchTestSchema } =
+  await import("../../src/shared/validation/schemas.ts");
 
 type Connection = Awaited<ReturnType<typeof providersDb.createProviderConnection>>;
 
@@ -22,9 +21,11 @@ function getConnectionId(connection: Connection): string {
 }
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function createConnection(isActive: boolean): Promise<Connection> {
@@ -43,8 +44,8 @@ beforeEach(async () => {
   await resetStorage();
 });
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -33,8 +33,8 @@ const webhookTestRoute =
   await import("../../../../src/app/api/webhooks/[id]/test/route.ts?suite=ssrf-guard");
 const { createWebhook } = await import("../../../../src/lib/db/webhooks.ts");
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -125,7 +125,7 @@ describe("POST /api/webhooks — SSRF guard on create", () => {
 
 describe("PUT /api/webhooks/[id] — SSRF guard on update", () => {
   it("rejects an update that flips a webhook URL to loopback", async () => {
-    const created = createWebhook({
+    const created = await createWebhook({
       url: "https://example.com/initial",
       events: ["*"],
       kind: "custom",
@@ -144,7 +144,7 @@ describe("PUT /api/webhooks/[id] — SSRF guard on update", () => {
 describe("POST /api/webhooks/[id]/test — defense in depth on dispatch", () => {
   it("does not exfiltrate response body when persisted URL is loopback", async () => {
     // Bypass schema by inserting directly via the DB layer.
-    const stale = createWebhook({
+    const stale = await createWebhook({
       url: "http://127.0.0.1:1/should-be-blocked",
       events: ["*"],
       kind: "custom",

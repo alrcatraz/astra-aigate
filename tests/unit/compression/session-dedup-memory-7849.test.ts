@@ -38,7 +38,7 @@ function makeSharedBudgetBody(): Record<string, unknown> {
   };
 }
 
-test("#7849: shares the two-pass suffix-work budget across all messages", () => {
+test("#7849: shares the two-pass suffix-work budget across all messages", async () => {
   const body = makeSharedBudgetBody();
   const messages = body.messages as Array<{ content: string }>;
   const perMessageWork = messages.map(({ content }) => projectedSuffixWork(content, 2));
@@ -58,19 +58,19 @@ test("#7849: shares the two-pass suffix-work budget across all messages", () => 
   );
 
   for (const message of messages) {
-    const individualResult = sessionDedupEngine.apply({
+    const individualResult = await sessionDedupEngine.apply({
       messages: [message, { role: "assistant", content: "a unique short companion" }],
     });
     assert.equal(individualResult.stats, null, "each message must be accepted individually");
   }
 
-  const result = sessionDedupEngine.apply(body);
+  const result = await sessionDedupEngine.apply(body);
   assert.deepEqual(result.stats?.validationWarnings, [SUFFIX_WORK_BUDGET_WARNING]);
 });
 
-test("#7849: exhausted suffix-work budget fails open with exact zero-savings stats", () => {
+test("#7849: exhausted suffix-work budget fails open with exact zero-savings stats", async () => {
   const body = makeSharedBudgetBody();
-  const result = sessionDedupEngine.apply(body);
+  const result = await sessionDedupEngine.apply(body);
 
   assert.strictEqual(result.body, body, "budget exhaustion must return the input body by identity");
   assert.equal(result.compressed, false);
@@ -80,7 +80,7 @@ test("#7849: exhausted suffix-work budget fails open with exact zero-savings sta
   assert.deepEqual(result.stats.validationWarnings, [SUFFIX_WORK_BUDGET_WARNING]);
 });
 
-test("#7849: near-boundary under-budget request still deduplicates", () => {
+test("#7849: near-boundary under-budget request still deduplicates", async () => {
   const repeatedText = makeFixedWidthText(578, 49, "same");
   const projectedWork = projectedSuffixWork(repeatedText, 2) * 2;
   assert.ok(projectedWork <= SUFFIX_WORK_BUDGET);
@@ -95,7 +95,7 @@ test("#7849: near-boundary under-budget request still deduplicates", () => {
       { role: "user", content: repeatedText },
     ],
   };
-  const result = sessionDedupEngine.apply(body);
+  const result = await sessionDedupEngine.apply(body);
   const messages = result.body.messages as Array<{ content: string }>;
 
   assert.equal(result.compressed, true);

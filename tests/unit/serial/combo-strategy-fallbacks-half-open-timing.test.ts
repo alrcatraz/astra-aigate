@@ -21,7 +21,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-combo-fallbacks-half-open-"));
+const TEST_DATA_DIR = fs.mkdtempSync(
+  path.join(os.tmpdir(), "omniroute-combo-fallbacks-half-open-")
+);
 const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
@@ -60,7 +62,7 @@ async function cleanupTestDataDir() {
   let lastError: unknown;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       return;
     } catch (error: unknown) {
@@ -69,6 +71,8 @@ async function cleanupTestDataDir() {
     }
   }
   if (lastError) throw lastError;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -80,7 +84,7 @@ test.beforeEach(async () => {
   await cleanupTestDataDir();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   await settingsDb.resetAllPricing();
-  settingsDb.clearAllLKGP();
+  await settingsDb.clearAllLKGP();
 });
 
 test.after(async () => {
@@ -88,7 +92,7 @@ test.after(async () => {
   resetAllCircuitBreakers();
   resetAllSemaphores();
   _resetAllDecks();
-  settingsDb.clearAllLKGP();
+  await settingsDb.clearAllLKGP();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {

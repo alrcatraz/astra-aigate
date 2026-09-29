@@ -67,7 +67,7 @@ function createServiceWorkerHarness() {
   return {
     cacheEntries,
     dispatchFetch: async (request: RequestLike) => {
-      const listener = listeners.get("fetch");
+      const listener = await listeners.get("fetch");
       assert.ok(listener, "fetch listener must be registered");
       let responsePromise: Promise<Response> | undefined;
       const event: FetchEvent = {

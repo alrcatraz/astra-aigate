@@ -29,7 +29,7 @@ async function resetStorage() {
   fallbackPolicy.resetAllFallbacks();
   providerExpiration.resetExpirations();
   quotaCache.stopBackgroundRefresh();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -47,6 +47,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -62,7 +64,7 @@ test.after(async () => {
   costRules.resetCostData();
   fallbackPolicy.resetAllFallbacks();
   providerExpiration.resetExpirations();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

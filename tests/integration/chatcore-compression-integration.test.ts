@@ -27,9 +27,11 @@ async function resetStorage() {
   resetAllCircuitBreakers();
   readCacheDb.invalidateDbCache();
   await new Promise((resolve) => setTimeout(resolve, 20));
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -226,7 +228,7 @@ test("chatCore integration: disabled prompt compression leaves combo override re
     assert.ok(capturedBody, "Fetch should have been called");
     assert.deepEqual(capturedBody.messages, body.messages);
 
-    const summary = compressionAnalyticsDb.getCompressionAnalyticsSummary();
+    const summary = await compressionAnalyticsDb.getCompressionAnalyticsSummary();
     assert.equal(summary.totalRequests, 0, "Disabled compression should not record analytics");
   } finally {
     globalThis.fetch = originalFetch;
@@ -633,7 +635,7 @@ test("chatCore integration: assigned compression combo applies language packs an
     ],
   });
 
-  const compressionCombo = compressionCombosDb.createCompressionCombo({
+  const compressionCombo = await compressionCombosDb.createCompressionCombo({
     name: "Assigned PT Output Mode",
     pipeline: [{ engine: "caveman", intensity: "lite" }],
     languagePacks: ["pt-BR"],
@@ -723,7 +725,7 @@ test("chatCore integration: default stacked compression combo applies for unassi
     },
   });
 
-  const compressionCombo = compressionCombosDb.createCompressionCombo({
+  const compressionCombo = await compressionCombosDb.createCompressionCombo({
     name: "Default PT Output Mode",
     pipeline: [
       { engine: "rtk", intensity: "standard" },
@@ -785,14 +787,14 @@ test("chatCore integration: default stacked compression combo applies for unassi
     assert.match(firstMessage?.content ?? "", /OmniRoute Output Styles/);
     assert.match(firstMessage?.content ?? "", /Responda conciso/);
 
-    let summary = compressionAnalyticsDb.getCompressionAnalyticsSummary();
+    let summary = await compressionAnalyticsDb.getCompressionAnalyticsSummary();
     for (
       let attempt = 0;
       attempt < 100 && !summary.byCompressionCombo[compressionCombo.id];
       attempt += 1
     ) {
       await new Promise((resolve) => setTimeout(resolve, 20));
-      summary = compressionAnalyticsDb.getCompressionAnalyticsSummary();
+      summary = await compressionAnalyticsDb.getCompressionAnalyticsSummary();
     }
 
     assert.equal(summary.byCompressionCombo[compressionCombo.id].count, 1);
@@ -875,7 +877,7 @@ test.skip("chatCore integration: seeded default combo runs RTK before Caveman", 
     const toolContent = capturedBody.messages?.[0]?.content ?? "";
     assert.match(toolContent, /rtk:dropped 7 repeated lines/);
 
-    let summary = compressionAnalyticsDb.getCompressionAnalyticsSummary();
+    let summary = await compressionAnalyticsDb.getCompressionAnalyticsSummary();
     for (
       let attempt = 0;
       attempt < 100 &&
@@ -884,7 +886,7 @@ test.skip("chatCore integration: seeded default combo runs RTK before Caveman", 
       attempt += 1
     ) {
       await new Promise((resolve) => setTimeout(resolve, 20));
-      summary = compressionAnalyticsDb.getCompressionAnalyticsSummary();
+      summary = await compressionAnalyticsDb.getCompressionAnalyticsSummary();
     }
 
     assert.equal(summary.totalRequests, 1);
@@ -951,7 +953,7 @@ test("chatCore integration: modular compression records analytics row best-effor
 
     assert.ok(result.success, "Request should succeed");
 
-    let summary = compressionAnalyticsDb.getCompressionAnalyticsSummary();
+    let summary = await compressionAnalyticsDb.getCompressionAnalyticsSummary();
     for (
       let attempt = 0;
       attempt < 100 &&
@@ -959,7 +961,7 @@ test("chatCore integration: modular compression records analytics row best-effor
       attempt += 1
     ) {
       await new Promise((resolve) => setTimeout(resolve, 20));
-      summary = compressionAnalyticsDb.getCompressionAnalyticsSummary();
+      summary = await compressionAnalyticsDb.getCompressionAnalyticsSummary();
     }
 
     assert.equal(summary.totalRequests, 1);

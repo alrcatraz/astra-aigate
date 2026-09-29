@@ -12,7 +12,7 @@ async function removeTestDataDir() {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       return;
     } catch (error: any) {
@@ -24,6 +24,8 @@ async function removeTestDataDir() {
   if (lastError) {
     throw lastError;
   }
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.after(async () => {

@@ -19,7 +19,7 @@ const core = await import("../../src/lib/db/core.ts");
 const memoryVec = await import("../../src/lib/db/memoryVec.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -38,6 +38,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -45,18 +47,18 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 // ──────────────── getMemoryVecMeta initial state ────────────────
 
-test("getMemoryVecMeta() returns safe defaults when sentinel row is missing", () => {
+test("getMemoryVecMeta() returns safe defaults when sentinel row is missing", async () => {
   // Simulate the edge case where the row was deleted (e.g. manual DB manipulation)
   const db = core.getDbInstance();
   db.prepare("DELETE FROM memory_vec_meta WHERE id = 1").run();
 
-  const meta = memoryVec.getMemoryVecMeta();
+  const meta = await memoryVec.getMemoryVecMeta();
 
   assert.equal(meta.activeDim, null);
   assert.equal(meta.embeddingSignature, null);
@@ -64,12 +66,12 @@ test("getMemoryVecMeta() returns safe defaults when sentinel row is missing", ()
   assert.equal(meta.vecLoaded, false);
 });
 
-test("getMemoryVecMeta() returns expected defaults on a fresh DB", () => {
+test("getMemoryVecMeta() returns expected defaults on a fresh DB", async () => {
   // getDbInstance() triggers migrations including 073_memory_vec.sql
   const db = core.getDbInstance();
   assert.ok(db, "DB instance should be created");
 
-  const meta = memoryVec.getMemoryVecMeta();
+  const meta = await memoryVec.getMemoryVecMeta();
 
   assert.equal(meta.activeDim, null, "activeDim should be null initially");
   assert.equal(meta.embeddingSignature, null, "embeddingSignature should be null initially");
@@ -79,57 +81,61 @@ test("getMemoryVecMeta() returns expected defaults on a fresh DB", () => {
 
 // ──────────────── setMemoryVecMeta + getMemoryVecMeta round-trip ────────────────
 
-test("setMemoryVecMeta persists activeDim and embeddingSignature", () => {
+test("setMemoryVecMeta persists activeDim and embeddingSignature", async () => {
   core.getDbInstance(); // ensure migrations run
 
-  memoryVec.setMemoryVecMeta({
+  await memoryVec.setMemoryVecMeta({
     activeDim: 1536,
     embeddingSignature: "remote:openai/text-embedding-3-small:1536",
   });
 
-  const meta = memoryVec.getMemoryVecMeta();
+  const meta = await memoryVec.getMemoryVecMeta();
 
   assert.equal(meta.activeDim, 1536);
   assert.equal(meta.embeddingSignature, "remote:openai/text-embedding-3-small:1536");
   assert.equal(meta.lastResetAt, null); // not set
-  assert.equal(meta.vecLoaded, false);  // not set
+  assert.equal(meta.vecLoaded, false); // not set
 });
 
-test("setMemoryVecMeta persists vecLoaded = true", () => {
+test("setMemoryVecMeta persists vecLoaded = true", async () => {
   core.getDbInstance();
 
-  memoryVec.setMemoryVecMeta({ vecLoaded: true });
+  await memoryVec.setMemoryVecMeta({ vecLoaded: true });
 
-  const meta = memoryVec.getMemoryVecMeta();
+  const meta = await memoryVec.getMemoryVecMeta();
   assert.equal(meta.vecLoaded, true);
 });
 
-test("setMemoryVecMeta updates only the provided fields (partial update)", () => {
+test("setMemoryVecMeta updates only the provided fields (partial update)", async () => {
   core.getDbInstance();
 
   // First set all fields
-  memoryVec.setMemoryVecMeta({
+  await memoryVec.setMemoryVecMeta({
     activeDim: 768,
     embeddingSignature: "static:potion-base-8M:768",
     vecLoaded: true,
   });
 
   // Then update only activeDim
-  memoryVec.setMemoryVecMeta({ activeDim: 1536 });
+  await memoryVec.setMemoryVecMeta({ activeDim: 1536 });
 
-  const meta = memoryVec.getMemoryVecMeta();
+  const meta = await memoryVec.getMemoryVecMeta();
   assert.equal(meta.activeDim, 1536, "activeDim should be updated");
-  assert.equal(meta.embeddingSignature, "static:potion-base-8M:768", "embeddingSignature should be preserved");
+  assert.equal(
+    meta.embeddingSignature,
+    "static:potion-base-8M:768",
+    "embeddingSignature should be preserved"
+  );
   assert.equal(meta.vecLoaded, true, "vecLoaded should be preserved");
 });
 
-test("setMemoryVecMeta sets lastResetAt correctly", () => {
+test("setMemoryVecMeta sets lastResetAt correctly", async () => {
   core.getDbInstance();
 
   const now = new Date().toISOString();
-  memoryVec.setMemoryVecMeta({ lastResetAt: now });
+  await memoryVec.setMemoryVecMeta({ lastResetAt: now });
 
-  const meta = memoryVec.getMemoryVecMeta();
+  const meta = await memoryVec.getMemoryVecMeta();
   assert.equal(meta.lastResetAt, now);
 });
 

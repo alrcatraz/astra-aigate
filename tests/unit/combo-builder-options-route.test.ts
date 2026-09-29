@@ -15,9 +15,11 @@ const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 const route = await import("../../src/app/api/combos/builder/options/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider, overrides = {}) {
@@ -49,15 +51,15 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("combo builder options route aggregates providers, connections, models and combo refs", async () => {
   const nowPlusMinute = Date.now() + 60_000;
   // gpt-4o was removed from the openai registry; use gpt-4.1 (confirmed at providerRegistry.ts:1156)
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     openai: {
       "gpt-4.1": {
         tool_call: true,
@@ -113,7 +115,7 @@ test("combo builder options route aggregates providers, connections, models and 
     "chat-completions",
     ["embeddings"]
   );
-  modelsDb.mergeModelCompatOverride("openai", "gpt-4o-mini", { isHidden: true });
+  await modelsDb.mergeModelCompatOverride("openai", "gpt-4o-mini", { isHidden: true });
 
   const visibleCombo = await combosDb.createCombo({
     name: "team-router",

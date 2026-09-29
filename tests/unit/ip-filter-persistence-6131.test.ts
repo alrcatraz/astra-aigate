@@ -15,17 +15,19 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const ipFilter = await import("../../open-sse/services/ipFilter.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   // Fresh DB per test + fresh in-memory module state.
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   ipFilter.resetIPFilter();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 // Simulate an OmniRoute restart: the module's in-memory state is wiped (as it

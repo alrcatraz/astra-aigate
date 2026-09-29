@@ -10,10 +10,10 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const { createFile, deleteFile, listFiles, createBatch, getBatch, updateBatch } =
   await import("@/lib/localDb");
-const { getDbInstance, resetDbInstance } = await import("@/lib/db/core");
+const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } = await import("@/lib/db/core");
 
-after(() => {
-  resetDbInstance();
+after(async () => {
+  await resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -25,16 +25,16 @@ after(() => {
 describe("File Deletion API", () => {
   let testFileId: string;
 
-  afterEach(() => {
+  afterEach(async () => {
     // Ensure cleanup
     const file = listFiles({ limit: 100 }).find((f) => f.filename === "test-delete-file.txt");
     if (file && !file.deletedAt) {
-      deleteFile(file.id);
+      await deleteFile(file.id);
     }
   });
 
-  beforeEach(() => {
-    const file = createFile({
+  beforeEach(async () => {
+    const file = await createFile({
       bytes: 100,
       filename: "test-delete-file.txt",
       purpose: "assistants",
@@ -44,25 +44,25 @@ describe("File Deletion API", () => {
     testFileId = file.id;
   });
 
-  it("should delete a file successfully", () => {
+  it("should delete a file successfully", async () => {
     const file = listFiles({ limit: 100 }).find((f) => f.id === testFileId);
     assert(file !== undefined);
     assert(file.deletedAt === null || file.deletedAt === undefined);
 
-    const success = deleteFile(testFileId);
+    const success = await deleteFile(testFileId);
     assert(success === true);
 
     const deletedFile = listFiles({ limit: 100 }).find((f) => f.id === testFileId);
     assert(deletedFile === undefined, "Deleted file should not appear in list");
   });
 
-  it("should set deleted_at timestamp on deletion", () => {
+  it("should set deleted_at timestamp on deletion", async () => {
     const now = Math.floor(Date.now() / 1000);
-    deleteFile(testFileId);
+    await deleteFile(testFileId);
 
     // Check directly from DB since listFiles filters out deleted files
     const db = getDbInstance();
-    const row = db.prepare("SELECT deleted_at FROM files WHERE id = ?").get(testFileId);
+    const row = await db.prepare("SELECT deleted_at FROM files WHERE id = ?").get(testFileId);
 
     assert(row !== undefined);
     assert(row.deleted_at !== null);
@@ -72,24 +72,24 @@ describe("File Deletion API", () => {
     assert(row.deleted_at <= now + 10);
   });
 
-  it("should not list deleted files", () => {
-    const beforeCount = listFiles({ limit: 1000 }).length;
-    deleteFile(testFileId);
-    const afterCount = listFiles({ limit: 1000 }).length;
+  it("should not list deleted files", async () => {
+    const beforeCount = (await listFiles({ limit: 1000 })).length;
+    await deleteFile(testFileId);
+    const afterCount = (await listFiles({ limit: 1000 })).length;
 
     assert(afterCount === beforeCount - 1);
   });
 
-  it("should handle deletion of non-existent file gracefully", () => {
-    const success = deleteFile("file-nonexistent-12345");
+  it("should handle deletion of non-existent file gracefully", async () => {
+    const success = await deleteFile("file-nonexistent-12345");
     // Should return false or handle gracefully (depending on implementation)
     assert(typeof success === "boolean");
   });
 
   describe("Batch file deletion during cleanup", () => {
-    it("should delete batch input file after 30 days of completion", () => {
+    it("should delete batch input file after 30 days of completion", async () => {
       // Create test batch
-      const inputFile = createFile({
+      const inputFile = await createFile({
         bytes: 100,
         filename: "test-batch-input.jsonl",
         purpose: "batch",
@@ -99,21 +99,21 @@ describe("File Deletion API", () => {
         mimeType: "application/jsonl",
       });
 
-      const batch = createBatch({
+      const batch = await createBatch({
         endpoint: "/v1/chat/completions",
         completionWindow: "24h",
         inputFileId: inputFile.id,
       });
 
       // Verify batch and file exist
-      let batchData = getBatch(batch.id);
+      let batchData = await getBatch(batch.id);
       assert(batchData !== null);
-      let fileList = listFiles({ limit: 1000 });
+      let fileList = await listFiles({ limit: 1000 });
       assert(fileList.some((f) => f.id === inputFile.id));
 
       // Simulate batch completion (completed 31 days ago)
       const thirtyOneDaysAgo = Math.floor(Date.now() / 1000) - 31 * 24 * 60 * 60;
-      updateBatch(batch.id, {
+      await updateBatch(batch.id, {
         status: "completed",
         completedAt: thirtyOneDaysAgo,
       });
@@ -125,8 +125,8 @@ describe("File Deletion API", () => {
       assert(now > expiresAt, "Current time should be past expiration");
     });
 
-    it("should NOT delete batch input file if not yet expired", () => {
-      const inputFile = createFile({
+    it("should NOT delete batch input file if not yet expired", async () => {
+      const inputFile = await createFile({
         bytes: 100,
         filename: "test-batch-not-expired.jsonl",
         purpose: "batch",
@@ -136,7 +136,7 @@ describe("File Deletion API", () => {
         mimeType: "application/jsonl",
       });
 
-      const batch = createBatch({
+      const batch = await createBatch({
         endpoint: "/v1/chat/completions",
         completionWindow: "24h",
         inputFileId: inputFile.id,
@@ -144,18 +144,18 @@ describe("File Deletion API", () => {
 
       // Simulate batch completion (completed 15 days ago)
       const fifteenDaysAgo = Math.floor(Date.now() / 1000) - 15 * 24 * 60 * 60;
-      updateBatch(batch.id, {
+      await updateBatch(batch.id, {
         status: "completed",
         completedAt: fifteenDaysAgo,
       });
 
       // File should still exist
-      const fileList = listFiles({ limit: 1000 });
+      const fileList = await listFiles({ limit: 1000 });
       const file = fileList.find((f) => f.id === inputFile.id);
       assert(file !== undefined, "File should still exist before expiration");
 
       // Cleanup
-      deleteFile(inputFile.id);
+      await deleteFile(inputFile.id);
     });
   });
 });

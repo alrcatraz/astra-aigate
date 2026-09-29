@@ -25,9 +25,11 @@ async function resetStorage() {
     process.env.OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS = originalAllowPrivateProviderUrls;
   }
   antigravityVersion.clearAntigravityVersionCaches();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider, overrides = {}) {
@@ -57,7 +59,7 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   globalThis.fetch = originalFetch;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -1067,7 +1069,7 @@ test("provider models route filters hidden models from the static Claude catalog
     accessToken: "claude-access",
     apiKey: null,
   });
-  modelsDb.mergeModelCompatOverride("claude", "claude-sonnet-4-6", { isHidden: true });
+  await modelsDb.mergeModelCompatOverride("claude", "claude-sonnet-4-6", { isHidden: true });
 
   const response = await callRoute(connection.id, "?excludeHidden=true");
   const body = (await response.json()) as any;
@@ -1103,7 +1105,7 @@ test("provider models route trims Anthropic-compatible message URLs and filters 
       baseUrl: "https://proxy.example.com/v1/messages",
     },
   });
-  modelsDb.mergeModelCompatOverride("anthropic-compatible-demo", "hidden-model", {
+  await modelsDb.mergeModelCompatOverride("anthropic-compatible-demo", "hidden-model", {
     isHidden: true,
   });
 
@@ -1152,7 +1154,7 @@ test("provider models route paginates generic providers and filters hidden model
   const connection = await seedConnection("gemini", {
     apiKey: "gm-key",
   });
-  modelsDb.mergeModelCompatOverride("gemini", "gemini-hidden", { isHidden: true });
+  await modelsDb.mergeModelCompatOverride("gemini", "gemini-hidden", { isHidden: true });
   const seenUrls = [];
 
   globalThis.fetch = async (url) => {

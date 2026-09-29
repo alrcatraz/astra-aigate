@@ -14,12 +14,8 @@ const {
   seedConnection,
   settingsDb,
 } = harness;
-const { preScreenTargets } = await import(
-  "../../open-sse/services/combo.ts"
-);
-const { getCircuitBreaker } = await import(
-  "../../src/shared/utils/circuitBreaker.ts"
-);
+const { preScreenTargets } = await import("../../open-sse/services/combo.ts");
+const { getCircuitBreaker } = await import("../../src/shared/utils/circuitBreaker.ts");
 
 test.beforeEach(async () => {
   await resetStorage();
@@ -149,11 +145,11 @@ test("pre-screen marks target unavailable when circuit breaker is OPEN", async (
 
   const results = await preScreenTargets(targets as any);
 
-  const openaiResult = results.get("openai/gpt-4o");
+  const openaiResult = await results.get("openai/gpt-4o");
   assert.ok(openaiResult, "openai target should have a pre-screen result");
   assert.equal(openaiResult.available, false, "open-circuit-breaker target should be unavailable");
 
-  const claudeResult = results.get("claude/claude-3-5-sonnet-20241022");
+  const claudeResult = await results.get("claude/claude-3-5-sonnet-20241022");
   assert.ok(claudeResult, "claude target should have a pre-screen result");
   assert.equal(claudeResult.available, true, "closed-circuit-breaker target should be available");
 });

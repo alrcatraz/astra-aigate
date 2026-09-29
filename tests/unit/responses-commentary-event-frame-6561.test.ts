@@ -40,8 +40,8 @@ async function readTransformed(chunks: string[], options: object): Promise<strin
   return new Response(source.pipeThrough(createSSEStream(options))).text();
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }

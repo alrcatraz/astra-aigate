@@ -28,10 +28,12 @@ expected = "kept"
 `;
 
 async function reset() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   delete process.env.INITIAL_PASSWORD;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function post(body: unknown): Promise<Response> {
@@ -45,8 +47,8 @@ async function post(body: unknown): Promise<Response> {
 
 test.beforeEach(reset);
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = ORIGINAL_DATA_DIR;

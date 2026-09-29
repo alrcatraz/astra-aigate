@@ -27,26 +27,25 @@ delete process.env.PROXY_HEALTH_AUTO_DEACTIVATE;
 
 const core = await import("../../src/lib/db/core.ts");
 const proxiesDb = await import("../../src/lib/db/proxies.ts");
-const { resolveHealthCheckStatusWrite, isProxyHealthAutoDeactivateEnabled } = await import(
-  "../../src/lib/proxyHealth/statusPolicy.ts"
-);
-const { POST: autoTestPost } = await import(
-  "../../src/app/api/settings/proxies/auto-test/route.ts"
-);
-const { POST: batchActivatePost } = await import(
-  "../../src/app/api/settings/proxies/batch-activate/route.ts"
-);
+const { resolveHealthCheckStatusWrite, isProxyHealthAutoDeactivateEnabled } =
+  await import("../../src/lib/proxyHealth/statusPolicy.ts");
+const { POST: autoTestPost } =
+  await import("../../src/app/api/settings/proxies/auto-test/route.ts");
+const { POST: batchActivatePost } =
+  await import("../../src/app/api/settings/proxies/batch-activate/route.ts");
 
-function resetStorage() {
+async function resetStorage() {
   delete process.env.INITIAL_PASSWORD;
   delete process.env.PROXY_HEALTH_AUTO_DEACTIVATE;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -66,7 +65,7 @@ test("policy: PROXY_HEALTH_AUTO_DEACTIVATE=true restores legacy test-and-set", (
 
 // ── (#3) "Test All" must not deactivate proxies by default ─────────────────────
 test("auto-test does NOT deactivate a failing proxy by default", async () => {
-  resetStorage();
+  await resetStorage();
   // Dead proxy: nothing listens on this port → the probe fails immediately.
   const p = await proxiesDb.createProxy({
     name: "dead",
@@ -93,7 +92,7 @@ test("auto-test does NOT deactivate a failing proxy by default", async () => {
 });
 
 test("auto-test still deactivates when PROXY_HEALTH_AUTO_DEACTIVATE=true (opt-in)", async () => {
-  resetStorage();
+  await resetStorage();
   process.env.PROXY_HEALTH_AUTO_DEACTIVATE = "true";
   const p = await proxiesDb.createProxy({
     name: "dead",
@@ -116,7 +115,7 @@ test("auto-test still deactivates when PROXY_HEALTH_AUTO_DEACTIVATE=true (opt-in
 
 // ── (#4) bulk enable/disable proxies ──────────────────────────────────────────
 test("batch-activate bulk-enables multiple proxies (default status=active)", async () => {
-  resetStorage();
+  await resetStorage();
   const a = await proxiesDb.createProxy({ name: "a", type: "http", host: "127.0.0.1", port: 8080 });
   const b = await proxiesDb.createProxy({ name: "b", type: "http", host: "127.0.0.1", port: 8081 });
   await proxiesDb.updateProxy(a!.id, { status: "inactive" });
@@ -137,7 +136,7 @@ test("batch-activate bulk-enables multiple proxies (default status=active)", asy
 });
 
 test("batch-activate can bulk-disable with status=inactive", async () => {
-  resetStorage();
+  await resetStorage();
   const a = await proxiesDb.createProxy({ name: "a", type: "http", host: "127.0.0.1", port: 8080 });
   const req = new Request("http://localhost/api/settings/proxies/batch-activate", {
     method: "POST",
@@ -146,11 +145,14 @@ test("batch-activate can bulk-disable with status=inactive", async () => {
   });
   const res = await batchActivatePost(req);
   assert.equal(res.status, 200);
-  assert.equal((await proxiesDb.getProxyById(a!.id, { includeSecrets: false }))?.status, "inactive");
+  assert.equal(
+    (await proxiesDb.getProxyById(a!.id, { includeSecrets: false }))?.status,
+    "inactive"
+  );
 });
 
 test("batch-activate rejects an empty ids array with 400", async () => {
-  resetStorage();
+  await resetStorage();
   const req = new Request("http://localhost/api/settings/proxies/batch-activate", {
     method: "POST",
     headers: { "content-type": "application/json" },

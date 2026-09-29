@@ -25,16 +25,18 @@ const {
   resetIPFilter,
 } = await import("../../open-sse/services/ipFilter.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   resetIPFilter();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 // ─── Disabled ───────────────────────────────────────────────────────────────

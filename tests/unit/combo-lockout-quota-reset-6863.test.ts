@@ -27,10 +27,10 @@ test.beforeEach(() => {
   clearAllModelLockouts();
 });
 
-test.after(() => {
+test.after(async () => {
   clearAllModelLockouts();
   try {
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {}
 });

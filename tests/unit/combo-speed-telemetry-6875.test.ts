@@ -34,8 +34,8 @@ const { buildAutoCandidates } = await import("../../open-sse/services/combo.ts")
 const { saveRequestUsage } = await import("../../src/lib/usage/usageHistory.ts");
 const core = await import("../../src/lib/db/core.ts");
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -218,9 +218,7 @@ test("buildAutoCandidates: candidate carries avgTtftMs/avgE2ELatencyMs/avgTokens
   // slipped past the positive() guard).
   assert.ok(typeof candidate!.avgTtftMs === "number" && candidate!.avgTtftMs > 0);
   assert.ok(typeof candidate!.avgE2ELatencyMs === "number" && candidate!.avgE2ELatencyMs > 0);
-  assert.ok(
-    typeof candidate!.avgTokensPerSecond === "number" && candidate!.avgTokensPerSecond > 0
-  );
+  assert.ok(typeof candidate!.avgTokensPerSecond === "number" && candidate!.avgTokensPerSecond > 0);
 });
 
 test("buildAutoCandidates: a provider/model with no historical signal omits the speed-telemetry fields", async () => {

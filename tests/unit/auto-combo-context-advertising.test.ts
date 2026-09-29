@@ -40,8 +40,8 @@ const virtualFactory = await import("../../open-sse/services/autoCombo/virtualFa
 const contextManager = await import("../../open-sse/services/contextManager.ts");
 const combosAutoRoute = await import("../../src/app/api/combos/auto/route.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {

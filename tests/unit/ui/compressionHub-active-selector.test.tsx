@@ -89,10 +89,10 @@ function setupFetchMock(): { puts: CapturedPut[] } {
   return { puts };
 }
 
-function setSelectValue(select: HTMLSelectElement, value: string) {
+async function setSelectValue(select: HTMLSelectElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")!.set!;
   setter.call(select, value);
-  select.dispatchEvent(new Event("change", { bubbles: true }));
+  await select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 describe("CompressionHub — active-profile selector", () => {

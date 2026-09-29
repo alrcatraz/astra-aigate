@@ -21,24 +21,25 @@ function clearSkillRegistry() {
   skillRegistry.versionCache?.clear?.();
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
   clearSkillRegistry();
   core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 const originalFetch = globalThis.fetch;
 
 test.beforeEach(async () => {
-  resetStorage();
+  await resetStorage();
   await settingsDb.updateSettings({ skillsProvider: "skillssh", requireLogin: false });
   globalThis.fetch = originalFetch;
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   clearSkillRegistry();
   globalThis.fetch = originalFetch;
   process.env.DATA_DIR = originalDataDir;

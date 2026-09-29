@@ -13,9 +13,11 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const route = await import("../../src/app/api/settings/require-login/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -27,9 +29,9 @@ test.afterEach(() => {
   bcrypt.hash = originalHash;
 });
 
-test.after(() => {
+test.after(async () => {
   delete process.env.INITIAL_PASSWORD;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

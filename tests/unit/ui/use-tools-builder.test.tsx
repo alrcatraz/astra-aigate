@@ -5,9 +5,7 @@
 import React, { act, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect } from "vitest";
-import {
-  useToolsBuilder,
-} from "../../../src/app/(dashboard)/dashboard/playground/hooks/useToolsBuilder";
+import { useToolsBuilder } from "../../../src/app/(dashboard)/dashboard/playground/hooks/useToolsBuilder";
 import type { ToolDefinition } from "../../../src/lib/playground/codeExport";
 
 // ─── Minimal hook test harness ────────────────────────────────────────────────
@@ -149,7 +147,10 @@ describe("useToolsBuilder", () => {
 
       act(() => {
         result.current.add(VALID_TOOL);
-        result.current.add({ type: "function", function: { name: "", parameters: {} } } as ToolDefinition);
+        result.current.add({
+          type: "function",
+          function: { name: "", parameters: {} },
+        } as ToolDefinition);
       });
 
       expect(result.current.tools).toHaveLength(1);
@@ -193,11 +194,11 @@ describe("useToolsBuilder", () => {
     it("re-indexes errors after remove", () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
-      act(() => {
+      act(async () => {
         result.current.add(VALID_TOOL);
         result.current.add(VALID_TOOL_2);
         // Trigger an error on index 1 via update with invalid tool
-        result.current.update(1, {
+        await result.current.update(1, {
           type: "function",
           function: { name: "", parameters: {} },
         } as ToolDefinition);
@@ -231,8 +232,8 @@ describe("useToolsBuilder", () => {
       };
 
       let outcome: ReturnType<typeof result.current.update> | undefined;
-      act(() => {
-        outcome = result.current.update(0, updated);
+      act(async () => {
+        outcome = await result.current.update(0, updated);
       });
 
       expect(outcome).toMatchObject({ ok: true });
@@ -249,8 +250,8 @@ describe("useToolsBuilder", () => {
       });
 
       let outcome: ReturnType<typeof result.current.update> | undefined;
-      act(() => {
-        outcome = result.current.update(0, {
+      act(async () => {
+        outcome = await result.current.update(0, {
           type: "function",
           function: { name: "", parameters: {} },
         } as ToolDefinition);
@@ -266,17 +267,17 @@ describe("useToolsBuilder", () => {
     it("clears error for that index on successful update", () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
-      act(() => {
+      act(async () => {
         result.current.add(VALID_TOOL);
-        result.current.update(0, {
+        await result.current.update(0, {
           type: "function",
           function: { name: "", parameters: {} },
         } as ToolDefinition);
       });
       expect(result.current.errors.has(0)).toBe(true);
 
-      act(() => {
-        result.current.update(0, VALID_TOOL_2);
+      act(async () => {
+        await result.current.update(0, VALID_TOOL_2);
       });
       expect(result.current.errors.has(0)).toBe(false);
       unmount();
@@ -287,10 +288,10 @@ describe("useToolsBuilder", () => {
     it("removes all tools and clears all errors", () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
-      act(() => {
+      act(async () => {
         result.current.add(VALID_TOOL);
         result.current.add(VALID_TOOL_2);
-        result.current.update(0, {
+        await result.current.update(0, {
           type: "function",
           function: { name: "", parameters: {} },
         } as ToolDefinition);

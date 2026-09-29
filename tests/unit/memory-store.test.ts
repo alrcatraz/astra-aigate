@@ -12,7 +12,7 @@ const store = await import("../../src/lib/memory/store.ts");
 const { MemoryType } = await import("../../src/lib/memory/types.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -30,6 +30,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function insertMemoryRow({
@@ -75,7 +77,7 @@ test.afterEach(async () => {
 
 test.after(async () => {
   await drainSetImmediate();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

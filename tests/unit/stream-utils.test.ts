@@ -143,8 +143,8 @@ test("createSSEStream leaves successful pending requests for onComplete finaliza
   usageHistory.clearPendingRequests();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     for (const entry of fs.readdirSync(TEST_DATA_DIR)) {
       fs.rmSync(path.join(TEST_DATA_DIR, entry), { recursive: true, force: true });

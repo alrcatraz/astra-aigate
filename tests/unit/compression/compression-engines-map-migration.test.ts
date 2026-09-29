@@ -8,19 +8,21 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-compressi
 const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
-const { getDbInstance, resetDbInstance } = await import("../../../src/lib/db/core.ts");
-const { getCompressionSettings, updateCompressionSettings } = await import(
-  "../../../src/lib/db/compression.ts"
-);
+const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } =
+  await import("../../../src/lib/db/core.ts");
+const { getCompressionSettings, updateCompressionSettings } =
+  await import("../../../src/lib/db/compression.ts");
 
-function freshDir() {
-  resetDbInstance();
+async function freshDir() {
+  await resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  getDbInstance();
+  await awaitDbMigrations();
 }
 
-after(() => {
-  resetDbInstance();
+after(async () => {
+  await resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -30,7 +32,7 @@ after(() => {
 });
 
 test("migration backfills engines map from prior defaultMode + default combo", async () => {
-  freshDir();
+  await freshDir();
   const db = getDbInstance(); // runs migrations incl. 102
   // simulate a pre-102 install: master on, defaultMode 'standard', caveman enabled
   db.prepare(
@@ -50,7 +52,7 @@ test("migration backfills engines map from prior defaultMode + default combo", a
 });
 
 test("engines map persists round-trip + activeComboId", async () => {
-  freshDir();
+  await freshDir();
   getDbInstance();
   await updateCompressionSettings({
     enabled: true,

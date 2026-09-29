@@ -21,8 +21,8 @@ const { filterTargetsByRequestCompatibility, getKnownContextOverflow, handleComb
 const { setModelContextOverride, removeModelContextOverride } =
   await import("../../src/lib/db/modelContextOverrides.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {
@@ -31,8 +31,8 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test.beforeEach(() => {
-  clearModelsDevCapabilities();
+test.beforeEach(async () => {
+  await clearModelsDevCapabilities();
 });
 
 function capabilityEntry(limitContext: number | null) {
@@ -102,7 +102,7 @@ function bigContextBody(tokens: number) {
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 test("known compatible context target wins over unknown-context targets", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
       million: capabilityEntry(1_000_000),
@@ -127,7 +127,7 @@ test("known compatible context target wins over unknown-context targets", async 
 });
 
 test("unknown-context targets keep strategy order when no known limit was rejected", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       million: capabilityEntry(1_000_000),
     },
@@ -146,7 +146,7 @@ test("unknown-context targets keep strategy order when no known limit was reject
 });
 
 test("unknown-context targets do not become the only survivors when no known-compatible context target exists", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
     },
@@ -169,7 +169,7 @@ test("unknown-context targets do not become the only survivors when no known-com
 });
 
 test("all known-too-small context targets still fall back to strategy order", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
       small: capabilityEntry(16_000),
@@ -188,8 +188,8 @@ test("all known-too-small context targets still fall back to strategy order", as
   );
 });
 
-test("known context overflow reports the largest target limit", () => {
-  saveModelsDevCapabilities({
+test("known context overflow reports the largest target limit", async () => {
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
       small: capabilityEntry(16_000),
@@ -207,14 +207,14 @@ test("known context overflow reports the largest target limit", () => {
   assert.equal(overflow.targetCount, 2);
 });
 
-test("#7177 an empty messages array is not counted as real content at an exact-boundary limit", () => {
+test("#7177 an empty messages array is not counted as real content at an exact-boundary limit", async () => {
   // Regression: some combo entrypoints default a caller-omitted `messages` to `[]`. The
   // estimator used to JSON.stringify whatever keys were merely *present* on the body,
   // so an empty array still contributed a few phantom "structural" tokens (JSON braces/
   // brackets), which was enough to trip a false-positive overflow when max_tokens exactly
   // equals the target's context window (a common config where limit_input === limit_output
   // === limit_context) even though there is no real input to account for.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       exact: capabilityEntry(4_096),
     },
@@ -228,8 +228,8 @@ test("#7177 an empty messages array is not counted as real content at an exact-b
   assert.equal(overflow, null);
 });
 
-test("unknown context metadata keeps overflow detection fail-open", () => {
-  saveModelsDevCapabilities({
+test("unknown context metadata keeps overflow detection fail-open", async () => {
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
     },
@@ -244,7 +244,7 @@ test("unknown context metadata keeps overflow detection fail-open", () => {
 });
 
 test("combo rejects a known oversized request before upstream dispatch", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-known-context": {
       tiny: capabilityEntry(8_000),
       small: capabilityEntry(16_000),
@@ -283,7 +283,7 @@ test("input-only maxInputTokens is not double-counted against the output reserve
   // output reserve was double-counted against an already input-only cap. Here
   // the input (~256K tokens) sits between the buggy allowance (240K) and the
   // real cap (272K): the fix keeps the target, the bug drops it.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-7039": {
       "codex-like": capabilityEntryWithLimits(272_000, 400_000, 128_000),
       huge: capabilityEntryWithLimits(1_000_000, 1_000_000, 500_000),
@@ -306,7 +306,7 @@ test("small input-only maxInputTokens keeps a target whose input fits even thoug
   // A second, lightweight reproduction: with maxInputTokens = 100 the input-only
   // cap comfortably holds the ~11-token input, but the old code compared it
   // against input + output (~411) and rejected the target. The fix keeps it.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-7039-small": {
       "input-capped": capabilityEntryWithLimits(100, 1_000_000, 500),
       huge: capabilityEntryWithLimits(1_000_000, 1_000_000, 500_000),
@@ -329,7 +329,7 @@ test("input-only maxInputTokens still rejects when the input itself exceeds the 
   // The fix must not let a genuinely-too-small input cap pass. `too-small` has
   // maxInputTokens = 1, which cannot even hold the ~11-token input, so it must
   // still be dropped while the compatible target survives.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-7039-too-small": {
       "too-small": capabilityEntryWithLimits(1, 1_000_000, 500),
       huge: capabilityEntryWithLimits(1_000_000, 1_000_000, 500_000),
@@ -352,7 +352,7 @@ test("maxInputTokens defaulting to contextWindow still rejects when input + outp
   // Shared-window model where maxInputTokens equals the total window size.
   // The input alone fits the input cap, but input + output overflows the
   // window, so the target must be rejected instead of passing on the input cap.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-7039-window": {
       "shared-window": capabilityEntryWithLimits(400_000, 400_000, 200_000),
       huge: capabilityEntryWithLimits(1_000_000, 1_000_000, 500_000),
@@ -378,7 +378,7 @@ test("maxInputTokens defaulting to contextWindow still rejects when input + outp
 // below the true window so coding agents auto-compact, #6191) gets wrongly
 // dropped for large-context requests, collapsing the fallback pool.
 test("model_context_override lets a small-catalog target survive a large-context request", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-override": {
       big: capabilityEntry(1_000_000),
       capped: capabilityEntry(8_000),
@@ -396,12 +396,12 @@ test("model_context_override lets a small-catalog target survive a large-context
       "unit-override/capped",
     ]);
   } finally {
-    removeModelContextOverride("unit-override", "capped");
+    await removeModelContextOverride("unit-override", "capped");
   }
 });
 
 test("without an override the small-catalog target is still dropped for the large request", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-override": {
       big: capabilityEntry(1_000_000),
       capped: capabilityEntry(8_000),

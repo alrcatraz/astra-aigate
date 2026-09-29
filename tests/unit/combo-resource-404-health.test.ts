@@ -43,10 +43,10 @@ test.beforeEach(() => {
   clearCooldownState();
 });
 
-test.after(() => {
+test.after(async () => {
   clearAllModelLockouts();
   clearCooldownState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

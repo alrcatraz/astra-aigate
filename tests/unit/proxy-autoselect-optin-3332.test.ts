@@ -8,9 +8,8 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-proxy-333
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
-const { FEATURE_FLAG_DEFINITIONS } = await import(
-  "../../src/shared/constants/featureFlagDefinitions.ts"
-);
+const { FEATURE_FLAG_DEFINITIONS } =
+  await import("../../src/shared/constants/featureFlagDefinitions.ts");
 const { isFeatureFlagEnabled } = await import("../../src/shared/utils/featureFlags.ts");
 const { selectWorkingProxyFallback } = await import("../../open-sse/utils/proxyFallback.ts");
 
@@ -41,9 +40,9 @@ test("selectWorkingProxyFallback short-circuits to null when the flag is off, ev
   }
 });
 
-test.after(() => {
+test.after(async () => {
   try {
-    core.resetDbInstance?.();
+    await core.resetDbInstanceDrained?.();
   } catch {
     /* ignore */
   }

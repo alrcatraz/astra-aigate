@@ -12,7 +12,7 @@ const fallbackPolicy = await import("../../src/domain/fallbackPolicy.ts");
 
 async function resetStorage() {
   fallbackPolicy.resetAllFallbacks();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -30,6 +30,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -38,7 +40,7 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   fallbackPolicy.resetAllFallbacks();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

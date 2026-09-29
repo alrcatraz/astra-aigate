@@ -123,8 +123,8 @@ function createDb() {
   return new Database(":memory:");
 }
 
-test.after(() => {
-  resetDbInstance();
+test.after(async () => {
+  await resetDbInstanceDrained();
 });
 
 test(

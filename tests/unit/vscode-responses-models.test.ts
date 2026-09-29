@@ -26,18 +26,20 @@ type MetadataModel = {
 };
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -86,9 +88,7 @@ test("vscode model metadata routes keep Responses text-generation models", async
   ]);
   const rawBody = (await rawResponse.json()) as { data?: MetadataModel[] };
   const groupedBody = (await groupedResponse.json()) as { data?: MetadataModel[] };
-  const rawModel = (rawBody.data || []).find(
-    (entry) => entry.id === "cx/future-codex-responses"
-  );
+  const rawModel = (rawBody.data || []).find((entry) => entry.id === "cx/future-codex-responses");
   const groupedModel = (groupedBody.data || []).find(
     (entry) => entry.root === "future-codex-responses"
   );

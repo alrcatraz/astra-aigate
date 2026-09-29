@@ -23,13 +23,13 @@ const PREV_RESET = "2026-01-08T00:00:00.000Z";
 const CUR_RESET = "2026-01-15T00:00:00.000Z"; // +7d, different day
 const OBSERVED = "2026-01-15T00:05:00.000Z";
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("records a weekly window transition and getWindowStart returns the prior window start", () => {
-  recordProviderQuotaResetEventIfChanged({
+test("records a weekly window transition and getWindowStart returns the prior window start", async () => {
+  await recordProviderQuotaResetEventIfChanged({
     provider: PROVIDER,
     connectionId: CONN,
     windowKey: "weekly",
@@ -40,7 +40,7 @@ test("records a weekly window transition and getWindowStart returns the prior wi
   });
 
   // For the new window (resets at CUR_RESET) the observed start is PREV_RESET.
-  const start = getProviderQuotaWindowStartIso(CONN, CUR_RESET, Date.parse(OBSERVED) + 1000);
+  const start = await getProviderQuotaWindowStartIso(CONN, CUR_RESET, Date.parse(OBSERVED) + 1000);
   assert.equal(start, PREV_RESET);
 });
 
@@ -51,7 +51,7 @@ test("getWindowStart returns null for a reset day with no recorded event", () =>
   );
 });
 
-test("observed same-resetAt quota drop overrides an older recorded weekly window", () => {
+test("observed same-resetAt quota drop overrides an older recorded weekly window", async () => {
   const connectionId = "conn-early-reset-snapshot";
   const targetResetAt = "2026-07-02T23:00:00.000Z";
   const db = core.getDbInstance();
@@ -125,7 +125,7 @@ test("observed same-resetAt quota drop overrides an older recorded weekly window
     "2026-07-01T21:41:13.293Z"
   );
 
-  const start = getProviderQuotaWindowStart(
+  const start = await getProviderQuotaWindowStart(
     connectionId,
     targetResetAt,
     Date.parse("2026-07-02T00:00:00.000Z")
@@ -145,12 +145,12 @@ test("observed same-resetAt quota drop overrides an older recorded weekly window
   );
 });
 
-test("records same-resetAt weekly resets when usage drops back to the reset floor", () => {
+test("records same-resetAt weekly resets when usage drops back to the reset floor", async () => {
   const connectionId = "conn-early-reset-record";
   const targetResetAt = "2026-07-02T23:00:00.000Z";
   const observedAt = "2026-07-01T21:41:13.293Z";
 
-  recordProviderQuotaResetEventIfChanged({
+  await recordProviderQuotaResetEventIfChanged({
     provider: "claude",
     connectionId,
     windowKey: "weekly (7d)",
@@ -170,8 +170,8 @@ test("records same-resetAt weekly resets when usage drops back to the reset floo
   );
 });
 
-test("does not record when previous and current reset fall on the same day without a reset drop", () => {
-  recordProviderQuotaResetEventIfChanged({
+test("does not record when previous and current reset fall on the same day without a reset drop", async () => {
+  await recordProviderQuotaResetEventIfChanged({
     provider: PROVIDER,
     connectionId: "conn-sameday",
     windowKey: "weekly",
@@ -190,8 +190,8 @@ test("does not record when previous and current reset fall on the same day witho
   );
 });
 
-test("does not record for a non-weekly (e.g. daily) window", () => {
-  recordProviderQuotaResetEventIfChanged({
+test("does not record for a non-weekly (e.g. daily) window", async () => {
+  await recordProviderQuotaResetEventIfChanged({
     provider: PROVIDER,
     connectionId: "conn-daily",
     windowKey: "daily",

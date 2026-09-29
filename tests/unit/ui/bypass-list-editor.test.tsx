@@ -34,9 +34,8 @@ describe("BypassListEditor", { timeout: 30000 }, () => {
   });
 
   it("renders default bypass patterns as read-only chips", async () => {
-    const { BypassListEditor } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor"
-    );
+    const { BypassListEditor } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor");
 
     const container = makeContainer();
     await act(async () => {
@@ -54,9 +53,8 @@ describe("BypassListEditor", { timeout: 30000 }, () => {
   }, 30000);
 
   it("renders initial user patterns in textarea", async () => {
-    const { BypassListEditor } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor"
-    );
+    const { BypassListEditor } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor");
 
     const container = makeContainer();
     await act(async () => {
@@ -75,9 +73,8 @@ describe("BypassListEditor", { timeout: 30000 }, () => {
   }, 30000);
 
   it("calls onSave when Save button clicked", async () => {
-    const { BypassListEditor } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor"
-    );
+    const { BypassListEditor } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor");
 
     const onSave = vi.fn().mockResolvedValue(undefined);
     const container = makeContainer();
@@ -98,16 +95,15 @@ describe("BypassListEditor", { timeout: 30000 }, () => {
     expect(saveBtn).not.toBeNull();
 
     await act(async () => {
-      saveBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await saveBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onSave).toHaveBeenCalled();
   }, 30000);
 
   it("renders save button", async () => {
-    const { BypassListEditor } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor"
-    );
+    const { BypassListEditor } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor");
 
     const container = makeContainer();
     await act(async () => {

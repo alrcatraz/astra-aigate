@@ -91,7 +91,7 @@ describe("RtkLearnDiscoverCard", () => {
         "value"
       )!.set!;
       setter.call(input, "npm install");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await click(c.querySelector("[data-testid='rtk-learn-button']"));
 

@@ -4,16 +4,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-db-agent-bridge-bypass-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-db-agent-bridge-bypass-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const mod = await import("../../src/lib/db/agentBridgeBypass.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -31,6 +29,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -38,7 +38,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -49,15 +49,15 @@ const DEFAULT_PATTERNS = [
   "login.microsoftonline.com",
 ];
 
-test("getAllBypassPatterns returns empty array when table is empty", () => {
-  const rows = mod.getAllBypassPatterns();
+test("getAllBypassPatterns returns empty array when table is empty", async () => {
+  const rows = await mod.getAllBypassPatterns();
   assert.deepEqual(rows, []);
 });
 
-test("seedDefaultBypassPatterns inserts default patterns with source=default", () => {
-  mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
+test("seedDefaultBypassPatterns inserts default patterns with source=default", async () => {
+  await mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
 
-  const rows = mod.getAllBypassPatterns();
+  const rows = await mod.getAllBypassPatterns();
   assert.equal(rows.length, DEFAULT_PATTERNS.length);
 
   for (const row of rows) {
@@ -66,19 +66,19 @@ test("seedDefaultBypassPatterns inserts default patterns with source=default", (
   }
 });
 
-test("seedDefaultBypassPatterns is idempotent — calling twice does not duplicate", () => {
-  mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
-  mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
+test("seedDefaultBypassPatterns is idempotent — calling twice does not duplicate", async () => {
+  await mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
+  await mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
 
-  const rows = mod.getAllBypassPatterns();
+  const rows = await mod.getAllBypassPatterns();
   assert.equal(rows.length, DEFAULT_PATTERNS.length);
 });
 
-test("getUserBypassPatterns returns only user patterns", () => {
-  mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
-  mod.replaceUserBypassPatterns(["*.internal.example.com", "localhost"]);
+test("getUserBypassPatterns returns only user patterns", async () => {
+  await mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
+  await mod.replaceUserBypassPatterns(["*.internal.example.com", "localhost"]);
 
-  const userPatterns = mod.getUserBypassPatterns();
+  const userPatterns = await mod.getUserBypassPatterns();
   assert.equal(userPatterns.length, 2);
   assert.ok(userPatterns.includes("*.internal.example.com"));
   assert.ok(userPatterns.includes("localhost"));
@@ -89,12 +89,12 @@ test("getUserBypassPatterns returns only user patterns", () => {
   }
 });
 
-test("replaceUserBypassPatterns replaces only user entries — defaults untouched", () => {
-  mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
-  mod.replaceUserBypassPatterns(["custom.host.1"]);
-  mod.replaceUserBypassPatterns(["custom.host.2", "custom.host.3"]);
+test("replaceUserBypassPatterns replaces only user entries — defaults untouched", async () => {
+  await mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
+  await mod.replaceUserBypassPatterns(["custom.host.1"]);
+  await mod.replaceUserBypassPatterns(["custom.host.2", "custom.host.3"]);
 
-  const allRows = mod.getAllBypassPatterns();
+  const allRows = await mod.getAllBypassPatterns();
   const defaultRows = allRows.filter((r) => r.source === "default");
   const userRows = allRows.filter((r) => r.source === "user");
 
@@ -107,24 +107,24 @@ test("replaceUserBypassPatterns replaces only user entries — defaults untouche
   assert.ok(userPatterns.includes("custom.host.3"));
 });
 
-test("replaceUserBypassPatterns with empty array clears all user patterns", () => {
-  mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
-  mod.replaceUserBypassPatterns(["temp.host"]);
-  mod.replaceUserBypassPatterns([]);
+test("replaceUserBypassPatterns with empty array clears all user patterns", async () => {
+  await mod.seedDefaultBypassPatterns(DEFAULT_PATTERNS);
+  await mod.replaceUserBypassPatterns(["temp.host"]);
+  await mod.replaceUserBypassPatterns([]);
 
-  const userPatterns = mod.getUserBypassPatterns();
+  const userPatterns = await mod.getUserBypassPatterns();
   assert.equal(userPatterns.length, 0);
 
   // Defaults remain
-  const allRows = mod.getAllBypassPatterns();
+  const allRows = await mod.getAllBypassPatterns();
   assert.equal(allRows.length, DEFAULT_PATTERNS.length);
 });
 
-test("getAllBypassPatterns returns both default and user patterns", () => {
-  mod.seedDefaultBypassPatterns(["*.example.com"]);
-  mod.replaceUserBypassPatterns(["custom.host"]);
+test("getAllBypassPatterns returns both default and user patterns", async () => {
+  await mod.seedDefaultBypassPatterns(["*.example.com"]);
+  await mod.replaceUserBypassPatterns(["custom.host"]);
 
-  const allRows = mod.getAllBypassPatterns();
+  const allRows = await mod.getAllBypassPatterns();
   assert.equal(allRows.length, 2);
 
   const sources = new Set(allRows.map((r) => r.source));

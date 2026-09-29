@@ -9,6 +9,8 @@ process.env.DATA_DIR = tmpDir;
 
 const core = await import("../../../src/lib/db/core.ts");
 await core.resetDbInstanceDrained();
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { insertCompressionRunTelemetryRow, getCompressionRunTelemetrySummary } =
   await import("../../../src/lib/db/compressionRunTelemetry.ts");
 const { getDbInstance } = core;
@@ -51,15 +53,19 @@ describe("compressionRunTelemetry", () => {
   });
 
   it("never throws on a malformed row; outputStyles is optional", async () => {
-    // Malformed row must be tolerated (no throw) — awaiting proves both.
-    await insertCompressionRunTelemetryRow({
-      requestId: "req-3",
-      model: "m",
-      provider: "p",
-      source: "off",
-      tokensBefore: 0,
-      tokensAfter: 0,
-      ratio: 0,
+    // Malformed row must be tolerated (no throw) — the async row-insert is a
+    // Promise, so doesNotThrow() can no longer wrap it (its callback cannot
+    // await); doesNotReject() asserts the identical contract.
+    await assert.doesNotReject(async () => {
+      await insertCompressionRunTelemetryRow({
+        requestId: "req-3",
+        model: "m",
+        provider: "p",
+        source: "off",
+        tokensBefore: 0,
+        tokensAfter: 0,
+        ratio: 0,
+      });
     });
     assert.equal((await getCompressionRunTelemetrySummary()).totalRuns, 1);
   });

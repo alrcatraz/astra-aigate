@@ -29,6 +29,8 @@ async function resetStorage() {
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -55,7 +57,7 @@ test("createApiKey persists scopes to the api_keys row", async () => {
   const db = core.getDbInstance() as unknown as {
     prepare: (sql: string) => { get: (id: string) => { scopes: string | null } | undefined };
   };
-  const row = db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
+  const row = await db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
   assert.equal(row?.scopes, JSON.stringify(["manage"]));
 });
 
@@ -64,7 +66,7 @@ test("createApiKey with default scopes writes an empty JSON array", async () => 
   const db = core.getDbInstance() as unknown as {
     prepare: (sql: string) => { get: (id: string) => { scopes: string | null } | undefined };
   };
-  const row = db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
+  const row = await db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
   assert.equal(row?.scopes, "[]");
 });
 

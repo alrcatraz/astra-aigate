@@ -24,10 +24,12 @@ async function flushBackgroundWork() {
 }
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   resetAllCircuitBreakers();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedSuppressedConnection() {
@@ -131,7 +133,7 @@ test.after(async () => {
   await flushBackgroundWork();
   globalThis.fetch = originalFetch;
   resetAllCircuitBreakers();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -274,10 +276,7 @@ test("chat completions route emits early keepalive while waiting for stream read
   assert.match(response.headers.get("content-type") || "", /text\/event-stream/);
 
   const body = await readAll(response);
-  assert.match(
-    body,
-    /data: \{"id":"omniroute-keepalive","object":"chat\.completion\.chunk"/
-  );
+  assert.match(body, /data: \{"id":"omniroute-keepalive","object":"chat\.completion\.chunk"/);
   assert.match(body, /OK/);
   assert.match(body, /\[DONE\]/);
 });

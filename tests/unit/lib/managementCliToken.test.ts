@@ -20,14 +20,13 @@ await settingsDb.updateSettings({
   password: "test-password-hash",
 });
 
-const { getLegacyCliTokenSync, getMachineTokenSync } = await import(
-  "../../../src/lib/machineToken.ts"
-);
+const { getLegacyCliTokenSync, getMachineTokenSync } =
+  await import("../../../src/lib/machineToken.ts");
 const { managementPolicy } = await import("../../../src/server/authz/policies/management.ts");
 const { CLI_TOKEN_HEADER } = await import("../../../src/server/authz/headers.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;

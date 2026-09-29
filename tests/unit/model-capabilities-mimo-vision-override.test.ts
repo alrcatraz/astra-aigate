@@ -51,17 +51,19 @@ function buildCapability(overrides = {}) {
   };
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // Mirror the WRONG models.dev `xiaomi-mimo` keying: the text-only `*-pro` chat models
 // carry attachment:true (the upstream mislabel), while the genuinely multimodal
 // `mimo-v2.5` / `mimo-v2-omni` correctly carry attachment:true too.
-function seedMimoCapabilities() {
-  modelsDevSync.saveModelsDevCapabilities({
+async function seedMimoCapabilities() {
+  await modelsDevSync.saveModelsDevCapabilities({
     "xiaomi-mimo": {
       "mimo-v2.5-pro": buildCapability({
         attachment: true, // upstream mislabel — must be overridden to text-only
@@ -91,12 +93,12 @@ function seedMimoCapabilities() {
   });
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -19,10 +19,12 @@ const virtualFactory = await import("../../open-sse/services/autoCombo/virtualFa
 const accountFallback = await import("../../open-sse/services/accountFallback.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   accountFallback.clearAllModelLockouts();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {

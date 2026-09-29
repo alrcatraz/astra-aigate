@@ -28,8 +28,9 @@ const defaultSettings = {
 
 describe("RerankConfigCard", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-      true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(() => {
@@ -39,9 +40,8 @@ describe("RerankConfigCard", () => {
   });
 
   it("renders the enable toggle", async () => {
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -50,7 +50,7 @@ describe("RerankConfigCard", () => {
           settings={defaultSettings}
           providers={[]}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     expect(container.querySelector("[data-testid='rerank-enabled-switch']")).toBeTruthy();
@@ -63,31 +63,24 @@ describe("RerankConfigCard", () => {
     {
       provider: "cohere",
       hasKey: true,
-      models: [
-        { id: "cohere/rerank-english-v3.0", name: "Rerank English v3", dimensions: null },
-      ],
+      models: [{ id: "cohere/rerank-english-v3.0", name: "Rerank English v3", dimensions: null }],
     },
   ];
 
   it("toggle switch calls onSave with rerankEnabled=true when disabled", async () => {
     const onSave = vi.fn().mockResolvedValue(true);
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <RerankConfigCard
-          settings={defaultSettings}
-          providers={providersWithKey}
-          onSave={onSave}
-        />,
+        <RerankConfigCard settings={defaultSettings} providers={providersWithKey} onSave={onSave} />
       );
     });
 
     const toggleBtn = container.querySelector(
-      "[data-testid='rerank-enabled-switch']",
+      "[data-testid='rerank-enabled-switch']"
     ) as HTMLButtonElement | null;
     expect(toggleBtn).toBeTruthy();
     await act(async () => {
@@ -100,23 +93,16 @@ describe("RerankConfigCard", () => {
     // Plan 21 D13 fix: trying to enable rerank without a configured provider
     // must NOT call onSave (the guard prevents the state from becoming inconsistent).
     const onSave = vi.fn().mockResolvedValue(true);
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
-      root.render(
-        <RerankConfigCard
-          settings={defaultSettings}
-          providers={[]}
-          onSave={onSave}
-        />,
-      );
+      root.render(<RerankConfigCard settings={defaultSettings} providers={[]} onSave={onSave} />);
     });
 
     const toggleBtn = container.querySelector(
-      "[data-testid='rerank-enabled-switch']",
+      "[data-testid='rerank-enabled-switch']"
     ) as HTMLButtonElement | null;
     expect(toggleBtn).toBeTruthy();
     expect(toggleBtn?.hasAttribute("disabled")).toBe(true);
@@ -128,9 +114,8 @@ describe("RerankConfigCard", () => {
 
   it("toggle switch calls onSave with rerankEnabled=false when enabled", async () => {
     const onSave = vi.fn().mockResolvedValue(true);
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -139,12 +124,12 @@ describe("RerankConfigCard", () => {
           settings={{ ...defaultSettings, rerankEnabled: true }}
           providers={[]}
           onSave={onSave}
-        />,
+        />
       );
     });
 
     const toggleBtn = container.querySelector(
-      "[data-testid='rerank-enabled-switch']",
+      "[data-testid='rerank-enabled-switch']"
     ) as HTMLButtonElement | null;
     expect(toggleBtn).toBeTruthy();
     await act(async () => {
@@ -154,9 +139,8 @@ describe("RerankConfigCard", () => {
   });
 
   it("shows warning banner when rerankEnabled=true", async () => {
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -165,16 +149,15 @@ describe("RerankConfigCard", () => {
           settings={{ ...defaultSettings, rerankEnabled: true }}
           providers={[]}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     expect(container.textContent).toContain("rerank.warning");
   });
 
   it("does not show warning banner when rerankEnabled=false", async () => {
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -183,16 +166,15 @@ describe("RerankConfigCard", () => {
           settings={defaultSettings}
           providers={[]}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     expect(container.textContent).not.toContain("rerank.warning");
   });
 
   it("shows no-provider warning when rerankEnabled=true but no providers have keys", async () => {
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -201,7 +183,7 @@ describe("RerankConfigCard", () => {
           settings={{ ...defaultSettings, rerankEnabled: true }}
           providers={[{ provider: "cohere", hasKey: false, models: [] }]}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     expect(container.querySelector("[data-testid='rerank-no-provider-warning']")).toBeTruthy();
@@ -209,16 +191,13 @@ describe("RerankConfigCard", () => {
   });
 
   it("shows provider select (not warning) when rerankEnabled=true and provider with key exists", async () => {
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const providers = [
       {
         provider: "cohere",
         hasKey: true,
-        models: [
-          { id: "cohere/rerank-english-v3", name: "rerank-english-v3", dimensions: 0 },
-        ],
+        models: [{ id: "cohere/rerank-english-v3", name: "rerank-english-v3", dimensions: 0 }],
       },
     ];
     const container = makeContainer();
@@ -229,7 +208,7 @@ describe("RerankConfigCard", () => {
           settings={{ ...defaultSettings, rerankEnabled: true }}
           providers={providers}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     // No warning
@@ -246,14 +225,11 @@ describe("RerankConfigCard", () => {
       {
         provider: "cohere",
         hasKey: true,
-        models: [
-          { id: "cohere/rerank-english-v3", name: "rerank-english-v3", dimensions: 0 },
-        ],
+        models: [{ id: "cohere/rerank-english-v3", name: "rerank-english-v3", dimensions: 0 }],
       },
     ];
-    const { default: RerankConfigCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard"
-    );
+    const { default: RerankConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/RerankConfigCard");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -262,22 +238,22 @@ describe("RerankConfigCard", () => {
           settings={{ ...defaultSettings, rerankEnabled: true }}
           providers={providers}
           onSave={onSave}
-        />,
+        />
       );
     });
 
     const select = container.querySelector(
-      "[data-testid='rerank-provider-model-select']",
+      "[data-testid='rerank-provider-model-select']"
     ) as HTMLSelectElement | null;
     expect(select).toBeTruthy();
     await act(async () => {
       if (select) {
         const nativeSetter = Object.getOwnPropertyDescriptor(
           window.HTMLSelectElement.prototype,
-          "value",
+          "value"
         )?.set;
         nativeSetter?.call(select, "cohere/rerank-english-v3");
-        select.dispatchEvent(new Event("change", { bubbles: true }));
+        await select.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
     expect(onSave).toHaveBeenCalledWith({ rerankProviderModel: "cohere/rerank-english-v3" });

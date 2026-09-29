@@ -58,9 +58,11 @@ after(() => {
 });
 
 async function resetModuleStorage() {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
   fs.mkdirSync(moduleDataDir, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 function upsertTool(db, data) {
@@ -334,23 +336,23 @@ describe("db/versionManager (logic)", () => {
   });
 
   describe("setToolStatus", () => {
-    it("should update status with pid", () => {
+    it("should update status with pid", async () => {
       upsertTool(testDb, { tool: "s1" });
       testDb
         .prepare("UPDATE version_manager SET status = ?, pid = ?, error_message = ? WHERE tool = ?")
         .run("running", 9999, "ok", "s1");
-      const row = testDb.prepare("SELECT * FROM version_manager WHERE tool = ?").get("s1");
+      const row = await testDb.prepare("SELECT * FROM version_manager WHERE tool = ?").get("s1");
       assert.equal(row.status, "running");
       assert.equal(row.pid, 9999);
       assert.equal(row.error_message, "ok");
     });
 
-    it("should update status without pid", () => {
+    it("should update status without pid", async () => {
       upsertTool(testDb, { tool: "s2" });
       testDb
         .prepare("UPDATE version_manager SET status = ?, error_message = ? WHERE tool = ?")
         .run("error", "crashed", "s2");
-      const row = testDb.prepare("SELECT * FROM version_manager WHERE tool = ?").get("s2");
+      const row = await testDb.prepare("SELECT * FROM version_manager WHERE tool = ?").get("s2");
       assert.equal(row.status, "error");
     });
 
@@ -384,7 +386,7 @@ describe("db/versionManager (module coverage)", () => {
   });
 
   after(async () => {
-    coreDb.resetDbInstance();
+    await coreDb.resetDbInstanceDrained();
     fs.rmSync(moduleDataDir, { recursive: true, force: true });
   });
 

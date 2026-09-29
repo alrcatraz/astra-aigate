@@ -71,14 +71,14 @@ test.before(async () => {
     });
 });
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
   if (originalSiblingEnv === undefined) {
     delete process.env[SIBLING_LIMIT_ENV];
   } else {
     process.env[SIBLING_LIMIT_ENV] = originalSiblingEnv;
   }
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

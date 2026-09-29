@@ -11,12 +11,14 @@ process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "task-303-ping-secret
 
 // Reset before importing so the singleton binds to the temp DATA_DIR.
 const core = await import("../../src/lib/db/core.ts");
-core.resetDbInstance();
+await core.resetDbInstanceDrained();
+core.getDbInstance();
+await core.awaitDbMigrations();
 
 const routeModule = await import("../../src/app/api/health/ping/route.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -34,7 +36,7 @@ test("GET /api/health/ping returns 200 with status ok and ISO timestamp", async 
 
 test("GET /api/health/ping sets no-store cache headers", async () => {
   const res = await routeModule.GET();
-  const cacheControl = res.headers.get("Cache-Control");
+  const cacheControl = await res.headers.get("Cache-Control");
   assert.ok(cacheControl, "Cache-Control header must be set");
   assert.match(cacheControl, /no-store/i);
 });

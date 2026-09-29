@@ -25,8 +25,8 @@ async function fetchModels(): Promise<Array<{ provider: string; model: string }>
   return body.models;
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {
@@ -47,7 +47,11 @@ test("#6328 /api/models removes paid models when hidePaidModels is on", async ()
     list.some((m) => m.provider === "openai" && /^gpt-/.test(m.model));
 
   await settingsDb.updateSettings({ hidePaidModels: false });
-  assert.equal(hasPaidOpenAi(await fetchModels()), true, "paid OpenAI models visible when toggle is off");
+  assert.equal(
+    hasPaidOpenAi(await fetchModels()),
+    true,
+    "paid OpenAI models visible when toggle is off"
+  );
 
   await settingsDb.updateSettings({ hidePaidModels: true });
   assert.equal(

@@ -26,7 +26,7 @@ const core = await import("../../src/lib/db/core.ts");
 const manager = await import("../../src/mitm/manager.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -43,6 +43,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -51,7 +53,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -99,7 +101,11 @@ test("handleExitCleanup: with a cached sudo password, best-effort reverts manage
 
 test("handleExitCleanup: with NO cached password, falls back to orphaned-state flag and skips DNS removal", async () => {
   manager.clearCachedPassword();
-  assert.equal(manager.getCachedPassword(), null, "precondition: no password cached in this session");
+  assert.equal(
+    manager.getCachedPassword(),
+    null,
+    "precondition: no password cached in this session"
+  );
 
   let removeDNSEntryCalled = false;
   let removeDNSEntriesCalled = false;

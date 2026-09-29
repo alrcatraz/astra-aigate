@@ -18,11 +18,13 @@ const TEST_JWT_SECRET = "db-health-route-jwt-secret";
 const TEST_INITIAL_PASSWORD = "db-health-route-password";
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   process.env.JWT_SECRET = TEST_JWT_SECRET;
   process.env.INITIAL_PASSWORD = TEST_INITIAL_PASSWORD;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeRequest(method, cookie) {
@@ -57,7 +59,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_JWT_SECRET === undefined) delete process.env.JWT_SECRET;
   else process.env.JWT_SECRET = ORIGINAL_JWT_SECRET;

@@ -14,10 +14,10 @@ describe("copyToClipboard", () => {
     expect(typeof copyToClipboard).toBe("function");
   });
 
-  it("returns a Promise", () => {
+  it("returns a Promise", async () => {
     // Minimal smoke test: the function returns a thenable even when
     // navigator.clipboard is undefined (HTTP context simulation).
-    const result = copyToClipboard("hello");
+    const result = await copyToClipboard("hello");
     expect(result).toBeInstanceOf(Promise);
   });
 

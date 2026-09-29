@@ -37,8 +37,8 @@ describe("vertex leaf self-tracked spend", () => {
     insertUsage("conn-leaf", "vertex", "gemini-2.5-flash", 1_000_000, 500_000, 1);
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     try {
       fs.rmSync(TMP, { recursive: true, force: true });
     } catch {

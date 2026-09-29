@@ -34,9 +34,11 @@ async function resetStorage() {
   comboMetrics.resetAllComboMetrics();
   clearAllModelLockouts();
   resetAllCircuitBreakers();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {
@@ -114,7 +116,7 @@ async function seedAutoCombo(comboOverrides: Record<string, unknown> = {}) {
     });
   }
 
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "openai",
     connection_id: "scoring-conn-fast",
     window_key: "daily",
@@ -124,7 +126,7 @@ async function seedAutoCombo(comboOverrides: Record<string, unknown> = {}) {
     window_duration_ms: 86_400_000,
     raw_data: null,
   });
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "anthropic",
     connection_id: "scoring-conn-slow",
     window_key: "daily",

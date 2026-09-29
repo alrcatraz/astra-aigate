@@ -21,14 +21,13 @@ import path from "node:path";
 // exercises the real DB, this only prevents an accidental production open).
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-quota-autoping-"));
 
-const {
-  runQuotaAutoPingTick,
-  createQuotaAutoPingState,
-} = await import("../../src/lib/services/quotaAutoPing.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { runQuotaAutoPingTick, createQuotaAutoPingState } =
+  await import("../../src/lib/services/quotaAutoPing.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
-test.after(() => {
-  resetDbInstance();
+test.after(async () => {
+  await resetDbInstanceDrained();
 });
 
 const NOW_ISO = "2026-01-01T12:00:00.000Z";
@@ -95,7 +94,9 @@ test("#6977 does not ping on the first resetAt observation (only caches it)", as
 test("#6977 sends a ping once the session resetAt slides forward", async () => {
   const { deps, calls } = baseDeps({
     getCodexUsage: async () => ({
-      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" } },
+      quotas: {
+        session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();
@@ -115,7 +116,9 @@ test("#6977 sends a ping once the session resetAt slides forward", async () => {
 test("#6977 does not ping when resetAt is stable (no slide)", async () => {
   const { deps, calls } = baseDeps({
     getCodexUsage: async () => ({
-      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:00:00.000Z" } },
+      quotas: {
+        session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:00:00.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();
@@ -142,7 +145,9 @@ test("#6977 does not repeat a ping inside the minimum ping interval", async () =
           ]
         : [],
     getCodexUsage: async () => ({
-      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" } },
+      quotas: {
+        session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();
@@ -169,7 +174,9 @@ test("#6977 never re-pings the same resetKey twice even across small clock drift
           ]
         : [],
     getCodexUsage: async () => ({
-      quotas: { session: { used: 0, total: 100, remaining: 100, resetAt: "2026-01-01T11:59:03.000Z" } },
+      quotas: {
+        session: { used: 0, total: 100, remaining: 100, resetAt: "2026-01-01T11:59:03.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();
@@ -183,7 +190,9 @@ test("#6977 never re-pings the same resetKey twice even across small clock drift
 test("#6977 skips when the session quota itself is exhausted", async () => {
   const { deps, calls } = baseDeps({
     getCodexUsage: async () => ({
-      quotas: { session: { used: 100, total: 100, remaining: 0, resetAt: "2026-01-01T17:01:00.000Z" } },
+      quotas: {
+        session: { used: 100, total: 100, remaining: 0, resetAt: "2026-01-01T17:01:00.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();
@@ -229,7 +238,9 @@ test("#6977 skips a connection whose provider circuit breaker is open", async ()
   const { deps, calls } = baseDeps({
     canExecuteProvider: () => false,
     getCodexUsage: async () => ({
-      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" } },
+      quotas: {
+        session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();
@@ -265,7 +276,9 @@ test("#6977 skips a connection currently in cooldown (rateLimitedUntil in the fu
 test("#6977 does not re-ping while inside the failure cooldown window", async () => {
   const { deps, calls } = baseDeps({
     getCodexUsage: async () => ({
-      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" } },
+      quotas: {
+        session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();
@@ -280,7 +293,9 @@ test("#6977 does not re-ping while inside the failure cooldown window", async ()
 test("#6977 caches the failure and skips the DB write when the ping itself fails", async () => {
   const { deps, calls } = baseDeps({
     getCodexUsage: async () => ({
-      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" } },
+      quotas: {
+        session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" },
+      },
     }),
     getExecutor: () => ({
       execute: async () => ({ response: { ok: false } }),
@@ -310,7 +325,9 @@ test("#6977 sends the tiny ping request through the real Codex executor with the
           ]
         : [],
     getCodexUsage: async () => ({
-      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" } },
+      quotas: {
+        session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" },
+      },
     }),
   });
   const state = createQuotaAutoPingState();

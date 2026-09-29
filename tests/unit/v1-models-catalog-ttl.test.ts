@@ -39,16 +39,18 @@ const catalogCache = await import("../../src/app/api/v1/models/catalogCache.ts")
 /** Comfortably past the old 1500 ms TTL, and a realistic client poll gap. */
 const GAP_MS = 10_000;
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   v1ModelsCatalog.__resetCatalogBuilderRunsForTest();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });

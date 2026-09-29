@@ -39,9 +39,9 @@ function render(props: Record<string, unknown>) {
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(() => {
+  act(async () => {
     setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -95,8 +95,8 @@ describe("AddApiKeyModal — 'validation not supported' is a non-blocking warnin
       (b) => b.textContent?.trim() === "Check cookie"
     )!;
     expect(checkBtn).toBeTruthy();
-    act(() => {
-      checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => el.textContent?.includes("N/A") ?? false);
@@ -117,8 +117,8 @@ describe("AddApiKeyModal — 'validation not supported' is a non-blocking warnin
       (b) => b.textContent?.trim() === "save"
     )!;
     expect(saveBtn).toBeTruthy();
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // RED on pre-fix code: the modal ignored `unsupported`, set a save error and

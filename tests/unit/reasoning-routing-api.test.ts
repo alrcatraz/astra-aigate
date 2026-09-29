@@ -36,10 +36,12 @@ type SimulationResponse = {
 
 async function resetStorage() {
   apiKeysDb.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   rulesDb.invalidateReasoningRoutingRuleCache();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function request(pathname: string, method = "GET", body?: unknown) {

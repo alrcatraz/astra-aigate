@@ -11,22 +11,24 @@ const coreDb = await import("../../src/lib/db/core.ts");
 const webhooksDb = await import("../../src/lib/db/webhooks.ts");
 
 async function resetStorage() {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  coreDb.resetDbInstance();
+test.after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("webhooks create, update, query enabled hooks and delete records", () => {
-  const created = webhooksDb.createWebhook({
+test("webhooks create, update, query enabled hooks and delete records", async () => {
+  const created = await webhooksDb.createWebhook({
     url: "https://example.com/hook",
     events: ["request.completed"],
     description: "Primary webhook",
@@ -36,7 +38,7 @@ test("webhooks create, update, query enabled hooks and delete records", () => {
   assert.equal(webhooksDb.getWebhooks().webhooks.length, 1);
   assert.equal(webhooksDb.getEnabledWebhooks().length, 1);
 
-  const updated = webhooksDb.updateWebhook(created.id, {
+  const updated = await webhooksDb.updateWebhook(created.id, {
     enabled: false,
     events: ["request.failed"],
     secret: "custom-secret",
@@ -52,36 +54,36 @@ test("webhooks create, update, query enabled hooks and delete records", () => {
   assert.equal(webhooksDb.deleteWebhook(created.id), false);
 });
 
-test("webhooks record delivery success and failures", () => {
-  const created = webhooksDb.createWebhook({
+test("webhooks record delivery success and failures", async () => {
+  const created = await webhooksDb.createWebhook({
     url: "https://example.com/hook",
   });
 
-  webhooksDb.recordWebhookDelivery(created.id, 500, false);
-  webhooksDb.recordWebhookDelivery(created.id, 502, false);
-  let stored = webhooksDb.getWebhook(created.id);
+  await webhooksDb.recordWebhookDelivery(created.id, 500, false);
+  await webhooksDb.recordWebhookDelivery(created.id, 502, false);
+  let stored = await webhooksDb.getWebhook(created.id);
 
   assert.equal(stored.failure_count, 2);
   assert.equal(stored.last_status, 502);
 
-  webhooksDb.recordWebhookDelivery(created.id, 200, true);
-  stored = webhooksDb.getWebhook(created.id);
+  await webhooksDb.recordWebhookDelivery(created.id, 200, true);
+  stored = await webhooksDb.getWebhook(created.id);
 
   assert.equal(stored.failure_count, 0);
   assert.equal(stored.last_status, 200);
   assert.ok(stored.last_triggered_at);
 });
 
-test("webhooks disable only hooks above the failure threshold", () => {
-  const a = webhooksDb.createWebhook({ url: "https://example.com/a" });
-  const b = webhooksDb.createWebhook({ url: "https://example.com/b" });
+test("webhooks disable only hooks above the failure threshold", async () => {
+  const a = await webhooksDb.createWebhook({ url: "https://example.com/a" });
+  const b = await webhooksDb.createWebhook({ url: "https://example.com/b" });
 
   for (let i = 0; i < 3; i++) {
-    webhooksDb.recordWebhookDelivery(a.id, 500, false);
+    await webhooksDb.recordWebhookDelivery(a.id, 500, false);
   }
-  webhooksDb.recordWebhookDelivery(b.id, 500, false);
+  await webhooksDb.recordWebhookDelivery(b.id, 500, false);
 
-  const disabled = webhooksDb.disableWebhooksWithHighFailures(2);
+  const disabled = await webhooksDb.disableWebhooksWithHighFailures(2);
 
   assert.equal(disabled, 1);
   assert.equal(webhooksDb.getWebhook(a.id).enabled, false);

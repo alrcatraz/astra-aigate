@@ -119,7 +119,7 @@ await test("enforceQuotaShare — store.peek throws → fail-open (never rejects
   const { enforceQuotaShare } = await import("../../src/lib/quota/enforce.ts");
 
   // Test that the promise resolves (does not reject) when the DB is unavailable
-  const resultPromise = enforceQuotaShare({
+  const resultPromise = await enforceQuotaShare({
     apiKeyId: "any-key",
     connectionId: "any-conn",
     provider: "any-provider",
@@ -147,12 +147,7 @@ const { decideFairShare } = await import("../../src/lib/quota/fairShare.ts");
 
 const THRESHOLD = 0.5;
 
-function dim(
-  globalUsedPercent: number,
-  consumed: number,
-  limit = 1000,
-  consumedTotal?: number
-) {
+function dim(globalUsedPercent: number, consumed: number, limit = 1000, consumedTotal?: number) {
   return {
     key: { poolId: POOL_ID, unit: "tokens" as const, window: "hourly" as const },
     limit,
@@ -263,7 +258,11 @@ await test("enforceQuotaShare (via fairShare) — generous mode, burst, consumed
     saturationThreshold: THRESHOLD,
   });
 
-  assert.equal(decision.kind, "allow", "burst in generous mode → always allow while global headroom exists");
+  assert.equal(
+    decision.kind,
+    "allow",
+    "burst in generous mode → always allow while global headroom exists"
+  );
 });
 
 // ---------------------------------------------------------------------------

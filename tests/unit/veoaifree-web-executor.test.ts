@@ -133,7 +133,7 @@ test("VeoAIFreeWebExecutor preserves cookies and returns normalized base64 mp4",
 
     if (stringUrl === "https://veoaifree.com/wp-admin/admin-ajax.php") {
       const params = new URLSearchParams(String(init?.body || ""));
-      const actionType = params.get("actionType");
+      const actionType = await params.get("actionType");
       if (actionType === "full-video-generate") {
         assert.match(headers.get("Cookie") || "", /session_id=bootstrap/);
         return createResponse("scene-xyz", {

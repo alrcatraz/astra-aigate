@@ -401,9 +401,11 @@ export async function createLiveHarness(prefix: string): Promise<LiveHarness> {
     clearInflight();
     clearIdempotency();
     resetAllCircuitBreakers();
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     // Destroy the snapshot — targets only the temp dir, NEVER /root/.omniroute.
     fs.rmSync(snapshotDir, { recursive: true, force: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
   // Populate the map eagerly so servedProvider (sync) works right after

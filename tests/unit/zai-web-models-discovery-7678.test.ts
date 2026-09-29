@@ -36,13 +36,15 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsRoute = await import("../../src/app/api/providers/[id]/models/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -72,7 +74,7 @@ test("#7678 zai-web model discovery fetches the live /api/models catalog with a 
     if (u.startsWith(ZAI_WEB_MODELS_URL)) {
       fetchedUrl = u;
       const headers = new Headers(init?.headers);
-      capturedAuthHeader = headers.get("Authorization");
+      capturedAuthHeader = await headers.get("Authorization");
       return Response.json({
         data: {
           data: [{ id: "glm-5.0", name: "GLM-5.0", owned_by: "zai-web" }],
@@ -221,7 +223,11 @@ test("#7678 zai-web second call without ?refresh uses the cache, not a new live 
     );
     assert.equal(second.status, 200);
     const secondBody = (await second.json()) as ModelsBody;
-    assert.equal(secondBody.source, "cache", "second call without ?refresh must be served from cache");
+    assert.equal(
+      secondBody.source,
+      "cache",
+      "second call without ?refresh must be served from cache"
+    );
     assert.equal(liveFetchCount, 1, "the cache must short-circuit the live fetch entirely");
     assert.ok(secondBody.models.map((m) => m.id).includes("glm-4.6"));
   } finally {

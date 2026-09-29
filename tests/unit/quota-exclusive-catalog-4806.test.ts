@@ -43,7 +43,7 @@ const { quotaGroupSlug, isQuotaModelName, parseQuotaModelName } =
 
 async function resetStorage() {
   apiKeysDb.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -60,6 +60,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -68,13 +70,13 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   apiKeysDb.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("#4806 quota-exclusive key lists its qtSd/* virtual models in GET /v1/models", async () => {
   // Group "Times" → slug "times"; combos will be qtSd/times/glm/<model>.
-  const group = groupsDb.createGroup("Times");
+  const group = await groupsDb.createGroup("Times");
 
   const conn = await providersDb.createProviderConnection({
     provider: "glm",
@@ -85,7 +87,7 @@ test("#4806 quota-exclusive key lists its qtSd/* virtual models in GET /v1/model
   const connId = (conn as Record<string, unknown>).id as string;
   assert.ok(connId, "connection should have an id");
 
-  const pool = poolsDb.createPool({ connectionId: connId, name: "Times", groupId: group.id });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "Times", groupId: group.id });
   await syncQuotaCombos(pool.id); // mint the hidden qtSd/times/glm/* combos
 
   // Make the key "quota exclusive" by scoping it to the pool.
@@ -123,14 +125,14 @@ test("#4806 quota-exclusive key lists its qtSd/* virtual models in GET /v1/model
 
 test("#4806 quota-exclusive key does NOT see qtSd/* of a group it is not allocated to", async () => {
   // Group A (glm) — the key's group.
-  const groupA = groupsDb.createGroup("Alpha");
+  const groupA = await groupsDb.createGroup("Alpha");
   const connA = await providersDb.createProviderConnection({
     provider: "glm",
     authType: "apikey",
     name: "quota-4806-glm-a",
     apiKey: "sk-glm-4806-a",
   });
-  const poolA = poolsDb.createPool({
+  const poolA = await poolsDb.createPool({
     connectionId: (connA as Record<string, unknown>).id as string,
     name: "Alpha",
     groupId: groupA.id,
@@ -138,14 +140,14 @@ test("#4806 quota-exclusive key does NOT see qtSd/* of a group it is not allocat
   await syncQuotaCombos(poolA.id);
 
   // Group B (codex) — a DIFFERENT group the key is NOT allocated to.
-  const groupB = groupsDb.createGroup("Beta");
+  const groupB = await groupsDb.createGroup("Beta");
   const connB = await providersDb.createProviderConnection({
     provider: "codex",
     authType: "apikey",
     name: "quota-4806-codex-b",
     apiKey: "sk-codex-4806-b",
   });
-  const poolB = poolsDb.createPool({
+  const poolB = await poolsDb.createPool({
     connectionId: (connB as Record<string, unknown>).id as string,
     name: "Beta",
     groupId: groupB.id,

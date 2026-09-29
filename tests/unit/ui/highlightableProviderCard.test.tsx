@@ -136,8 +136,8 @@ describe("HighlightableProviderCard", () => {
     const link = container.querySelector("a");
     expect(link).not.toBeNull();
 
-    act(() => {
-      link!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    act(async () => {
+      await link!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
 
     expect(replaceSpy).toHaveBeenCalledWith({ providerId: "openai" }, "");

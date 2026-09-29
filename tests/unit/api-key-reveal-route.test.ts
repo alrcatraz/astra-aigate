@@ -19,10 +19,12 @@ const MACHINE_ID = "1234567890abcdef";
 async function resetStorage() {
   delete process.env.ALLOW_API_KEY_REVEAL;
   delete process.env.INITIAL_PASSWORD;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function maskKey(key) {
@@ -35,7 +37,7 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   delete process.env.ALLOW_API_KEY_REVEAL;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });

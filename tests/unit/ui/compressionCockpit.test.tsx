@@ -56,8 +56,8 @@ function mount(ui: React.ReactElement): HTMLElement {
 }
 
 function click(el: Element | null): void {
-  act(() => {
-    el?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  act(async () => {
+    await el?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 

@@ -30,9 +30,9 @@ const { getUsageForProvider } = usageModule;
 
 const originalFetch = globalThis.fetch;
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -141,7 +141,7 @@ test("parseAntigravityWeeklyQuotas returns {} for missing/malformed data (best-e
 });
 
 test("getUsageForProvider(antigravity) merges weekly quotas with the selected CLI identity", async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = requestUrl(input);
@@ -218,10 +218,12 @@ test("getUsageForProvider(antigravity) merges weekly quotas with the selected CL
   assert.ok(quotas.gemini_weekly, "weekly group quota merged in");
   assert.equal(quotas.gemini_weekly.remainingPercentage, 60);
   assert.equal(quotas.gemini_weekly.resetAt, RESET_IN_3_DAYS);
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test("getUsageForProvider(antigravity) is unaffected when retrieveUserQuotaSummary is unavailable", async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = requestUrl(input);
@@ -255,4 +257,6 @@ test("getUsageForProvider(antigravity) is unaffected when retrieveUserQuotaSumma
   const quotas = (result as UsageResult).quotas;
   assert.ok(quotas["gemini-3-flash-agent"], "per-model quota still present without weekly data");
   assert.equal(quotas.gemini_weekly, undefined, "no weekly key when the RPC is unavailable");
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });

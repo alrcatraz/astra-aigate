@@ -15,11 +15,8 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 
-const {
-  getOmpCredentials,
-  saveOmpCredentials,
-  deleteOmpCredentials,
-} = await import("../../../src/lib/db/omp.ts");
+const { getOmpCredentials, saveOmpCredentials, deleteOmpCredentials } =
+  await import("../../../src/lib/db/omp.ts");
 
 const PROVIDER_ID = "omniroute";
 
@@ -87,10 +84,10 @@ describe("db/omp.ts — getOmpCredentials", () => {
 });
 
 describe("db/omp.ts — saveOmpCredentials + getOmpCredentials round trip", () => {
-  it("persists apiKey/baseUrl so a subsequent read sees them", () => {
+  it("persists apiKey/baseUrl so a subsequent read sees them", async () => {
     seedOmpDb();
 
-    saveOmpCredentials(PROVIDER_ID, "sk-test-omp-key", "http://localhost:20128/v1");
+    await saveOmpCredentials(PROVIDER_ID, "sk-test-omp-key", "http://localhost:20128/v1");
 
     const creds = getOmpCredentials(PROVIDER_ID);
     assert.equal(creds.hasOmniRoute, true);
@@ -98,11 +95,11 @@ describe("db/omp.ts — saveOmpCredentials + getOmpCredentials round trip", () =
     assert.equal(creds.baseUrl, "http://localhost:20128/v1");
   });
 
-  it("overwrites an existing row for the same provider instead of duplicating it", () => {
+  it("overwrites an existing row for the same provider instead of duplicating it", async () => {
     seedOmpDb();
 
-    saveOmpCredentials(PROVIDER_ID, "sk-old-key", "http://localhost:20128/v1");
-    saveOmpCredentials(PROVIDER_ID, "sk-new-key", "http://localhost:20129/v1");
+    await saveOmpCredentials(PROVIDER_ID, "sk-old-key", "http://localhost:20128/v1");
+    await saveOmpCredentials(PROVIDER_ID, "sk-new-key", "http://localhost:20129/v1");
 
     const dbPath = getOmpDbPath();
     const db = new Database(dbPath, { readonly: true });
@@ -119,12 +116,12 @@ describe("db/omp.ts — saveOmpCredentials + getOmpCredentials round trip", () =
 });
 
 describe("db/omp.ts — deleteOmpCredentials", () => {
-  it("removes the row so a subsequent get reports hasOmniRoute:false", () => {
+  it("removes the row so a subsequent get reports hasOmniRoute:false", async () => {
     seedOmpDb();
-    saveOmpCredentials(PROVIDER_ID, "sk-test-omp-key", "http://localhost:20128/v1");
+    await saveOmpCredentials(PROVIDER_ID, "sk-test-omp-key", "http://localhost:20128/v1");
     assert.equal(getOmpCredentials(PROVIDER_ID).hasOmniRoute, true);
 
-    deleteOmpCredentials(PROVIDER_ID);
+    await deleteOmpCredentials(PROVIDER_ID);
 
     assert.deepEqual(getOmpCredentials(PROVIDER_ID), {
       hasOmniRoute: false,

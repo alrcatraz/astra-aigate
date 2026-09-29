@@ -11,8 +11,8 @@ const core = await import("../../src/lib/db/core.ts");
 const usageHistory = await import("../../src/lib/usage/usageHistory.ts");
 const callLogs = await import("../../src/lib/usage/callLogs.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -93,7 +93,7 @@ test("updatePendingRequestStreamChunks stores stream chunks in the detail", () =
   assert.equal(detail.streamChunks.provider[0], 'data: {"a":1}');
 });
 
-test("updatePendingRequest keeps pending detail API view in sync", () => {
+test("updatePendingRequest keeps pending detail API view in sync", async () => {
   usageHistory.clearPendingRequests();
   const requestId = usageHistory.trackPendingRequest(
     "claude-sonnet-4-6",
@@ -114,7 +114,7 @@ test("updatePendingRequest keeps pending detail API view in sync", () => {
 
   const modelKey = "claude-sonnet-4-6 (cc-test)";
   const detailFromQueue = usageHistory.getPendingRequests().details["conn-1"]?.[modelKey]?.[0];
-  const detailFromId = usageHistory.getPendingById().get(requestId);
+  const detailFromId = await usageHistory.getPendingById().get(requestId);
 
   assert.equal(detailFromId, detailFromQueue);
   assert.deepEqual(detailFromId?.providerRequest, {
@@ -268,7 +268,7 @@ test("GET /api/usage/call-logs includes completed in-memory fallback rows", asyn
   });
   assert.equal(completed, true);
 
-  const completedDetail = usageHistory.getCompletedDetails().get(requestId);
+  const completedDetail = await usageHistory.getCompletedDetails().get(requestId);
   assert.ok(completedDetail);
   const rows = buildCallLogListRows({
     logs: [],
@@ -556,8 +556,8 @@ test("createRequestLogger requestId binds streamChunks to the exact pending requ
 
   logger.appendProviderChunk('data: {"content":"second"}');
 
-  const first = usageHistory.getPendingById().get(firstId);
-  const second = usageHistory.getPendingById().get(secondId);
+  const first = await usageHistory.getPendingById().get(firstId);
+  const second = await usageHistory.getPendingById().get(secondId);
 
   assert.equal(first?.streamChunks, undefined);
   assert.equal(stripChunkTs(second?.streamChunks?.provider[0]), 'data: {"content":"second"}');
@@ -580,7 +580,7 @@ test("createRequestLogger fallback match does not cross connectionId boundaries"
 
   logger.appendProviderChunk('data: {"content":"conn-b"}');
 
-  const second = usageHistory.getPendingById().get(secondId);
+  const second = await usageHistory.getPendingById().get(secondId);
   assert.equal(stripChunkTs(second?.streamChunks?.provider[0]), 'data: {"content":"conn-b"}');
 });
 

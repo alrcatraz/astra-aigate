@@ -50,9 +50,11 @@ const tokenRefresh = await import("../../src/sse/services/tokenRefresh.ts");
 const { OAUTH_ENDPOINTS } = await import("../../open-sse/config/constants.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function jsonResponse(body: unknown, status = 200) {

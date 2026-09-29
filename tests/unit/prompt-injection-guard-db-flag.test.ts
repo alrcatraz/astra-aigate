@@ -20,22 +20,24 @@ const ATTACK = {
 };
 
 describe("prompt injection guard — DB feature flag override (INJECTION_GUARD_MODE)", () => {
-  function resetDb() {
-    core.resetDbInstance();
+  async function resetDb() {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.mkdirSync(tmpDir, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
     // ENV says "block": without a DB override this WOULD block the attack.
     process.env.INPUT_SANITIZER_ENABLED = "true";
     process.env.INPUT_SANITIZER_MODE = "block";
     delete process.env.INJECTION_GUARD_MODE;
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     delete process.env.INPUT_SANITIZER_ENABLED;
     delete process.env.INPUT_SANITIZER_MODE;

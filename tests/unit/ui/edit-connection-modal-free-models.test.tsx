@@ -39,9 +39,9 @@ function render(props: Record<string, unknown>) {
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(() => {
+  act(async () => {
     setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -121,15 +121,15 @@ describe("EditConnectionModal — import only free models", () => {
 
     const toggle = el.querySelector<HTMLButtonElement>(FREE_TOGGLE)!;
     expect(toggle.getAttribute("aria-checked")).toBe("true");
-    act(() => {
-      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => onSave.mock.calls.length > 0);
@@ -149,15 +149,15 @@ describe("EditConnectionModal — import only free models", () => {
     });
 
     const toggle = el.querySelector<HTMLButtonElement>(FREE_TOGGLE)!;
-    act(() => {
-      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => onSave.mock.calls.length > 0);
@@ -195,8 +195,8 @@ describe("EditConnectionModal — quota scraping fields", () => {
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => onSave.mock.calls.length > 0);
@@ -224,8 +224,8 @@ describe("EditConnectionModal — quota scraping fields", () => {
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => onSave.mock.calls.length > 0);

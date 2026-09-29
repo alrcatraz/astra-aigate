@@ -125,7 +125,7 @@ async function cleanupTestDataDir() {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       return;
     } catch (error: any) {
@@ -137,14 +137,16 @@ async function cleanupTestDataDir() {
   if (lastError) {
     throw lastError;
   }
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function resetStorage() {
   await cleanupTestDataDir();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   await settingsDb.resetAllPricing();
-  settingsDb.clearAllLKGP();
-  clearModelsDevCapabilities();
+  await settingsDb.clearAllLKGP();
+  await clearModelsDevCapabilities();
 }
 
 test.beforeEach(async () => {
@@ -163,8 +165,8 @@ test.after(async () => {
   resetAllCircuitBreakers();
   resetAllSemaphores();
   _resetAllDecks();
-  clearModelsDevCapabilities();
-  settingsDb.clearAllLKGP();
+  await clearModelsDevCapabilities();
+  await settingsDb.clearAllLKGP();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {
@@ -1820,7 +1822,7 @@ test("handleComboChat weighted strategy resolves nested combos before falling ba
 });
 
 test("handleComboChat context-optimized orders models by the largest synced context window", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "gpt-4o-mini": capabilityEntry(128000),
       "gpt-4o": capabilityEntry(64000),
@@ -1876,7 +1878,7 @@ test("handleComboChat context-optimized preserves order when all context limits 
 });
 
 test("handleComboChat skips fallback targets with too small context windows", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "tiny-context": capabilityEntry(32),
       "large-context": capabilityEntry(4096),
@@ -1909,7 +1911,7 @@ test("handleComboChat skips fallback targets with too small context windows", as
 });
 
 test("handleComboChat skips tool, vision, and structured-output incompatible fallbacks", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "no-tools": capabilityEntry(128000, {
         tool_call: false,
@@ -1974,7 +1976,7 @@ test("handleComboChat skips tool, vision, and structured-output incompatible fal
 });
 
 test("handleComboChat fails closed when context-aware filtering rejects all targets (#8488)", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "no-tools-a": capabilityEntry(128000, { tool_call: false }),
       "no-tools-b": capabilityEntry(128000, { tool_call: false }),
@@ -2013,7 +2015,7 @@ test("handleComboChat fails closed when context-aware filtering rejects all targ
 });
 
 test("handleComboChat compatFilterFailOpen restores dispatch when all targets fail tools (#8488)", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "no-tools-a": capabilityEntry(128000, { tool_call: false }),
       "no-tools-b": capabilityEntry(128000, { tool_call: false }),
@@ -2048,7 +2050,7 @@ test("handleComboChat compatFilterFailOpen restores dispatch when all targets fa
 });
 
 test("handleComboChat eval-driven routing prioritizes higher scoring evaluated targets", async () => {
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "routing-quality",
     suiteName: "Routing Quality",
     target: { type: "model", id: "openai/eval-low", label: "Model: openai/eval-low" },
@@ -2057,7 +2059,7 @@ test("handleComboChat eval-driven routing prioritizes higher scoring evaluated t
     results: [],
     createdAt: new Date().toISOString(),
   });
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "routing-quality",
     suiteName: "Routing Quality",
     target: { type: "model", id: "openai/eval-high", label: "Model: openai/eval-high" },
@@ -2099,7 +2101,7 @@ test("handleComboChat eval-driven routing prioritizes higher scoring evaluated t
 });
 
 test("cache-optimized preserves eval routing when no reusable cache key exists", async () => {
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "cache-miss-routing",
     suiteName: "Cache Miss Routing",
     target: { type: "model", id: "openai/cache-low", label: "Model: openai/cache-low" },
@@ -2108,7 +2110,7 @@ test("cache-optimized preserves eval routing when no reusable cache key exists",
     results: [],
     createdAt: new Date().toISOString(),
   });
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "cache-miss-routing",
     suiteName: "Cache Miss Routing",
     target: { type: "model", id: "openai/cache-high", label: "Model: openai/cache-high" },
@@ -2150,7 +2152,7 @@ test("cache-optimized preserves eval routing when no reusable cache key exists",
 });
 
 test("handleComboChat eval-driven routing ignores stale and undersized eval runs", async () => {
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "routing-quality",
     suiteName: "Routing Quality",
     target: { type: "model", id: "openai/stale-good", label: "Model: openai/stale-good" },
@@ -2159,7 +2161,7 @@ test("handleComboChat eval-driven routing ignores stale and undersized eval runs
     results: [],
     createdAt: "2020-01-01T00:00:00.000Z",
   });
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "routing-quality",
     suiteName: "Routing Quality",
     target: { type: "model", id: "openai/small-good", label: "Model: openai/small-good" },
@@ -2203,7 +2205,7 @@ test("handleComboChat eval-driven routing ignores stale and undersized eval runs
 });
 
 test("handleComboChat eval-driven routing can match bare model eval target ids", async () => {
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "routing-quality",
     suiteName: "Routing Quality",
     target: { type: "model", id: "bare-high", label: "Model: bare-high" },
@@ -3110,7 +3112,7 @@ test("handleComboChat aborts combo when 503 response does NOT contain the unavai
 });
 
 test("#3587 reasoning model gets max_tokens buffer applied", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "gpt-4o-reasoning": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
     },
@@ -3141,7 +3143,7 @@ test("#3587 reasoning model gets max_tokens buffer applied", async () => {
 });
 
 test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds model cap", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "gemini-high-cap": capabilityEntry(65536, { reasoning: true, limit_output: 65536 }),
     },
@@ -3198,7 +3200,7 @@ test("#3587 reasoning buffer is disabled without explicit model capability data"
     "unknown models must not receive heuristic token inflation"
   );
 
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "capless-reasoning": capabilityEntry(8192, {
         reasoning: true,
@@ -3224,7 +3226,7 @@ test("#3587 reasoning buffer is disabled without explicit model capability data"
 });
 
 test("#3588 reasoning token buffer feature flag preserves client max_tokens", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "flagged-reasoning": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
     },
@@ -3264,7 +3266,7 @@ test("#3588 reasoning token buffer feature flag preserves client max_tokens", as
 });
 
 test("#3587 non-reasoning model does not get max_tokens buffer", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "gpt-4o-plain": capabilityEntry(4096, { reasoning: false }),
     },
@@ -3304,7 +3306,7 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
   // ORIGINAL max_tokens for each attempt — never from an already-buffered value —
   // so both attempts see 6144 (4096 * 1.5), not [6144, 9216, ...]. Regression for
   // the shared-`body` mutation that compounded the buffer on every RR iteration.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "rr-reasoning-a": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
       "rr-reasoning-b": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
@@ -3355,7 +3357,7 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
 });
 
 test("#3588 round-robin honors disabled reasoning token buffer feature flag", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "rr-flagged-a": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
       "rr-flagged-b": capabilityEntry(12000, { reasoning: true, limit_output: 12000 }),
@@ -3402,7 +3404,7 @@ test("#3588 round-robin honors disabled reasoning token buffer feature flag", as
 });
 
 test("#3587 round-robin keeps near-cap reasoning max_tokens unchanged", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "rr-near-cap-a": capabilityEntry(65536, { reasoning: true, limit_output: 65536 }),
       "rr-near-cap-b": capabilityEntry(65536, { reasoning: true, limit_output: 65536 }),

@@ -14,27 +14,28 @@ if (!process.env.API_KEY_SECRET) {
   process.env.API_KEY_SECRET = "test-gami-3484-secret-" + Date.now();
 }
 
-const { getDbInstance, resetDbInstance } = await import("../../../src/lib/db/core.ts");
+const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } =
+  await import("../../../src/lib/db/core.ts");
 const gami = await import("../../../src/lib/db/gamification.ts");
 const { seedBuiltinBadges, BUILTIN_BADGES } =
   await import("../../../src/lib/gamification/badges.ts");
 
-test.after(() => {
+test.after(async () => {
   try {
     getDbInstance().close();
   } catch {
     /* ignore */
   }
   try {
-    resetDbInstance();
+    await resetDbInstanceDrained();
   } catch {
     /* ignore */
   }
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#3484 getAggregateXp on an empty ledger → zero XP, level 1, no throw", () => {
-  const agg = gami.getAggregateXp();
+test("#3484 getAggregateXp on an empty ledger → zero XP, level 1, no throw", async () => {
+  const agg = await gami.getAggregateXp();
   assert.equal(agg.totalXp, 0);
   assert.equal(agg.currentLevel, 1);
   assert.equal(agg.apiKeyId, "*");
@@ -48,7 +49,7 @@ test("#3484 seedBuiltinBadges populates the catalog (getBadgeDefinitions non-emp
   assert.equal((await gami.getBadgeDefinitions()).length, BUILTIN_BADGES.length);
 });
 
-test("#3484 getAggregateXp sums XP across keys and takes the highest level", () => {
+test("#3484 getAggregateXp sums XP across keys and takes the highest level", async () => {
   const db = getDbInstance();
   const upsert = db.prepare(
     `INSERT OR REPLACE INTO user_levels (api_key_id, total_xp, current_level, updated_at)
@@ -57,12 +58,12 @@ test("#3484 getAggregateXp sums XP across keys and takes the highest level", () 
   upsert.run("key-a", 100, 2);
   upsert.run("key-b", 250, 5);
 
-  const agg = gami.getAggregateXp();
+  const agg = await gami.getAggregateXp();
   assert.equal(agg.totalXp, 350);
   assert.equal(agg.currentLevel, 5);
 });
 
-test("#3484 getAllEarnedBadges returns distinct badges earned by any key", () => {
+test("#3484 getAllEarnedBadges returns distinct badges earned by any key", async () => {
   const db = getDbInstance();
   const [b0, b1] = BUILTIN_BADGES;
   const award = db.prepare(
@@ -73,7 +74,7 @@ test("#3484 getAllEarnedBadges returns distinct badges earned by any key", () =>
   award.run("key-b", b0.id); // same badge earned by B → must dedupe to one
   award.run("key-b", b1.id); // distinct badge earned by B
 
-  const earned = gami.getAllEarnedBadges();
+  const earned = await gami.getAllEarnedBadges();
   const ids = earned.map((e) => e.badgeId).sort();
   assert.deepEqual(ids, [b0.id, b1.id].sort());
   assert.ok(earned.every((e) => typeof e.badgeName === "string" && e.badgeName.length > 0));

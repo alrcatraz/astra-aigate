@@ -29,19 +29,21 @@ const core = await import("../../src/lib/db/core.ts");
 const proxiesDb = await import("../../src/lib/db/proxies.ts");
 const { forceProxyHealthSweep } = await import("../../src/lib/proxyHealth/scheduler.ts");
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("forceProxyHealthSweep() actually probes seeded proxies against the real listProxies() {items,total} shape", async () => {
-  resetStorage();
+  await resetStorage();
 
   const created = await proxiesDb.createProxy({
     name: "Dead Local Proxy",

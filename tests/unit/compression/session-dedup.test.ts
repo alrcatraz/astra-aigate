@@ -42,14 +42,14 @@ describe("session-dedup engine", () => {
     assert.ok(typeof engine.stackPriority === "number");
   });
 
-  it("deduplicates a block appearing verbatim in turn 1 and turn 3", () => {
+  it("deduplicates a block appearing verbatim in turn 1 and turn 3", async () => {
     const body = makeBody([
       { role: "user", content: `Here is the code:\n${REPEATED_BLOCK}` },
       { role: "assistant", content: "I understand the code." },
       { role: "user", content: `Please review again:\n${REPEATED_BLOCK}` },
     ]);
 
-    const result = sessionDedupEngine.apply(body as Record<string, unknown>);
+    const result = await sessionDedupEngine.apply(body as Record<string, unknown>);
 
     assert.equal(result.compressed, true, "should report compressed=true when dedup happened");
 
@@ -85,14 +85,14 @@ describe("session-dedup engine", () => {
     assert.ok(result.stats!.compressedTokens < result.stats!.originalTokens);
   });
 
-  it("does NOT dedup small/unique blocks (no false positives)", () => {
+  it("does NOT dedup small/unique blocks (no false positives)", async () => {
     const body = makeBody([
       { role: "user", content: "hi" },
       { role: "assistant", content: "hello" },
       { role: "user", content: "bye" },
     ]);
 
-    const result = sessionDedupEngine.apply(body as Record<string, unknown>);
+    const result = await sessionDedupEngine.apply(body as Record<string, unknown>);
 
     assert.equal(result.compressed, false, "must not dedup tiny/unique messages");
 
@@ -102,21 +102,21 @@ describe("session-dedup engine", () => {
     assert.equal(messages[2].content, "bye");
   });
 
-  it("never deduplicates the system prompt", () => {
+  it("never deduplicates the system prompt", async () => {
     const body = makeBody([
       { role: "system", content: REPEATED_BLOCK },
       { role: "user", content: REPEATED_BLOCK },
       { role: "assistant", content: "ok" },
     ]);
 
-    const result = sessionDedupEngine.apply(body as Record<string, unknown>);
+    const result = await sessionDedupEngine.apply(body as Record<string, unknown>);
 
     const messages = result.body.messages as Array<{ role: string; content: string }>;
     // System prompt must always remain intact regardless
     assert.ok(messages[0].content.includes(REPEATED_BLOCK), "system prompt must never be touched");
   });
 
-  it("does not corrupt multipart (non-string) content items", () => {
+  it("does not corrupt multipart (non-string) content items", async () => {
     const multipartBody = {
       model: "gpt-4",
       messages: [
@@ -136,7 +136,7 @@ describe("session-dedup engine", () => {
     };
 
     // Must not throw and must not corrupt image parts
-    const result = sessionDedupEngine.apply(multipartBody as Record<string, unknown>);
+    const result = await sessionDedupEngine.apply(multipartBody as Record<string, unknown>);
     const messages = result.body.messages as Array<{ role: string; content: unknown }>;
     const firstContent = messages[0].content as Array<{ type: string; image_url?: unknown }>;
     const imageItem = firstContent.find((c) => c.type === "image_url");

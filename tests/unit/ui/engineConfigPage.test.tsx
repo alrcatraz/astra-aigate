@@ -245,7 +245,7 @@ describe("EngineConfigPage", () => {
     expect(previewButton).toBeTruthy();
 
     await act(async () => {
-      previewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await previewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
     });
 
@@ -479,8 +479,8 @@ describe("EngineConfigPage", () => {
         "value"
       )?.set;
       nativeInputValueSetter?.call(numberInput, "5");
-      numberInput.dispatchEvent(new Event("input", { bubbles: true }));
-      numberInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await numberInput.dispatchEvent(new Event("input", { bubbles: true }));
+      await numberInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     await act(async () => {

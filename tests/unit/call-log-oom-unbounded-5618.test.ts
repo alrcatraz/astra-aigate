@@ -58,18 +58,18 @@ function captureSql(run: () => void): string[] {
 }
 
 const unboundedSelectsOnCallLogs = (sqls: string[]) =>
-  sqls.filter(
-    (s) => /SELECT/i.test(s) && /\bFROM\s+call_logs\b/i.test(s) && !/LIMIT/i.test(s)
-  );
+  sqls.filter((s) => /SELECT/i.test(s) && /\bFROM\s+call_logs\b/i.test(s) && !/LIMIT/i.test(s));
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -78,8 +78,8 @@ test("#5618 collectReferencedArtifacts pages with LIMIT and collects across page
   seed(total, true);
 
   let referenced: Set<string> | undefined;
-  const sqls = captureSql(() => {
-    referenced = bounded.collectReferencedArtifacts();
+  const sqls = captureSql(async () => {
+    referenced = await bounded.collectReferencedArtifacts();
   });
 
   assert.equal(referenced!.size, total, "every artifact path is collected across all pages");
@@ -95,8 +95,8 @@ test("#5618 deleteCallLogsBefore selects ids with LIMIT (bounded) instead of all
   seed(total, false);
 
   let result: { deletedRows: number } | undefined;
-  const sqls = captureSql(() => {
-    result = callLogs.deleteCallLogsBefore("2030-01-01T00:00:00.000Z");
+  const sqls = captureSql(async () => {
+    result = await callLogs.deleteCallLogsBefore("2030-01-01T00:00:00.000Z");
   });
 
   assert.equal(result!.deletedRows, total, "all rows before the cutoff are deleted (across pages)");

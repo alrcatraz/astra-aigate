@@ -7,10 +7,16 @@ import {
   injectServiceModelsIntoManifest,
 } from "../../../../src/app/api/v1/provider-plugin-manifest/route.ts";
 import type { ServiceModel } from "../../../../src/lib/db/serviceModels.ts";
-import type { ProviderPluginManifest, ProviderPluginManifestEntry } from "../../../../open-sse/config/providerPluginManifest.ts";
+import type {
+  ProviderPluginManifest,
+  ProviderPluginManifestEntry,
+} from "../../../../open-sse/config/providerPluginManifest.ts";
 import { generateProviderPluginManifest } from "../../../../open-sse/config/providerPluginManifestRegistry.ts";
 
-function getProvider(manifest: ProviderPluginManifest, id: string): ProviderPluginManifestEntry | undefined {
+function getProvider(
+  manifest: ProviderPluginManifest,
+  id: string
+): ProviderPluginManifestEntry | undefined {
   return manifest.providers.find((provider) => provider.id === id);
 }
 
@@ -98,7 +104,7 @@ test("provider plugin manifest route injects service models with a custom reader
         return [{ id: "model-clone", name: "Cliproxy Test", available: true }];
       }
       return [];
-    },
+    }
   );
 
   const nineRouterEntry = getProvider(withModels, "9router");
@@ -153,7 +159,7 @@ test("provider plugin manifest route skips unavailable service models", async ()
         ];
       }
       return [];
-    },
+    }
   );
 
   const nineRouterEntry = getProvider(withModels, "9router");
@@ -172,7 +178,7 @@ test("provider plugin manifest route injects only when 9router exposure is enabl
       }
       return [];
     },
-    (toolName: string): boolean => (toolName === "9router" ? false : true),
+    (toolName: string): boolean => (toolName === "9router" ? false : true)
   );
 
   const nineRouterEntry = getProvider(withModels, "9router");
@@ -190,7 +196,7 @@ test("provider plugin manifest route injects for cliproxy when exposure is enabl
       }
       return [];
     },
-    () => true,
+    () => true
   );
 
   const cliproxyEntry = getProvider(withModels, "cliproxyapi");
@@ -208,7 +214,7 @@ test("provider plugin manifest route skips cliproxy models when exposure is disa
       }
       return [];
     },
-    (toolName: string): boolean => (toolName === "cliproxyapi" ? false : true),
+    (toolName: string): boolean => (toolName === "cliproxyapi" ? false : true)
   );
 
   const cliproxyEntry = getProvider(withModels, "cliproxyapi");
@@ -218,7 +224,7 @@ test("provider plugin manifest route skips cliproxy models when exposure is disa
 
 test("provider plugin manifest supports conditional sidecar refreshes", async () => {
   const initial = await GET(new Request("http://localhost/api/v1/provider-plugin-manifest"));
-  const etag = initial.headers.get("ETag");
+  const etag = await initial.headers.get("ETag");
 
   const response = await GET(
     new Request("http://localhost/api/v1/provider-plugin-manifest", {
@@ -233,7 +239,7 @@ test("provider plugin manifest supports conditional sidecar refreshes", async ()
 
 test("provider plugin manifest accepts weak conditional validators", async () => {
   const initial = await GET(new Request("http://localhost/api/v1/provider-plugin-manifest"));
-  const etag = initial.headers.get("ETag");
+  const etag = await initial.headers.get("ETag");
 
   const response = await GET(
     new Request("http://localhost/api/v1/provider-plugin-manifest", {

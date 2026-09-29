@@ -23,7 +23,7 @@ function quietLogger() {
 async function resetStorage() {
   resetSpendBatchWriterForTests();
   costRules.resetCostData();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -41,6 +41,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function waitFor(fn: () => boolean, timeoutMs = 1_000) {
@@ -59,7 +61,7 @@ test.beforeEach(async () => {
 test.after(async () => {
   resetSpendBatchWriterForTests();
   costRules.resetCostData();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -134,7 +136,7 @@ test("recordCost buffers writes while budget checks and summaries still see pend
   const flushResult = await flushSpendBatchWriter();
   assert.equal(flushResult.flushedEntries, 2);
 
-  const persistedEntries = domainState.loadCostEntries("key-live", 0);
+  const persistedEntries = await domainState.loadCostEntries("key-live", 0);
   assert.equal(persistedEntries.length, 2);
   assert.equal(costRules.getDailyTotal("key-live"), 4.5);
 });
@@ -142,7 +144,7 @@ test("recordCost buffers writes while budget checks and summaries still see pend
 test("deleteBudget discards pending spend before it reaches the database", async () => {
   costRules.setBudget("key-drop", { dailyLimitUsd: 10 });
   costRules.recordCost("key-drop", 2);
-  costRules.deleteBudget("key-drop");
+  await costRules.deleteBudget("key-drop");
 
   const flushResult = await flushSpendBatchWriter();
   assert.equal(flushResult.flushedEntries, 0);

@@ -12,11 +12,11 @@ const JSON_DB_FILE = path.join(TEST_DATA_DIR, "db.json");
 const core = await import("../../src/lib/db/core.ts");
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("Test 1: migrateFromJson handles empty db.json and renames it", () => {
+test("Test 1: migrateFromJson handles empty db.json and renames it", async () => {
   // Setup empty db.json
   fs.writeFileSync(JSON_DB_FILE, JSON.stringify({}));
 
@@ -26,10 +26,11 @@ test("Test 1: migrateFromJson handles empty db.json and renames it", () => {
   assert.equal(fs.existsSync(JSON_DB_FILE), false);
   assert.equal(fs.existsSync(JSON_DB_FILE + ".empty"), true);
 
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
+  await core.awaitDbMigrations();
 });
 
-test("Test 2: migrateFromJson migrates data to SQLite successfully", () => {
+test("Test 2: migrateFromJson migrates data to SQLite successfully", async () => {
   // Re-setup db.json with data
   const data = {
     providerConnections: [
@@ -93,25 +94,26 @@ test("Test 2: migrateFromJson migrates data to SQLite successfully", () => {
   assert.equal(fs.existsSync(JSON_DB_FILE), false);
   assert.equal(fs.existsSync(JSON_DB_FILE + ".migrated"), true);
 
-  const pc = db.prepare("SELECT * FROM provider_connections WHERE id = 'test-conn'").get();
+  const pc = await db.prepare("SELECT * FROM provider_connections WHERE id = 'test-conn'").get();
   assert.ok(pc);
   assert.equal((pc as any).provider, "openai");
   (assert as any).equal((pc as any).is_active, 0);
 
-  const key = db.prepare("SELECT * FROM api_keys WHERE id = 'test-key'").get();
+  const key = await db.prepare("SELECT * FROM api_keys WHERE id = 'test-key'").get();
   assert.ok(key);
   (assert as any).equal((key as any).name, "Key 1");
 
-  const kv = db
+  const kv = await db
     .prepare("SELECT * FROM key_value WHERE namespace = 'settings' AND key = 'globalFallbackModel'")
     .get();
   assert.ok(kv);
   (assert as any).equal(JSON.parse((kv as any).value), "openai/gpt-4o");
 
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
+  await core.awaitDbMigrations();
 });
 
-test("Test 3: migrateFromJson throws error securely when JSON is corrupted", () => {
+test("Test 3: migrateFromJson throws error securely when JSON is corrupted", async () => {
   fs.writeFileSync(JSON_DB_FILE, "{invalid-json");
 
   const originalError = console.error;
@@ -125,6 +127,7 @@ test("Test 3: migrateFromJson throws error securely when JSON is corrupted", () 
     assert.ok(errorLogged);
   } finally {
     console.error = originalError;
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
   }
+  await core.awaitDbMigrations();
 });

@@ -82,20 +82,20 @@ const imageRequestBody = {
   ],
 };
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   resetAllComboMetrics();
   resetAllCircuitBreakers();
   resetAllSemaphores();
-  clearModelsDevCapabilities();
+  await clearModelsDevCapabilities();
 });
 
-test.after(() => {
+test.after(async () => {
   resetAllComboMetrics();
   resetAllCircuitBreakers();
   resetAllSemaphores();
-  clearModelsDevCapabilities();
-  settingsDb.clearAllLKGP();
-  core.resetDbInstance();
+  await clearModelsDevCapabilities();
+  await settingsDb.clearAllLKGP();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -113,7 +113,7 @@ test(
     // and rr-vision-b are vision-capable -> kept, but both are simulated
     // runtime-unavailable, forcing recordedAttempts === 0 and triggering the
     // #6238 last-resort tier. Only the vision-rejected rr-blind is "healthy".
-    saveModelsDevCapabilities({
+    await saveModelsDevCapabilities({
       openai: {
         "rr-blind": capabilityEntry(128000, { attachment: false }),
         "rr-vision-a": capabilityEntry(128000, { attachment: true }),
@@ -153,7 +153,11 @@ test(
       [],
       "vision-incapable rr-blind must never receive the image_url body, even as a last-resort fallback"
     );
-    assert.notEqual(result.status, 200, "must not silently succeed via the vision-incapable target");
+    assert.notEqual(
+      result.status,
+      200,
+      "must not silently succeed via the vision-incapable target"
+    );
   }
 );
 
@@ -166,7 +170,7 @@ test(
     // vision-capable and compat-kept, but runtime-unavailable, forcing the
     // #6238 last-resort tier. This proves the vision-only exclusion does not
     // also swallow legitimate non-vision-rejection fallback targets.
-    saveModelsDevCapabilities({
+    await saveModelsDevCapabilities({
       openai: {
         "rr-vision-a": capabilityEntry(128000, { attachment: true }),
       },

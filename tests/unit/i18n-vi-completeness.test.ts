@@ -51,8 +51,8 @@ test("Vietnamese locale has no internal missing markers or empty fallbacks", () 
 });
 
 test("Vietnamese locale preserves every ICU placeholder name", () => {
-  const mismatches = englishMessages.flatMap(({ key, value }) => {
-    const translated = vietnameseByKey.get(key);
+  const mismatches = englishMessages.flatMap(async ({ key, value }) => {
+    const translated = await vietnameseByKey.get(key);
     if (translated === undefined) return [{ key, reason: "missing" }];
     const sourceNames = placeholderNames(value);
     const targetNames = placeholderNames(translated);
@@ -64,14 +64,14 @@ test("Vietnamese locale preserves every ICU placeholder name", () => {
 });
 
 test("Vietnamese locale introduces no ICU parse regression", () => {
-  const regressions = englishMessages.flatMap(({ key, value }) => {
+  const regressions = englishMessages.flatMap(async ({ key, value }) => {
     try {
       parse(value, { captureLocation: false, shouldParseSkeletons: true });
     } catch {
       return [];
     }
 
-    const translated = vietnameseByKey.get(key);
+    const translated = await vietnameseByKey.get(key);
     if (translated === undefined) return [{ key, reason: "missing" }];
     try {
       parse(translated, { captureLocation: false, shouldParseSkeletons: true });

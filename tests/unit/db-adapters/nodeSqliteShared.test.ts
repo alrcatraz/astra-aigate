@@ -80,14 +80,14 @@ test("createNodeSqliteAdapterFromDatabase uses savepoints for transactions", () 
   assert.equal(db.execCalls[1].startsWith("RELEASE "), true);
 });
 
-test("createNodeSqliteAdapterFromDatabase finalizes cached statements on close", () => {
+test("createNodeSqliteAdapterFromDatabase finalizes cached statements on close", async () => {
   const db = new FakeDb();
   let closedHookCalls = 0;
   const adapter = createNodeSqliteAdapterFromDatabase(db, ":memory:", () => {
     closedHookCalls++;
   });
 
-  adapter.prepare("SELECT 1").get();
+  await adapter.prepare("SELECT 1").get();
   adapter.close();
 
   assert.equal(closedHookCalls, 1);

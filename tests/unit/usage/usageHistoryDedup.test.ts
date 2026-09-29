@@ -20,7 +20,7 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-usage-ded
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 // Dynamic imports so DATA_DIR is set before any module initialises the DB.
-const { resetDbInstance, resetDbInstanceDrained, getDbInstance } =
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
   await import("../../../src/lib/db/core.ts");
 const { onUsageRecorded } = await import("../../../src/lib/usage/usageEvents.ts");
 const { saveRequestUsage } = await import("../../../src/lib/usage/usageHistory.ts");

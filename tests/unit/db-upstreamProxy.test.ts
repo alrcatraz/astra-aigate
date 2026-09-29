@@ -47,9 +47,11 @@ after(() => {
 });
 
 async function resetModuleStorage() {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
   fs.mkdirSync(moduleDataDir, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 function upsert(db, data) {
@@ -72,8 +74,8 @@ function upsert(db, data) {
   return getConfig(db, data.providerId);
 }
 
-function getConfig(db, providerId) {
-  const row = db
+async function getConfig(db, providerId) {
+  const row = await db
     .prepare("SELECT * FROM upstream_proxy_config WHERE provider_id = ?")
     .get(providerId);
   if (!row) return null;
@@ -283,12 +285,12 @@ describe("db/upstreamProxy (logic)", () => {
   });
 
   describe("getProvidersByMode", () => {
-    it("should filter by mode and enabled", () => {
+    it("should filter by mode and enabled", async () => {
       upsert(testDb, { providerId: "p1", mode: "fallback", enabled: true });
       upsert(testDb, { providerId: "p2", mode: "fallback", enabled: true });
       upsert(testDb, { providerId: "p3", mode: "native", enabled: true });
       upsert(testDb, { providerId: "p4", mode: "fallback", enabled: false });
-      const results = getProvidersByMode(testDb, "fallback");
+      const results = await getProvidersByMode(testDb, "fallback");
       assert.equal(results.length, 2);
       assert.ok(results.every((r) => r.enabled));
     });
@@ -356,7 +358,7 @@ describe("db/upstreamProxy (module coverage)", () => {
   });
 
   after(async () => {
-    coreDb.resetDbInstance();
+    await coreDb.resetDbInstanceDrained();
     fs.rmSync(moduleDataDir, { recursive: true, force: true });
   });
 

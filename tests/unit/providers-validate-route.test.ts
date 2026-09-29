@@ -15,13 +15,15 @@ const compliance = await import("../../src/lib/compliance/index.ts");
 const validateRoute = await import("../../src/app/api/providers/validate/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (originalAllowPrivateProviderUrls === undefined) {
     delete process.env.OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS;
@@ -148,7 +150,7 @@ test("providers validate route blocks private baseUrl values when local provider
       error: "Blocked private or local provider URL",
     });
     assert.equal(called, false);
-    const auditEntries = compliance.getAuditLog({
+    const auditEntries = await compliance.getAuditLog({
       action: "provider.validation.ssrf_blocked",
       resourceType: "provider_validation",
     });

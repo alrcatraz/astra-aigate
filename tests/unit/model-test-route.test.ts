@@ -21,11 +21,13 @@ const route = await import("../../src/app/api/models/test/route.ts");
 const originalFetch = globalThis.fetch;
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   delete process.env.INITIAL_PASSWORD;
   delete process.env.REQUIRE_API_KEY;
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeRequest(headers?: HeadersInit) {

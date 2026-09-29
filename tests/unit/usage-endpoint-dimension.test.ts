@@ -19,18 +19,20 @@ const usageHistory = await import("../../src/lib/usage/usageHistory.ts");
 const usageAnalytics = await import("../../src/lib/db/usageAnalytics.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   usageHistory.clearPendingRequests();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -63,16 +65,16 @@ test("saveRequestUsage persists endpoint and getEndpointUsageRows groups by endp
     endpoint: "/v1/messages",
   });
 
-  const rows = usageAnalytics.getEndpointUsageRows();
+  const rows = await usageAnalytics.getEndpointUsageRows();
   const byKey = new Map(rows.map((r) => [`${r.endpoint}|${r.provider}|${r.model}`, r]));
 
-  const chat = byKey.get("/v1/chat/completions|openai|gpt-4o-mini");
+  const chat = await byKey.get("/v1/chat/completions|openai|gpt-4o-mini");
   assert.ok(chat, "expected /v1/chat/completions row");
   assert.equal(chat.requests, 2);
   assert.equal(chat.promptTokens, 30);
   assert.equal(chat.completionTokens, 13);
 
-  const messages = byKey.get("/v1/messages|anthropic|claude-sonnet-4");
+  const messages = await byKey.get("/v1/messages|anthropic|claude-sonnet-4");
   assert.ok(messages, "expected /v1/messages row");
   assert.equal(messages.requests, 1);
   assert.equal(messages.promptTokens, 30);
@@ -89,7 +91,7 @@ test("getEndpointUsageRows folds NULL endpoint into 'unknown' bucket (backward c
     timestamp: new Date().toISOString(),
   });
 
-  const rows = usageAnalytics.getEndpointUsageRows();
+  const rows = await usageAnalytics.getEndpointUsageRows();
   const unknown = rows.find((r) => r.endpoint === "unknown");
   assert.ok(unknown, "NULL endpoint should fold into 'unknown'");
   assert.equal(unknown.requests, 1);
@@ -118,7 +120,7 @@ test("getEndpointUsageRows honors sinceIso filter", async () => {
   });
 
   const sinceIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const rows = usageAnalytics.getEndpointUsageRows({ sinceIso });
+  const rows = await usageAnalytics.getEndpointUsageRows({ sinceIso });
   const chat = rows.find((r) => r.endpoint === "/v1/chat/completions");
   assert.ok(chat);
   assert.equal(chat.requests, 1, "only the recent row should be counted");

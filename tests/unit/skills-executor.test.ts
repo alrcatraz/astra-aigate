@@ -22,9 +22,11 @@ function resetSkillsRuntime() {
 
 async function resetStorage() {
   resetSkillsRuntime();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 async function registerEchoSkill(overrides = {}) {
@@ -44,9 +46,9 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
+test.after(async () => {
   resetSkillsRuntime();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

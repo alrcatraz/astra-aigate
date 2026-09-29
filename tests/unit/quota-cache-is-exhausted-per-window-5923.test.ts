@@ -25,12 +25,12 @@ const coreDb = await import("../../src/lib/db/core.ts");
 const quotaSnapshotsDb = await import("../../src/lib/db/quotaSnapshots.ts");
 const quotaCache = await import("../../src/domain/quotaCache.ts");
 
-test.after(() => {
-  coreDb.resetDbInstance();
+test.after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#5923 setQuotaCache writes is_exhausted per-window, not the connection-wide AND aggregate", () => {
+test("#5923 setQuotaCache writes is_exhausted per-window, not the connection-wide AND aggregate", async () => {
   const connectionId = "conn-per-window-5923";
 
   quotaCache.setQuotaCache(connectionId, "anthropic", {
@@ -38,7 +38,7 @@ test("#5923 setQuotaCache writes is_exhausted per-window, not the connection-wid
     weekly: { remainingPercentage: 50, resetAt: null },
   });
 
-  const snapshots = quotaSnapshotsDb.getLatestQuotaSnapshotsForConnection(connectionId);
+  const snapshots = await quotaSnapshotsDb.getLatestQuotaSnapshotsForConnection(connectionId);
 
   const sessionRow = snapshots.find((s: any) => (s.windowKey ?? s.window_key) === "session");
   const weeklyRow = snapshots.find((s: any) => (s.windowKey ?? s.window_key) === "weekly");

@@ -24,16 +24,16 @@ const coreDb = await import("../../src/lib/db/core.ts");
 const quotaSnapshotsDb = await import("../../src/lib/db/quotaSnapshots.ts");
 const quotaCache = await import("../../src/domain/quotaCache.ts");
 
-test.after(() => {
-  coreDb.resetDbInstance();
+test.after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#5015 isAccountQuotaExhausted hydrates exhausted state from a persisted snapshot", () => {
+test("#5015 isAccountQuotaExhausted hydrates exhausted state from a persisted snapshot", async () => {
   const connectionId = "conn-hydrate-5015";
   // Persist an exhausted snapshot with no reset time (so it does not auto-advance)
   // and a fresh created_at (so it does not expire via EXHAUSTED_TTL).
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "openai",
     connection_id: connectionId,
     window_key: "weekly",
@@ -61,10 +61,10 @@ test("#5015 a connection with no snapshot is not reported exhausted", () => {
   );
 });
 
-test("mixed persisted Z.AI quota windows keep chat requests eligible", () => {
+test("mixed persisted Z.AI quota windows keep chat requests eligible", async () => {
   const connectionId = "conn-zai-mixed-windows";
 
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "zai",
     connection_id: connectionId,
     window_key: "session",
@@ -74,7 +74,7 @@ test("mixed persisted Z.AI quota windows keep chat requests eligible", () => {
     window_duration_ms: null,
     raw_data: null,
   });
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "zai",
     connection_id: connectionId,
     window_key: "mcp_monthly",

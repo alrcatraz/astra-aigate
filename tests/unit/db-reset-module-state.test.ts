@@ -21,11 +21,13 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const { isValidApiKey } = await import("../../src/sse/services/auth.ts");
 
 async function recreateDataDirFromScratch(): Promise<void> {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // Primeiro acesso recria o DB do zero (migrations + colunas-fallback).
   await settingsDb.updateSettings({ requireLogin: true, setupComplete: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test("api-key validation survives a second resetDbInstance with a recreated DB (module state resetters fire)", async () => {
@@ -38,8 +40,8 @@ test("api-key validation survives a second resetDbInstance with a recreated DB (
   assert.equal(await isValidApiKey("not-a-real-key"), false);
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;

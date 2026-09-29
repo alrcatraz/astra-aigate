@@ -2,25 +2,34 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ionizerEngine } from "../../../open-sse/services/compression/engines/ionizer/index.ts";
-import { retrieveBlock, resetCcrStore } from "../../../open-sse/services/compression/engines/ccr/index.ts";
+import {
+  retrieveBlock,
+  resetCcrStore,
+} from "../../../open-sse/services/compression/engines/ccr/index.ts";
 
 const bigArray = JSON.stringify(Array.from({ length: 400 }, (_, i) => ({ i, v: `row-${i}` })));
 
-test("ionizer enabled: oversized homogeneous array → inline sample + recoverable CCR marker", () => {
+test("ionizer enabled: oversized homogeneous array → inline sample + recoverable CCR marker", async () => {
   resetCcrStore();
   const body = { messages: [{ role: "user", content: bigArray }] };
-  const res = ionizerEngine.apply(body, { stepConfig: {}, principalId: "p1" });
+  const res = await ionizerEngine.apply(body, { stepConfig: {}, principalId: "p1" });
   assert.equal(res.compressed, true);
   const content = (res.body.messages as Array<{ content: string }>)[0].content;
-  assert.match(content, /\[ionizer: kept \d+\/400 rows; full → CCR retrieve hash=[0-9a-f]{24} chars=\d+\]$/);
+  assert.match(
+    content,
+    /\[ionizer: kept \d+\/400 rows; full → CCR retrieve hash=[0-9a-f]{24} chars=\d+\]$/
+  );
   const hash = content.match(/hash=([0-9a-f]{24})/)![1];
   assert.equal(retrieveBlock(hash, "p1"), bigArray);
 });
 
-test("ionizer disabled via enabled:false → no-op", () => {
+test("ionizer disabled via enabled:false → no-op", async () => {
   resetCcrStore();
   const body = { messages: [{ role: "user", content: bigArray }] };
-  const res = ionizerEngine.apply(body, { stepConfig: { enabled: false }, principalId: "p1" });
+  const res = await ionizerEngine.apply(body, {
+    stepConfig: { enabled: false },
+    principalId: "p1",
+  });
   assert.equal(res.compressed, false);
 });
 

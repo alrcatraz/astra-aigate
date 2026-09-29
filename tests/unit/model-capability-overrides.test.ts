@@ -11,15 +11,16 @@ const coreDb = await import("../../src/lib/db/core.ts");
 const caps = await import("../../src/lib/modelCapabilities.ts");
 const overrides = await import("../../src/lib/db/modelCapabilityOverrides.ts");
 
-beforeEach(() => {
-  coreDb.resetDbInstance();
+beforeEach(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
   fs.mkdirSync(moduleDataDir, { recursive: true });
   coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
 });
 

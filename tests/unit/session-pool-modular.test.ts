@@ -156,9 +156,9 @@ describe("Session State Machine", () => {
   let factory: SessionFactory;
   let session: Session;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     factory = new SessionFactory(FAST_CONFIG);
-    session = factory.createSession();
+    session = await factory.createSession();
   });
 
   it("starts in active status", () => {
@@ -275,18 +275,18 @@ describe("Pool Registry", () => {
     PoolRegistry.resetPool("test-registry");
   });
 
-  it("register adds a pool", () => {
-    PoolRegistry.register("test-registry", pool);
+  it("register adds a pool", async () => {
+    await PoolRegistry.register("test-registry", pool);
     assert.equal(PoolRegistry.listProviders().includes("test-registry"), true);
   });
 
-  it("getPool returns registered pool", () => {
-    PoolRegistry.register("test-registry", pool);
+  it("getPool returns registered pool", async () => {
+    await PoolRegistry.register("test-registry", pool);
     assert.equal(PoolRegistry.getPool("test-registry"), pool);
   });
 
-  it("getStats returns pool stats", () => {
-    PoolRegistry.register("test-registry", pool);
+  it("getStats returns pool stats", async () => {
+    await PoolRegistry.register("test-registry", pool);
     const stats = PoolRegistry.getStats("test-registry");
     assert.notEqual(stats, null);
     assert.equal(stats!.provider, "test-registry");
@@ -296,15 +296,15 @@ describe("Pool Registry", () => {
     assert.equal(PoolRegistry.getStats("nonexistent"), null);
   });
 
-  it("resetPool removes and shuts down pool", () => {
-    PoolRegistry.register("test-registry", pool);
+  it("resetPool removes and shuts down pool", async () => {
+    await PoolRegistry.register("test-registry", pool);
     assert.equal(PoolRegistry.resetPool("test-registry"), true);
     assert.equal(PoolRegistry.getPool("test-registry"), undefined);
   });
 
-  it("size reflects pool count", () => {
+  it("size reflects pool count", async () => {
     const prev = PoolRegistry.size;
-    PoolRegistry.register("test-registry", pool);
+    await PoolRegistry.register("test-registry", pool);
     assert.equal(PoolRegistry.size, prev + 1);
   });
 });
@@ -368,9 +368,9 @@ describe("Provider-Agnostic Behavior", () => {
   it("pool integrates with registry by provider name", async () => {
     const pool = new SessionPool("registered-provider", FAST_CONFIG);
     await pool.warmUp(2);
-    PoolRegistry.register("registered-provider", pool);
+    await PoolRegistry.register("registered-provider", pool);
 
-    const retrieved = PoolRegistry.getPool("registered-provider");
+    const retrieved = await PoolRegistry.getPool("registered-provider");
     assert.equal(retrieved, pool);
     assert.equal(retrieved!.provider, "registered-provider");
 

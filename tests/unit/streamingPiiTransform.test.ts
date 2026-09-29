@@ -473,7 +473,7 @@ test.after(async () => {
   }
 
   const coreDb = await import("../../src/lib/db/core.ts");
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

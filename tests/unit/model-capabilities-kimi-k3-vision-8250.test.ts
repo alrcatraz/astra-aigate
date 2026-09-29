@@ -51,15 +51,17 @@ function buildCapability(overrides = {}) {
   };
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 /** Mirrors the contradictory deployed row reported in #8250. */
-function seedContradictoryK3Capabilities() {
-  modelsDevSync.saveModelsDevCapabilities({
+async function seedContradictoryK3Capabilities() {
+  await modelsDevSync.saveModelsDevCapabilities({
     "kimi-coding-apikey": {
       k3: buildCapability({
         attachment: false,
@@ -107,12 +109,12 @@ function seedContradictoryK3Capabilities() {
   });
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -200,7 +202,7 @@ test("#8250 sync transform leaves consistent text-only rows alone", () => {
 test("#8250 known text-only override still beats wrong image modalities (#4071)", async () => {
   // Guard: the #8250 modalities-over-false-attachment reconcile must NOT undo
   // the #4071 hard text-only override for mimo-v2.5-pro.
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     "xiaomi-mimo": {
       "mimo-v2.5-pro": buildCapability({
         attachment: false,

@@ -13,9 +13,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-mitm-cleanup-symmetry-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-mitm-cleanup-symmetry-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
@@ -24,7 +22,7 @@ const manager = await import("../../src/mitm/manager.ts");
 const { ALL_TARGETS } = await import("../../src/mitm/targets/index.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -41,6 +39,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -48,7 +48,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -66,15 +66,11 @@ test("collectManagedHosts includes every host of every agent target", () => {
 
 test("collectManagedHosts returns a de-duplicated list", () => {
   const list = manager.collectManagedHosts();
-  assert.equal(
-    list.length,
-    new Set(list).size,
-    "collectManagedHosts must not return duplicates"
-  );
+  assert.equal(list.length, new Set(list).size, "collectManagedHosts must not return duplicates");
 });
 
-test("collectManagedHosts includes custom hosts persisted in the DB", () => {
-  customHostsDb.addCustomHost("api.my-internal-llm.test", "custom");
+test("collectManagedHosts includes custom hosts persisted in the DB", async () => {
+  await customHostsDb.addCustomHost("api.my-internal-llm.test", "custom");
   const managed = new Set(manager.collectManagedHosts());
   assert.ok(
     managed.has("api.my-internal-llm.test"),

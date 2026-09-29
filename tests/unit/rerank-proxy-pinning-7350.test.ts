@@ -39,14 +39,14 @@ function stubFetch(seen: { proxyUrl: string | null | undefined }[]) {
   }) as typeof fetch;
 }
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("#7350 handleRerank routes the upstream call through the connection's pinned proxy", async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   const conn = await providersDb.createProviderConnection({
     provider: "voyage",
     authType: "apikey",
@@ -82,10 +82,12 @@ test("#7350 handleRerank routes the upstream call through the connection's pinne
     200,
     "the unreachable pinned proxy must surface as a failure rather than silently egressing direct"
   );
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test("#7350 an unresolvable connectionId degrades to a direct call instead of failing the request", async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   const seen: { proxyUrl: string | null | undefined }[] = [];
   stubFetch(seen);
 
@@ -103,10 +105,12 @@ test("#7350 an unresolvable connectionId degrades to a direct call instead of fa
     200,
     "a failed proxy lookup is logged and skipped, never turned into a request error"
   );
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test("#7350 omitting connectionId keeps the previous direct-egress behavior", async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   const seen: { proxyUrl: string | null | undefined }[] = [];
   stubFetch(seen);
 
@@ -122,4 +126,6 @@ test("#7350 omitting connectionId keeps the previous direct-egress behavior", as
     !seen[0].proxyUrl,
     `no connectionId must mean no proxy context, saw: ${seen[0].proxyUrl}`
   );
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });

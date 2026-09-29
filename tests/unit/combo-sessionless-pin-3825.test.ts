@@ -55,7 +55,7 @@ async function cleanupTestDataDir() {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       return;
     } catch (error: any) {
@@ -64,6 +64,8 @@ async function cleanupTestDataDir() {
     }
   }
   if (lastError) throw lastError;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {

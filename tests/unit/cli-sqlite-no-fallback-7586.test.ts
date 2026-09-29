@@ -20,7 +20,7 @@ import { DatabaseSync } from "node:sqlite";
 // "better-sqlite3" (the one `bin/cli/sqlite.mjs::loadSqlite()` imports) so it
 // throws the same "Could not locate the bindings file" error jmax hit, then
 // proves readDatabaseHealth() still succeeds by falling back to node:sqlite.
-register(
+await register(
   "data:text/javascript," +
     encodeURIComponent(`
       export async function resolve(specifier, context, nextResolve) {

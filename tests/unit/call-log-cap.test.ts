@@ -155,7 +155,7 @@ test("saveCallLog stores only summary metadata in SQLite and writes detailed art
   assert.equal(columns.includes("response_body"), false);
   assert.equal(columns.includes("error"), false);
 
-  const summaryRow = db
+  const summaryRow = await db
     .prepare(
       `
       SELECT detail_state, artifact_relpath, cache_source, has_request_body, has_response_body, has_pipeline_details
@@ -239,7 +239,7 @@ test("rotateCallLogs removes expired rows and orphaned artifacts but keeps fresh
     requestBody: { ok: true },
   });
 
-  const freshRow = core
+  const freshRow = await core
     .getDbInstance()
     .prepare("SELECT artifact_relpath FROM call_logs WHERE id = ?")
     .get("fresh-log");
@@ -416,7 +416,7 @@ test("getCallLogById falls back to legacy inline rows and request_detail_logs", 
     JSON.stringify({ message: "legacy-error" })
   );
 
-  detailedLogs.saveRequestDetailLog({
+  await detailedLogs.saveRequestDetailLog({
     call_log_id: "legacy-read",
     client_request: { body: { from: "detail-client" } },
     translated_request: { body: { from: "detail-provider-request" } },
@@ -464,7 +464,7 @@ test("getCallLogById marks missing artifacts explicitly and clears stale DB poin
   assert.equal(detail?.requestBody, null);
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare("SELECT artifact_relpath, detail_state FROM call_logs WHERE id = ?")
     .get("missing-artifact");
   assert.equal((row as any).artifact_relpath, null);
@@ -489,7 +489,7 @@ test("saveCallLog keeps large payloads out of SQLite while preserving explicit d
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT detail_state, has_request_body, artifact_relpath, error_summary, request_summary
@@ -537,7 +537,7 @@ test("saveCallLog truncates oversized call log artifacts for storage", async () 
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -580,7 +580,7 @@ test("saveCallLog omits oversized non-stream pipeline payloads to enforce artifa
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -624,7 +624,7 @@ test("saveCallLog honors CALL_LOG_PIPELINE_MAX_SIZE_KB for pipeline artifacts", 
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -666,7 +666,7 @@ test("saveCallLog falls back to a compact sentinel when the configured cap is ve
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -703,7 +703,7 @@ test("CALL_LOG_PIPELINE_MAX_SIZE_KB does not cap artifacts without pipeline deta
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state

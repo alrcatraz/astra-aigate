@@ -64,19 +64,21 @@ const log = {
   debug() {},
 };
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("#8488 filter: some tool-capable targets kept (unchanged)", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "with-tools": capabilityEntry(128000, { tool_call: true }),
       "no-tools": capabilityEntry(128000, { tool_call: false }),
@@ -98,7 +100,7 @@ test("#8488 filter: some tool-capable targets kept (unchanged)", async () => {
 });
 
 test("#8488 filter: zero tool-capable targets → empty (fail closed)", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "no-tools-a": capabilityEntry(128000, { tool_call: false }),
       "no-tools-b": capabilityEntry(128000, { tool_call: false }),
@@ -180,7 +182,7 @@ test("#8488 auto: chatgpt-web emulation survives tool pre-filter (#5240)", async
 });
 
 test("#8488 filter: opt-in compatFilterFailOpen restores full pool", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "no-tools-a": capabilityEntry(128000, { tool_call: false }),
       "no-tools-b": capabilityEntry(128000, { tool_call: false }),
@@ -201,7 +203,7 @@ test("#8488 filter: opt-in compatFilterFailOpen restores full pool", async () =>
 });
 
 test("#8488 filter: vision with no confirmed target → empty (fail closed)", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "text-only": capabilityEntry(128000, { attachment: false, tool_call: true }),
     },
@@ -226,7 +228,7 @@ test("#8488 filter: vision with no confirmed target → empty (fail closed)", as
 });
 
 test("#8488 auto: tool pre-filter fail closed returns early 400", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "no-tools": capabilityEntry(128000, { tool_call: false }),
     },
@@ -257,7 +259,7 @@ test("#8488 auto: tool pre-filter fail closed returns early 400", async () => {
 });
 
 test("#8488 auto: tool pre-filter fail-open opt-in keeps full pool", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       "no-tools": capabilityEntry(128000, { tool_call: false }),
     },
@@ -285,7 +287,7 @@ test("#8488 auto: tool pre-filter fail-open opt-in keeps full pool", async () =>
 });
 
 test("#8488 auto: context pre-filter fail closed when all known limits too small", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     openai: {
       tiny: capabilityEntry(100, { tool_call: true }),
     },

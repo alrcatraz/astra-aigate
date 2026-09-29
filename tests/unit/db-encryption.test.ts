@@ -11,11 +11,11 @@ async function importFresh(modulePath) {
   return import(`${url}?test=${Date.now()}-${Math.random().toString(16).slice(2)}`);
 }
 
-function encryptWithLegacyDynamicSalt(secret: string, plaintext: string): string {
+async function encryptWithLegacyDynamicSalt(secret: string, plaintext: string): string {
   const key = scryptSync(secret, createHash("sha256").update(secret).digest().slice(0, 16), 32);
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
-  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  let encrypted = await cipher.update(plaintext, "utf8", "hex");
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag().toString("hex");
   return `enc:v1:${iv.toString("hex")}:${encrypted}:${authTag}`;

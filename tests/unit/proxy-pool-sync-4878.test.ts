@@ -13,29 +13,30 @@ delete process.env.OMNIROUTE_API_KEY;
 
 const core = await import("../../src/lib/db/core.ts");
 const freeProxiesDb = await import("../../src/lib/db/freeProxies.ts");
-const addToPoolRoute = await import(
-  "../../src/app/api/settings/free-proxies/[id]/add-to-pool/route.ts"
-);
+const addToPoolRoute =
+  await import("../../src/app/api/settings/free-proxies/[id]/add-to-pool/route.ts");
 const syncRoute = await import("../../src/app/api/settings/free-proxies/sync/route.ts");
 const rateLimiter = await import("../../src/shared/utils/rateLimiter.ts");
 
-function reset() {
-  core.resetDbInstance();
+async function reset() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeReq(): Request {
   return new Request("http://localhost/test", { method: "POST" });
 }
 
-test.beforeEach(() => {
-  reset();
+test.beforeEach(async () => {
+  await reset();
   addToPoolRoute._resetConnectivityTesterForTests();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;

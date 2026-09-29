@@ -20,7 +20,7 @@ const core = await import("../../src/lib/db/core.ts");
 const consumptionDb = await import("../../src/lib/db/quotaConsumption.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -36,6 +36,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -43,7 +45,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -51,14 +53,14 @@ test.after(async () => {
 // getBucket
 // ---------------------------------------------------------------------------
 
-test("getBucket returns 0 for a non-existent row", () => {
-  const value = consumptionDb.getBucket("key-1", "pool1:tokens:hourly", 42);
+test("getBucket returns 0 for a non-existent row", async () => {
+  const value = await consumptionDb.getBucket("key-1", "pool1:tokens:hourly", 42);
   assert.equal(value, 0);
 });
 
-test("getBucket returns the stored consumed value", () => {
-  consumptionDb.incrementBucket("key-1", "pool1:tokens:hourly", 42, 100, Date.now());
-  const value = consumptionDb.getBucket("key-1", "pool1:tokens:hourly", 42);
+test("getBucket returns the stored consumed value", async () => {
+  await consumptionDb.incrementBucket("key-1", "pool1:tokens:hourly", 42, 100, Date.now());
+  const value = await consumptionDb.getBucket("key-1", "pool1:tokens:hourly", 42);
   assert.equal(value, 100);
 });
 
@@ -66,15 +68,15 @@ test("getBucket returns the stored consumed value", () => {
 // incrementBucket — atomic UPSERT
 // ---------------------------------------------------------------------------
 
-test("incrementBucket accumulates delta on successive calls", () => {
+test("incrementBucket accumulates delta on successive calls", async () => {
   const key = "key-acc";
   const dim = "pool-x:requests:daily";
   const bucket = 1000;
   const now = Date.now();
 
-  consumptionDb.incrementBucket(key, dim, bucket, 5, now);
-  consumptionDb.incrementBucket(key, dim, bucket, 3, now);
-  consumptionDb.incrementBucket(key, dim, bucket, 2, now);
+  await consumptionDb.incrementBucket(key, dim, bucket, 5, now);
+  await consumptionDb.incrementBucket(key, dim, bucket, 3, now);
+  await consumptionDb.incrementBucket(key, dim, bucket, 2, now);
 
   assert.equal(consumptionDb.getBucket(key, dim, bucket), 10);
 });
@@ -93,22 +95,22 @@ test("incrementBucket is atomic: 100 concurrent increments sum correctly", async
     )
   );
 
-  const total = consumptionDb.getBucket(key, dim, bucket);
+  const total = await consumptionDb.getBucket(key, dim, bucket);
   assert.equal(total, 100, `expected 100, got ${total}`);
 });
 
-test("incrementBucket updates updated_at timestamp", () => {
+test("incrementBucket updates updated_at timestamp", async () => {
   const key = "key-ts";
   const dim = "pool-ts:usd:daily";
   const bucket = 5000;
   const now1 = 1_000_000;
   const now2 = 2_000_000;
 
-  consumptionDb.incrementBucket(key, dim, bucket, 1, now1);
-  consumptionDb.incrementBucket(key, dim, bucket, 1, now2);
+  await consumptionDb.incrementBucket(key, dim, bucket, 1, now1);
+  await consumptionDb.incrementBucket(key, dim, bucket, 1, now2);
 
   // GC with threshold = now1 + 1 — the row should still be there (updated_at = now2)
-  const deleted = consumptionDb.gcOlderThan(now1 + 1);
+  const deleted = await consumptionDb.gcOlderThan(now1 + 1);
   assert.equal(deleted, 0, "row should not be deleted because updated_at was refreshed");
 });
 
@@ -116,33 +118,33 @@ test("incrementBucket updates updated_at timestamp", () => {
 // getPair
 // ---------------------------------------------------------------------------
 
-test("getPair returns 0,0 for keys with no data", () => {
-  const { curr, prev } = consumptionDb.getPair("key-empty", "pool-e:tokens:daily", 10);
+test("getPair returns 0,0 for keys with no data", async () => {
+  const { curr, prev } = await consumptionDb.getPair("key-empty", "pool-e:tokens:daily", 10);
   assert.equal(curr, 0);
   assert.equal(prev, 0);
 });
 
-test("getPair returns curr and prev buckets", () => {
+test("getPair returns curr and prev buckets", async () => {
   const key = "key-pair";
   const dim = "pool-p:requests:hourly";
   const now = Date.now();
 
-  consumptionDb.incrementBucket(key, dim, 100, 70, now); // current bucket
-  consumptionDb.incrementBucket(key, dim, 99, 30, now);  // previous bucket
+  await consumptionDb.incrementBucket(key, dim, 100, 70, now); // current bucket
+  await consumptionDb.incrementBucket(key, dim, 99, 30, now); // previous bucket
 
-  const { curr, prev } = consumptionDb.getPair(key, dim, 100);
+  const { curr, prev } = await consumptionDb.getPair(key, dim, 100);
   assert.equal(curr, 70);
   assert.equal(prev, 30);
 });
 
-test("getPair returns only curr when prev bucket has no data", () => {
+test("getPair returns only curr when prev bucket has no data", async () => {
   const key = "key-pair2";
   const dim = "pool-q:percent:5h";
   const now = Date.now();
 
-  consumptionDb.incrementBucket(key, dim, 200, 50, now);
+  await consumptionDb.incrementBucket(key, dim, 200, 50, now);
 
-  const { curr, prev } = consumptionDb.getPair(key, dim, 200);
+  const { curr, prev } = await consumptionDb.getPair(key, dim, 200);
   assert.equal(curr, 50);
   assert.equal(prev, 0);
 });
@@ -151,17 +153,17 @@ test("getPair returns only curr when prev bucket has no data", () => {
 // gcOlderThan
 // ---------------------------------------------------------------------------
 
-test("gcOlderThan deletes only rows with updated_at strictly less than threshold", () => {
+test("gcOlderThan deletes only rows with updated_at strictly less than threshold", async () => {
   const now = Date.now();
   const threshold = now; // rows with updated_at < now are deleted; row at now is kept
 
   // Insert 3 rows with different timestamps
-  consumptionDb.incrementBucket("key-gc1", "pool-gc:tokens:daily", 1, 1, now - 100); // older → deleted
-  consumptionDb.incrementBucket("key-gc2", "pool-gc:tokens:daily", 2, 1, now - 1);   // older → deleted
-  consumptionDb.incrementBucket("key-gc3", "pool-gc:tokens:daily", 3, 1, now);       // at threshold → kept
-  consumptionDb.incrementBucket("key-gc4", "pool-gc:tokens:daily", 4, 1, now + 100); // newer → kept
+  await consumptionDb.incrementBucket("key-gc1", "pool-gc:tokens:daily", 1, 1, now - 100); // older → deleted
+  await consumptionDb.incrementBucket("key-gc2", "pool-gc:tokens:daily", 2, 1, now - 1); // older → deleted
+  await consumptionDb.incrementBucket("key-gc3", "pool-gc:tokens:daily", 3, 1, now); // at threshold → kept
+  await consumptionDb.incrementBucket("key-gc4", "pool-gc:tokens:daily", 4, 1, now + 100); // newer → kept
 
-  const deleted = consumptionDb.gcOlderThan(threshold);
+  const deleted = await consumptionDb.gcOlderThan(threshold);
   assert.equal(deleted, 2, `should have deleted 2 rows, deleted ${deleted}`);
 
   // Remaining rows: key-gc3 and key-gc4
@@ -169,15 +171,15 @@ test("gcOlderThan deletes only rows with updated_at strictly less than threshold
   assert.equal(consumptionDb.getBucket("key-gc4", "pool-gc:tokens:daily", 4), 1);
 });
 
-test("gcOlderThan returns 0 when no rows qualify", () => {
+test("gcOlderThan returns 0 when no rows qualify", async () => {
   const now = Date.now();
-  consumptionDb.incrementBucket("key-fresh", "pool-fresh:usd:weekly", 1, 1, now + 10_000);
-  const deleted = consumptionDb.gcOlderThan(now);
+  await consumptionDb.incrementBucket("key-fresh", "pool-fresh:usd:weekly", 1, 1, now + 10_000);
+  const deleted = await consumptionDb.gcOlderThan(now);
   assert.equal(deleted, 0);
 });
 
-test("gcOlderThan returns 0 on empty table", () => {
-  const deleted = consumptionDb.gcOlderThan(Date.now());
+test("gcOlderThan returns 0 on empty table", async () => {
+  const deleted = await consumptionDb.gcOlderThan(Date.now());
   assert.equal(deleted, 0);
 });
 
@@ -185,10 +187,10 @@ test("gcOlderThan returns 0 on empty table", () => {
 // Bucket isolation (different dimension keys don't interfere)
 // ---------------------------------------------------------------------------
 
-test("different dimension keys are independent", () => {
+test("different dimension keys are independent", async () => {
   const now = Date.now();
-  consumptionDb.incrementBucket("key-iso", "pool-a:tokens:hourly", 1, 40, now);
-  consumptionDb.incrementBucket("key-iso", "pool-b:tokens:hourly", 1, 60, now);
+  await consumptionDb.incrementBucket("key-iso", "pool-a:tokens:hourly", 1, 40, now);
+  await consumptionDb.incrementBucket("key-iso", "pool-b:tokens:hourly", 1, 60, now);
 
   assert.equal(consumptionDb.getBucket("key-iso", "pool-a:tokens:hourly", 1), 40);
   assert.equal(consumptionDb.getBucket("key-iso", "pool-b:tokens:hourly", 1), 60);

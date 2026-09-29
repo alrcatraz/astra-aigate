@@ -20,11 +20,13 @@ const clearPendingRequests = usageHistory.clearPendingRequests;
 const EXPECTED_TOTAL_COST = 0.020925;
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   clearPendingRequests();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedAnalyticsData() {
@@ -73,8 +75,8 @@ test.beforeEach(async () => {
   });
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 

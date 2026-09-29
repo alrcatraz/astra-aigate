@@ -23,7 +23,7 @@ const W2 = Date.UTC(2026, 0, 13, 12); // next Tue
 const M1 = Date.UTC(2026, 0, 8, 6); // same daily window as D1? no -> Jan 8; use for "same window" daily checks separately
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -41,6 +41,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function insertUsage(
@@ -77,24 +79,24 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("window rollover: daily/weekly/monthly produce distinct windowStart", async () => {
-  const daily = tokenLimits.upsertTokenLimit({
+  const daily = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k-daily",
     scopeType: "global",
     tokenLimit: 1000,
     resetInterval: "daily",
   });
-  const weekly = tokenLimits.upsertTokenLimit({
+  const weekly = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k-week",
     scopeType: "global",
     tokenLimit: 1000,
     resetInterval: "weekly",
   });
-  const monthly = tokenLimits.upsertTokenLimit({
+  const monthly = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k-month",
     scopeType: "global",
     tokenLimit: 1000,
@@ -137,7 +139,7 @@ test("window rollover: daily/weekly/monthly produce distinct windowStart", async
 });
 
 test("seed-on-miss equals usage_history SUM for the active window", async () => {
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k2",
     scopeType: "model",
     scopeValue: "gpt-4o",
@@ -165,7 +167,7 @@ test("seed-on-miss equals usage_history SUM for the active window", async () => 
 });
 
 test("getCurrentWindowUsage seeds from history and PERSISTS the seed (FIX 3)", async () => {
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k2b",
     scopeType: "model",
     scopeValue: "gpt-4o",
@@ -191,7 +193,7 @@ test("getCurrentWindowUsage seeds from history and PERSISTS the seed (FIX 3)", a
 });
 
 test("seed total excludes cache tokens (no double-count) (FIX 2)", async () => {
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k2c",
     scopeType: "model",
     scopeValue: "claude-sonnet",
@@ -221,7 +223,7 @@ test("seed total excludes cache tokens (no double-count) (FIX 2)", async () => {
 
 test("cold-window recordTokenUsage seeds from history before increment (FIX 4)", async () => {
   // recordTokenUsage uses Date.now() internally; insert history in the current window.
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k2d",
     scopeType: "model",
     scopeValue: "gpt-4o",
@@ -244,14 +246,14 @@ test("cold-window recordTokenUsage seeds from history before increment (FIX 4)",
 
 test("most-restrictive breach wins when model and provider both match", async () => {
   // Case A: both breach; provider has smaller limitValue (tie on remaining=0).
-  const modelLimit = tokenLimits.upsertTokenLimit({
+  const modelLimit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k3",
     scopeType: "model",
     scopeValue: "gpt-4o",
     tokenLimit: 100,
     resetInterval: "monthly",
   });
-  const providerLimit = tokenLimits.upsertTokenLimit({
+  const providerLimit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k3",
     scopeType: "provider",
     scopeValue: "openai",
@@ -270,14 +272,14 @@ test("most-restrictive breach wins when model and provider both match", async ()
   assert.equal(breachA!.limitValue, 50);
 
   // Case B: only the model limit breaches → it is returned.
-  const modelLimit2 = tokenLimits.upsertTokenLimit({
+  const modelLimit2 = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k3b",
     scopeType: "model",
     scopeValue: "gpt-4o",
     tokenLimit: 100,
     resetInterval: "monthly",
   });
-  const providerLimit2 = tokenLimits.upsertTokenLimit({
+  const providerLimit2 = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k3b",
     scopeType: "provider",
     scopeValue: "openai",
@@ -296,7 +298,7 @@ test("most-restrictive breach wins when model and provider both match", async ()
 });
 
 test("disabled limit is ignored by checkTokenLimits", async () => {
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k4",
     scopeType: "model",
     scopeValue: "gpt-4o",
@@ -310,7 +312,7 @@ test("disabled limit is ignored by checkTokenLimits", async () => {
 });
 
 test("global fallback applies when no model/provider limit", async () => {
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k5",
     scopeType: "global",
     tokenLimit: 10,
@@ -325,7 +327,7 @@ test("global fallback applies when no model/provider limit", async () => {
 });
 
 test("atomic increment under repeated calls has no lost updates", async () => {
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k6",
     scopeType: "global",
     tokenLimit: 1000000,
@@ -339,7 +341,7 @@ test("atomic increment under repeated calls has no lost updates", async () => {
 });
 
 test("getCurrentWindowUsage cache hit / miss / forceFresh", async () => {
-  const limit = tokenLimits.upsertTokenLimit({
+  const limit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k7",
     scopeType: "global",
     tokenLimit: 1000,
@@ -365,7 +367,7 @@ test("getCurrentWindowUsage cache hit / miss / forceFresh", async () => {
 
 test("recordTokenUsage is fire-and-forget and records after microtask flush", async () => {
   // recordTokenUsage uses Date.now() internally — create + read with default now.
-  const modelLimit = tokenLimits.upsertTokenLimit({
+  const modelLimit = await tokenLimits.upsertTokenLimit({
     apiKeyId: "k8",
     scopeType: "model",
     scopeValue: "gpt-4o",

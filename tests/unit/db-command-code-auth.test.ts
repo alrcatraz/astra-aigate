@@ -11,17 +11,19 @@ const coreDb = await import("../../src/lib/db/core.ts");
 const commandCodeAuthDb = await import("../../src/lib/db/commandCodeAuth.ts");
 
 async function resetStorage() {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  coreDb.resetDbInstance();
+test.after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

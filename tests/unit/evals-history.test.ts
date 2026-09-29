@@ -10,23 +10,25 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const evalsDb = await import("../../src/lib/db/evals.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("eval run history persists target metadata and newest-first ordering", () => {
-  const older = evalsDb.saveEvalRun({
+test("eval run history persists target metadata and newest-first ordering", async () => {
+  const older = await evalsDb.saveEvalRun({
     suiteId: "golden-set",
     suiteName: "Golden Set",
     target: { type: "model", id: "gpt-4o", label: "Model: gpt-4o" },
@@ -37,7 +39,7 @@ test("eval run history persists target metadata and newest-first ordering", () =
     createdAt: "2026-04-23T10:00:00.000Z",
   });
 
-  const newer = evalsDb.saveEvalRun({
+  const newer = await evalsDb.saveEvalRun({
     suiteId: "golden-set",
     suiteName: "Golden Set",
     target: { type: "combo", id: "cost-optimized", label: "Combo: cost-optimized" },
@@ -48,7 +50,7 @@ test("eval run history persists target metadata and newest-first ordering", () =
     createdAt: "2026-04-23T11:00:00.000Z",
   });
 
-  const runs = evalsDb.listEvalRuns({ limit: 10 });
+  const runs = await evalsDb.listEvalRuns({ limit: 10 });
 
   assert.equal(runs.length, 2);
   assert.equal(runs[0].id, newer.id);
@@ -59,8 +61,8 @@ test("eval run history persists target metadata and newest-first ordering", () =
   assert.equal(runs[1].outputs.c1, "ok");
 });
 
-test("scorecard keeps only the latest run per suite and target scope", () => {
-  evalsDb.saveEvalRun({
+test("scorecard keeps only the latest run per suite and target scope", async () => {
+  await evalsDb.saveEvalRun({
     suiteId: "golden-set",
     suiteName: "Golden Set",
     target: { type: "model", id: "gpt-4o", label: "Model: gpt-4o" },
@@ -70,7 +72,7 @@ test("scorecard keeps only the latest run per suite and target scope", () => {
     createdAt: "2026-04-23T09:00:00.000Z",
   });
 
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "golden-set",
     suiteName: "Golden Set",
     target: { type: "model", id: "gpt-4o", label: "Model: gpt-4o" },
@@ -80,7 +82,7 @@ test("scorecard keeps only the latest run per suite and target scope", () => {
     createdAt: "2026-04-23T10:00:00.000Z",
   });
 
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "golden-set",
     suiteName: "Golden Set",
     target: { type: "combo", id: "balanced", label: "Combo: balanced" },
@@ -90,7 +92,7 @@ test("scorecard keeps only the latest run per suite and target scope", () => {
     createdAt: "2026-04-23T10:30:00.000Z",
   });
 
-  const scorecard = evalsDb.getEvalScorecard({ limit: 10 });
+  const scorecard = await evalsDb.getEvalScorecard({ limit: 10 });
 
   assert.ok(scorecard);
   assert.equal(scorecard.suites, 2);
@@ -99,8 +101,8 @@ test("scorecard keeps only the latest run per suite and target scope", () => {
   assert.equal(scorecard.overallPassRate, 75);
 });
 
-test("routing eval run query returns recent model runs for requested targets", () => {
-  evalsDb.saveEvalRun({
+test("routing eval run query returns recent model runs for requested targets", async () => {
+  await evalsDb.saveEvalRun({
     suiteId: "routing-quality",
     suiteName: "Routing Quality",
     target: { type: "model", id: "openai/good", label: "Model: openai/good" },
@@ -109,7 +111,7 @@ test("routing eval run query returns recent model runs for requested targets", (
     results: [],
     createdAt: "2026-04-23T10:00:00.000Z",
   });
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "routing-quality",
     suiteName: "Routing Quality",
     target: { type: "combo", id: "openai/good", label: "Combo: openai/good" },
@@ -118,7 +120,7 @@ test("routing eval run query returns recent model runs for requested targets", (
     results: [],
     createdAt: "2026-04-23T10:30:00.000Z",
   });
-  evalsDb.saveEvalRun({
+  await evalsDb.saveEvalRun({
     suiteId: "other-suite",
     suiteName: "Other Suite",
     target: { type: "model", id: "openai/good", label: "Model: openai/good" },
@@ -128,7 +130,7 @@ test("routing eval run query returns recent model runs for requested targets", (
     createdAt: "2026-04-23T11:00:00.000Z",
   });
 
-  const runs = evalsDb.listModelEvalRunsForRouting({
+  const runs = await evalsDb.listModelEvalRunsForRouting({
     targetIds: ["openai/good", "openai/missing"],
     suiteIds: ["routing-quality"],
     maxAgeHours: 24 * 365 * 10,
@@ -141,8 +143,8 @@ test("routing eval run query returns recent model runs for requested targets", (
   assert.equal(runs[0].suiteId, "routing-quality");
 });
 
-test("custom eval suites persist cases and support update/delete", () => {
-  const created = evalsDb.saveCustomEvalSuite({
+test("custom eval suites persist cases and support update/delete", async () => {
+  const created = await evalsDb.saveCustomEvalSuite({
     name: "Support Regression",
     description: "Checks refund phrasing",
     cases: [
@@ -167,7 +169,7 @@ test("custom eval suites persist cases and support update/delete", () => {
   assert.equal(created.cases[0]?.expected.strategy, "contains");
   assert.deepEqual(created.cases[0]?.tags, ["support", "billing"]);
 
-  const updated = evalsDb.saveCustomEvalSuite({
+  const updated = await evalsDb.saveCustomEvalSuite({
     id: created.id,
     name: "Support Regression v2",
     description: "Checks refund and escalation phrasing",
@@ -205,7 +207,7 @@ test("custom eval suites persist cases and support update/delete", () => {
   assert.equal(updated.caseCount, 2);
   assert.equal(updated.cases[1]?.expected.strategy, "regex");
 
-  const listed = evalsDb.listCustomEvalSuites();
+  const listed = await evalsDb.listCustomEvalSuites();
   assert.equal(listed.length, 1);
   assert.equal(listed[0]?.id, created.id);
   assert.equal(evalsDb.getCustomEvalSuite(created.id)?.cases.length, 2);

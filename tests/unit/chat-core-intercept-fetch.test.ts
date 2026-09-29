@@ -15,12 +15,10 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-test-chatcore-in
 process.env.DATA_DIR = tmpDir;
 
 const core = await import("../../src/lib/db/core.ts");
-const { setInterceptionRules, resolveInterceptFetch } = await import(
-  "../../src/lib/db/interceptionRules.ts"
-);
-const { prepareWebFetchFallbackBody } = await import(
-  "../../open-sse/services/webFetchInterception.ts"
-);
+const { setInterceptionRules, resolveInterceptFetch } =
+  await import("../../src/lib/db/interceptionRules.ts");
+const { prepareWebFetchFallbackBody } =
+  await import("../../open-sse/services/webFetchInterception.ts");
 
 function buildRequestBody() {
   return {
@@ -33,12 +31,12 @@ function buildRequestBody() {
 // Mirrors the exact two-call sequence chatCore.ts now runs at its interceptFetch
 // call site: resolveInterceptFetch(provider, effectiveModel) followed by
 // prepareWebFetchFallbackBody(body, { ...options, interceptFetchOverride }).
-function runChatCoreInterceptFetchStep(
+async function runChatCoreInterceptFetchStep(
   provider: string,
   effectiveModel: string,
   body: Record<string, unknown>
 ) {
-  const interceptFetchOverride = resolveInterceptFetch(provider, effectiveModel);
+  const interceptFetchOverride = await resolveInterceptFetch(provider, effectiveModel);
   return prepareWebFetchFallbackBody(body, {
     provider,
     sourceFormat: "openai",
@@ -49,18 +47,20 @@ function runChatCoreInterceptFetchStep(
 }
 
 describe("chatCore.ts interceptFetch call site — flag-off regression guard (#7339)", () => {
-  function resetDb() {
-    core.resetDbInstance();
+  async function resetDb() {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.mkdirSync(tmpDir, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -79,8 +79,8 @@ describe("chatCore.ts interceptFetch call site — flag-off regression guard (#7
     assert.equal(nextBody, originalBody, "must be the same object reference — true no-op");
   });
 
-  it("leaves the body untouched for a request with no web_fetch tool at all, regardless of rule state", () => {
-    setInterceptionRules("openai", { interceptFetch: true });
+  it("leaves the body untouched for a request with no web_fetch tool at all, regardless of rule state", async () => {
+    await setInterceptionRules("openai", { interceptFetch: true });
     const originalBody = {
       model: "gpt-5",
       messages: [{ role: "user", content: "hi" }],
@@ -98,8 +98,8 @@ describe("chatCore.ts interceptFetch call site — flag-off regression guard (#7
     assert.equal(JSON.stringify(nextBody), preChangeSerialized);
   });
 
-  it("only converts the tool once the operator explicitly opts a provider/model into interceptFetch", () => {
-    setInterceptionRules("openai", { interceptFetch: true });
+  it("only converts the tool once the operator explicitly opts a provider/model into interceptFetch", async () => {
+    await setInterceptionRules("openai", { interceptFetch: true });
     const originalBody = buildRequestBody();
 
     const { body: nextBody, fallback } = runChatCoreInterceptFetchStep(

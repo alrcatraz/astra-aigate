@@ -1,9 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  clearLatestVersionCache,
-  resolveLatestVersionCached,
-} from "@/lib/system/versionCheck";
+import { clearLatestVersionCache, resolveLatestVersionCached } from "@/lib/system/versionCheck";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -53,9 +50,9 @@ test("explicit refresh bypasses an ordinary in-flight lookup and coalesces with 
     return calls === 1 ? ordinary.promise : refresh.promise;
   };
 
-  const stale = resolveLatestVersionCached({ lookup });
-  const firstRefresh = resolveLatestVersionCached({ lookup, bypassCache: true });
-  const secondRefresh = resolveLatestVersionCached({ lookup, bypassCache: true });
+  const stale = await resolveLatestVersionCached({ lookup });
+  const firstRefresh = await resolveLatestVersionCached({ lookup, bypassCache: true });
+  const secondRefresh = await resolveLatestVersionCached({ lookup, bypassCache: true });
   assert.equal(calls, 2);
 
   ordinary.resolve("3.8.49");
@@ -81,7 +78,7 @@ test("no-store refresh does not populate the process cache", async () => {
 test("cache invalidation prevents an older in-flight result from repopulating the cache", async () => {
   let calls = 0;
   const pending = deferred<string | null>();
-  const first = resolveLatestVersionCached({
+  const first = await resolveLatestVersionCached({
     lookup: () => {
       calls += 1;
       return pending.promise;

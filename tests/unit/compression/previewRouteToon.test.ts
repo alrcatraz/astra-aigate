@@ -17,9 +17,13 @@ function makeReq(body: unknown) {
     body: JSON.stringify(body),
   });
 }
-test.beforeEach(() => core.resetDbInstance());
-test.after(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

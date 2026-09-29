@@ -62,10 +62,10 @@ describe("ccr protocol instruction (#8033)", () => {
     assert.ok(engine, "getCompressionEngine('ccr') must return the engine");
   });
 
-  it("MCP-capable caller + a replaced block → instruction present exactly once as a leading system message", () => {
+  it("MCP-capable caller + a replaced block → instruction present exactly once as a leading system message", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: LARGE_TEXT }], [RETRIEVE_TOOL_OPENAI]);
-    const result = ccrEngine.apply(body);
+    const result = await ccrEngine.apply(body);
 
     assert.equal(result.compressed, true, "large block should compress");
     const messages = result.body["messages"] as Array<{ role: string; content: unknown }>;
@@ -83,10 +83,10 @@ describe("ccr protocol instruction (#8033)", () => {
     assert.equal(occurrences.length, 1, "instruction must be present exactly once");
   });
 
-  it("plain OpenAI-compatible caller (no tools) → NO instruction at all", () => {
+  it("plain OpenAI-compatible caller (no tools) → NO instruction at all", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: LARGE_TEXT }]);
-    const result = ccrEngine.apply(body);
+    const result = await ccrEngine.apply(body);
 
     assert.equal(result.compressed, true, "large block should still compress");
     const messages = result.body["messages"] as Array<{ role: string; content: unknown }>;
@@ -100,26 +100,26 @@ describe("ccr protocol instruction (#8033)", () => {
     );
   });
 
-  it("caller with tools[] not advertising the retrieve tool → NO instruction", () => {
+  it("caller with tools[] not advertising the retrieve tool → NO instruction", async () => {
     resetCcrStore();
     const otherTool = { type: "function", function: { name: "some_other_tool" } };
     const body = makeBody([{ role: "user", content: LARGE_TEXT }], [otherTool]);
-    const result = ccrEngine.apply(body);
+    const result = await ccrEngine.apply(body);
 
     const messages = result.body["messages"] as Array<{ role: string; content: unknown }>;
     assert.equal(messages.length, 1, "no system message should be injected");
   });
 
-  it("replacedCount === 0 → body untouched (no instruction, compressed:false)", () => {
+  it("replacedCount === 0 → body untouched (no instruction, compressed:false)", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: SMALL_TEXT }], [RETRIEVE_TOOL_OPENAI]);
-    const result = ccrEngine.apply(body);
+    const result = await ccrEngine.apply(body);
 
     assert.equal(result.compressed, false, "small text should not compress");
     assert.equal(result.body, body, "body must be returned unchanged when nothing was replaced");
   });
 
-  it("idempotency: a body whose history already carries the sentinel is not injected twice", () => {
+  it("idempotency: a body whose history already carries the sentinel is not injected twice", async () => {
     resetCcrStore();
     const alreadyInstructed: Msg = {
       role: "system",
@@ -129,7 +129,7 @@ describe("ccr protocol instruction (#8033)", () => {
       [alreadyInstructed, { role: "user", content: LARGE_TEXT }],
       [RETRIEVE_TOOL_OPENAI]
     );
-    const result = ccrEngine.apply(body);
+    const result = await ccrEngine.apply(body);
 
     const messages = result.body["messages"] as Array<{ role: string; content: unknown }>;
     const occurrences = messages.filter(
@@ -138,10 +138,10 @@ describe("ccr protocol instruction (#8033)", () => {
     assert.equal(occurrences.length, 1, "sentinel must not be injected a second time");
   });
 
-  it("instruction text contains the tool name, the marker shape, and the verbatim-24-char warning", () => {
+  it("instruction text contains the tool name, the marker shape, and the verbatim-24-char warning", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: LARGE_TEXT }], [RETRIEVE_TOOL_OPENAI]);
-    const result = ccrEngine.apply(body);
+    const result = await ccrEngine.apply(body);
     const messages = result.body["messages"] as Array<{ role: string; content: unknown }>;
     const instruction = messages[0].content as string;
 
@@ -150,19 +150,23 @@ describe("ccr protocol instruction (#8033)", () => {
       instruction.includes("[CCR retrieve hash=<24hex> chars=N]"),
       "must show the marker shape"
     );
-    assert.match(
-      instruction,
-      /verbatim|exact/i,
-      "must stress verbatim/exact copying of the hash"
-    );
+    assert.match(instruction, /verbatim|exact/i, "must stress verbatim/exact copying of the hash");
     assert.match(instruction, /24/, "must mention the 24-character length of the hash");
     assert.ok(instruction.includes("dedup:ref"), "must mention the dedup:ref contract");
   });
 
   it("recognizes all three tools[] shapes: OpenAI nested, flat, Claude", () => {
-    assert.equal(callerSupportsCcrRetrieve({ tools: [RETRIEVE_TOOL_OPENAI] }), true, "OpenAI nested shape");
+    assert.equal(
+      callerSupportsCcrRetrieve({ tools: [RETRIEVE_TOOL_OPENAI] }),
+      true,
+      "OpenAI nested shape"
+    );
     assert.equal(callerSupportsCcrRetrieve({ tools: [RETRIEVE_TOOL_FLAT] }), true, "flat shape");
-    assert.equal(callerSupportsCcrRetrieve({ tools: [RETRIEVE_TOOL_CLAUDE] }), true, "Claude shape");
+    assert.equal(
+      callerSupportsCcrRetrieve({ tools: [RETRIEVE_TOOL_CLAUDE] }),
+      true,
+      "Claude shape"
+    );
     assert.equal(callerSupportsCcrRetrieve({ tools: [] }), false, "empty tools array");
     assert.equal(callerSupportsCcrRetrieve({}), false, "absent tools field");
     assert.equal(

@@ -88,7 +88,7 @@ test("live request returns streamChunks", { skip }, async () => {
       `expected 200 from chat/completions, got ${completionsResponse.status}`
     );
 
-    const requestId = completionsResponse.headers.get("x-omniroute-request-id");
+    const requestId = await completionsResponse.headers.get("x-omniroute-request-id");
     assert.ok(requestId, "expected x-omniroute-request-id header in response");
 
     let streamFinished = false;

@@ -1,22 +1,19 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  recordCacheStats,
-  getCacheStatsSummary,
-} from "../../src/lib/db/compressionCacheStats.ts";
+import { recordCacheStats, getCacheStatsSummary } from "../../src/lib/db/compressionCacheStats.ts";
 
 describe("compressionCacheStats", () => {
-  it("getCacheStatsSummary returns summary", () => {
-    const summary = getCacheStatsSummary();
+  it("getCacheStatsSummary returns summary", async () => {
+    const summary = await getCacheStatsSummary();
     assert.ok(typeof summary.totalRequests === "number");
     assert.ok(typeof summary.avgNetSavings === "number");
     assert.ok(typeof summary.cacheHitRate === "number");
     assert.ok(typeof summary.byProvider === "object");
   });
 
-  it("recordCacheStats inserts and getCacheStatsSummary retrieves", () => {
-    recordCacheStats({
+  it("recordCacheStats inserts and getCacheStatsSummary retrieves", async () => {
+    await recordCacheStats({
       provider: "test-provider",
       model: "test-model",
       compressionMode: "lite",
@@ -26,13 +23,13 @@ describe("compressionCacheStats", () => {
       tokensSavedCaching: 50,
       netSavings: 150,
     });
-    const summary = getCacheStatsSummary();
+    const summary = await getCacheStatsSummary();
     assert.ok(summary.totalRequests >= 1, "should have at least 1 request");
     assert.ok("test-provider" in summary.byProvider, "should have test-provider");
   });
 
-  it("recordCacheStats handles missing model", () => {
-    recordCacheStats({
+  it("recordCacheStats handles missing model", async () => {
+    await recordCacheStats({
       provider: "no-model-provider",
       compressionMode: "standard",
       cacheControlPresent: false,
@@ -41,13 +38,13 @@ describe("compressionCacheStats", () => {
       tokensSavedCaching: 0,
       netSavings: 0,
     });
-    const summary = getCacheStatsSummary();
+    const summary = await getCacheStatsSummary();
     assert.ok("no-model-provider" in summary.byProvider);
   });
 
-  it("getCacheStatsSummary with since filter", () => {
+  it("getCacheStatsSummary with since filter", async () => {
     const future = new Date(Date.now() + 86400000);
-    const summary = getCacheStatsSummary(future);
+    const summary = await getCacheStatsSummary(future);
     assert.equal(summary.totalRequests, 0, "future date should return 0");
   });
 });

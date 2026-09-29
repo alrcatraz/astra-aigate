@@ -29,8 +29,8 @@ describe("specialty catalog surfaces (#8016)", () => {
     assert.equal(veo.reasoning, false);
   });
 
-  it("enrichment does not invent chat tool/reasoning on typed specialty rows", () => {
-    const enriched = enrichCatalogModelEntry({
+  it("enrichment does not invent chat tool/reasoning on typed specialty rows", async () => {
+    const enriched = await enrichCatalogModelEntry({
       id: "openai/whisper-1",
       owned_by: "openai",
       root: "whisper-1",

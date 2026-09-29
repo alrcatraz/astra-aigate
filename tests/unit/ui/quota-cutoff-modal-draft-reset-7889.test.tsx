@@ -35,9 +35,9 @@ function props(connectionId: string, persisted: number) {
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(() => {
+  act(async () => {
     setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 

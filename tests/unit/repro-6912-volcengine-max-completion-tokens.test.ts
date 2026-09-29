@@ -20,12 +20,10 @@ const core = await import("../../src/lib/db/core.ts");
 const { clearCache } = await import("../../src/lib/semanticCache.ts");
 const { clearIdempotency } = await import("../../src/lib/idempotencyLayer.ts");
 const { clearInflight } = await import("../../open-sse/services/requestDedup.ts");
-const { resetAll: resetAccountSemaphores } = await import(
-  "../../open-sse/services/accountSemaphore.ts"
-);
-const { handleChatCore, clearUpstreamProxyConfigCache } = await import(
-  "../../open-sse/handlers/chatCore.ts"
-);
+const { resetAll: resetAccountSemaphores } =
+  await import("../../open-sse/services/accountSemaphore.ts");
+const { handleChatCore, clearUpstreamProxyConfigCache } =
+  await import("../../open-sse/handlers/chatCore.ts");
 const { resetPayloadRulesConfigForTests } = await import("../../open-sse/services/payloadRules.ts");
 
 const originalFetch = globalThis.fetch;
@@ -114,9 +112,11 @@ async function resetStorage() {
   clearCache();
   clearIdempotency();
   clearInflight();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.afterEach(async () => {
@@ -125,8 +125,8 @@ test.afterEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -142,7 +142,11 @@ test("#6912: chatCore renames max_completion_tokens to max_tokens for volcengine
     },
   });
 
-  assert.equal(call.body.max_tokens, 30, "expected max_completion_tokens to be normalized to max_tokens for volcengine");
+  assert.equal(
+    call.body.max_tokens,
+    30,
+    "expected max_completion_tokens to be normalized to max_tokens for volcengine"
+  );
   assert.equal(call.body.max_completion_tokens, undefined);
 });
 
@@ -159,7 +163,11 @@ test("#6912: chatCore does not clobber an already-present max_tokens", async () 
     },
   });
 
-  assert.equal(call.body.max_tokens, 500, "existing max_tokens must win over max_completion_tokens");
+  assert.equal(
+    call.body.max_tokens,
+    500,
+    "existing max_tokens must win over max_completion_tokens"
+  );
   assert.equal(call.body.max_completion_tokens, undefined);
 });
 

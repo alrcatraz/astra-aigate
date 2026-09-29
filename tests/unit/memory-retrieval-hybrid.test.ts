@@ -43,14 +43,16 @@ async function removeTestDataDir() {
 }
 
 async function cleanup() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   await removeTestDataDir();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(async () => cleanup());
+test.afterEach(async () => await cleanup());
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   await removeTestDataDir();
 });
 

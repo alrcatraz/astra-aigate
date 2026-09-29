@@ -24,14 +24,14 @@ async function withDbOverride<T>(value: string | undefined, fn: () => Promise<T>
   const { setFeatureFlagOverride, removeFeatureFlagOverride } =
     await import("../../src/lib/db/featureFlags.ts");
   if (value === undefined) {
-    removeFeatureFlagOverride(KEY);
+    await removeFeatureFlagOverride(KEY);
   } else {
     setFeatureFlagOverride(KEY, value);
   }
   try {
     return await fn();
   } finally {
-    removeFeatureFlagOverride(KEY);
+    await removeFeatureFlagOverride(KEY);
   }
 }
 

@@ -17,9 +17,8 @@ const { skillRegistry } = await import("../../src/lib/skills/registry.ts");
 const { skillExecutor } = await import("../../src/lib/skills/executor.ts");
 const { handleToolCallExecution } = await import("../../src/lib/skills/interception.ts");
 const { builtinSkills } = await import("../../src/lib/skills/builtins.ts");
-const { OMNIROUTE_WEB_FETCH_FALLBACK_TOOL_NAME } = await import(
-  "../../open-sse/services/webFetchInterception.ts"
-);
+const { OMNIROUTE_WEB_FETCH_FALLBACK_TOOL_NAME } =
+  await import("../../open-sse/services/webFetchInterception.ts");
 
 const originalWebFetchHandler = builtinSkills.web_fetch;
 
@@ -30,17 +29,19 @@ function resetRuntime() {
   skillExecutor.setTimeout(50);
 }
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   resetRuntime();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 });
 
-test.after(() => {
+test.after(async () => {
   builtinSkills.web_fetch = originalWebFetchHandler;
   resetRuntime();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -4,7 +4,7 @@ import { resetDbInstance, getDbInstance } from "../../src/lib/db/core";
 import { createProxy, getProxyById } from "../../src/lib/db/proxies";
 
 describe("proxies CRUD carries family", () => {
-  after(() => resetDbInstance());
+  after(async () => await resetDbInstanceDrained());
 
   it("persists and returns family=ipv6", async () => {
     getDbInstance();

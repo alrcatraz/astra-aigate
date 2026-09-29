@@ -18,9 +18,11 @@ const { createProviderNodeSchema, updateProviderNodeSchema } =
   await import("../../src/shared/validation/schemas.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeRequest(body: Record<string, unknown>) {

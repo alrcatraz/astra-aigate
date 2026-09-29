@@ -30,8 +30,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const manager = await import("../../src/mitm/manager.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -50,7 +50,10 @@ test("stopMitm removes DNS entries before killing the MITM server process (#1809
     return true;
   };
 
-  manager.__setServerProcessForTest(fakeProc as unknown as import("child_process").ChildProcess, 4242);
+  manager.__setServerProcessForTest(
+    fakeProc as unknown as import("child_process").ChildProcess,
+    4242
+  );
 
   const removeDNSEntry = async () => {
     events.push("removeDNSEntry");
@@ -67,9 +70,7 @@ test("stopMitm removes DNS entries before killing the MITM server process (#1809
   });
 
   const firstKillIndex = events.findIndex((e) => e.startsWith("kill:"));
-  const firstDnsIndex = events.findIndex(
-    (e) => e === "removeDNSEntry" || e === "removeDNSEntries"
-  );
+  const firstDnsIndex = events.findIndex((e) => e === "removeDNSEntry" || e === "removeDNSEntries");
 
   assert.ok(firstKillIndex !== -1, "server process kill was never invoked");
   assert.ok(firstDnsIndex !== -1, "DNS removal was never invoked");

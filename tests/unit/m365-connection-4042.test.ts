@@ -78,7 +78,7 @@ test("resolveConnectionParams parses a pasted Chathub WebSocket URL", () => {
 
 // ── WS URL building ──────────────────────────────────────────────────────
 
-test("buildWsUrl targets the substrate Chathub with the individual-tier query", () => {
+test("buildWsUrl targets the substrate Chathub with the individual-tier query", async () => {
   const url = buildWsUrl({ host: "substrate.office.com", chathubPath: "u@t", accessToken: "TOK" });
   assert.ok(url.startsWith("wss://substrate.office.com/m365Copilot/Chathub/u@t?"));
   const qs = new URLSearchParams(url.split("?")[1]);
@@ -89,14 +89,18 @@ test("buildWsUrl targets the substrate Chathub with the individual-tier query", 
   assert.ok(qs.get("variants")?.includes("feature.bizchatfluxv3"));
   assert.equal(qs.get("access_token"), "TOK");
   // chatsessionid == XRoutingParameterSessionKey == clientrequestid (same value)
-  const sid = qs.get("chatsessionid");
+  const sid = await qs.get("chatsessionid");
   assert.ok(sid && /^[0-9a-f]{32}$/.test(sid));
   assert.equal(qs.get("XRoutingParameterSessionKey"), sid);
   assert.equal(qs.get("clientrequestid"), sid);
 });
 
 test("redactWsUrl strips the access_token so the URL is safe to log", () => {
-  const url = buildWsUrl({ host: "substrate.office.com", chathubPath: "u@t", accessToken: "SECRET" });
+  const url = buildWsUrl({
+    host: "substrate.office.com",
+    chathubPath: "u@t",
+    accessToken: "SECRET",
+  });
   const redacted = redactWsUrl(url);
   assert.ok(!redacted.includes("SECRET"), "token must not survive redaction");
   assert.match(redacted, /access_token=REDACTED/);

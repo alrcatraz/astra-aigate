@@ -190,29 +190,31 @@ describe("featureFlagDefinitions", () => {
 // Test group 2 — DB module
 // ──────────────────────────────────────────────────────
 describe("featureFlags DB module", () => {
-  function resetDb() {
-    core.resetDbInstance();
+  async function resetDb() {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.mkdirSync(tmpDir, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("getFeatureFlagOverrides returns empty object when no overrides", () => {
-    const overrides = getFeatureFlagOverrides();
+  it("getFeatureFlagOverrides returns empty object when no overrides", async () => {
+    const overrides = await getFeatureFlagOverrides();
     assert.deepStrictEqual(overrides, {});
   });
 
-  it("setFeatureFlagOverride stores value in key_value table", () => {
+  it("setFeatureFlagOverride stores value in key_value table", async () => {
     setFeatureFlagOverride("REQUIRE_API_KEY", "true");
-    const overrides = getFeatureFlagOverrides();
+    const overrides = await getFeatureFlagOverrides();
     assert.strictEqual(overrides["REQUIRE_API_KEY"], "true");
   });
 
@@ -225,16 +227,16 @@ describe("featureFlags DB module", () => {
     assert.strictEqual(getFeatureFlagOverride("REQUIRE_API_KEY"), undefined);
   });
 
-  it("removeFeatureFlagOverride deletes the override", () => {
+  it("removeFeatureFlagOverride deletes the override", async () => {
     setFeatureFlagOverride("REQUIRE_API_KEY", "true");
-    removeFeatureFlagOverride("REQUIRE_API_KEY");
+    await removeFeatureFlagOverride("REQUIRE_API_KEY");
     assert.strictEqual(getFeatureFlagOverride("REQUIRE_API_KEY"), undefined);
   });
 
-  it("clearAllFeatureFlagOverrides removes all overrides", () => {
+  it("clearAllFeatureFlagOverrides removes all overrides", async () => {
     setFeatureFlagOverride("REQUIRE_API_KEY", "true");
     setFeatureFlagOverride("INPUT_SANITIZER_ENABLED", "true");
-    clearAllFeatureFlagOverrides();
+    await clearAllFeatureFlagOverrides();
     assert.deepStrictEqual(getFeatureFlagOverrides(), {});
   });
 
@@ -249,19 +251,21 @@ describe("featureFlags DB module", () => {
 // Test group 3 — Resolver
 // ──────────────────────────────────────────────────────
 describe("resolveFeatureFlag", () => {
-  function resetDb() {
-    core.resetDbInstance();
+  async function resetDb() {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.mkdirSync(tmpDir, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
     delete process.env["REQUIRE_API_KEY"];
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     delete process.env["REQUIRE_API_KEY"];
   });
@@ -354,11 +358,11 @@ describe("resolveFeatureFlag", () => {
       assert.strictEqual(isRequireApiKeyEnabled(), true);
     });
 
-    it("isRequireApiKeyEnabled fails closed when the flag store cannot be read", () => {
+    it("isRequireApiKeyEnabled fails closed when the flag store cannot be read", async () => {
       const originalError = console.error;
       console.error = () => {};
       try {
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
         fs.rmSync(tmpDir, { recursive: true, force: true });
         fs.mkdirSync(tmpDir, { recursive: true });
         const blockerPath = path.join(tmpDir, "storage.sqlite");
@@ -366,10 +370,12 @@ describe("resolveFeatureFlag", () => {
         assert.strictEqual(isRequireApiKeyEnabled(), true);
       } finally {
         console.error = originalError;
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
         fs.rmSync(tmpDir, { recursive: true, force: true });
         fs.mkdirSync(tmpDir, { recursive: true });
       }
+      core.getDbInstance();
+      await core.awaitDbMigrations();
     });
 
     it("isCcCompatibleProviderEnabled still works", () => {
@@ -377,33 +383,33 @@ describe("resolveFeatureFlag", () => {
       assert.strictEqual(typeof result, "boolean");
     });
 
-    it("isModelCatalogNamesEnabled defaults on and follows overrides", () => {
+    it("isModelCatalogNamesEnabled defaults on and follows overrides", async () => {
       assert.strictEqual(isModelCatalogNamesEnabled(), true);
       try {
         setFeatureFlagOverride("MODEL_CATALOG_INCLUDE_NAMES", "false");
         assert.strictEqual(isModelCatalogNamesEnabled(), false);
       } finally {
-        removeFeatureFlagOverride("MODEL_CATALOG_INCLUDE_NAMES");
+        await removeFeatureFlagOverride("MODEL_CATALOG_INCLUDE_NAMES");
       }
     });
 
-    it("isArenaEloSyncEnabled defaults on and follows DB overrides", () => {
+    it("isArenaEloSyncEnabled defaults on and follows DB overrides", async () => {
       assert.strictEqual(isArenaEloSyncEnabled(), true);
       try {
         setFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED", "false");
         assert.strictEqual(isArenaEloSyncEnabled(), false);
       } finally {
-        removeFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED");
+        await removeFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED");
       }
     });
 
-    it("isControlPlaneProxyDirectFallbackEnabled defaults off and follows DB overrides", () => {
+    it("isControlPlaneProxyDirectFallbackEnabled defaults off and follows DB overrides", async () => {
       assert.strictEqual(isControlPlaneProxyDirectFallbackEnabled(), false);
       try {
         setFeatureFlagOverride("OMNIROUTE_CONTROL_PLANE_PROXY_DIRECT_FALLBACK", "true");
         assert.strictEqual(isControlPlaneProxyDirectFallbackEnabled(), true);
       } finally {
-        removeFeatureFlagOverride("OMNIROUTE_CONTROL_PLANE_PROXY_DIRECT_FALLBACK");
+        await removeFeatureFlagOverride("OMNIROUTE_CONTROL_PLANE_PROXY_DIRECT_FALLBACK");
       }
     });
   });

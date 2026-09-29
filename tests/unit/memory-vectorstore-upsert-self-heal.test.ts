@@ -54,22 +54,24 @@ function makeVec(...values: number[]): Float32Array {
   return new Float32Array(values);
 }
 
-function cleanup() {
+async function cleanup() {
   mock.restoreAll();
   _resetVectorStoreSingleton();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => {
-  cleanup();
+test.afterEach(async () => {
+  await cleanup();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
@@ -89,11 +91,11 @@ function insertMemory(
   db: ReturnType<typeof core.getDbInstance>,
   id: string,
   apiKeyId: string,
-  content: string,
+  content: string
 ) {
   db.prepare(
     `INSERT INTO memories (id, api_key_id, type, key, content, created_at)
-     VALUES (?, ?, 'factual', ?, ?, datetime('now'))`,
+     VALUES (?, ?, 'factual', ?, ?, datetime('now'))`
   ).run(id, apiKeyId, `key-${id}`, content);
 }
 
@@ -116,7 +118,7 @@ test("upsertVector: self-heals when vec_memories is missing after ensureReady al
   assert.equal(
     db.prepare("SELECT name FROM sqlite_master WHERE name = 'vec_memories'").get(),
     undefined,
-    "table must actually be gone for this test to be meaningful",
+    "table must actually be gone for this test to be meaningful"
   );
 
   // Must NOT throw "no such table: vec_memories" — must self-heal and succeed.
@@ -139,7 +141,7 @@ test("deleteVector: self-heals when vec_memories is missing (no throw)", async (
 
   await assert.doesNotReject(
     () => store.deleteVector("mem-a"),
-    "deleteVector must self-heal from a missing table, not throw",
+    "deleteVector must self-heal from a missing table, not throw"
   );
 });
 
@@ -154,6 +156,6 @@ test("upsertVector: still throws a genuine unrelated error unchanged (no over-br
   await assert.rejects(
     () => store.upsertVector("nonexistent-id", makeVec(1.0, 0.0, 0.0, 0.0)),
     /memory not found/i,
-    "unrelated errors must not be swallowed by the self-heal retry",
+    "unrelated errors must not be swallowed by the self-heal retry"
   );
 });

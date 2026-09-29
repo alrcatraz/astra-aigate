@@ -25,9 +25,11 @@ const { normalizeComboStep } = await import("../../../src/lib/combos/steps.ts");
 
 async function resetStorage() {
   comboMetrics.resetAllComboMetrics();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {
@@ -81,7 +83,7 @@ async function seedDegradedCombo() {
     });
   }
 
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "openai",
     connection_id: "combo-autopilot-conn-a",
     window_key: "daily",

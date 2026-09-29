@@ -24,26 +24,26 @@ describe("plugins DB module", () => {
   });
 
   describe("insertPlugin / getPluginByName / listPlugins", () => {
-    it("inserts and retrieves a plugin", () => {
+    it("inserts and retrieves a plugin", async () => {
       const input = makeInput();
-      mod.insertPlugin(input);
-      const found = mod.getPluginByName(input.name);
+      await mod.insertPlugin(input);
+      const found = await mod.getPluginByName(input.name);
       assert.ok(found);
       assert.equal(found!.name, input.name);
       assert.equal(found!.version, "1.0.0");
       assert.equal(found!.status, "installed");
     });
 
-    it("lists all plugins", () => {
-      mod.insertPlugin(makeInput());
-      const all = mod.listPlugins();
+    it("lists all plugins", async () => {
+      await mod.insertPlugin(makeInput());
+      const all = await mod.listPlugins();
       assert.ok(all.length >= 1);
     });
 
-    it("lists plugins filtered by status", () => {
+    it("lists plugins filtered by status", async () => {
       const input = makeInput({ name: `filter-${Date.now()}` });
-      mod.insertPlugin(input);
-      const installed = mod.listPlugins("installed");
+      await mod.insertPlugin(input);
+      const installed = await mod.listPlugins("installed");
       assert.ok(installed.length >= 1);
       assert.ok(installed.every((p) => p.status === "installed"));
     });
@@ -54,49 +54,49 @@ describe("plugins DB module", () => {
   });
 
   describe("getPluginById", () => {
-    it("retrieves by id", () => {
+    it("retrieves by id", async () => {
       const input = makeInput({ name: `byid-${Date.now()}` });
-      mod.insertPlugin(input);
-      const found = mod.getPluginById(input.id);
+      await mod.insertPlugin(input);
+      const found = await mod.getPluginById(input.id);
       assert.ok(found);
       assert.equal(found!.id, input.id);
     });
   });
 
   describe("updatePluginStatus", () => {
-    it("updates status to active", () => {
+    it("updates status to active", async () => {
       const input = makeInput({ name: `status-${Date.now()}` });
-      mod.insertPlugin(input);
-      mod.updatePluginStatus(input.name, "active");
-      const found = mod.getPluginByName(input.name);
+      await mod.insertPlugin(input);
+      await mod.updatePluginStatus(input.name, "active");
+      const found = await mod.getPluginByName(input.name);
       assert.equal(found!.status, "active");
     });
 
-    it("updates status to error with message", () => {
+    it("updates status to error with message", async () => {
       const input = makeInput({ name: `error-${Date.now()}` });
-      mod.insertPlugin(input);
-      mod.updatePluginStatus(input.name, "error", "broke");
-      const found = mod.getPluginByName(input.name);
+      await mod.insertPlugin(input);
+      await mod.updatePluginStatus(input.name, "error", "broke");
+      const found = await mod.getPluginByName(input.name);
       assert.equal(found!.status, "error");
       assert.equal(found!.errorMessage, "broke");
     });
   });
 
   describe("updatePluginConfig", () => {
-    it("updates config JSON", () => {
+    it("updates config JSON", async () => {
       const input = makeInput({ name: `config-${Date.now()}` });
-      mod.insertPlugin(input);
-      mod.updatePluginConfig(input.name, { key: "value" });
-      const found = mod.getPluginByName(input.name);
+      await mod.insertPlugin(input);
+      await mod.updatePluginConfig(input.name, { key: "value" });
+      const found = await mod.getPluginByName(input.name);
       const config = JSON.parse(found!.config);
       assert.equal(config.key, "value");
     });
   });
 
   describe("deletePlugin", () => {
-    it("removes plugin by name", () => {
+    it("removes plugin by name", async () => {
       const input = makeInput({ name: `del-${Date.now()}` });
-      mod.insertPlugin(input);
+      await mod.insertPlugin(input);
       assert.equal(mod.deletePlugin(input.name), true);
       assert.equal(mod.getPluginByName(input.name), null);
     });
@@ -107,9 +107,9 @@ describe("plugins DB module", () => {
   });
 
   describe("pluginExists", () => {
-    it("returns true for existing plugin", () => {
+    it("returns true for existing plugin", async () => {
       const input = makeInput({ name: `exists-${Date.now()}` });
-      mod.insertPlugin(input);
+      await mod.insertPlugin(input);
       assert.equal(mod.pluginExists(input.name), true);
     });
 

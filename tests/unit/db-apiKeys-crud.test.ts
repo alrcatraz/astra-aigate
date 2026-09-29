@@ -27,7 +27,7 @@ const apiKeys = await import("../../src/lib/db/apiKeys.ts");
 
 async function resetStorage() {
   apiKeys.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -40,6 +40,7 @@ async function resetStorage() {
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 await resetStorage();
@@ -65,10 +66,9 @@ test("createApiKey with scopes stores them", async () => {
 
 test("createApiKey rejects empty machineId", async () => {
   await resetStorage();
-  await assert.rejects(
-    () => apiKeys.createApiKey("Bad Key", ""),
-    { message: /machineId is required/i }
-  );
+  await assert.rejects(() => apiKeys.createApiKey("Bad Key", ""), {
+    message: /machineId is required/i,
+  });
 });
 
 // ──────────────── getApiKeys ────────────────
@@ -375,7 +375,10 @@ test("updateApiKeyPermissions clears accessSchedule with null", async () => {
 test("updateApiKeyPermissions sets rateLimits", async () => {
   await resetStorage();
   const created = await apiKeys.createApiKey("Rate Limited", "ma-026");
-  const limits = [{ limit: 100, window: 60 }, { limit: 1000, window: 3600 }];
+  const limits = [
+    { limit: 100, window: 60 },
+    { limit: 1000, window: 3600 },
+  ];
   await apiKeys.updateApiKeyPermissions(created.id, { rateLimits: limits });
   const loaded = await apiKeys.getApiKeyById(created.id);
   assert.deepEqual(loaded!.rateLimits, limits);

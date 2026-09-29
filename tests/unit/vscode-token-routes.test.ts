@@ -37,10 +37,12 @@ const serviceTierVariants =
 const combosDb = await import("../../src/lib/db/combos.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider: string, overrides: Record<string, unknown> = {}) {
@@ -61,7 +63,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -767,9 +769,7 @@ test("vscode tokenized tags route only exposes usable canonical chat models", as
     );
     assert.ok(
       !catalogModel.api_format ||
-        ["chat-completions", "responses", "openai-responses"].includes(
-          catalogModel.api_format
-        ),
+        ["chat-completions", "responses", "openai-responses"].includes(catalogModel.api_format),
       `tag ${tagModel.name} should use a text-generation API format`
     );
     assert.ok(

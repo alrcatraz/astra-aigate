@@ -32,10 +32,12 @@ const listRoute = await import("../../src/app/api/keys/route.ts");
 
 async function resetStorage() {
   delete process.env.INITIAL_PASSWORD;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {
@@ -50,7 +52,7 @@ test.beforeEach(async () => {
 test.after(async () => {
   await resetStorage();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 });
 
 test("POST /api/keys responds promptly even when the Cloud-sync fetch hangs forever (#6570)", async () => {

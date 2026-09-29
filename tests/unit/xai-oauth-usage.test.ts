@@ -88,9 +88,9 @@ describe("xAI OAuth usage dispatch", () => {
     invalidateXaiOauthQuotaCache("conn-live");
   });
 
-  after(() => {
+  after(async () => {
     globalThis.fetch = originalFetch;
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     try {
       fs.rmSync(TMP, { recursive: true, force: true });
     } catch {

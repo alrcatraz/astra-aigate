@@ -66,20 +66,20 @@ function capabilityEntry(limitContext: unknown, overrides: Record<string, unknow
   };
 }
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   resetAllComboMetrics();
   resetAllCircuitBreakers();
   resetAllSemaphores();
-  clearModelsDevCapabilities();
+  await clearModelsDevCapabilities();
 });
 
-test.after(() => {
+test.after(async () => {
   resetAllComboMetrics();
   resetAllCircuitBreakers();
   resetAllSemaphores();
-  clearModelsDevCapabilities();
-  settingsDb.clearAllLKGP();
-  core.resetDbInstance();
+  await clearModelsDevCapabilities();
+  await settingsDb.clearAllLKGP();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -95,7 +95,7 @@ test(
     // rr-a is tool-INCAPABLE → the tools-requiring request makes the compat
     // pre-filter reject it. rr-b/rr-c are tool-capable → kept, but both are
     // runtime-unavailable. Only the rejected rr-a is actually healthy.
-    saveModelsDevCapabilities({
+    await saveModelsDevCapabilities({
       openai: {
         "rr-a": capabilityEntry(128000, { tool_call: false }),
         "rr-b": capabilityEntry(128000),

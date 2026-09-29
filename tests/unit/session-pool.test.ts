@@ -64,9 +64,9 @@ describe("Session", () => {
   let factory: SessionFactory;
   let session: Session;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     factory = new SessionFactory(FAST_CONFIG);
-    session = factory.createSession();
+    session = await factory.createSession();
   });
 
   it("starts in active status", () => {
@@ -142,24 +142,24 @@ describe("Session", () => {
 // ─── SessionFactory ────────────────────────────────────────────────────────
 
 describe("SessionFactory", () => {
-  it("creates sessions with unique IDs", () => {
+  it("creates sessions with unique IDs", async () => {
     const factory = new SessionFactory(FAST_CONFIG);
-    const s1 = factory.createSession();
-    const s2 = factory.createSession();
+    const s1 = await factory.createSession();
+    const s2 = await factory.createSession();
     assert.notEqual(s1.id, s2.id);
   });
 
-  it("creates sessions with different fingerprints", () => {
+  it("creates sessions with different fingerprints", async () => {
     const factory = new SessionFactory(FAST_CONFIG);
-    const s1 = factory.createSession();
-    const s2 = factory.createSession();
+    const s1 = await factory.createSession();
+    const s2 = await factory.createSession();
     assert.notEqual(s1.fingerprint.id, s2.fingerprint.id);
   });
 
-  it("uses custom FingerprintRotator if provided", () => {
+  it("uses custom FingerprintRotator if provided", async () => {
     const rotator = new FingerprintRotator();
     const factory = new SessionFactory(FAST_CONFIG, rotator);
-    const s = factory.createSession();
+    const s = await factory.createSession();
     assert.ok(s.fingerprint.id.length > 0);
   });
 });
@@ -294,20 +294,24 @@ describe("SessionPool", () => {
     assert.equal(details[0].inflight, 0);
   });
 
-  it("acquireBlocking eventually returns a session after cooldown expires", { timeout: 5000 }, async () => {
-    await pool.warmUp(1);
-    const s = pool.acquire()!;
+  it(
+    "acquireBlocking eventually returns a session after cooldown expires",
+    { timeout: 5000 },
+    async () => {
+      await pool.warmUp(1);
+      const s = pool.acquire()!;
 
-    // Put it into cooldown
-    pool.reportCooldown(s);
-    s.release();
+      // Put it into cooldown
+      pool.reportCooldown(s);
+      s.release();
 
-    // Now the only session is in cooldown, but should recover quickly (50ms base)
-    const acquired = await pool.acquireBlocking(3000);
-    assert.notEqual(acquired, null);
-    assert.equal(acquired.isAvailable, true);
-    acquired.release();
-  });
+      // Now the only session is in cooldown, but should recover quickly (50ms base)
+      const acquired = await pool.acquireBlocking(3000);
+      assert.notEqual(acquired, null);
+      assert.equal(acquired.isAvailable, true);
+      acquired.release();
+    }
+  );
 
   it("executeWithSession runs a function with a session", { timeout: 5000 }, async () => {
     await pool.warmUp(2);
@@ -354,18 +358,18 @@ describe("PoolRegistry", () => {
     PoolRegistry.resetPool("test-provider");
   });
 
-  it("register adds a pool", () => {
-    PoolRegistry.register("test-provider", pool);
+  it("register adds a pool", async () => {
+    await PoolRegistry.register("test-provider", pool);
     assert.equal(PoolRegistry.listProviders().includes("test-provider"), true);
   });
 
-  it("getPool returns the registered pool", () => {
-    PoolRegistry.register("test-provider", pool);
+  it("getPool returns the registered pool", async () => {
+    await PoolRegistry.register("test-provider", pool);
     assert.equal(PoolRegistry.getPool("test-provider"), pool);
   });
 
-  it("getStats returns pool stats", () => {
-    PoolRegistry.register("test-provider", pool);
+  it("getStats returns pool stats", async () => {
+    await PoolRegistry.register("test-provider", pool);
     const stats = PoolRegistry.getStats("test-provider");
     assert.notEqual(stats, null);
     assert.equal(stats!.provider, "test-provider");
@@ -375,10 +379,10 @@ describe("PoolRegistry", () => {
     assert.equal(PoolRegistry.getStats("nonexistent"), null);
   });
 
-  it("getAllStats returns all pools", () => {
+  it("getAllStats returns all pools", async () => {
     const pool2 = new SessionPool("second", FAST_CONFIG);
-    PoolRegistry.register("test-provider", pool);
-    PoolRegistry.register("second", pool2);
+    await PoolRegistry.register("test-provider", pool);
+    await PoolRegistry.register("second", pool2);
     const all = PoolRegistry.getAllStats();
     assert.equal(all.length, 2);
     pool2.shutdown();
@@ -387,7 +391,7 @@ describe("PoolRegistry", () => {
 
   it("getSessionDetails returns session list", async () => {
     await pool.warmUp(2);
-    PoolRegistry.register("test-provider", pool);
+    await PoolRegistry.register("test-provider", pool);
     const details = PoolRegistry.getSessionDetails("test-provider");
     assert.notEqual(details, null);
     assert.equal(details!.length, 2);
@@ -397,8 +401,8 @@ describe("PoolRegistry", () => {
     assert.equal(PoolRegistry.getSessionDetails("nonexistent"), null);
   });
 
-  it("resetPool removes and shuts down the pool", () => {
-    PoolRegistry.register("test-provider", pool);
+  it("resetPool removes and shuts down the pool", async () => {
+    await PoolRegistry.register("test-provider", pool);
     assert.equal(PoolRegistry.resetPool("test-provider"), true);
     assert.equal(PoolRegistry.getPool("test-provider"), undefined);
   });
@@ -407,15 +411,15 @@ describe("PoolRegistry", () => {
     assert.equal(PoolRegistry.resetPool("nonexistent"), false);
   });
 
-  it("unregister removes a pool", () => {
-    PoolRegistry.register("test-provider", pool);
+  it("unregister removes a pool", async () => {
+    await PoolRegistry.register("test-provider", pool);
     assert.equal(PoolRegistry.unregister("test-provider"), true);
     assert.equal(PoolRegistry.getPool("test-provider"), undefined);
   });
 
-  it("size reflects pool count", () => {
+  it("size reflects pool count", async () => {
     const prev = PoolRegistry.size;
-    PoolRegistry.register("test-provider", pool);
+    await PoolRegistry.register("test-provider", pool);
     assert.equal(PoolRegistry.size, prev + 1);
   });
 });

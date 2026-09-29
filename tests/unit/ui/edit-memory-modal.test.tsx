@@ -28,7 +28,7 @@ vi.mock("@/shared/components", () => ({
           { "data-testid": "modal", "data-title": title },
           React.createElement("button", { onClick: onClose, "data-testid": "modal-close" }, "X"),
           children,
-          footer,
+          footer
         )
       : null,
   Button: ({
@@ -54,7 +54,7 @@ vi.mock("@/shared/components", () => ({
         "data-testid": testId,
         "data-variant": variant,
       },
-      children,
+      children
     ),
   Input: ({
     value,
@@ -108,8 +108,9 @@ function makeContainer(): HTMLElement {
 
 describe("EditMemoryModal", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-      true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({}),
@@ -123,38 +124,26 @@ describe("EditMemoryModal", () => {
   });
 
   it("renders nothing when isOpen=false", async () => {
-    const { default: EditMemoryModal } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal"
-    );
+    const { default: EditMemoryModal } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <EditMemoryModal
-          memory={MOCK_MEMORY}
-          isOpen={false}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />,
+        <EditMemoryModal memory={MOCK_MEMORY} isOpen={false} onClose={vi.fn()} onSaved={vi.fn()} />
       );
     });
     expect(container.querySelector("[data-testid='modal']")).toBeNull();
   });
 
   it("renders modal with memory fields populated when isOpen=true", async () => {
-    const { default: EditMemoryModal } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal"
-    );
+    const { default: EditMemoryModal } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <EditMemoryModal
-          memory={MOCK_MEMORY}
-          isOpen={true}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />,
+        <EditMemoryModal memory={MOCK_MEMORY} isOpen={true} onClose={vi.fn()} onSaved={vi.fn()} />
       );
     });
     expect(container.querySelector("[data-testid='modal']")).toBeTruthy();
@@ -168,28 +157,20 @@ describe("EditMemoryModal", () => {
   });
 
   it("shows metadata JSON in textarea", async () => {
-    const { default: EditMemoryModal } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal"
-    );
+    const { default: EditMemoryModal } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <EditMemoryModal
-          memory={MOCK_MEMORY}
-          isOpen={true}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />,
+        <EditMemoryModal memory={MOCK_MEMORY} isOpen={true} onClose={vi.fn()} onSaved={vi.fn()} />
       );
     });
     const textareas = container.querySelectorAll("textarea");
     // Should have at least the content textarea and metadata textarea
     expect(textareas.length).toBeGreaterThanOrEqual(2);
     // The metadata textarea should contain the JSON
-    const metadataTextarea = Array.from(textareas).find((ta) =>
-      ta.value.includes('"source"'),
-    );
+    const metadataTextarea = Array.from(textareas).find((ta) => ta.value.includes('"source"'));
     expect(metadataTextarea).toBeTruthy();
   });
 
@@ -201,19 +182,13 @@ describe("EditMemoryModal", () => {
       json: async () => ({}),
     });
 
-    const { default: EditMemoryModal } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal"
-    );
+    const { default: EditMemoryModal } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <EditMemoryModal
-          memory={MOCK_MEMORY}
-          isOpen={true}
-          onClose={onClose}
-          onSaved={onSaved}
-        />,
+        <EditMemoryModal memory={MOCK_MEMORY} isOpen={true} onClose={onClose} onSaved={onSaved} />
       );
     });
 
@@ -231,10 +206,7 @@ describe("EditMemoryModal", () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
     const putCalls = fetchMock.mock.calls.filter(
       (c: [string, { method?: string }]) =>
-        typeof c[0] === "string" &&
-        c[0].includes("mem-1") &&
-        c[1] &&
-        c[1].method === "PUT",
+        typeof c[0] === "string" && c[0].includes("mem-1") && c[1] && c[1].method === "PUT"
     );
     expect(putCalls.length).toBeGreaterThan(0);
     expect(onSaved).toHaveBeenCalled();
@@ -247,19 +219,13 @@ describe("EditMemoryModal", () => {
       json: async () => ({ error: { message: "update failed" } }),
     });
 
-    const { default: EditMemoryModal } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal"
-    );
+    const { default: EditMemoryModal } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <EditMemoryModal
-          memory={MOCK_MEMORY}
-          isOpen={true}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />,
+        <EditMemoryModal memory={MOCK_MEMORY} isOpen={true} onClose={vi.fn()} onSaved={vi.fn()} />
       );
     });
 
@@ -276,19 +242,13 @@ describe("EditMemoryModal", () => {
   });
 
   it("shows metadata validation error for invalid JSON", async () => {
-    const { default: EditMemoryModal } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal"
-    );
+    const { default: EditMemoryModal } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <EditMemoryModal
-          memory={MOCK_MEMORY}
-          isOpen={true}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />,
+        <EditMemoryModal memory={MOCK_MEMORY} isOpen={true} onClose={vi.fn()} onSaved={vi.fn()} />
       );
     });
 
@@ -302,10 +262,10 @@ describe("EditMemoryModal", () => {
       if (metadataTextarea) {
         const nativeSetter = Object.getOwnPropertyDescriptor(
           window.HTMLTextAreaElement.prototype,
-          "value",
+          "value"
         )?.set;
         nativeSetter?.call(metadataTextarea, "not valid json {{{");
-        metadataTextarea.dispatchEvent(new Event("change", { bubbles: true }));
+        await metadataTextarea.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
     // The error text should contain the i18n key
@@ -314,23 +274,19 @@ describe("EditMemoryModal", () => {
 
   it("calls onClose when modal close button is clicked", async () => {
     const onClose = vi.fn();
-    const { default: EditMemoryModal } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal"
-    );
+    const { default: EditMemoryModal } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EditMemoryModal");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <EditMemoryModal
-          memory={MOCK_MEMORY}
-          isOpen={true}
-          onClose={onClose}
-          onSaved={vi.fn()}
-        />,
+        <EditMemoryModal memory={MOCK_MEMORY} isOpen={true} onClose={onClose} onSaved={vi.fn()} />
       );
     });
 
-    const closeBtn = container.querySelector("[data-testid='modal-close']") as HTMLButtonElement | null;
+    const closeBtn = container.querySelector(
+      "[data-testid='modal-close']"
+    ) as HTMLButtonElement | null;
     expect(closeBtn).toBeTruthy();
     await act(async () => {
       closeBtn?.click();

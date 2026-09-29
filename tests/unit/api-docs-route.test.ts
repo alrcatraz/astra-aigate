@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 const docsRoute = await import("../../src/app/api/docs/route.ts");
 
 test("GET /api/docs returns a 200 text/html Redoc shell", async () => {
-  const response = docsRoute.GET();
+  const response = await docsRoute.GET();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/html/);
 

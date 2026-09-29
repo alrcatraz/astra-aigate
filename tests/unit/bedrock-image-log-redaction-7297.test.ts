@@ -12,8 +12,8 @@ const core = await import("../../src/lib/db/core.ts");
 const { protectPayloadForLog } = await import("../../src/lib/logPayloads.ts");
 const bedrockExecutor = await import("../../open-sse/executors/bedrock.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -57,9 +57,8 @@ test("#7297 protectPayloadForLog stays fast on a 3-image Bedrock Converse body",
       `opaque buffer (see #7297)`
   );
 
-  const redactedBytes = (
-    result as { messages: Array<{ content: Array<Record<string, unknown>> }> }
-  ).messages[0].content[0] as { image?: { source?: { bytes?: unknown } } };
+  const redactedBytes = (result as { messages: Array<{ content: Array<Record<string, unknown>> }> })
+    .messages[0].content[0] as { image?: { source?: { bytes?: unknown } } };
   assert.ok(
     !(redactedBytes.image?.source?.bytes instanceof Uint8Array) &&
       !Array.isArray(redactedBytes.image?.source?.bytes),

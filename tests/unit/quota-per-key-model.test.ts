@@ -35,7 +35,7 @@ const { resetQuotaStoreSingleton } = await import("../../src/lib/quota/storeFact
 // ── Storage reset helper (same as db-quota-pools.test.ts) ────────────────
 async function resetStorage() {
   resetQuotaStoreSingleton();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -52,6 +52,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // ── Test fixtures ─────────────────────────────────────────────────────────
@@ -68,14 +70,14 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 // ── Helper: create pool with KEY_A allocation ─────────────────────────────
-function makePool() {
-  const pool = createPool({ connectionId: CONN_ID, name: "Model Cap Test Pool" });
-  upsertAllocations(pool.id, [{ apiKeyId: KEY_A, weight: 100, policy: "hard" }]);
+async function makePool() {
+  const pool = await createPool({ connectionId: CONN_ID, name: "Model Cap Test Pool" });
+  await upsertAllocations(pool.id, [{ apiKeyId: KEY_A, weight: 100, policy: "hard" }]);
   return pool;
 }
 
@@ -84,7 +86,13 @@ function makePool() {
 // ---------------------------------------------------------------------------
 test("per-(key,model) cap — keyA blocked on model M after N requests", async () => {
   const pool = makePool();
-  setModelCap({ poolId: pool.id, apiKeyId: KEY_A, model: MODEL_M, capValue: CAP_N, capUnit: "requests" });
+  await setModelCap({
+    poolId: pool.id,
+    apiKeyId: KEY_A,
+    model: MODEL_M,
+    capValue: CAP_N,
+    capUnit: "requests",
+  });
 
   // Simulate CAP_N prior consumptions
   for (let i = 0; i < CAP_N; i++) {
@@ -108,7 +116,7 @@ test("per-(key,model) cap — keyA blocked on model M after N requests", async (
   assert.equal(result.kind, "block", "must block when model cap is reached");
   assert.ok(
     "reason" in result && result.reason.includes("model-cap"),
-    `reason must mention model-cap; got: ${"reason" in result ? result.reason : "(no reason)"}`,
+    `reason must mention model-cap; got: ${"reason" in result ? result.reason : "(no reason)"}`
   );
   assert.equal("httpStatus" in result && result.httpStatus, 429, "must return 429");
 });
@@ -118,7 +126,13 @@ test("per-(key,model) cap — keyA blocked on model M after N requests", async (
 // ---------------------------------------------------------------------------
 test("per-(key,model) cap — keyA blocked on M, still allowed on M2 same pool", async () => {
   const pool = makePool();
-  setModelCap({ poolId: pool.id, apiKeyId: KEY_A, model: MODEL_M, capValue: 1, capUnit: "requests" });
+  await setModelCap({
+    poolId: pool.id,
+    apiKeyId: KEY_A,
+    model: MODEL_M,
+    capValue: 1,
+    capUnit: "requests",
+  });
 
   // Consume the single request cap on model M
   await recordConsumption({
@@ -140,7 +154,7 @@ test("per-(key,model) cap — keyA blocked on M, still allowed on M2 same pool",
   assert.equal(resultM.kind, "block", "model M should be blocked");
   assert.ok(
     "reason" in resultM && resultM.reason.includes("model-cap"),
-    `reason must mention model-cap; got: ${"reason" in resultM ? resultM.reason : "(no reason)"}`,
+    `reason must mention model-cap; got: ${"reason" in resultM ? resultM.reason : "(no reason)"}`
   );
 
   // Model M2 (no cap configured) must still be allowed
@@ -182,7 +196,8 @@ test("per-(key,model) cap — EPSILON cap value → ignored, request allowed", a
 
   // Insert a placeholder cap directly (Number.EPSILON > 0 passes DB CHECK constraint
   // but enforce.ts skips it: !(capValue > Number.EPSILON) → true for EPSILON).
-  core.getDbInstance()
+  core
+    .getDbInstance()
     .prepare(
       `INSERT INTO quota_allocation_model_caps (pool_id, api_key_id, model, cap_value, cap_unit)
        VALUES (?, ?, ?, ?, ?)`

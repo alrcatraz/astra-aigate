@@ -21,14 +21,14 @@ function makeLogger() {
   };
 }
 
-test.afterEach(() => {
-  core.resetDbInstance();
+test.afterEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -60,5 +60,9 @@ test("does not warn when bootstrapping with a strong password", async () => {
   });
 
   assert.equal(managementPassword.isBcryptHash(result.hash), true);
-  assert.equal(logger.warnings.length, 0, "did not expect any security warning for a strong password");
+  assert.equal(
+    logger.warnings.length,
+    0,
+    "did not expect any security warning for a strong password"
+  );
 });

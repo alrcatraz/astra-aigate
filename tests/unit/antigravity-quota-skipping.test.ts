@@ -10,8 +10,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const coreDb = await import("../../src/lib/db/core.ts");
 const quotaCache = await import("../../src/domain/quotaCache.ts");
 
-test.after(() => {
-  coreDb.resetDbInstance();
+test.after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

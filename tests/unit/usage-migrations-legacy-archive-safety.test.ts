@@ -31,7 +31,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 delete process.env.NEXT_PHASE;
 
 const migrations = await import("../../src/lib/usage/migrations.ts");
-const { getDbInstance, resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
 const APP_LOG_DIR = path.join(TEST_DATA_DIR, "logs", "application");
 const APP_LOG_FILE = path.join(APP_LOG_DIR, "app.log");
@@ -41,14 +42,14 @@ test.before(() => {
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 });
 
-test.after(() => {
+test.after(async () => {
   try {
     const db = getDbInstance();
     if (db?.open) db.close();
   } catch {
     // Database may already be closed.
   }
-  resetDbInstance?.();
+  await resetDbInstanceDrained?.();
 
   if (ORIGINAL_HOME === undefined) delete process.env.HOME;
   else process.env.HOME = ORIGINAL_HOME;

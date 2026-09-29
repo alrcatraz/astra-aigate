@@ -13,7 +13,7 @@ const core = await import("../../src/lib/db/core.ts");
 const mod = await import("../../src/lib/db/inspectorCustomHosts.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -31,6 +31,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -38,19 +40,19 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("listCustomHosts returns empty array initially", () => {
-  const rows = mod.listCustomHosts();
+test("listCustomHosts returns empty array initially", async () => {
+  const rows = await mod.listCustomHosts();
   assert.deepEqual(rows, []);
 });
 
-test("addCustomHost inserts a host with defaults", () => {
-  mod.addCustomHost("api.openai.com");
+test("addCustomHost inserts a host with defaults", async () => {
+  await mod.addCustomHost("api.openai.com");
 
-  const rows = mod.listCustomHosts();
+  const rows = await mod.listCustomHosts();
   assert.equal(rows.length, 1);
   assert.equal(rows[0].host, "api.openai.com");
   assert.equal(rows[0].enabled, true);
@@ -60,80 +62,80 @@ test("addCustomHost inserts a host with defaults", () => {
   assert.ok(rows[0].added_at);
 });
 
-test("addCustomHost respects kind and label parameters", () => {
-  mod.addCustomHost("api.anthropic.com", "llm", "Anthropic API");
+test("addCustomHost respects kind and label parameters", async () => {
+  await mod.addCustomHost("api.anthropic.com", "llm", "Anthropic API");
 
-  const rows = mod.listCustomHosts();
+  const rows = await mod.listCustomHosts();
   const row = rows.find((r) => r.host === "api.anthropic.com");
   assert.ok(row);
   assert.equal(row.kind, "llm");
   assert.equal(row.label, "Anthropic API");
 });
 
-test("addCustomHost is idempotent — duplicate inserts are ignored", () => {
-  mod.addCustomHost("api.openai.com");
-  mod.addCustomHost("api.openai.com");
+test("addCustomHost is idempotent — duplicate inserts are ignored", async () => {
+  await mod.addCustomHost("api.openai.com");
+  await mod.addCustomHost("api.openai.com");
 
-  const rows = mod.listCustomHosts();
+  const rows = await mod.listCustomHosts();
   assert.equal(rows.length, 1);
 });
 
-test("toggleCustomHost disables an enabled host", () => {
-  mod.addCustomHost("api.openai.com");
-  mod.toggleCustomHost("api.openai.com", false);
+test("toggleCustomHost disables an enabled host", async () => {
+  await mod.addCustomHost("api.openai.com");
+  await mod.toggleCustomHost("api.openai.com", false);
 
-  const rows = mod.listCustomHosts();
+  const rows = await mod.listCustomHosts();
   assert.equal(rows[0].enabled, false);
 });
 
-test("toggleCustomHost re-enables a disabled host", () => {
-  mod.addCustomHost("api.openai.com");
-  mod.toggleCustomHost("api.openai.com", false);
-  mod.toggleCustomHost("api.openai.com", true);
+test("toggleCustomHost re-enables a disabled host", async () => {
+  await mod.addCustomHost("api.openai.com");
+  await mod.toggleCustomHost("api.openai.com", false);
+  await mod.toggleCustomHost("api.openai.com", true);
 
-  const rows = mod.listCustomHosts();
+  const rows = await mod.listCustomHosts();
   assert.equal(rows[0].enabled, true);
 });
 
-test("listCustomHosts with enabledOnly=true excludes disabled hosts", () => {
-  mod.addCustomHost("api.openai.com");
-  mod.addCustomHost("api.anthropic.com");
-  mod.toggleCustomHost("api.anthropic.com", false);
+test("listCustomHosts with enabledOnly=true excludes disabled hosts", async () => {
+  await mod.addCustomHost("api.openai.com");
+  await mod.addCustomHost("api.anthropic.com");
+  await mod.toggleCustomHost("api.anthropic.com", false);
 
-  const all = mod.listCustomHosts();
-  const enabledOnly = mod.listCustomHosts({ enabledOnly: true });
+  const all = await mod.listCustomHosts();
+  const enabledOnly = await mod.listCustomHosts({ enabledOnly: true });
 
   assert.equal(all.length, 2);
   assert.equal(enabledOnly.length, 1);
   assert.equal(enabledOnly[0].host, "api.openai.com");
 });
 
-test("removeCustomHost deletes the host", () => {
-  mod.addCustomHost("api.openai.com");
-  mod.addCustomHost("api.anthropic.com");
+test("removeCustomHost deletes the host", async () => {
+  await mod.addCustomHost("api.openai.com");
+  await mod.addCustomHost("api.anthropic.com");
 
-  mod.removeCustomHost("api.openai.com");
+  await mod.removeCustomHost("api.openai.com");
 
-  const rows = mod.listCustomHosts();
+  const rows = await mod.listCustomHosts();
   assert.equal(rows.length, 1);
   assert.equal(rows[0].host, "api.anthropic.com");
 });
 
-test("removeCustomHost is a no-op for non-existent hosts", () => {
-  mod.addCustomHost("api.openai.com");
-  mod.removeCustomHost("nonexistent.host");
+test("removeCustomHost is a no-op for non-existent hosts", async () => {
+  await mod.addCustomHost("api.openai.com");
+  await mod.removeCustomHost("nonexistent.host");
 
-  const rows = mod.listCustomHosts();
+  const rows = await mod.listCustomHosts();
   assert.equal(rows.length, 1);
 });
 
-test("touchLastSeen updates last_seen_at timestamp", () => {
-  mod.addCustomHost("api.openai.com");
+test("touchLastSeen updates last_seen_at timestamp", async () => {
+  await mod.addCustomHost("api.openai.com");
 
   const before = mod.listCustomHosts()[0];
   assert.equal(before.last_seen_at, null);
 
-  mod.touchLastSeen("api.openai.com");
+  await mod.touchLastSeen("api.openai.com");
 
   const after = mod.listCustomHosts()[0];
   assert.ok(after.last_seen_at !== null);

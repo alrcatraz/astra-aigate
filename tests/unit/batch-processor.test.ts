@@ -396,7 +396,7 @@ test("processPendingBatches should recover checkpointed stale batches without re
   assert.strictEqual(updated?.requestCountsCompleted, 2);
   assert.ok(updated?.outputFileId, "recovered batch should emit an output file");
 
-  const output = localDb.getFileContent(updated!.outputFileId!);
+  const output = await localDb.getFileContent(updated!.outputFileId!);
   assert.ok(output, "output file content should exist");
   const outputRows = output
     .toString()
@@ -451,7 +451,7 @@ test("processPendingBatches should not replay interrupted checkpoint items", asy
   assert.strictEqual(updated?.requestCountsFailed, 1);
   assert.ok(updated?.errorFileId, "interrupted item should be emitted as an error row");
 
-  const errorOutput = localDb.getFileContent(updated!.errorFileId!);
+  const errorOutput = await localDb.getFileContent(updated!.errorFileId!);
   assert.ok(errorOutput, "error file content should exist");
   assert.match(errorOutput.toString(), /not replayed to avoid duplicate provider work/);
 });

@@ -95,7 +95,7 @@ test("sanitizePII checks resolveFeatureFlag, not process.env", async (t) => {
 
 test.after(async () => {
   const coreDb = await import("@/lib/db/core");
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

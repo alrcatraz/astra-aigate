@@ -12,12 +12,10 @@ vi.mock("@/lib/playground/codeExport", () => ({
   endpointToPath: (ep: string) => `/v1/${ep}`,
 }));
 
-const { default: StudioConfigPane } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/components/StudioConfigPane"
-);
-const { DEFAULT_PARAMS } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/components/ParamSliders"
-);
+const { default: StudioConfigPane } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/components/StudioConfigPane");
+const { DEFAULT_PARAMS } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/components/ParamSliders");
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +39,12 @@ function renderPane(
   document.body.appendChild(el);
   const root = createRoot(el);
   act(() => {
-    root.render(<StudioConfigPane configState={configState} setConfigState={setConfigState as (s: typeof configState) => void} />);
+    root.render(
+      <StudioConfigPane
+        configState={configState}
+        setConfigState={setConfigState as (s: typeof configState) => void}
+      />
+    );
   });
   containers.push({ root, el });
   return el;
@@ -51,8 +54,9 @@ function renderPane(
 
 describe("StudioConfigPane", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-      .IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(() => {
@@ -93,21 +97,21 @@ describe("StudioConfigPane", () => {
     const el = renderPane(config, setConfigState);
 
     const inputs = el.querySelectorAll("input[type='text']");
-    const modelInput = Array.from(inputs).find(
-      (inp) => (inp as HTMLInputElement).placeholder?.includes("gpt-4o")
+    const modelInput = Array.from(inputs).find((inp) =>
+      (inp as HTMLInputElement).placeholder?.includes("gpt-4o")
     ) as HTMLInputElement | undefined;
 
     expect(modelInput).toBeTruthy();
     if (modelInput) {
-      act(() => {
+      act(async () => {
         // React 19 requires nativeInputValueSetter for synthetic event simulation
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
           window.HTMLInputElement.prototype,
           "value"
         )?.set;
         nativeInputValueSetter?.call(modelInput, "anthropic/claude-3");
-        modelInput.dispatchEvent(new Event("input", { bubbles: true }));
-        modelInput.dispatchEvent(new Event("change", { bubbles: true }));
+        await modelInput.dispatchEvent(new Event("input", { bubbles: true }));
+        await modelInput.dispatchEvent(new Event("change", { bubbles: true }));
       });
       // setConfigState should have been called
       expect(setConfigState).toHaveBeenCalled();
@@ -118,7 +122,9 @@ describe("StudioConfigPane", () => {
     const config = makeConfig();
     const el = renderPane(config, vi.fn());
 
-    const collapseBtn = el.querySelector("button[aria-label='Collapse config pane']") as HTMLButtonElement | null;
+    const collapseBtn = el.querySelector(
+      "button[aria-label='Collapse config pane']"
+    ) as HTMLButtonElement | null;
     expect(collapseBtn).toBeTruthy();
 
     act(() => {
@@ -169,7 +175,7 @@ describe("StudioConfigPane", () => {
     const rangeInputs = el.querySelectorAll("input[type='range']");
     expect(rangeInputs.length).toBeGreaterThan(0);
 
-    act(() => {
+    act(async () => {
       const slider = rangeInputs[0] as HTMLInputElement;
       // Use nativeInputValueSetter for React 19 synthetic event simulation
       const nativeRangeValueSetter = Object.getOwnPropertyDescriptor(
@@ -177,8 +183,8 @@ describe("StudioConfigPane", () => {
         "value"
       )?.set;
       nativeRangeValueSetter?.call(slider, "0.5");
-      slider.dispatchEvent(new Event("input", { bubbles: true }));
-      slider.dispatchEvent(new Event("change", { bubbles: true }));
+      await slider.dispatchEvent(new Event("input", { bubbles: true }));
+      await slider.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     expect(setConfigState).toHaveBeenCalled();
@@ -190,8 +196,8 @@ describe("StudioConfigPane", () => {
     // Multiple <select> elements may exist (PresetPicker also renders one).
     // The endpoint select is the one with our 13 endpoint values.
     const selects = Array.from(el.querySelectorAll<HTMLSelectElement>("select"));
-    const endpointSelect = selects.find(
-      (s) => Array.from(s.options).some((o) => o.value === "chat.completions")
+    const endpointSelect = selects.find((s) =>
+      Array.from(s.options).some((o) => o.value === "chat.completions")
     );
     expect(endpointSelect).toBeTruthy();
     expect(endpointSelect?.options.length).toBe(13);

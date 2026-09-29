@@ -19,10 +19,12 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
 const core = await import("../../src/lib/db/core.ts");
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeJsonRequest(method: string, body?: unknown): Request {
@@ -33,12 +35,12 @@ function makeJsonRequest(method: string, body?: unknown): Request {
   });
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  resetStorage();
+test.after(async () => {
+  await resetStorage();
 });
 
 test("cache-config route resolves and modelCatalogCacheTtlMs round-trips", async (t) => {

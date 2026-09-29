@@ -8,7 +8,7 @@ import {
 } from "../../src/lib/modelsDevSync.ts";
 
 describe("models.dev specialty key resolution (#8017)", () => {
-  before(() => {
+  before(async () => {
     // Store specialty rows the way production models.dev currently does:
     // under provider=vercel with qualified openai/* model ids.
     const capabilities: CapabilitiesByProvider = {
@@ -77,12 +77,12 @@ describe("models.dev specialty key resolution (#8017)", () => {
         },
       },
     };
-    saveModelsDevCapabilities(capabilities);
+    await saveModelsDevCapabilities(capabilities);
   });
 
-  after(() => {
+  after(async () => {
     try {
-      clearModelsDevCapabilities();
+      await clearModelsDevCapabilities();
     } catch {
       // ignore cleanup failures in unit isolation
     }

@@ -26,12 +26,14 @@ process.env.VECTOR_STORE_DISABLE_VEC = "true";
 const core = await import("../../src/lib/db/core.ts");
 const { summarizeMemoriesOlderThan } = await import("../../src/lib/memory/summarization.ts");
 
-function cleanup() {
-  core.resetDbInstance();
+async function cleanup() {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 /**
@@ -49,7 +51,7 @@ async function drainSetImmediate() {
 test.afterEach(async () => {
   // Drain any pending fire-and-forget setImmediate callbacks before cleanup
   await drainSetImmediate();
-  cleanup();
+  await cleanup();
 });
 test.after(() => {
   if (fs.existsSync(TEST_DATA_DIR)) {
@@ -175,7 +177,11 @@ test("summarizeMemoriesOlderThan: totalTokens equals sum of candidates' content 
     (sum, m) => sum + Math.ceil(m.content.length / 4),
     0
   );
-  assert.equal(result.totalTokens, expectedTokens, "totalTokens must equal sum of candidate tokens");
+  assert.equal(
+    result.totalTokens,
+    expectedTokens,
+    "totalTokens must equal sum of candidate tokens"
+  );
 });
 
 test("summarizeMemoriesOlderThan: apiKeyId=undefined scopes to ALL memories", async () => {

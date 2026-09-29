@@ -56,20 +56,20 @@ function capabilityEntry(limitContext: unknown, overrides: Record<string, unknow
   };
 }
 
-test.before(() => {
-  clearModelsDevCapabilities();
+test.before(async () => {
+  await clearModelsDevCapabilities();
   // Mirrors the exact production row from the issue: limit_context and limit_output
   // both wrongly synced to 1048576 for ollama-cloud/deepseek-v4-flash, while the real
   // upstream output cap (per the reporter's boundary test) is 65536.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     [PROVIDER]: {
       [MODEL]: capabilityEntry(1048576, { reasoning: true, limit_output: 1048576 }),
     },
   });
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

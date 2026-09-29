@@ -69,9 +69,8 @@ function setupFetchMock(exclusions: string[] = []) {
 describe("CompressionExclusionsPage", () => {
   it("mounts, loads existing exclusions, and renders the panel", async () => {
     setupFetchMock(["openai/text-embedding-3-large"]);
-    const { default: CompressionExclusionsPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/compression/exclusions/page"
-    );
+    const { default: CompressionExclusionsPage } =
+      await import("../../../src/app/(dashboard)/dashboard/compression/exclusions/page");
 
     let container!: HTMLElement;
     await act(async () => {
@@ -91,9 +90,8 @@ describe("CompressionExclusionsPage", () => {
 
   it("saves edited patterns via PUT /api/settings/compression", async () => {
     setupFetchMock([]);
-    const { default: CompressionExclusionsPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/compression/exclusions/page"
-    );
+    const { default: CompressionExclusionsPage } =
+      await import("../../../src/app/(dashboard)/dashboard/compression/exclusions/page");
 
     let container!: HTMLElement;
     await act(async () => {
@@ -113,7 +111,7 @@ describe("CompressionExclusionsPage", () => {
 
     await act(async () => {
       nativeSetter?.call(textarea, "anthropic/*\ngpt-5-6");
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      await textarea.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
     const saveButton = container.querySelector(
@@ -125,9 +123,9 @@ describe("CompressionExclusionsPage", () => {
       await Promise.resolve();
     });
 
-    const putCall = (globalThis.fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.find(
-      (call) => (call[1] as RequestInit | undefined)?.method === "PUT"
-    );
+    const putCall = (
+      globalThis.fetch as unknown as { mock: { calls: unknown[][] } }
+    ).mock.calls.find((call) => (call[1] as RequestInit | undefined)?.method === "PUT");
     expect(putCall).toBeTruthy();
     const body = JSON.parse((putCall?.[1] as RequestInit).body as string);
     expect(body.exclusions).toEqual(["anthropic/*", "gpt-5-6"]);
@@ -135,9 +133,8 @@ describe("CompressionExclusionsPage", () => {
 
   it("does not crash when fetch fails (fail-soft)", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network error"));
-    const { default: CompressionExclusionsPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/compression/exclusions/page"
-    );
+    const { default: CompressionExclusionsPage } =
+      await import("../../../src/app/(dashboard)/dashboard/compression/exclusions/page");
 
     let container!: HTMLElement;
     await act(async () => {

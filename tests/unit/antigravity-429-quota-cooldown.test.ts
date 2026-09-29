@@ -28,8 +28,8 @@ import {
 } from "../../open-sse/services/antigravity429Engine.ts";
 import { markConnectionQuotaExhausted } from "../../open-sse/executors/antigravity.ts";
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -20,8 +20,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const { estimateTokens } = await import("../../open-sse/services/contextManager.ts");
 const core = await import("../../src/lib/db/core.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = ORIGINAL_DATA_DIR;

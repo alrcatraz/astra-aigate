@@ -30,7 +30,7 @@ const previewRoute = await import("../../../src/app/api/compression/preview/rout
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 async function setupAuth(): Promise<void> {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   await settingsDb.updateSettings({
@@ -38,6 +38,8 @@ async function setupAuth(): Promise<void> {
     setupComplete: true,
     password: "test-password-hash",
   });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 /**
@@ -65,12 +67,12 @@ test.beforeEach(async () => {
   await setupAuth();
 });
 
-test.after(() => {
+test.after(async () => {
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
   if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
   else process.env.JWT_SECRET = originalJwtSecret;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

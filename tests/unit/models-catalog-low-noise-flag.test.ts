@@ -20,10 +20,12 @@ type ModelsResponseBody = {
 };
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider: string, accessToken: string) {
@@ -50,7 +52,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -71,7 +73,7 @@ test("MODELS_CATALOG_PREFIX_MODE=alias suppresses canonical provider-id prefixes
     assert.ok(ids.has("cl/demo-custom"), "alias prefix cl/ should be present");
     assert.equal(ids.has("cline/demo-custom"), false, "canonical prefix cline/ should be absent");
   } finally {
-    featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
+    await featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
   }
 });
 
@@ -86,7 +88,7 @@ test("MODELS_CATALOG_PREFIX_MODE=dual emits both alias and canonical prefixes (d
       "canonical prefix claude/ should be present in dual mode"
     );
   } finally {
-    featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
+    await featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
   }
 });
 
@@ -102,7 +104,7 @@ test("?prefix=alias query param overrides flag to alias-only mode", async () => 
       "canonical prefix absent with ?prefix=alias"
     );
   } finally {
-    featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
+    await featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
   }
 });
 
@@ -121,6 +123,6 @@ test("?prefix=canonical query param overrides flag to canonical-only mode", asyn
       "canonical prefix present with ?prefix=canonical"
     );
   } finally {
-    featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
+    await featureFlagsDb.removeFeatureFlagOverride("MODELS_CATALOG_PREFIX_MODE");
   }
 });

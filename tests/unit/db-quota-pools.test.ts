@@ -23,7 +23,7 @@ const poolsDb = await import("../../src/lib/db/quotaPools.ts");
 const { getDbInstance } = core;
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -39,6 +39,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -46,7 +48,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -54,8 +56,8 @@ test.after(async () => {
 // Basic CRUD
 // ---------------------------------------------------------------------------
 
-test("createPool creates a pool with no allocations", () => {
-  const pool = poolsDb.createPool({ connectionId: "conn-1", name: "Test Pool" });
+test("createPool creates a pool with no allocations", async () => {
+  const pool = await poolsDb.createPool({ connectionId: "conn-1", name: "Test Pool" });
 
   assert.ok(pool.id, "should have an id");
   assert.equal(pool.connectionId, "conn-1");
@@ -64,8 +66,8 @@ test("createPool creates a pool with no allocations", () => {
   assert.deepEqual(pool.allocations, []);
 });
 
-test("createPool creates a pool with initial allocations", () => {
-  const pool = poolsDb.createPool({
+test("createPool creates a pool with initial allocations", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "conn-2",
     name: "Pool With Allocs",
     allocations: [
@@ -81,45 +83,45 @@ test("createPool creates a pool with initial allocations", () => {
   assert.equal(keyA!.policy, "hard");
 });
 
-test("listPools returns all pools in creation order", () => {
-  poolsDb.createPool({ connectionId: "c1", name: "First" });
-  poolsDb.createPool({ connectionId: "c2", name: "Second" });
+test("listPools returns all pools in creation order", async () => {
+  await poolsDb.createPool({ connectionId: "c1", name: "First" });
+  await poolsDb.createPool({ connectionId: "c2", name: "Second" });
 
-  const { items: pools } = poolsDb.listPools();
+  const { items: pools } = await poolsDb.listPools();
   assert.equal(pools.length, 2);
   assert.equal(pools[0].name, "First");
   assert.equal(pools[1].name, "Second");
 });
 
-test("getPool returns pool by id", () => {
-  const created = poolsDb.createPool({ connectionId: "c3", name: "Findable" });
-  const found = poolsDb.getPool(created.id);
+test("getPool returns pool by id", async () => {
+  const created = await poolsDb.createPool({ connectionId: "c3", name: "Findable" });
+  const found = await poolsDb.getPool(created.id);
   assert.ok(found);
   assert.equal(found!.id, created.id);
   assert.equal(found!.name, "Findable");
 });
 
-test("getPool returns null for unknown id", () => {
-  const found = poolsDb.getPool("nonexistent-id");
+test("getPool returns null for unknown id", async () => {
+  const found = await poolsDb.getPool("nonexistent-id");
   assert.equal(found, null);
 });
 
-test("updatePool updates the name", () => {
-  const pool = poolsDb.createPool({ connectionId: "c4", name: "Old Name" });
-  const updated = poolsDb.updatePool(pool.id, { name: "New Name" });
+test("updatePool updates the name", async () => {
+  const pool = await poolsDb.createPool({ connectionId: "c4", name: "Old Name" });
+  const updated = await poolsDb.updatePool(pool.id, { name: "New Name" });
   assert.ok(updated);
   assert.equal(updated!.name, "New Name");
   assert.equal(updated!.connectionId, "c4");
 });
 
-test("updatePool replaces allocations when provided", () => {
-  const pool = poolsDb.createPool({
+test("updatePool replaces allocations when provided", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "c5",
     name: "P",
     allocations: [{ apiKeyId: "key-x", weight: 100, policy: "hard" }],
   });
 
-  const updated = poolsDb.updatePool(pool.id, {
+  const updated = await poolsDb.updatePool(pool.id, {
     allocations: [
       { apiKeyId: "key-y", weight: 70, policy: "burst" },
       { apiKeyId: "key-z", weight: 30, policy: "soft" },
@@ -132,20 +134,20 @@ test("updatePool replaces allocations when provided", () => {
   assert.equal(keyX, undefined, "old allocation should be gone");
 });
 
-test("updatePool returns null for unknown id", () => {
-  const result = poolsDb.updatePool("no-such-pool", { name: "Ghost" });
+test("updatePool returns null for unknown id", async () => {
+  const result = await poolsDb.updatePool("no-such-pool", { name: "Ghost" });
   assert.equal(result, null);
 });
 
-test("deletePool removes pool and returns true", () => {
-  const pool = poolsDb.createPool({ connectionId: "c6", name: "Deletable" });
-  const deleted = poolsDb.deletePool(pool.id);
+test("deletePool removes pool and returns true", async () => {
+  const pool = await poolsDb.createPool({ connectionId: "c6", name: "Deletable" });
+  const deleted = await poolsDb.deletePool(pool.id);
   assert.equal(deleted, true);
   assert.equal(poolsDb.getPool(pool.id), null);
 });
 
-test("deletePool returns false for unknown id", () => {
-  const result = poolsDb.deletePool("ghost-pool");
+test("deletePool returns false for unknown id", async () => {
+  const result = await poolsDb.deletePool("ghost-pool");
   assert.equal(result, false);
 });
 
@@ -153,8 +155,8 @@ test("deletePool returns false for unknown id", () => {
 // upsertAllocations (replace strategy)
 // ---------------------------------------------------------------------------
 
-test("upsertAllocations replaces all previous allocations atomically", () => {
-  const pool = poolsDb.createPool({
+test("upsertAllocations replaces all previous allocations atomically", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "c7",
     name: "Replace Test",
     allocations: [
@@ -163,7 +165,7 @@ test("upsertAllocations replaces all previous allocations atomically", () => {
     ],
   });
 
-  poolsDb.upsertAllocations(pool.id, [
+  await poolsDb.upsertAllocations(pool.id, [
     { apiKeyId: "k3", weight: 100, policy: "soft", capValue: 500, capUnit: "tokens" },
   ]);
 
@@ -174,14 +176,14 @@ test("upsertAllocations replaces all previous allocations atomically", () => {
   assert.equal(refreshed.allocations[0].capUnit, "tokens");
 });
 
-test("upsertAllocations with empty array removes all allocations", () => {
-  const pool = poolsDb.createPool({
+test("upsertAllocations with empty array removes all allocations", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "c8",
     name: "Clear Test",
     allocations: [{ apiKeyId: "k99", weight: 100, policy: "hard" }],
   });
 
-  poolsDb.upsertAllocations(pool.id, []);
+  await poolsDb.upsertAllocations(pool.id, []);
   const refreshed = poolsDb.getPool(pool.id)!;
   assert.equal(refreshed.allocations.length, 0);
 });
@@ -190,17 +192,17 @@ test("upsertAllocations with empty array removes all allocations", () => {
 // FK CASCADE: delete pool → allocations gone
 // ---------------------------------------------------------------------------
 
-test("deletePool cascades to allocations", () => {
-  const pool = poolsDb.createPool({
+test("deletePool cascades to allocations", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "c9",
     name: "With Allocs",
     allocations: [{ apiKeyId: "k-cascade", weight: 100, policy: "hard" }],
   });
 
-  poolsDb.deletePool(pool.id);
+  await poolsDb.deletePool(pool.id);
 
   // After pool is deleted, listAllocationsForApiKey should find nothing for k-cascade
-  const remaining = poolsDb.listAllocationsForApiKey("k-cascade");
+  const remaining = await poolsDb.listAllocationsForApiKey("k-cascade");
   assert.equal(remaining.length, 0, "cascade should have removed allocation");
 });
 
@@ -208,8 +210,8 @@ test("deletePool cascades to allocations", () => {
 // listAllocationsForApiKey cross-pool filtering
 // ---------------------------------------------------------------------------
 
-test("listAllocationsForApiKey returns allocations across multiple pools for the same key", () => {
-  const p1 = poolsDb.createPool({
+test("listAllocationsForApiKey returns allocations across multiple pools for the same key", async () => {
+  const p1 = await poolsDb.createPool({
     connectionId: "cx-1",
     name: "Pool A",
     allocations: [
@@ -217,32 +219,32 @@ test("listAllocationsForApiKey returns allocations across multiple pools for the
       { apiKeyId: "other-key", weight: 60, policy: "soft" },
     ],
   });
-  const p2 = poolsDb.createPool({
+  const p2 = await poolsDb.createPool({
     connectionId: "cx-2",
     name: "Pool B",
     allocations: [{ apiKeyId: "shared-key", weight: 100, policy: "burst" }],
   });
 
-  const results = poolsDb.listAllocationsForApiKey("shared-key");
+  const results = await poolsDb.listAllocationsForApiKey("shared-key");
   assert.equal(results.length, 2);
 
   const poolIds = results.map((r) => r.poolId).sort();
   assert.deepEqual(poolIds, [p1.id, p2.id].sort());
 });
 
-test("listAllocationsForApiKey returns empty for unknown key", () => {
-  poolsDb.createPool({
+test("listAllocationsForApiKey returns empty for unknown key", async () => {
+  await poolsDb.createPool({
     connectionId: "cz",
     name: "Irrelevant Pool",
     allocations: [{ apiKeyId: "someone-else", weight: 100, policy: "hard" }],
   });
 
-  const results = poolsDb.listAllocationsForApiKey("unknown-key");
+  const results = await poolsDb.listAllocationsForApiKey("unknown-key");
   assert.equal(results.length, 0);
 });
 
-test("allocation stores optional capValue and capUnit correctly", () => {
-  const pool = poolsDb.createPool({
+test("allocation stores optional capValue and capUnit correctly", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "c10",
     name: "Cap Test",
     allocations: [
@@ -272,8 +274,8 @@ test("allocation stores optional capValue and capUnit correctly", () => {
 // PRAGMA ignore_check_constraints to simulate a legacy/corrupted row.
 // ---------------------------------------------------------------------------
 
-test("rowToAllocation normalizes an unknown DB policy to 'hard' (Guard A)", () => {
-  const pool = poolsDb.createPool({
+test("rowToAllocation normalizes an unknown DB policy to 'hard' (Guard A)", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "c-guardA",
     name: "Corrupt Policy Pool",
     allocations: [{ apiKeyId: "k-corrupt", weight: 100, policy: "soft" }],
@@ -298,13 +300,13 @@ test("rowToAllocation normalizes an unknown DB policy to 'hard' (Guard A)", () =
   assert.equal(alloc.policy, "hard", "unknown DB policy must be normalized to 'hard'");
 
   // Same expectation via listAllocationsForApiKey (the other read path).
-  const list = poolsDb.listAllocationsForApiKey("k-corrupt");
+  const list = await poolsDb.listAllocationsForApiKey("k-corrupt");
   assert.equal(list.length, 1);
   assert.equal(list[0].allocation.policy, "hard");
 });
 
-test("rowToAllocation preserves valid policies unchanged (Guard A regression)", () => {
-  const pool = poolsDb.createPool({
+test("rowToAllocation preserves valid policies unchanged (Guard A regression)", async () => {
+  const pool = await poolsDb.createPool({
     connectionId: "c-guardA-valid",
     name: "Valid Policy Pool",
     allocations: [

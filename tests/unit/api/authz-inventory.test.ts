@@ -33,8 +33,8 @@ test.beforeEach(async () => {
   runtime.resetRuntimeSettingsStateForTests();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fixture.cleanup();
   if (ORIGINAL_JWT_SECRET === undefined) delete process.env.JWT_SECRET;
   else process.env.JWT_SECRET = ORIGINAL_JWT_SECRET;

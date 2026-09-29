@@ -24,7 +24,9 @@ const core = await import("../../src/lib/db/core.ts");
 
 function getDb() {
   return core.getDbInstance() as unknown as {
-    prepare: <TRow = unknown>(sql: string) => {
+    prepare: <TRow = unknown>(
+      sql: string
+    ) => {
       all: (...params: unknown[]) => TRow[];
       get: (...params: unknown[]) => TRow | undefined;
       run: (...params: unknown[]) => { changes: number };
@@ -35,9 +37,7 @@ function getDb() {
 function listSqliteMaster(type: "table" | "index"): string[] {
   const db = getDb();
   const rows = db
-    .prepare<{ name: string }>(
-      `SELECT name FROM sqlite_master WHERE type = ? ORDER BY name`
-    )
+    .prepare<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = ? ORDER BY name`)
     .all(type);
   return rows.map((r) => r.name);
 }
@@ -52,7 +52,7 @@ const EXPECTED_INDEXES = [
 ];
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -64,7 +64,10 @@ test("migrations 073-075 create all expected tables and indexes on first init", 
   const indexes = listSqliteMaster("index");
 
   for (const table of EXPECTED_TABLES) {
-    assert.ok(tables.includes(table), `Expected table '${table}' to exist. Found: ${tables.join(", ")}`);
+    assert.ok(
+      tables.includes(table),
+      `Expected table '${table}' to exist. Found: ${tables.join(", ")}`
+    );
   }
 
   for (const idx of EXPECTED_INDEXES) {
@@ -78,7 +81,7 @@ test("migrations 073-075 create all expected tables and indexes on first init", 
 test("running migration runner a second time produces zero errors and identical schema", async () => {
   // Second initialization after reset: migration runner runs again but all
   // migrations are already recorded in _omniroute_migrations — should be no-op.
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   // Re-initialize (must not throw)
   let db: ReturnType<typeof getDb>;
@@ -102,6 +105,8 @@ test("running migration runner a second time produces zero errors and identical 
       `Index '${idx}' missing after second init. Indexes: ${indexes.join(", ")}`
     );
   }
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test("quota_pools schema has correct columns", () => {

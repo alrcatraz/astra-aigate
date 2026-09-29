@@ -28,12 +28,12 @@ describe("contextHandoffs", () => {
     expiresAt: new Date(Date.now() + 3600_000).toISOString(),
   };
 
-  it("upsertHandoff stores without throwing", () => {
-    upsertHandoff(payload);
+  it("upsertHandoff stores without throwing", async () => {
+    await upsertHandoff(payload);
   });
 
-  it("getHandoff retrieves stored handoff", () => {
-    const result = getHandoff(sessionId, comboName);
+  it("getHandoff retrieves stored handoff", async () => {
+    const result = await getHandoff(sessionId, comboName);
     assert.ok(result, "should return handoff");
     assert.equal(result!.sessionId, sessionId);
     assert.equal(result!.comboName, comboName);
@@ -44,27 +44,27 @@ describe("contextHandoffs", () => {
     assert.equal(hasActiveHandoff(sessionId, comboName), true);
   });
 
-  it("upsertHandoff overwrites existing handoff", () => {
-    upsertHandoff({ ...payload, summary: "Updated summary" });
-    const result = getHandoff(sessionId, comboName);
+  it("upsertHandoff overwrites existing handoff", async () => {
+    await upsertHandoff({ ...payload, summary: "Updated summary" });
+    const result = await getHandoff(sessionId, comboName);
     assert.equal(result!.summary, "Updated summary");
   });
 
-  it("deleteHandoff removes entry", () => {
+  it("deleteHandoff removes entry", async () => {
     const delSession = `del-handoff-${Date.now()}`;
-    upsertHandoff({ ...payload, sessionId: delSession });
-    deleteHandoff(delSession, comboName);
+    await upsertHandoff({ ...payload, sessionId: delSession });
+    await deleteHandoff(delSession, comboName);
     assert.equal(getHandoff(delSession, comboName), null);
   });
 
-  it("cleanupExpiredHandoffs removes expired entries", () => {
+  it("cleanupExpiredHandoffs removes expired entries", async () => {
     const expiredSession = `expired-${Date.now()}`;
-    upsertHandoff({
+    await upsertHandoff({
       ...payload,
       sessionId: expiredSession,
       expiresAt: new Date(Date.now() - 1000).toISOString(),
     });
-    cleanupExpiredHandoffs();
+    await cleanupExpiredHandoffs();
     assert.equal(getHandoff(expiredSession, comboName), null);
   });
 

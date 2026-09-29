@@ -12,9 +12,7 @@ import path from "node:path";
 
 // ── DB / auth setup ───────────────────────────────────────────────────────────
 
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-auto-combos-free-models-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-auto-combos-free-models-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET ?? "auto-combos-free-models-test-secret";
 
@@ -35,8 +33,8 @@ function makeRequest(url: string, apiKey?: string): Request {
   });
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {

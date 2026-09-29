@@ -54,7 +54,7 @@ async function cleanupTestDataDir() {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       return;
     } catch (error: any) {
@@ -63,6 +63,8 @@ async function cleanupTestDataDir() {
     }
   }
   if (lastError) throw lastError;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -76,7 +78,7 @@ test.beforeEach(async () => {
   await cleanupTestDataDir();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   await settingsDb.resetAllPricing();
-  settingsDb.clearAllLKGP();
+  await settingsDb.clearAllLKGP();
 });
 
 test.after(async () => {
@@ -86,7 +88,7 @@ test.after(async () => {
   _resetAllDecks();
   weightedStickyTargets.clear();
   rrStickyTargets.clear();
-  settingsDb.clearAllLKGP();
+  await settingsDb.clearAllLKGP();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {
@@ -815,7 +817,7 @@ test("preScreenTargets marks an expired-OPEN (HALF_OPEN) target as available", a
   ];
 
   const results = await preScreenTargets(targets as any);
-  const openaiResult = results.get("openai/gpt-4o");
+  const openaiResult = await results.get("openai/gpt-4o");
   assert.ok(openaiResult, "openai target should have a pre-screen result");
   assert.equal(
     openaiResult.available,

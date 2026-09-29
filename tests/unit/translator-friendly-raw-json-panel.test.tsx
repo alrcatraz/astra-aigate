@@ -97,7 +97,16 @@ vi.mock("@/shared/components", () => ({
       ))}
     </select>
   ),
-  Badge: ({ children, variant }: { children: React.ReactNode; variant?: string; size?: string; icon?: string; dot?: boolean }) => (
+  Badge: ({
+    children,
+    variant,
+  }: {
+    children: React.ReactNode;
+    variant?: string;
+    size?: string;
+    icon?: string;
+    dot?: boolean;
+  }) => (
     <span data-testid="badge" data-variant={variant}>
       {children}
     </span>
@@ -105,36 +114,33 @@ vi.mock("@/shared/components", () => ({
 }));
 
 // exampleTemplates stub
-vi.mock(
-  "@/app/(dashboard)/dashboard/translator/exampleTemplates",
-  () => ({
-    getExampleTemplates: () => [
-      {
-        id: "simple-chat",
-        name: "Simple Chat",
-        icon: "chat",
-        description: "Simple chat template",
-        formats: {
-          openai: { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
-          claude: {
-            model: "claude-sonnet-4-20250514",
-            messages: [{ role: "user", content: "Hello" }],
-          },
+vi.mock("@/app/(dashboard)/dashboard/translator/exampleTemplates", () => ({
+  getExampleTemplates: () => [
+    {
+      id: "simple-chat",
+      name: "Simple Chat",
+      icon: "chat",
+      description: "Simple chat template",
+      formats: {
+        openai: { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+        claude: {
+          model: "claude-sonnet-4-20250514",
+          messages: [{ role: "user", content: "Hello" }],
         },
       },
-    ],
-    FORMAT_META: {
-      openai: { label: "OpenAI", color: "blue", icon: "psychology" },
-      claude: { label: "Claude", color: "amber", icon: "auto_awesome" },
-      gemini: { label: "Gemini", color: "green", icon: "smart_toy" },
     },
-    FORMAT_OPTIONS: [
-      { value: "openai", label: "OpenAI" },
-      { value: "claude", label: "Claude" },
-      { value: "gemini", label: "Gemini" },
-    ],
-  }),
-);
+  ],
+  FORMAT_META: {
+    openai: { label: "OpenAI", color: "blue", icon: "psychology" },
+    claude: { label: "Claude", color: "amber", icon: "auto_awesome" },
+    gemini: { label: "Gemini", color: "green", icon: "smart_toy" },
+  },
+  FORMAT_OPTIONS: [
+    { value: "openai", label: "OpenAI" },
+    { value: "claude", label: "Claude" },
+    { value: "gemini", label: "Gemini" },
+  ],
+}));
 
 const cleanupCallbacks: Array<() => void> = [];
 
@@ -159,16 +165,14 @@ describe("RawJsonPanel", () => {
   });
 
   it("exports a default function component", async () => {
-    const mod = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const mod =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     expect(typeof mod.default).toBe("function");
   });
 
   it("renders Collapsible wrapper with correct icon", async () => {
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -180,9 +184,8 @@ describe("RawJsonPanel", () => {
   });
 
   it("lazy-render: content mounts when defaultOpen=true", async () => {
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -194,9 +197,8 @@ describe("RawJsonPanel", () => {
   });
 
   it("lazy-render: content mounts when forceOpen=true", async () => {
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -207,9 +209,8 @@ describe("RawJsonPanel", () => {
   });
 
   it("renders two format selects (source and target)", async () => {
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -220,9 +221,8 @@ describe("RawJsonPanel", () => {
   });
 
   it("renders the translate button", async () => {
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -233,9 +233,8 @@ describe("RawJsonPanel", () => {
   });
 
   it("renders example templates grid", async () => {
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -253,9 +252,8 @@ describe("RawJsonPanel", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -263,20 +261,22 @@ describe("RawJsonPanel", () => {
     });
 
     // Type valid JSON into the input Monaco editor
-    const editors = container.querySelectorAll<HTMLTextAreaElement>("[data-testid='monaco-editor']");
+    const editors = container.querySelectorAll<HTMLTextAreaElement>(
+      "[data-testid='monaco-editor']"
+    );
     const inputEditor = editors[0]; // first editor is input
     await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLTextAreaElement.prototype,
-        "value",
+        "value"
       )?.set;
       nativeInputValueSetter?.call(inputEditor, '{"model":"gpt-4o","messages":[]}');
-      inputEditor.dispatchEvent(new Event("change", { bubbles: true }));
+      await inputEditor.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     // Click translate button
     const translateBtn = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("[data-testid='button']"),
+      container.querySelectorAll<HTMLButtonElement>("[data-testid='button']")
     ).find((b) => !b.disabled);
 
     if (translateBtn) {
@@ -301,9 +301,8 @@ describe("RawJsonPanel", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
 
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -311,19 +310,21 @@ describe("RawJsonPanel", () => {
     });
 
     // Type valid JSON and trigger translate
-    const editors = container.querySelectorAll<HTMLTextAreaElement>("[data-testid='monaco-editor']");
+    const editors = container.querySelectorAll<HTMLTextAreaElement>(
+      "[data-testid='monaco-editor']"
+    );
     const inputEditor = editors[0];
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(
         window.HTMLTextAreaElement.prototype,
-        "value",
+        "value"
       )?.set;
       setter?.call(inputEditor, '{"model":"gpt-4o","messages":[]}');
-      inputEditor.dispatchEvent(new Event("change", { bubbles: true }));
+      await inputEditor.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const translateBtn = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("[data-testid='button']"),
+      container.querySelectorAll<HTMLButtonElement>("[data-testid='button']")
     ).find((b) => !b.disabled);
 
     if (translateBtn) {
@@ -340,9 +341,8 @@ describe("RawJsonPanel", () => {
   });
 
   it("swap formats button is rendered", async () => {
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -358,9 +358,8 @@ describe("RawJsonPanel", () => {
 
   it("onOpenChange fires when component mounts open", async () => {
     const onOpenChange = vi.fn();
-    const { default: RawJsonPanel } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel"
-    );
+    const { default: RawJsonPanel } =
+      await import("@/app/(dashboard)/dashboard/translator/components/advanced/RawJsonPanel");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {

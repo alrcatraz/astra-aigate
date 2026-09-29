@@ -91,9 +91,9 @@ test.before(async () => {
   }
 });
 
-test.after(() => {
+test.after(async () => {
   try {
-    core?.resetDbInstance();
+    await core?.resetDbInstanceDrained();
   } catch {}
   cleanupGlobalDb();
   restoreEnv();
@@ -273,52 +273,52 @@ test("getDriverInfo returns null (setDriverInfo never called)", () => {
 
 // ─── DB Functions (autoVacuum, pageSize, cacheSize) ───
 
-test("setAutoVacuum and getAutoVacuumMode round-trip", serial, () => {
+test("setAutoVacuum and getAutoVacuumMode round-trip", serial, async () => {
   // Get current
-  const originalMode = core.getAutoVacuumMode();
+  const originalMode = await core.getAutoVacuumMode();
 
   // Set to NONE first
-  core.setAutoVacuum("NONE");
+  await core.setAutoVacuum("NONE");
   assert.equal(core.getAutoVacuumMode(), "NONE");
 
   // Set to FULL
-  core.setAutoVacuum("FULL");
+  await core.setAutoVacuum("FULL");
   assert.equal(core.getAutoVacuumMode(), "FULL");
 
   // Set to INCREMENTAL
-  core.setAutoVacuum("INCREMENTAL");
+  await core.setAutoVacuum("INCREMENTAL");
   assert.equal(core.getAutoVacuumMode(), "INCREMENTAL");
 
   // Restore original
-  core.setAutoVacuum(originalMode);
+  await core.setAutoVacuum(originalMode);
   assert.equal(core.getAutoVacuumMode(), originalMode);
 });
 
-test("setAutoVacuum same mode is idempotent", serial, () => {
-  const mode = core.getAutoVacuumMode();
+test("setAutoVacuum same mode is idempotent", serial, async () => {
+  const mode = await core.getAutoVacuumMode();
   // Calling again with same mode should not throw
-  core.setAutoVacuum(mode);
+  await core.setAutoVacuum(mode);
   assert.equal(core.getAutoVacuumMode(), mode);
 });
 
-test("runManualVacuum succeeds", serial, () => {
-  const result = core.runManualVacuum();
+test("runManualVacuum succeeds", serial, async () => {
+  const result = await core.runManualVacuum();
   assert.equal(result.success, true);
   assert.equal(typeof result.duration, "number");
   assert.ok(result.duration >= 0);
   assert.equal(result.error, undefined);
 });
 
-test("setPageSize round-trip", serial, () => {
+test("setPageSize round-trip", serial, async () => {
   // Capture current page_size so we can restore it
   // We'll set to a known value, verify, then set back
   // Note: page_size can only be set if the DB is empty or after VACUUM
   // The implementation calls VACUUM after setting, which is safe
   const testPageSize = 4096;
-  core.setPageSize(testPageSize);
+  await core.setPageSize(testPageSize);
   // We can't read it back directly via exported function, but it shouldn't throw
   // Verify by running it again (idempotent)
-  core.setPageSize(testPageSize);
+  await core.setPageSize(testPageSize);
 });
 
 test("setCacheSize round-trip", serial, () => {

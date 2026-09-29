@@ -27,9 +27,11 @@ const chaosConfig = await import("../../src/lib/chaos/chaosConfig.ts");
 const chaosExecutor = await import("../../src/lib/chaos/chaosExecutor.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -40,8 +42,8 @@ test.afterEach(() => {
   mock.restoreAll();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -105,7 +107,7 @@ test("executeChaosRun forwards the caller's apiKey as a Bearer Authorization hea
 
   let capturedAuth: string | null = null;
   mock.method(chaosExecutor.chatDispatch, "postChatCompletion", async (req: Request) => {
-    capturedAuth = req.headers.get("Authorization");
+    capturedAuth = await req.headers.get("Authorization");
     return jsonResponse({ choices: [{ message: { content: "ok" } }] });
   });
 
@@ -125,7 +127,7 @@ test("executeChaosRun omits Authorization header when no apiKey is provided (das
 
   let capturedAuth: string | null | undefined;
   mock.method(chaosExecutor.chatDispatch, "postChatCompletion", async (req: Request) => {
-    capturedAuth = req.headers.get("Authorization");
+    capturedAuth = await req.headers.get("Authorization");
     return jsonResponse({ choices: [{ message: { content: "ok" } }] });
   });
 

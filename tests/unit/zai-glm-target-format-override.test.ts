@@ -12,8 +12,8 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const { getModelInfo } = await import("../../src/sse/services/model.ts");
 const { DefaultExecutor } = await import("../../open-sse/executors/default.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -43,7 +43,11 @@ test("#7364 Defect A (case-sensitivity): a custom model saved as 'glm-4.6v' is n
   );
 
   const exact = (await getModelInfo("zai/glm-4.6v")) as { targetFormat?: string };
-  assert.equal(exact.targetFormat, "openai", "sanity check: exact-case lookup must surface the saved targetFormat");
+  assert.equal(
+    exact.targetFormat,
+    "openai",
+    "sanity check: exact-case lookup must surface the saved targetFormat"
+  );
 
   const mixedCase = (await getModelInfo("zai/glm-4.6V")) as { targetFormat?: string };
   assert.equal(

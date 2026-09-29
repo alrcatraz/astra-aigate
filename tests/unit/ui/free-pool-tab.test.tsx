@@ -143,8 +143,8 @@ describe("FreePoolTab source toggles", () => {
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const bar = el.querySelector("[role='group']")!;
     const first = bar.querySelectorAll("button")[0];
-    act(() => {
-      first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(first.getAttribute("aria-pressed")).toBe("false");
   });
@@ -154,12 +154,12 @@ describe("FreePoolTab source toggles", () => {
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const bar = el.querySelector("[role='group']")!;
     const first = bar.querySelectorAll("button")[0];
-    act(() => {
-      first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(first.getAttribute("aria-pressed")).toBe("false");
-    act(() => {
-      first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(first.getAttribute("aria-pressed")).toBe("true");
   });
@@ -168,11 +168,11 @@ describe("FreePoolTab source toggles", () => {
     const el = renderTab();
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const buttons = el.querySelector("[role='group']")!.querySelectorAll("button");
-    act(() => {
-      buttons[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await buttons[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    act(() => {
-      buttons[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await buttons[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(buttons[0].getAttribute("aria-pressed")).toBe("false");
     expect(buttons[1].getAttribute("aria-pressed")).toBe("true"); // second still enabled
@@ -183,8 +183,8 @@ describe("FreePoolTab source toggles", () => {
     const el = renderTab();
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const first = el.querySelector("[role='group']")!.querySelectorAll("button")[0];
-    act(() => {
-      first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     const stored = JSON.parse(localStorageMock.getItem("freePool.disabledSources") ?? "[]");
     expect(Array.isArray(stored)).toBe(true);
@@ -246,8 +246,8 @@ describe("FreePoolTab data loading", () => {
 
     const bar = el.querySelector("[role='group']")!;
     const first = bar.querySelectorAll("button")[0]; // disable 1proxy
-    act(() => {
-      first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitForCondition(() => mockFetch.mock.calls.length > initialCallCount);
@@ -296,8 +296,8 @@ describe("FreePoolTab sync error surfacing (#5595)", () => {
       b.textContent?.includes("Sync all")
     )!;
     expect(syncBtn).toBeTruthy();
-    act(() => {
-      syncBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await syncBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // RED before the fix: handleSync discarded the response, so no error box appears.

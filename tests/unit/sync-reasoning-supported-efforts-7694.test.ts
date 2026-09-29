@@ -24,23 +24,23 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
 const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
 const { getModelInfo } = await import("../../src/sse/services/model.ts");
-const { normalizeDiscoveredModels, detectSupportedThinkingEfforts } = await import(
-  "../../src/lib/providerModels/modelDiscovery.ts"
-);
+const { normalizeDiscoveredModels, detectSupportedThinkingEfforts } =
+  await import("../../src/lib/providerModels/modelDiscovery.ts");
 const { splitSyncedEffortSuffix } = await import("../../open-sse/services/model.ts");
 const {
   appendSyncedEffortVariants,
   shouldExposeSyncedEffortVariants,
   SYNCED_EFFORT_SKIP_PROVIDERS,
 } = await import("../../open-sse/utils/syncedEffortVariants.ts");
-const { applyDefaultReasoningEffort } = await import(
-  "../../open-sse/services/defaultReasoningEffort.ts"
-);
+const { applyDefaultReasoningEffort } =
+  await import("../../open-sse/services/defaultReasoningEffort.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -48,8 +48,8 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

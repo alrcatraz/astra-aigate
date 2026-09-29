@@ -138,9 +138,11 @@ function buildResponsesNdjson(text = "Brasilia") {
 }
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function waitForAsyncSideEffects() {
@@ -400,12 +402,12 @@ test("non-stream chat success carries cost-telemetry meta headers (cost/version/
 
   const headers = result.response.headers;
 
-  const cost = headers.get(OMNIROUTE_RESPONSE_HEADERS.responseCost);
+  const cost = await headers.get(OMNIROUTE_RESPONSE_HEADERS.responseCost);
   assert.equal(typeof cost, "string");
   // 10-decimal cost format; 0.0000000000 is valid when no pricing is available.
   assert.match(String(cost), /^\d+\.\d{10}$/);
 
-  const version = headers.get(OMNIROUTE_RESPONSE_HEADERS.version);
+  const version = await headers.get(OMNIROUTE_RESPONSE_HEADERS.version);
   assert.equal(typeof version, "string");
   assert.ok(String(version).length > 0);
 

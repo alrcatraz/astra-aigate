@@ -22,9 +22,7 @@ process.env.JWT_SECRET = "test-jwt-secret-letta";
 const core = await import("../../src/lib/db/core.ts");
 const localDb = await import("../../src/lib/localDb.ts");
 
-const { GET, POST, DELETE } = await import(
-  "../../src/app/api/cli-tools/letta-settings/route.ts"
-);
+const { GET, POST, DELETE } = await import("../../src/app/api/cli-tools/letta-settings/route.ts");
 
 let tmpHome: string;
 let origHome: string | undefined;
@@ -39,9 +37,11 @@ function req(init?: RequestInit) {
 
 async function resetStorage() {
   delete process.env.INITIAL_PASSWORD;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableAuth() {

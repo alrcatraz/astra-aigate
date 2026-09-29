@@ -55,17 +55,19 @@ function buildCapability(overrides = {}) {
   };
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // Mirrors the real models.dev `mistral` provider keying observed on the live API:
 // short-form `pixtral-12b` (vision), verbatim `pixtral-large-latest` (vision),
 // short-form `ministral-8b` (text-only).
-function seedMistralCapabilities() {
-  modelsDevSync.saveModelsDevCapabilities({
+async function seedMistralCapabilities() {
+  await modelsDevSync.saveModelsDevCapabilities({
     mistral: {
       "pixtral-12b": buildCapability({
         attachment: true,
@@ -92,12 +94,12 @@ function seedMistralCapabilities() {
   });
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

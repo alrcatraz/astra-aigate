@@ -11,17 +11,19 @@ const coreDb = await import("../../src/lib/db/core.ts");
 const providerLimitsDb = await import("../../src/lib/db/providerLimits.ts");
 
 async function resetStorage() {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  coreDb.resetDbInstance();
+test.after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -31,8 +33,8 @@ test("providerLimits cache returns empty defaults before any writes", () => {
   assert.equal(providerLimitsDb.setProviderLimitsCacheBatch([]), 0);
 });
 
-test("providerLimits cache preserves Codex banked reset credits", () => {
-  const entry = providerLimitsDb.setProviderLimitsCache("codex-conn", {
+test("providerLimits cache preserves Codex banked reset credits", async () => {
+  const entry = await providerLimitsDb.setProviderLimitsCache("codex-conn", {
     quotas: { session: { remainingPercentage: 90 } },
     plan: null,
     message: null,
@@ -46,8 +48,8 @@ test("providerLimits cache preserves Codex banked reset credits", () => {
   assert.equal(providerLimitsDb.getAllProviderLimitsCache()["codex-conn"]?.bankedResetCredits, 3);
 });
 
-test("providerLimits cache supports single writes, batch writes and deletions", () => {
-  const first = providerLimitsDb.setProviderLimitsCache("conn-1", {
+test("providerLimits cache supports single writes, batch writes and deletions", async () => {
+  const first = await providerLimitsDb.setProviderLimitsCache("conn-1", {
     quotas: { remaining: 12 },
     plan: "pro",
     message: "ok",
@@ -58,7 +60,7 @@ test("providerLimits cache supports single writes, batch writes and deletions", 
   assert.equal(first.plan, "pro");
   assert.deepEqual(providerLimitsDb.getProviderLimitsCache("conn-1"), first);
 
-  const inserted = providerLimitsDb.setProviderLimitsCacheBatch([
+  const inserted = await providerLimitsDb.setProviderLimitsCacheBatch([
     {
       connectionId: "conn-2",
       entry: {
@@ -82,7 +84,7 @@ test("providerLimits cache supports single writes, batch writes and deletions", 
   assert.equal(inserted, 2);
   assert.equal(Object.keys(providerLimitsDb.getAllProviderLimitsCache()).length, 3);
 
-  providerLimitsDb.deleteProviderLimitsCache("conn-2");
+  await providerLimitsDb.deleteProviderLimitsCache("conn-2");
   assert.equal(providerLimitsDb.getProviderLimitsCache("conn-2"), null);
 });
 

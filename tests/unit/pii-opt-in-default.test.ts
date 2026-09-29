@@ -21,9 +21,8 @@ import path from "node:path";
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-test-pii-default-"));
 process.env.DATA_DIR = tmpDir;
 
-const { FEATURE_FLAG_DEFINITIONS } = await import(
-  "../../src/shared/constants/featureFlagDefinitions.ts"
-);
+const { FEATURE_FLAG_DEFINITIONS } =
+  await import("../../src/shared/constants/featureFlagDefinitions.ts");
 
 test("PII data-mutation flags are opt-in (default 'false')", async (t) => {
   const def = (key: string) => FEATURE_FLAG_DEFINITIONS.find((d) => d.key === key);
@@ -53,7 +52,7 @@ test("PII data-mutation flags are opt-in (default 'false')", async (t) => {
     delete process.env.PII_REDACTION_ENABLED;
     delete process.env.PII_RESPONSE_SANITIZATION;
     const { clearAllFeatureFlagOverrides } = await import("@/lib/db/featureFlags");
-    clearAllFeatureFlagOverrides();
+    await clearAllFeatureFlagOverrides();
 
     const { isFeatureFlagEnabled } = await import("@/shared/utils/featureFlags");
     assert.strictEqual(isFeatureFlagEnabled("PII_REDACTION_ENABLED"), false);
@@ -63,7 +62,7 @@ test("PII data-mutation flags are opt-in (default 'false')", async (t) => {
   await t.test("response data passes through untouched by default", async () => {
     delete process.env.PII_RESPONSE_SANITIZATION;
     const { clearAllFeatureFlagOverrides } = await import("@/lib/db/featureFlags");
-    clearAllFeatureFlagOverrides();
+    await clearAllFeatureFlagOverrides();
 
     const { sanitizePII, sanitizePIIResponse } = await import("@/lib/piiSanitizer");
 

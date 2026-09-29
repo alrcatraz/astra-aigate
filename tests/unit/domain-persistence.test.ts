@@ -22,7 +22,7 @@ async function removeStorageFiles(dir) {
   const storage = path.join(dir, "storage.sqlite");
   try {
     const core = await import("../../src/lib/db/core.ts");
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
   } catch {
     /* core may not be loaded yet */
   }
@@ -32,6 +32,8 @@ async function removeStorageFiles(dir) {
       if (fs.existsSync(p)) fs.unlinkSync(p);
     } catch {}
   }
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 beforeEach(async () => {
@@ -40,7 +42,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   const core = await import("../../src/lib/db/core.ts");
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 });
 
 after(() => {
@@ -372,7 +374,7 @@ describe("circuitBreaker persistence", () => {
     const cb = getCircuitBreaker(name, { failureThreshold: 5 });
     assert.ok(cb);
 
-    const statuses = getAllCircuitBreakerStatuses();
+    const statuses = await getAllCircuitBreakerStatuses();
     const found = statuses.find((s) => s.name === name);
     assert.ok(found);
     assert.equal(found.state, "CLOSED");

@@ -161,6 +161,7 @@
     "check:known-symbols": "bun scripts/check/check-known-symbols.ts",
     "check:route-guard-membership": "node --import tsx scripts/check/check-route-guard-membership.ts",
     "check:test-discovery": "node scripts/check/check-test-discovery.mjs",
+    "check:test-db-invariants": "node scripts/check/check-test-db-invariants.mjs",
     "check:mutation-test-coverage": "node scripts/check/check-mutation-test-coverage.mjs --strict",
     "check:complexity": "node scripts/check/check-complexity.mjs",
     "check:dead-code": "node scripts/check/check-dead-code.mjs",

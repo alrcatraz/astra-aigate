@@ -17,10 +17,12 @@ const route = await import("../../src/app/api/combos/test/route.ts");
 const originalFetch = globalThis.fetch;
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function createTestCombo(models = ["openrouter/openai/gpt-5.4"]) {
@@ -52,9 +54,9 @@ test.afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -257,7 +259,7 @@ test("combo test route launches model probes concurrently while preserving combo
       resolvers.push(resolve);
     });
 
-  const responsePromise = route.POST(makeRequest());
+  const responsePromise = await route.POST(makeRequest());
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assert.equal(fetchCalls.length, 3);

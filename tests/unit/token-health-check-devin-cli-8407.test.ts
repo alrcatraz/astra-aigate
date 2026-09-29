@@ -17,11 +17,13 @@ const tokenHealthCheck = await import("../../src/lib/tokenHealthCheck.ts");
 const { supportsTokenRefresh } = await import("../../open-sse/services/tokenRefresh.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function getCreatedConnectionId(connection: { id?: unknown }): string {
@@ -30,7 +32,7 @@ function getCreatedConnectionId(connection: { id?: unknown }): string {
 }
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -63,5 +65,9 @@ test("checkConnection leaves a devin-cli connection with no refresh token untouc
 
   const updated = await providersDb.getProviderConnectionById(getCreatedConnectionId(connection));
   assert.equal(updated?.testStatus, "active", "devin-cli testStatus must remain active");
-  assert.notEqual(updated?.errorCode, "no_refresh_token", "devin-cli must not be marked no_refresh_token");
+  assert.notEqual(
+    updated?.errorCode,
+    "no_refresh_token",
+    "devin-cli must not be marked no_refresh_token"
+  );
 });

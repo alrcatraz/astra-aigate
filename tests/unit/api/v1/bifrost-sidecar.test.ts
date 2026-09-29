@@ -193,7 +193,7 @@ test("bifrost route: records relay usage after SSE stream completion", async () 
   let forwardedRequestId: string | null = null;
 
   globalThis.fetch = async (_input, init) => {
-    forwardedRequestId = new Headers(init?.headers).get("x-request-id");
+    forwardedRequestId = await new Headers(init?.headers).get("x-request-id");
     return new Response(
       new ReadableStream<Uint8Array>({
         start(controller) {
@@ -234,7 +234,7 @@ test("bifrost route: records relay usage after SSE stream completion", async () 
 
   assert.match(await res.text(), /delta/);
 
-  const logs = getRelayLogs(relayToken.id, 10);
+  const logs = await getRelayLogs(relayToken.id, 10);
   assert.equal(logs.length, 1);
   assert.equal(logs[0].status, "success");
   assert.equal(logs[0].status_code, 200);

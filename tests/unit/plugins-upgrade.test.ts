@@ -20,16 +20,19 @@ function writePlugin(version: string, name = "upgrade-test") {
   const pluginDir = path.join(sourceDir, name);
   fs.mkdirSync(pluginDir, { recursive: true });
 
-  fs.writeFileSync(path.join(pluginDir, "plugin.json"), JSON.stringify({
-    name,
-    version,
-    description: `Plugin v${version}`,
-    author: "test",
-    main: "index.js",
-    hooks: { onRequest: true, onResponse: false, onError: false },
-    enabledByDefault: false,
-    requires: { permissions: [] },
-  }));
+  fs.writeFileSync(
+    path.join(pluginDir, "plugin.json"),
+    JSON.stringify({
+      name,
+      version,
+      description: `Plugin v${version}`,
+      author: "test",
+      main: "index.js",
+      hooks: { onRequest: true, onResponse: false, onError: false },
+      enabledByDefault: false,
+      requires: { permissions: [] },
+    })
+  );
 
   fs.writeFileSync(
     path.join(pluginDir, "index.js"),
@@ -44,19 +47,22 @@ function writePluginWithConfig(version: string, name = "upgrade-config-test") {
   const pluginDir = path.join(sourceDir, name);
   fs.mkdirSync(pluginDir, { recursive: true });
 
-  fs.writeFileSync(path.join(pluginDir, "plugin.json"), JSON.stringify({
-    name,
-    version,
-    description: `Plugin v${version}`,
-    author: "test",
-    main: "index.js",
-    hooks: { onRequest: true, onResponse: false, onError: false },
-    enabledByDefault: false,
-    requires: { permissions: [] },
-    configSchema: {
-      apiKey: { type: "string", description: "API key" },
-    },
-  }));
+  fs.writeFileSync(
+    path.join(pluginDir, "plugin.json"),
+    JSON.stringify({
+      name,
+      version,
+      description: `Plugin v${version}`,
+      author: "test",
+      main: "index.js",
+      hooks: { onRequest: true, onResponse: false, onError: false },
+      enabledByDefault: false,
+      requires: { permissions: [] },
+      configSchema: {
+        apiKey: { type: "string", description: "API key" },
+      },
+    })
+  );
 
   fs.writeFileSync(
     path.join(pluginDir, "index.js"),
@@ -69,22 +75,28 @@ function writePluginWithConfig(version: string, name = "upgrade-config-test") {
 const activeDirs: string[] = [];
 function cleanupDirs() {
   for (const dir of activeDirs) {
-    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch {}
   }
   activeDirs.length = 0;
 }
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   hooks.resetHooks();
   cleanupDirs();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   cleanupDirs();
-  try { fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true }); } catch {}
+  try {
+    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  } catch {}
 });
 
 // ── Tests ──
@@ -136,7 +148,7 @@ test("upgrade preserves config values", async () => {
   await pluginManager.install(v1.sourceDir);
 
   // Set config
-  dbPlugins.updatePluginConfig("upgrade-config-test", { apiKey: "secret-key" });
+  await dbPlugins.updatePluginConfig("upgrade-config-test", { apiKey: "secret-key" });
 
   const v2 = writePluginWithConfig("2.0.0");
   activeDirs.push(v2.sourceDir);
@@ -231,7 +243,11 @@ test("compareSemver: pre-release suffix strips cleanly (no NaN)", () => {
   assert.ok(compareSemver("1.0.1", "1.0.0-beta") > 0, "1.0.1 > 1.0.0-beta (treated as 1.0.0)");
   assert.ok(compareSemver("1.0.0-beta", "0.9.0") > 0, "1.0.0-beta > 0.9.0");
   // Both pre-release: treated as equal numeric parts
-  assert.equal(compareSemver("1.0.0-beta", "1.0.0-rc.1"), 0, "1.0.0-beta == 1.0.0-rc.1 (both strip to 1.0.0)");
+  assert.equal(
+    compareSemver("1.0.0-beta", "1.0.0-rc.1"),
+    0,
+    "1.0.0-beta == 1.0.0-rc.1 (both strip to 1.0.0)"
+  );
 });
 
 test("compareSemver: NaN segments coerce to 0, result is not NaN", () => {

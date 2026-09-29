@@ -136,15 +136,15 @@ describe("DI Container — container.ts", () => {
     assert.equal(typeof container.has, "function");
   });
 
-  it("should register and resolve a custom service", () => {
-    container.register("testService", () => ({ greeting: "hello" }));
+  it("should register and resolve a custom service", async () => {
+    await container.register("testService", () => ({ greeting: "hello" }));
     const svc = container.resolve("testService");
     assert.deepEqual(svc, { greeting: "hello" });
   });
 
-  it("should return cached singleton on repeated resolve", () => {
+  it("should return cached singleton on repeated resolve", async () => {
     let count = 0;
-    container.register("counterService", () => ({ value: ++count }));
+    await container.register("counterService", () => ({ value: ++count }));
     const a = container.resolve("counterService");
     const b = container.resolve("counterService");
     assert.strictEqual(a, b);
@@ -165,10 +165,10 @@ describe("DI Container — container.ts", () => {
     assert.ok(names.includes("telemetry"), "should have telemetry");
   });
 
-  it("should support re-registration (overwrite)", () => {
-    container.register("testOverwrite", () => "v1");
+  it("should support re-registration (overwrite)", async () => {
+    await container.register("testOverwrite", () => "v1");
     assert.equal(container.resolve("testOverwrite"), "v1");
-    container.register("testOverwrite", () => "v2");
+    await container.register("testOverwrite", () => "v2");
     assert.equal(container.resolve("testOverwrite"), "v2");
   });
 });

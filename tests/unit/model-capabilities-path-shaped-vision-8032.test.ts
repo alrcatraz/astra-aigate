@@ -41,23 +41,25 @@ function buildCapability(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("#8032 cp/cline-pass/kimi-k3: attachment=false empty modalities → vision via leaf/registry", async () => {
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     clinepass: {
       "cline-pass/kimi-k3": buildCapability({
         attachment: false,
@@ -96,7 +98,7 @@ test("#8032 leaf fallback is vision-only: aihorde/deepseek/deepseek-v4-flash kee
 });
 
 test("#8032 #4071 text-only override still wins over path-shaped sync noise", async () => {
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     xiaomi: {
       "mimo-v2.5-pro": buildCapability({
         attachment: true,
@@ -111,7 +113,7 @@ test("#8032 #4071 text-only override still wins over path-shaped sync noise", as
 });
 
 test("#8032 Vision Bridge skips describe/reroute for cp/cline-pass/kimi-k3 with image", async () => {
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     clinepass: {
       "cline-pass/kimi-k3": buildCapability({
         attachment: false,

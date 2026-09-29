@@ -28,8 +28,8 @@ beforeEach(() => {
   uninstall = installDashboardCsrfFetch();
 });
 
-afterEach(() => {
-  uninstall?.();
+afterEach(async () => {
+  await uninstall?.();
   uninstall = null;
   __resetDashboardCsrfTokenForTests();
   vi.unstubAllGlobals();

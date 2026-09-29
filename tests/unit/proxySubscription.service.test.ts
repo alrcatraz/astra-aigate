@@ -11,10 +11,12 @@ const core = await import("../../src/lib/db/core.ts");
 const proxies = await import("../../src/lib/db/proxies.ts");
 const sub = await import("../../src/lib/proxySubscription/index.ts");
 
-function reset() {
-  core.resetDbInstance();
+async function reset() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function nowIso() {
@@ -44,8 +46,8 @@ function insertSubscription(
   );
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -142,7 +144,7 @@ test("fail-closed: a dead subscription proxy blocks the connection instead of le
   assert.equal(resolved, null);
 
   // But the operator assigned a (now dead) proxy, so this must be blocked.
-  const blocked = proxies.hasBlockingProxyAssignment("connZ");
+  const blocked = await proxies.hasBlockingProxyAssignment("connZ");
   assert.equal(blocked, true);
 });
 
@@ -169,12 +171,14 @@ test("deleteSubscription unbinds and removes its proxy rows", async () => {
     .all("s4") as Array<{ id: string }>;
   assert.equal(rows.length, 0, "subscription proxy rows should be removed");
 
-  const assignments = db
-    .prepare("SELECT 1 FROM proxy_assignments a JOIN proxy_registry p ON p.id=a.proxy_id WHERE p.source='subscription' LIMIT 1")
+  const assignments = await db
+    .prepare(
+      "SELECT 1 FROM proxy_assignments a JOIN proxy_registry p ON p.id=a.proxy_id WHERE p.source='subscription' LIMIT 1"
+    )
     .get();
   assert.equal(assignments, undefined, "no subscription proxy should remain assigned");
 
-  const subRow = db.prepare("SELECT 1 FROM proxy_subscriptions WHERE id='s4'").get();
+  const subRow = await db.prepare("SELECT 1 FROM proxy_subscriptions WHERE id='s4'").get();
   assert.equal(subRow, undefined);
 });
 

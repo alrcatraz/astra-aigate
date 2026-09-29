@@ -99,10 +99,12 @@ function restoreEnv() {
   process.env.DATA_DIR = TEST_DATA_DIR;
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function waitFor(predicate, timeoutMs = 200) {
@@ -125,7 +127,7 @@ function mockFetchWith(body, status = 200, statusText = "OK") {
 }
 
 test.beforeEach(async () => {
-  resetStorage();
+  await resetStorage();
 });
 
 test.afterEach(async () => {
@@ -137,11 +139,11 @@ test.afterEach(async () => {
   loadedModules.clear();
   globalThis.fetch = originalFetch;
   restoreEnv();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -241,8 +243,8 @@ test("modelsDev pricing helpers persist records, skip corrupted rows, and clear 
   const modelsDev = await importFresh("pricing-storage");
   const pricing = modelsDev.transformModelsDevToPricing(MOCK_MODELS_DEV_DATA);
 
-  modelsDev.saveModelsDevPricing(pricing);
-  const saved = modelsDev.getModelsDevPricing();
+  await modelsDev.saveModelsDevPricing(pricing);
+  const saved = await modelsDev.getModelsDevPricing();
   assert.equal(saved.openai["gpt-4o"].input, 2.5);
   assert.equal(saved.cx["gpt-4o"].cache_creation, 2.5);
 
@@ -253,10 +255,10 @@ test("modelsDev pricing helpers persist records, skip corrupted rows, and clear 
     "{oops"
   );
 
-  const withCorruption = modelsDev.getModelsDevPricing();
+  const withCorruption = await modelsDev.getModelsDevPricing();
   assert.equal(withCorruption.corrupted, undefined);
 
-  modelsDev.clearModelsDevPricing();
+  await modelsDev.clearModelsDevPricing();
   assert.deepEqual(modelsDev.getModelsDevPricing(), {});
 });
 
@@ -265,10 +267,10 @@ test("modelsDev capabilities helpers create the table, persist rows, filter by p
   const capabilities = modelsDev.transformModelsDevToCapabilities(MOCK_MODELS_DEV_DATA);
 
   modelsDev.ensureCapabilitiesTable();
-  modelsDev.saveModelsDevCapabilities(capabilities);
+  await modelsDev.saveModelsDevCapabilities(capabilities);
 
-  const allCaps = modelsDev.getSyncedCapabilities();
-  const openaiOnly = modelsDev.getSyncedCapabilities("openai", "gpt-4o");
+  const allCaps = await modelsDev.getSyncedCapabilities();
+  const openaiOnly = await modelsDev.getSyncedCapabilities("openai", "gpt-4o");
 
   assert.equal(allCaps.openai["gpt-4o"].tool_call, true);
   assert.equal(allCaps.anthropic["claude-sonnet-4-20250514"].attachment, true);
@@ -276,7 +278,7 @@ test("modelsDev capabilities helpers create the table, persist rows, filter by p
   assert.equal(openaiOnly.openai["gpt-4o"].limit_context, 128000);
   assert.equal("getModelContextLimit" in modelsDev, false);
 
-  modelsDev.clearModelsDevCapabilities();
+  await modelsDev.clearModelsDevCapabilities();
   assert.deepEqual(modelsDev.getSyncedCapabilities(), {});
 });
 
@@ -318,7 +320,7 @@ test("modelsDev capability helpers coerce false/null values and ignore malformed
   };
 
   try {
-    const openai = modelsDev.getSyncedCapabilities("openai");
+    const openai = await modelsDev.getSyncedCapabilities("openai");
     assert.deepEqual(openai.openai["coerced-model"], {
       tool_call: false,
       reasoning: null,
@@ -339,7 +341,7 @@ test("modelsDev capability helpers coerce false/null values and ignore malformed
       interleaved_field: null,
     });
 
-    const all = modelsDev.getSyncedCapabilities();
+    const all = await modelsDev.getSyncedCapabilities();
     assert.equal(all["7"], undefined);
     assert.equal(all.openai["missing-provider"], undefined);
   } finally {
@@ -382,7 +384,7 @@ test("modelsDev pricing helpers ignore malformed sqlite rows without crashing", 
 
 test("saveModelsDevCapabilities round-trips false and null booleans", async () => {
   const modelsDev = await importFresh("capabilities-roundtrip-falsey");
-  modelsDev.saveModelsDevCapabilities({
+  await modelsDev.saveModelsDevCapabilities({
     openai: {
       "gpt-falsey": {
         tool_call: false,
@@ -483,7 +485,7 @@ test("syncModelsDev honors abort signals during retry backoff", async () => {
 
   try {
     const controller = new AbortController();
-    const pending = modelsDev.syncModelsDev({ signal: controller.signal, maxRetries: 3 });
+    const pending = await modelsDev.syncModelsDev({ signal: controller.signal, maxRetries: 3 });
     const warned = await waitFor(() => warnings.length > 0, 100);
     assert.ok(warned, "expected the first retry warning before aborting");
 

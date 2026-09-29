@@ -141,7 +141,7 @@ test("listSessions retorna array (vazio ou com sessões)", async () => {
   process.env.DATA_DIR = tmpDir;
   try {
     const { listSessions, saveSession } = await import("../../bin/cli/tui/session.mjs");
-    const empty = listSessions();
+    const empty = await listSessions();
     assert.ok(Array.isArray(empty));
     saveSession("session-a", {
       model: "gpt-4o",
@@ -149,7 +149,7 @@ test("listSessions retorna array (vazio ou com sessões)", async () => {
       totalUsage: { in: 0, out: 0 },
       totalCost: 0,
     });
-    const list = listSessions();
+    const list = await listSessions();
     assert.ok(list.some((s) => s.name === "session-a"));
   } finally {
     process.env.DATA_DIR = origDataDir ?? "";

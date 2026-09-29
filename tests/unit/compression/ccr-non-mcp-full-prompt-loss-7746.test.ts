@@ -54,19 +54,28 @@ describe("issue #7746 — CCR must not reduce the sole user prompt to a bare, un
   });
 
   it("prompt fixture is realistically sized (>= default 600-char minChars)", () => {
-    assert.ok(REPORTER_PROMPT.length >= 600, `fixture must be >= 600 chars, got ${REPORTER_PROMPT.length}`);
+    assert.ok(
+      REPORTER_PROMPT.length >= 600,
+      `fixture must be >= 600 chars, got ${REPORTER_PROMPT.length}`
+    );
   });
 
-  it("does not leave the model with only the bare CCR marker when no retrieve tool is available", () => {
+  it("does not leave the model with only the bare CCR marker when no retrieve tool is available", async () => {
     resetCcrStore();
     const body = makeOpenCodeStyleRequestBody();
-    const result = ccrEngine.apply(body as Record<string, unknown>, { stepConfig: {} });
+    const result = await ccrEngine.apply(body as Record<string, unknown>, { stepConfig: {} });
 
-    assert.equal(result.compressed, true, "CCR compressed the sole user message (reproducing the report)");
+    assert.equal(
+      result.compressed,
+      true,
+      "CCR compressed the sole user message (reproducing the report)"
+    );
 
     const messages = result.body.messages as Array<{ role: string; content: string }>;
     const compressedContent = messages[0].content;
-    const isBareMarkerOnly = /^\[CCR retrieve hash=[0-9a-f]{24} chars=\d+\]$/.test(compressedContent);
+    const isBareMarkerOnly = /^\[CCR retrieve hash=[0-9a-f]{24} chars=\d+\]$/.test(
+      compressedContent
+    );
 
     assert.equal(
       isBareMarkerOnly,
@@ -77,16 +86,20 @@ describe("issue #7746 — CCR must not reduce the sole user prompt to a bare, un
     );
   });
 
-  it("the original prompt remains fully retrievable by hash even after the guard applies", () => {
+  it("the original prompt remains fully retrievable by hash even after the guard applies", async () => {
     resetCcrStore();
     const body = makeOpenCodeStyleRequestBody();
-    const result = ccrEngine.apply(body as Record<string, unknown>, { stepConfig: {} });
+    const result = await ccrEngine.apply(body as Record<string, unknown>, { stepConfig: {} });
 
     const messages = result.body.messages as Array<{ role: string; content: string }>;
     const compressedContent = messages[0].content;
     const match = compressedContent.match(/\[CCR retrieve hash=([0-9a-f]{24}) chars=\d+\]/);
     assert.ok(match, "compressed content must still contain a resolvable CCR marker");
     const hash = match![1];
-    assert.equal(retrieveBlock(hash), REPORTER_PROMPT, "original prompt must be stored verbatim and retrievable");
+    assert.equal(
+      retrieveBlock(hash),
+      REPORTER_PROMPT,
+      "original prompt must be stored verbatim and retrievable"
+    );
   });
 });

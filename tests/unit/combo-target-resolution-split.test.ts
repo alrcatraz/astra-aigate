@@ -24,8 +24,8 @@ const { saveModelsDevCapabilities, clearModelsDevCapabilities } =
 const { resolveComboTargetPipeline } =
   await import("../../open-sse/services/combo/targetResolution.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {
@@ -34,8 +34,8 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test.beforeEach(() => {
-  clearModelsDevCapabilities();
+test.beforeEach(async () => {
+  await clearModelsDevCapabilities();
 });
 
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} } as never;
@@ -116,7 +116,7 @@ test("an empty combo yields an empty target pool (combo.ts turns it into a 404)"
 });
 
 test("request exceeding every known context window returns a 400 earlyResponse", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "unit-target-resolution": {
       tiny: capabilityEntry(8_000),
       small: capabilityEntry(16_000),

@@ -132,14 +132,16 @@ function makeRequest(method: string, body?: unknown): Request {
 }
 
 describe("settings/compression route — engines + activeComboId", () => {
-  beforeEach(() => {
-    core.resetDbInstance();
+  beforeEach(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
     fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
     if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = ORIGINAL_DATA_DIR;
@@ -152,7 +154,7 @@ describe("settings/compression route — engines + activeComboId", () => {
     assert.equal(putRes.status, 200);
 
     // Fresh DB handle so we read from storage, not from the write-path return value.
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
 
     const getRes = await route.GET(makeRequest("GET"));
     assert.equal(getRes.status, 200);
@@ -166,31 +168,37 @@ describe("settings/compression route — engines + activeComboId", () => {
     );
     // activeComboId is always present (null by default)
     assert.ok("activeComboId" in body, "GET response must include activeComboId");
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 
   it("PUT activeComboId persists and is returned by GET", async () => {
     const putRes = await route.PUT(makeRequest("PUT", { activeComboId: "combo-abc" }));
     assert.equal(putRes.status, 200);
 
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
 
     const getRes = await route.GET(makeRequest("GET"));
     assert.equal(getRes.status, 200);
     const body = await getRes.json();
     assert.equal(body.activeComboId, "combo-abc");
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 
   it("PUT activeComboId:null clears the active combo", async () => {
     // First set it, then clear.
     await route.PUT(makeRequest("PUT", { activeComboId: "combo-to-clear" }));
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     await route.PUT(makeRequest("PUT", { activeComboId: null }));
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
 
     const getRes = await route.GET(makeRequest("GET"));
     assert.equal(getRes.status, 200);
     const body = await getRes.json();
     assert.equal(body.activeComboId, null);
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 
   it("PUT with invalid engines shape is rejected by schema validation (400)", async () => {
@@ -215,9 +223,11 @@ describe("settings/compression route — engines + activeComboId", () => {
     const putRes = await route.PUT(makeRequest("PUT", { enabled: true, enginesExplicit: true }));
     assert.equal(putRes.status, 200);
 
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
 
     const putRes2 = await route.PUT(makeRequest("PUT", { enabled: false, enginesExplicit: false }));
     assert.equal(putRes2.status, 200);
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 });

@@ -140,7 +140,7 @@ describe("G-07 — /api/version-manager/* delegates to ServiceSupervisor", () =>
   });
 
   describe("supervisor singleton: same instance shared between route groups", () => {
-    it("a start call via version-manager route and one via cliproxy route resolve to the same lock", () => {
+    it("a start call via version-manager route and one via cliproxy route resolve to the same lock", async () => {
       // The key invariant: both route groups call getOrInitSupervisor() which
       // returns the same singleton registered in the registry. Concurrent
       // calls queue behind the operationLock inside ServiceSupervisor.
@@ -150,8 +150,8 @@ describe("G-07 — /api/version-manager/* delegates to ServiceSupervisor", () =>
       supervisors.set("cliproxy", mockSupervisorInstance);
 
       // Both "callers" resolve the same object
-      const fromLegacy = supervisors.get("cliproxy");
-      const fromNew = supervisors.get("cliproxy");
+      const fromLegacy = await supervisors.get("cliproxy");
+      const fromNew = await supervisors.get("cliproxy");
       assert.strictEqual(fromLegacy, fromNew, "Both routes must resolve the same supervisor");
     });
 

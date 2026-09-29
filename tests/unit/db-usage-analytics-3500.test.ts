@@ -83,12 +83,14 @@ function insertDailyUsageSummary(row: Record<string, unknown>) {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-test.before(() => {
-  core.resetDbInstance();
+test.before(async () => {
+  await core.resetDbInstanceDrained();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -180,7 +182,7 @@ test("#3500 buildUnifiedSource — api_key filter suppresses daily_usage_summary
 // getUsageSummary
 // ---------------------------------------------------------------------------
 
-test("#3500 getUsageSummary — returns correct scalar aggregations", () => {
+test("#3500 getUsageSummary — returns correct scalar aggregations", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = new Date().toISOString();
 
@@ -207,7 +209,7 @@ test("#3500 getUsageSummary — returns correct scalar aggregations", () => {
     apiKeyParams: {},
   });
 
-  const row = mod.getUsageSummary(unifiedSource, unifiedParams);
+  const row = await mod.getUsageSummary(unifiedSource, unifiedParams);
 
   assert.ok(row.totalRequests >= 2, "totalRequests >= 2");
   assert.ok(row.promptTokens >= 80, "promptTokens >= 80");
@@ -223,7 +225,7 @@ test("#3500 getUsageSummary — returns correct scalar aggregations", () => {
 // getDailyUsage
 // ---------------------------------------------------------------------------
 
-test("#3500 getDailyUsage — groups by date, ascending order", () => {
+test("#3500 getDailyUsage — groups by date, ascending order", async () => {
   // Use far-future rawCutoffDate so all rows fall in the raw leg (no UNION needed)
   const rawCutoffDate = "2020-01-01";
   const day1 = "2025-03-01T12:00:00.000Z";
@@ -241,7 +243,7 @@ test("#3500 getDailyUsage — groups by date, ascending order", () => {
     apiKeyParams: {},
   });
 
-  const rows = mod.getDailyUsage(unifiedSource, unifiedParams);
+  const rows = await mod.getDailyUsage(unifiedSource, unifiedParams);
 
   const march1 = rows.find((r) => r.date === "2025-03-01");
   const march2 = rows.find((r) => r.date === "2025-03-02");
@@ -258,7 +260,7 @@ test("#3500 getDailyUsage — groups by date, ascending order", () => {
 // getDailyCostRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getDailyCostRows — groups by date+provider+model+serviceTier", () => {
+test("#3500 getDailyCostRows — groups by date+provider+model+serviceTier", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = "2025-04-01T12:00:00.000Z";
 
@@ -287,7 +289,7 @@ test("#3500 getDailyCostRows — groups by date+provider+model+serviceTier", () 
     apiKeyParams: {},
   });
 
-  const rows = mod.getDailyCostRows(unifiedSource, unifiedParams);
+  const rows = await mod.getDailyCostRows(unifiedSource, unifiedParams);
   const row = rows.find((r) => r.provider === "anthropic" && r.model === "claude-3-5-sonnet");
 
   assert.ok(row, "anthropic/claude row present");
@@ -301,11 +303,11 @@ test("#3500 getDailyCostRows — groups by date+provider+model+serviceTier", () 
 // getHeatmapRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getHeatmapRows — groups by date, respects conditions", () => {
+test("#3500 getHeatmapRows — groups by date, respects conditions", async () => {
   const ts = "2025-05-15T10:00:00.000Z";
   insertUsageHistory({ timestamp: ts, tokens_input: 40, tokens_output: 60 });
 
-  const rows = mod.getHeatmapRows(["timestamp >= @heatmapStart"], {
+  const rows = await mod.getHeatmapRows(["timestamp >= @heatmapStart"], {
     heatmapStart: "2025-05-15T00:00:00.000Z",
   });
 
@@ -318,7 +320,7 @@ test("#3500 getHeatmapRows — groups by date, respects conditions", () => {
 // getModelUsageRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getModelUsageRows — returns per-model aggregates", () => {
+test("#3500 getModelUsageRows — returns per-model aggregates", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = "2025-06-01T10:00:00.000Z";
 
@@ -349,7 +351,7 @@ test("#3500 getModelUsageRows — returns per-model aggregates", () => {
     apiKeyParams: {},
   });
 
-  const rows = mod.getModelUsageRows(unifiedSource, unifiedParams);
+  const rows = await mod.getModelUsageRows(unifiedSource, unifiedParams);
   const row = rows.find((r) => r.model === "gpt-5" && r.provider === "openai");
 
   assert.ok(row, "gpt-5/openai row present");
@@ -364,7 +366,7 @@ test("#3500 getModelUsageRows — returns per-model aggregates", () => {
 // getProviderCostRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getProviderCostRows — groups by provider+model+serviceTier", () => {
+test("#3500 getProviderCostRows — groups by provider+model+serviceTier", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = "2025-07-01T12:00:00.000Z";
 
@@ -385,7 +387,7 @@ test("#3500 getProviderCostRows — groups by provider+model+serviceTier", () =>
     apiKeyParams: {},
   });
 
-  const rows = mod.getProviderCostRows(unifiedSource, unifiedParams);
+  const rows = await mod.getProviderCostRows(unifiedSource, unifiedParams);
   const row = rows.find((r) => r.provider === "gemini");
 
   assert.ok(row, "gemini row present");
@@ -396,7 +398,7 @@ test("#3500 getProviderCostRows — groups by provider+model+serviceTier", () =>
 // getProviderUsageRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getProviderUsageRows — aggregates per provider", () => {
+test("#3500 getProviderUsageRows — aggregates per provider", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = "2025-08-01T12:00:00.000Z";
 
@@ -425,7 +427,7 @@ test("#3500 getProviderUsageRows — aggregates per provider", () => {
     apiKeyParams: {},
   });
 
-  const rows = mod.getProviderUsageRows(unifiedSource, unifiedParams);
+  const rows = await mod.getProviderUsageRows(unifiedSource, unifiedParams);
   const row = rows.find((r) => r.provider === "mistral");
 
   assert.ok(row, "mistral row present");
@@ -439,7 +441,7 @@ test("#3500 getProviderUsageRows — aggregates per provider", () => {
 // getApiKeyUsageRows + getApiKeyMetadataRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getApiKeyUsageRows — groups by api_key identity", () => {
+test("#3500 getApiKeyUsageRows — groups by api_key identity", async () => {
   const ts = new Date().toISOString();
   const apiKeyWhereClause =
     "WHERE (api_key_id IS NOT NULL AND api_key_id != '') OR (api_key_name IS NOT NULL AND api_key_name != '')";
@@ -461,7 +463,7 @@ test("#3500 getApiKeyUsageRows — groups by api_key identity", () => {
     tokens_output: 40,
   });
 
-  const rows = mod.getApiKeyUsageRows(apiKeyWhereClause, {});
+  const rows = await mod.getApiKeyUsageRows(apiKeyWhereClause, {});
   const row = rows.find((r) => r.apiKeyId === "key-xyz");
 
   assert.ok(row, "key-xyz row present");
@@ -469,14 +471,14 @@ test("#3500 getApiKeyUsageRows — groups by api_key identity", () => {
   assert.ok(row!.promptTokens >= 80, "promptTokens >= 80");
 });
 
-test("#3500 getApiKeyMetadataRows — returns api key metadata with lastUsed", () => {
+test("#3500 getApiKeyMetadataRows — returns api key metadata with lastUsed", async () => {
   const ts = new Date().toISOString();
   const apiKeyWhereClause =
     "WHERE (api_key_id IS NOT NULL AND api_key_id != '') OR (api_key_name IS NOT NULL AND api_key_name != '')";
 
   insertUsageHistory({ timestamp: ts, api_key_id: "key-meta-1", api_key_name: "My Key" });
 
-  const rows = mod.getApiKeyMetadataRows(apiKeyWhereClause, {});
+  const rows = await mod.getApiKeyMetadataRows(apiKeyWhereClause, {});
   const row = rows.find((r) => r.apiKeyId === "key-meta-1");
 
   assert.ok(row, "key-meta-1 present in metadata");
@@ -488,7 +490,7 @@ test("#3500 getApiKeyMetadataRows — returns api key metadata with lastUsed", (
 // getServiceTierUsageRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getServiceTierUsageRows — groups by serviceTier+provider+model", () => {
+test("#3500 getServiceTierUsageRows — groups by serviceTier+provider+model", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = "2025-09-01T12:00:00.000Z";
 
@@ -525,7 +527,7 @@ test("#3500 getServiceTierUsageRows — groups by serviceTier+provider+model", (
     apiKeyParams: {},
   });
 
-  const rows = mod.getServiceTierUsageRows(unifiedSource, unifiedParams);
+  const rows = await mod.getServiceTierUsageRows(unifiedSource, unifiedParams);
 
   const flexRow = rows.find((r) => r.serviceTier === "flex" && r.model === "gpt-5");
   const stdRow = rows.find((r) => r.serviceTier === "standard" && r.model === "gpt-5");
@@ -541,7 +543,7 @@ test("#3500 getServiceTierUsageRows — groups by serviceTier+provider+model", (
 // getWeeklyPatternRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getWeeklyPatternRows — groups by day of week, ascending", () => {
+test("#3500 getWeeklyPatternRows — groups by day of week, ascending", async () => {
   const rawCutoffDate = "2020-01-01";
   // Monday 2025-06-02
   insertUsageHistory({
@@ -559,7 +561,7 @@ test("#3500 getWeeklyPatternRows — groups by day of week, ascending", () => {
     apiKeyParams: {},
   });
 
-  const rows = mod.getWeeklyPatternRows(unifiedSource, unifiedParams);
+  const rows = await mod.getWeeklyPatternRows(unifiedSource, unifiedParams);
   // Monday is strftime('%w', ...) = 1
   const monday = rows.find((r) => r.dayOfWeek === "1");
 
@@ -607,7 +609,7 @@ test("#3500 buildPresetUnifiedSource — raw-only with recent sinceIso", () => {
 // getPresetCostModelRows
 // ---------------------------------------------------------------------------
 
-test("#3500 getPresetCostModelRows — groups by model+provider+serviceTier", () => {
+test("#3500 getPresetCostModelRows — groups by model+provider+serviceTier", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = "2025-10-01T12:00:00.000Z";
 
@@ -630,7 +632,7 @@ test("#3500 getPresetCostModelRows — groups by model+provider+serviceTier", ()
     apiKeyParams: {},
   });
 
-  const rows = mod.getPresetCostModelRows(unifiedSource, unifiedParams);
+  const rows = await mod.getPresetCostModelRows(unifiedSource, unifiedParams);
   const row = rows.find((r) => r.provider === "cohere" && r.model === "command-r-plus");
 
   assert.ok(row, "cohere/command-r-plus row present");
@@ -644,18 +646,18 @@ test("#3500 getPresetCostModelRows — groups by model+provider+serviceTier", ()
 // getAllUsageHistory / getAllDomainCostHistory / getAllDomainBudgets
 // ---------------------------------------------------------------------------
 
-test("#3500 getAllUsageHistory — returns array (empty or rows)", () => {
-  const rows = mod.getAllUsageHistory();
+test("#3500 getAllUsageHistory — returns array (empty or rows)", async () => {
+  const rows = await mod.getAllUsageHistory();
   assert.ok(Array.isArray(rows), "returns array");
 });
 
-test("#3500 getAllDomainCostHistory — returns array", () => {
-  const rows = mod.getAllDomainCostHistory();
+test("#3500 getAllDomainCostHistory — returns array", async () => {
+  const rows = await mod.getAllDomainCostHistory();
   assert.ok(Array.isArray(rows), "returns array");
 });
 
-test("#3500 getAllDomainBudgets — returns array", () => {
-  const rows = mod.getAllDomainBudgets();
+test("#3500 getAllDomainBudgets — returns array", async () => {
+  const rows = await mod.getAllDomainBudgets();
   assert.ok(Array.isArray(rows), "returns array");
 });
 
@@ -663,7 +665,7 @@ test("#3500 getAllDomainBudgets — returns array", () => {
 // UNION source integration — daily_usage_summary rows included in aggregates
 // ---------------------------------------------------------------------------
 
-test("#3500 buildUnifiedSource UNION — summary rows merged into getDailyUsage result", () => {
+test("#3500 buildUnifiedSource UNION — summary rows merged into getDailyUsage result", async () => {
   // Set rawCutoffDate to tomorrow so today's usage_history rows are in the raw leg;
   // also insert a daily_usage_summary row for a past date that is below rawCutoffDate.
   const tomorrow = new Date(Date.now() + 86_400_000);
@@ -691,7 +693,7 @@ test("#3500 buildUnifiedSource UNION — summary rows merged into getDailyUsage 
   // UNION branch must be used because sinceIso < rawCutoffDate
   assert.ok(unifiedSource.includes("daily_usage_summary"), "UNION branch active");
 
-  const rows = mod.getDailyUsage(unifiedSource, unifiedParams);
+  const rows = await mod.getDailyUsage(unifiedSource, unifiedParams);
   const june1 = rows.find((r) => r.date === pastDate);
 
   assert.ok(june1, "2023-06-01 summary row is visible through UNION");

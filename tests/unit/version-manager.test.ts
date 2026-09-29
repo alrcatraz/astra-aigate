@@ -30,7 +30,7 @@ const originalClearInterval = globalThis.clearInterval;
 
 async function resetStorage() {
   healthMonitor.stopMonitoring("cliproxyapi");
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -49,6 +49,8 @@ async function resetStorage() {
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   fs.mkdirSync(TEST_CONFIG_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 function installSpawnStub(startPid = 6100) {

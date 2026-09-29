@@ -111,9 +111,9 @@ describe("CompressionPipelineEditor (T06)", () => {
     const engineSelect = container.querySelector(
       '[data-testid="pipeline-row-0"] select[aria-label="Engine"]'
     ) as HTMLSelectElement;
-    act(() => {
+    act(async () => {
       engineSelect.value = "caveman";
-      engineSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await engineSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(received).not.toBeNull();
     // 'aggressive' is not a caveman intensity → coerced to the first caveman intensity

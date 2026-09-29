@@ -44,8 +44,8 @@ function renderIcon(props: Record<string, unknown>): HTMLElement {
 function fireImgError(container: HTMLElement) {
   const img = container.querySelector("img");
   if (!img) throw new Error("expected an <img> element to fire error on");
-  act(() => {
-    img.dispatchEvent(new Event("error"));
+  act(async () => {
+    await img.dispatchEvent(new Event("error"));
   });
 }
 

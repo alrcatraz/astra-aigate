@@ -42,7 +42,7 @@ describe("modelsDevSync — integration: live fetch → DB → retrieve", () => 
     );
 
     // 2. Retrieve pricing from DB
-    const pricing = getModelsDevPricing();
+    const pricing = await getModelsDevPricing();
     assert.ok(Object.keys(pricing).length > 0, "should have pricing in DB");
 
     // 3. Verify specific known models
@@ -59,7 +59,7 @@ describe("modelsDevSync — integration: live fetch → DB → retrieve", () => 
     assert.ok(pricing.if, "if (Qoder) pricing should exist (mapped from deepseek)");
 
     // 4. Retrieve capabilities from DB
-    const caps = getSyncedCapabilities();
+    const caps = await getSyncedCapabilities();
     assert.ok(Object.keys(caps).length > 0, "should have capabilities in DB");
 
     assert.ok(caps.openai, "openai capabilities should exist");
@@ -69,19 +69,19 @@ describe("modelsDevSync — integration: live fetch → DB → retrieve", () => 
     assert.equal(caps.openai["gpt-4o"].attachment, true);
 
     // 5. Query specific capability
-    const specificCaps = getSyncedCapabilities("openai", "gpt-4o");
+    const specificCaps = await getSyncedCapabilities("openai", "gpt-4o");
     assert.ok(specificCaps.openai, "specific query should return openai");
     assert.ok(specificCaps.openai["gpt-4o"], "specific query should return gpt-4o");
     assert.equal(specificCaps.openai["gpt-4o"].limit_context, 128000);
 
     // 6. Cleanup
-    clearModelsDevPricing();
-    clearModelsDevCapabilities();
+    await clearModelsDevPricing();
+    await clearModelsDevCapabilities();
 
-    const afterPricing = getModelsDevPricing();
+    const afterPricing = await getModelsDevPricing();
     assert.equal(Object.keys(afterPricing).length, 0, "pricing should be cleared");
 
-    const afterCaps = getSyncedCapabilities();
+    const afterCaps = await getSyncedCapabilities();
     assert.equal(Object.keys(afterCaps).length, 0, "capabilities should be cleared");
   });
 
@@ -90,7 +90,7 @@ describe("modelsDevSync — integration: live fetch → DB → retrieve", () => 
       await import("../../src/lib/modelsDevSync.ts");
 
     // Clear any existing data first
-    clearModelsDevPricing();
+    await clearModelsDevPricing();
 
     const result = await syncModelsDev({ dryRun: true, syncCapabilities: false });
     assert.equal(result.success, true);
@@ -98,7 +98,7 @@ describe("modelsDevSync — integration: live fetch → DB → retrieve", () => 
     assert.ok(result.data.pricing, "dryRun should return pricing data");
 
     // Verify nothing was saved
-    const pricing = getModelsDevPricing();
+    const pricing = await getModelsDevPricing();
     assert.equal(Object.keys(pricing).length, 0, "dryRun should not save to DB");
   });
 
@@ -111,8 +111,8 @@ describe("modelsDevSync — integration: live fetch → DB → retrieve", () => 
       clearModelsDevCapabilities,
     } = await import("../../src/lib/modelsDevSync.ts");
 
-    clearModelsDevPricing();
-    clearModelsDevCapabilities();
+    await clearModelsDevPricing();
+    await clearModelsDevCapabilities();
 
     const result = await syncModelsDev({ dryRun: false, syncCapabilities: false });
     assert.equal(result.success, true);
@@ -120,14 +120,14 @@ describe("modelsDevSync — integration: live fetch → DB → retrieve", () => 
     assert.equal(result.capabilityCount, 0, "capabilityCount should be 0 when disabled");
 
     // Pricing should be saved
-    const pricing = getModelsDevPricing();
+    const pricing = await getModelsDevPricing();
     assert.ok(Object.keys(pricing).length > 0, "pricing should be saved");
 
     // Capabilities should NOT be saved
-    const caps = getSyncedCapabilities();
+    const caps = await getSyncedCapabilities();
     assert.equal(Object.keys(caps).length, 0, "capabilities should not be saved");
 
-    clearModelsDevPricing();
+    await clearModelsDevPricing();
   });
 });
 
@@ -136,14 +136,14 @@ describe("modelsDevSync — resolution order: user > models.dev > LiteLLM > defa
     const { syncModelsDev, getModelsDevPricing, clearModelsDevPricing } =
       await import("../../src/lib/modelsDevSync.ts");
 
-    clearModelsDevPricing();
+    await clearModelsDevPricing();
     await syncModelsDev({ dryRun: false, syncCapabilities: false });
 
-    const pricing = getModelsDevPricing();
+    const pricing = await getModelsDevPricing();
     assert.ok(pricing.openai, "openai pricing should exist");
     assert.ok(pricing.openai["gpt-4o"], "gpt-4o should have models.dev pricing");
 
-    clearModelsDevPricing();
+    await clearModelsDevPricing();
   });
 
   it("getPricing() merges all layers correctly", async () => {
@@ -153,7 +153,7 @@ describe("modelsDevSync — resolution order: user > models.dev > LiteLLM > defa
     const { updatePricing, resetPricing } = await import("../../src/lib/db/settings.ts");
 
     // Clear all synced data first
-    clearModelsDevPricing();
+    await clearModelsDevPricing();
 
     // Sync models.dev pricing
     await syncModelsDev({ dryRun: false, syncCapabilities: false });
@@ -181,6 +181,6 @@ describe("modelsDevSync — resolution order: user > models.dev > LiteLLM > defa
 
     // Reset the override
     await resetPricing("openai", "gpt-4o");
-    clearModelsDevPricing();
+    await clearModelsDevPricing();
   });
 });

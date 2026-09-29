@@ -42,8 +42,8 @@ const { POST } = await import("../../src/app/api/v1/embeddings/route.ts");
 
 const PLAYGROUND_KEY_ID_HEADER = "x-omniroute-playground-key-id";
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

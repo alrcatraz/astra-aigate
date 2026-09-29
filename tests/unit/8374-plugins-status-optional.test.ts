@@ -30,8 +30,8 @@ const core = await import("../../src/lib/db/core.ts");
 const pluginsDb = await import("../../src/lib/db/plugins.ts");
 const { GET } = await import("../../src/app/api/plugins/route.ts");
 
-before(() => {
-  pluginsDb.insertPlugin({
+before(async () => {
+  await pluginsDb.insertPlugin({
     id: "test-plugin-8374",
     name: "test-plugin-8374",
     version: "1.0.0",
@@ -42,8 +42,8 @@ before(() => {
   });
 });
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;

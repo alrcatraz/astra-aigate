@@ -22,8 +22,8 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const { recordComboRequest } = await import("../../open-sse/services/comboMetrics.ts");
 const { saveModelsDevCapabilities } = await import("../../src/lib/modelsDevSync.ts");
 
-after(() => {
-  dbCore.resetDbInstance();
+after(async () => {
+  await dbCore.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -228,7 +228,7 @@ test("least-used strategy prefers the model with fewer recorded combo requests",
 });
 
 test("context-optimized strategy prefers the largest context window", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     "test-context": {
       small: capability(8_000),
       large: capability(64_000),

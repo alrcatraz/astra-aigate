@@ -35,23 +35,25 @@ function buildCapability(overrides = {}) {
   };
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("canonical model capability resolver lets exact synced metadata override global specs", async () => {
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     openai: {
       "gpt-4o-2024-11-20": buildCapability({
         tool_call: false,
@@ -255,7 +257,7 @@ test("Kimi K2.7 Code resolves full capabilities instead of the degraded import d
 });
 
 test("GLM-5.2 context limits respect provider-hosted caps", async () => {
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     huggingface: {
       "zai-org/GLM-5.2": buildCapability({
         limit_context: 128000,

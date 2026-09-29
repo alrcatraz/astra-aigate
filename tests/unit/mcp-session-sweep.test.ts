@@ -238,7 +238,7 @@ test("getMcpHttpStatus returns streamable-http transport when session exists", a
     }),
   });
   const res = await mod.handleMcpStreamableHTTP(initReq);
-  const sessionId = res.headers.get("mcp-session-id");
+  const sessionId = await res.headers.get("mcp-session-id");
   if (sessionId) {
     const status = mod.getMcpHttpStatus();
     assert.equal(status.online, true);
@@ -268,7 +268,7 @@ test("shutdownMcpHttp removes sessions created via handleMcpStreamableHTTP", asy
     }),
   });
   const res = await mod.handleMcpStreamableHTTP(initReq);
-  const sessionId = res.headers.get("mcp-session-id");
+  const sessionId = await res.headers.get("mcp-session-id");
   if (sessionId) {
     assert.equal(mod.isMcpHttpActive(), true);
     mod.shutdownMcpHttp();
@@ -370,7 +370,7 @@ test("handleMcpStreamableHTTP auto-recovers when stale session id is sent with i
   });
 
   const firstRes = await mod.handleMcpStreamableHTTP(initReq);
-  const staleSessionId = firstRes.headers.get("mcp-session-id");
+  const staleSessionId = await firstRes.headers.get("mcp-session-id");
   if (!staleSessionId) {
     mod.shutdownMcpHttp();
     return;
@@ -410,7 +410,7 @@ test("handleMcpStreamableHTTP auto-recovers when stale session id is sent with i
     `Expected 2xx response on auto-recovery, got ${recoveryRes.status}`
   );
 
-  const newSessionId = recoveryRes.headers.get("mcp-session-id");
+  const newSessionId = await recoveryRes.headers.get("mcp-session-id");
   assert.ok(newSessionId, "Server must issue a new mcp-session-id on auto-recovery");
   assert.equal(
     mod.isMcpHttpActive(),

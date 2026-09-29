@@ -82,12 +82,12 @@ test.beforeEach(async () => {
   await resetTestDataDir();
 });
 
-test.afterEach(() => {
-  core.resetDbInstance();
+test.afterEach(async () => {
+  await core.resetDbInstanceDrained();
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {
@@ -184,7 +184,7 @@ test("call log file rotation honors both retention days and file count", async (
   );
   assert.equal(fs.existsSync(path.join(CALL_LOGS_DIR, oldRelPath)), false);
 
-  const keepARow = db
+  const keepARow = await db
     .prepare("SELECT detail_state, artifact_relpath FROM call_logs WHERE id = ?")
     .get("keep-a");
   assert.equal((keepARow as any).detail_state, "missing");

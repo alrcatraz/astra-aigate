@@ -31,8 +31,8 @@ test.afterEach(() => {
   setThinkingBudgetConfig(DEFAULT_THINKING_CONFIG);
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -12,13 +12,13 @@ const { setFeatureFlagOverride, clearAllFeatureFlagOverrides } =
   await import("../../src/lib/db/featureFlags.ts");
 const { resolveResilienceSettings } = await import("../../src/lib/resilience/settings.ts");
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-test("stream recovery feature flags seed resilience defaults", () => {
-  clearAllFeatureFlagOverrides();
+test("stream recovery feature flags seed resilience defaults", async () => {
+  await clearAllFeatureFlagOverrides();
   setFeatureFlagOverride("STREAM_RECOVERY_ENABLED", "true");
   setFeatureFlagOverride("STREAM_RECOVERY_MIDSTREAM_ENABLED", "true");
 
@@ -28,8 +28,8 @@ test("stream recovery feature flags seed resilience defaults", () => {
   assert.equal(resolved.streamRecovery.continueMidStream, true);
 });
 
-test("stored stream recovery settings override feature flag defaults", () => {
-  clearAllFeatureFlagOverrides();
+test("stored stream recovery settings override feature flag defaults", async () => {
+  await clearAllFeatureFlagOverrides();
   setFeatureFlagOverride("STREAM_RECOVERY_ENABLED", "true");
   setFeatureFlagOverride("STREAM_RECOVERY_MIDSTREAM_ENABLED", "true");
 

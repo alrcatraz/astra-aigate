@@ -76,29 +76,31 @@ function buildCapability(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // The synced-capabilities module keeps an in-memory cache across DB resets
   // (`cachedCapabilitiesLoadedAll`) — clear it too so each test starts from a
   // truly empty synced-capability set instead of leaking the previous test's row.
-  modelsDevSync.clearModelsDevCapabilities();
+  await modelsDevSync.clearModelsDevCapabilities();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("#6714 synced row present but limit_output missing falls through to the registry output cap", async () => {
   // Seed a synced capability row for this exact provider/model with
   // limit_output left null (mirrors real models.dev rows that omit it).
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     [provider]: {
       [modelId]: buildCapability({ limit_output: null, status: "stable" }),
     },
@@ -114,7 +116,7 @@ test("#6714 synced row present but limit_output missing falls through to the reg
 
 test("#6714 synced row with a real numeric limit_output still wins over the registry cap", async () => {
   const syncedOutputCap = maxOutputTokens + 1234;
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     [provider]: {
       [modelId]: buildCapability({ limit_output: syncedOutputCap, status: "stable" }),
     },

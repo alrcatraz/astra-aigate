@@ -78,8 +78,8 @@ test("a transformer cancel handler can clear an interval (the leak this guards)"
     transform(chunk, controller) {
       controller.enqueue(chunk);
     },
-    cancel() {
-      stop?.();
+    async cancel() {
+      await stop?.();
     },
   });
 

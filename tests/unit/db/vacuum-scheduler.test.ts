@@ -133,11 +133,11 @@ test("refresh() applies Storage setting changes without restart", async () => {
   assert.equal(state.nextRunAt, null);
 });
 
-test("init() is idempotent — calling it twice does not throw", () => {
+test("init() is idempotent — calling it twice does not throw", async () => {
   setOptimizationSettings({ scheduledVacuum: "never" });
   assert.doesNotThrow(() => scheduler.init());
   assert.doesNotThrow(() => scheduler.init());
-  scheduler.stop();
+  await scheduler.stop();
 });
 
 test("stop() is safe to call before init() and is idempotent", async () => {
@@ -162,7 +162,7 @@ test("runNow() succeeds on a healthy DB and persists lastRunAt", async () => {
     assert.notEqual(state.lastRunAt, null);
     assert.equal(state.lastError, null);
   } finally {
-    scheduler.stop();
+    await scheduler.stop();
   }
 });
 
@@ -181,7 +181,7 @@ test("runNow() can be called repeatedly; each run succeeds and refreshes lastRun
     assert.equal(scheduler.getState().isRunning, false);
     assert.notEqual(scheduler.getState().lastRunAt, null);
   } finally {
-    scheduler.stop();
+    await scheduler.stop();
   }
 });
 
@@ -200,5 +200,5 @@ test("lastRunAt survives a simulated restart (state reloaded from key_value)", a
   await scheduler.init();
   const afterRestart = scheduler.getState().lastRunAt;
   assert.equal(afterRestart, beforeRestart);
-  scheduler.stop();
+  await scheduler.stop();
 });

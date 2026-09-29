@@ -49,9 +49,9 @@ function capabilityEntry(limitContext: unknown, overrides: Record<string, unknow
   };
 }
 
-test.before(() => {
+test.before(async () => {
   // A thinking-capable model with a large output cap: the #3587 guards all pass.
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     zhipu: {
       "glm-5.2": capabilityEntry(200000, { reasoning: true, limit_output: 65536 }),
       // Deliberately NOT prefixed with a real MODEL_SPECS key (e.g. "glm-5.2") —
@@ -71,9 +71,9 @@ test.before(() => {
   });
 });
 
-test.after(() => {
-  clearModelsDevCapabilities();
-  core.resetDbInstance();
+test.after(async () => {
+  await clearModelsDevCapabilities();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

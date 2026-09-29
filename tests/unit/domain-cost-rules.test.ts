@@ -13,7 +13,7 @@ const domainState = await import("../../src/lib/db/domainState.ts");
 
 async function resetStorage() {
   costRules.resetCostData();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -31,6 +31,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -39,7 +41,7 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   costRules.resetCostData();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -90,7 +92,7 @@ test("checkBudget reports warning and blocks when projected spend exceeds the da
   assert.match(denied.reason, /Daily budget exceeded/);
 });
 
-test("getDailyTotal and getCostSummary split daily and monthly totals correctly", () => {
+test("getDailyTotal and getCostSummary split daily and monthly totals correctly", async () => {
   const OriginalDate = global.Date;
   const mockNow = Date.UTC(2026, 4, 15, 12, 0, 0); // May 15, 2026
 
@@ -120,9 +122,9 @@ test("getDailyTotal and getCostSummary split daily and monthly totals correctly"
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
 
-    domainState.saveCostEntry("key-summary", 2.5, today);
-    domainState.saveCostEntry("key-summary", 1.5, yesterday);
-    domainState.saveCostEntry("key-summary", 9.9, lastMonth.getTime());
+    await domainState.saveCostEntry("key-summary", 2.5, today);
+    await domainState.saveCostEntry("key-summary", 1.5, yesterday);
+    await domainState.saveCostEntry("key-summary", 9.9, lastMonth.getTime());
 
     assert.equal(costRules.getDailyTotal("key-summary"), 2.5);
     assert.deepEqual(costRules.getCostSummary("key-summary"), {
@@ -161,8 +163,8 @@ test("getDailyTotal and getCostSummary split daily and monthly totals correctly"
   }
 });
 
-test("costRules covers DB-loaded budgets, malformed entries and storage failure fallbacks", () => {
-  domainState.saveBudget("db-loaded", {
+test("costRules covers DB-loaded budgets, malformed entries and storage failure fallbacks", async () => {
+  await domainState.saveBudget("db-loaded", {
     dailyLimitUsd: 7,
     weeklyLimitUsd: 14,
     monthlyLimitUsd: 21,
@@ -284,7 +286,7 @@ test("weekly budgets use the weekly window limit and expose the next reset metad
   assert.ok(typeof summary.budgetResetAt === "number" && summary.budgetResetAt > Date.now());
 });
 
-test("syncAllBudgetSchedules advances overdue budgets and records a reset log", () => {
+test("syncAllBudgetSchedules advances overdue budgets and records a reset log", async () => {
   const now = Date.UTC(2026, 3, 17, 12, 0, 0);
   const previousPeriodStart = Date.UTC(2026, 3, 15, 0, 0, 0);
   const overdueResetAt = Date.UTC(2026, 3, 16, 0, 0, 0);
@@ -293,7 +295,7 @@ test("syncAllBudgetSchedules advances overdue budgets and records a reset log", 
   try {
     Date.now = () => now;
 
-    domainState.saveBudget("key-reset", {
+    await domainState.saveBudget("key-reset", {
       dailyLimitUsd: 10,
       warningThreshold: 0.8,
       resetInterval: "daily",
@@ -301,11 +303,11 @@ test("syncAllBudgetSchedules advances overdue budgets and records a reset log", 
       budgetResetAt: overdueResetAt,
       lastBudgetResetAt: previousPeriodStart,
     });
-    domainState.saveCostEntry("key-reset", 3.5, Date.UTC(2026, 3, 15, 12, 0, 0));
+    await domainState.saveCostEntry("key-reset", 3.5, Date.UTC(2026, 3, 15, 12, 0, 0));
 
     const result = costRules.syncAllBudgetSchedules(now);
     const synced = costRules.getBudget("key-reset");
-    const logs = domainState.loadBudgetResetLogs("key-reset", 5);
+    const logs = await domainState.loadBudgetResetLogs("key-reset", 5);
 
     assert.equal(result.processed, 1);
     assert.equal(result.resetCount, 1);

@@ -24,9 +24,11 @@ const { getCircuitBreaker, resetAllCircuitBreakers, STATE } =
 
 async function resetStorage() {
   resetAllCircuitBreakers();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider, overrides = {}) {
@@ -421,10 +423,10 @@ test("executeChatWithBreaker converts proxy fast-fail errors", async () => {
   }
 });
 
-test("safeLogEvents tolerates success and timeout payloads", () => {
+test("safeLogEvents tolerates success and timeout payloads", async () => {
   const credentials = { connectionId: "conn_log_12345678" };
 
-  safeLogEvents({
+  await safeLogEvents({
     result: { success: true, status: 200 },
     proxyInfo: null,
     proxyLatency: 12,
@@ -437,7 +439,7 @@ test("safeLogEvents tolerates success and timeout payloads", () => {
     clientRawRequest: { endpoint: "/v1/chat/completions" },
   });
 
-  safeLogEvents({
+  await safeLogEvents({
     result: { success: false, status: 504, error: "timeout" },
     proxyInfo: { proxy: null, level: "direct", levelId: null },
     proxyLatency: 25,

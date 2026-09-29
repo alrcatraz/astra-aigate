@@ -31,18 +31,16 @@ const VALID_ADVANCED: ReadonlySet<AdvancedSlug> = new Set([
   "compression",
 ]);
 
-function parseDeepLink(searchString: string): TranslateDeepLink {
+async function parseDeepLink(searchString: string): TranslateDeepLink {
   const params = new URLSearchParams(searchString);
-  const tab = params.get("tab");
-  const mode = params.get("mode");
-  const advanced = params.get("advanced");
+  const tab = await params.get("tab");
+  const mode = await params.get("mode");
+  const advanced = await params.get("advanced");
   return {
     tab: VALID_TABS.has(tab as TranslatorTab) ? (tab as TranslatorTab) : "translate",
     mode: VALID_MODES.has(mode as TranslateMode) ? (mode as TranslateMode) : "send",
     advanced:
-      advanced && VALID_ADVANCED.has(advanced as AdvancedSlug)
-        ? (advanced as AdvancedSlug)
-        : null,
+      advanced && VALID_ADVANCED.has(advanced as AdvancedSlug) ? (advanced as AdvancedSlug) : null,
   };
 }
 
@@ -202,7 +200,13 @@ describe("applyPatch (setTab / setMode / setAdvanced simulation)", () => {
 describe("all enum values are covered", () => {
   const tabs: TranslatorTab[] = ["translate", "monitor"];
   const modes: TranslateMode[] = ["preview", "send"];
-  const slugs: AdvancedSlug[] = ["rawjson", "pipeline", "streamtransform", "testbench", "compression"];
+  const slugs: AdvancedSlug[] = [
+    "rawjson",
+    "pipeline",
+    "streamtransform",
+    "testbench",
+    "compression",
+  ];
 
   for (const tab of tabs) {
     it(`tab=${tab} round-trips`, () => {

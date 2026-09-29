@@ -14,17 +14,19 @@ const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const ORIGINAL_OMNIROUTE_API_KEY = process.env.OMNIROUTE_API_KEY;
 const ORIGINAL_ROUTER_API_KEY = process.env.ROUTER_API_KEY;
 
-function reset() {
-  core.resetDbInstance();
+async function reset() {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   delete process.env.OMNIROUTE_API_KEY;
   delete process.env.ROUTER_API_KEY;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  reset();
+test.beforeEach(async () => {
+  await reset();
 });
 
 test.after(() => {
@@ -112,7 +114,7 @@ test("validateApiKey updates last_used_at for persisted keys", async () => {
   const db = core.getDbInstance() as {
     prepare(sql: string): { get(id: string): { last_used_at: string | null } | undefined };
   };
-  const row = db.prepare("SELECT last_used_at FROM api_keys WHERE id = ?").get(created.id);
+  const row = await db.prepare("SELECT last_used_at FROM api_keys WHERE id = ?").get(created.id);
 
   assert.ok(row?.last_used_at, "last_used_at should be set on successful validation");
   assert.ok(Date.parse(row.last_used_at) > 0, "last_used_at should be an ISO timestamp");

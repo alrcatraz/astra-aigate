@@ -5,9 +5,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiResponsesToOpenAIRequest } = await import(
-  "../../open-sse/translator/request/openai-responses.ts"
-);
+const { openaiResponsesToOpenAIRequest } =
+  await import("../../open-sse/translator/request/openai-responses.ts");
 
 type NamespaceIdentity = { namespace: string; name: string };
 type ChatRequest = {
@@ -55,7 +54,7 @@ test("#8295: two namespaces sharing a leaf name must not produce duplicate Chat 
   ]);
 });
 
-test("#8295: qualified wire names round-trip back to {namespace, name} via the identity ledger", () => {
+test("#8295: qualified wire names round-trip back to {namespace, name} via the identity ledger", async () => {
   const result = translate([
     {
       type: "namespace",
@@ -70,8 +69,8 @@ test("#8295: qualified wire names round-trip back to {namespace, name} via the i
   ]);
 
   assert.ok(result._toolNameMap instanceof Map);
-  const rovo = result._toolNameMap.get("mcp__codex_apps__atlassian_rovo___search");
-  const linear = result._toolNameMap.get("mcp__codex_apps__linear___search");
+  const rovo = await result._toolNameMap.get("mcp__codex_apps__atlassian_rovo___search");
+  const linear = await result._toolNameMap.get("mcp__codex_apps__linear___search");
   assert.deepEqual(rovo, { namespace: "mcp__codex_apps__atlassian_rovo", name: "_search" });
   assert.deepEqual(linear, { namespace: "mcp__codex_apps__linear", name: "_search" });
 });

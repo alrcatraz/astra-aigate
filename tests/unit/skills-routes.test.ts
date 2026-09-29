@@ -21,12 +21,13 @@ function clearSkillRegistry() {
   }
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
   clearSkillRegistry();
   core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function registerSkill(overrides = {}) {
@@ -52,12 +53,12 @@ async function registerSkill(overrides = {}) {
   });
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   clearSkillRegistry();
   process.env.DATA_DIR = originalDataDir;
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -170,7 +171,7 @@ test("skills by-id PUT updates enabled state, validates input, and surfaces pars
   const updatedBody = (await updated.json()) as any;
   const invalidBody = (await invalid.json()) as any;
   const malformedBody = (await malformed.json()) as any;
-  const loadedSkillRow = core
+  const loadedSkillRow = await core
     .getDbInstance()
     .prepare("SELECT enabled FROM skills WHERE id = ?")
     .get(created.id);

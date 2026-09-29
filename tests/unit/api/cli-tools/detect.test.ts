@@ -26,8 +26,8 @@ describe("GET /api/cli-tools/detect", () => {
     });
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
     if (originalDataDir === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = originalDataDir;

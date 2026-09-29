@@ -29,7 +29,8 @@ const core = await import("../../src/lib/db/core.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const { resetAllComboMetrics } = await import("../../open-sse/services/comboMetrics.ts");
 const { resetAllCircuitBreakers } = await import("../../src/shared/utils/circuitBreaker.ts");
-const { resetAll: resetAllSemaphores } = await import("../../open-sse/services/rateLimitSemaphore.ts");
+const { resetAll: resetAllSemaphores } =
+  await import("../../open-sse/services/rateLimitSemaphore.ts");
 const { _resetAllDecks } = await import("../../src/shared/utils/shuffleDeck.ts");
 const { clearSessions } = await import("../../open-sse/services/sessionManager.ts");
 
@@ -55,7 +56,7 @@ async function cleanupTestDataDir() {
   let lastError: unknown;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       return;
     } catch (error: unknown) {
@@ -64,6 +65,8 @@ async function cleanupTestDataDir() {
     }
   }
   if (lastError) throw lastError;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -75,7 +78,7 @@ test.beforeEach(async () => {
   await cleanupTestDataDir();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   await settingsDb.resetAllPricing();
-  settingsDb.clearAllLKGP();
+  await settingsDb.clearAllLKGP();
 });
 
 test.after(async () => {
@@ -83,14 +86,14 @@ test.after(async () => {
   resetAllCircuitBreakers();
   resetAllSemaphores();
   _resetAllDecks();
-  settingsDb.clearAllLKGP();
+  await settingsDb.clearAllLKGP();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {
     process.env.DATA_DIR = ORIGINAL_DATA_DIR;
   }
   await cleanupTestDataDir();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 });
 
 test("#6427 priority combo falls back when the first target's 200 body carries a structured `error` object", async () => {
@@ -115,7 +118,9 @@ test("#6427 priority combo falls back when the first target's 200 body carries a
           error: { message: "Insufficient credits balance", type: "insufficient_quota" },
         });
       }
-      return jsonResponse({ choices: [{ message: { role: "assistant", content: "real answer" } }] });
+      return jsonResponse({
+        choices: [{ message: { role: "assistant", content: "real answer" } }],
+      });
     },
     isModelAvailable: async () => true,
     log: createLog(),
@@ -130,7 +135,11 @@ test("#6427 priority combo falls back when the first target's 200 body carries a
     "combo must fail over past the masked-200 target instead of returning it"
   );
   const bodyText = await result.clone().text();
-  assert.match(bodyText, /real answer/, "the returned body must be the fallback target's real answer");
+  assert.match(
+    bodyText,
+    /real answer/,
+    "the returned body must be the fallback target's real answer"
+  );
 });
 
 test("#6427 priority combo falls back when the first target's 200 body carries a known exhaustion phrase (no structured error)", async () => {
@@ -154,7 +163,9 @@ test("#6427 priority combo falls back when the first target's 200 body carries a
           message: "Quota exceeded for this account",
         });
       }
-      return jsonResponse({ choices: [{ message: { role: "assistant", content: "real answer" } }] });
+      return jsonResponse({
+        choices: [{ message: { role: "assistant", content: "real answer" } }],
+      });
     },
     isModelAvailable: async () => true,
     log: createLog(),

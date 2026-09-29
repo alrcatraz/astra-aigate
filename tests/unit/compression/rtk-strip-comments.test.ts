@@ -4,10 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  applyRtkCompression,
-  stripCode,
-} from "../../../open-sse/services/compression/index.ts";
+import { applyRtkCompression, stripCode } from "../../../open-sse/services/compression/index.ts";
 import { rtkConfigSchema } from "../../../src/shared/validation/compressionConfigSchemas.ts";
 import { DEFAULT_RTK_CONFIG } from "../../../open-sse/services/compression/types.ts";
 
@@ -22,9 +19,8 @@ const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../../src/lib/db/core.ts");
-const { getCompressionSettings, updateCompressionSettings } = await import(
-  "../../../src/lib/db/compression.ts"
-);
+const { getCompressionSettings, updateCompressionSettings } =
+  await import("../../../src/lib/db/compression.ts");
 
 describe("RTK strip-code-comments — stripCode behavior", () => {
   it("removes line/block comments but keeps JSDoc when preserveDocstrings is on", () => {
@@ -97,18 +93,20 @@ describe("RTK strip-code-comments — runtime reachability", () => {
 });
 
 describe("RTK strip-code-comments — config persistence", () => {
-  beforeEach(() => {
-    core.resetDbInstance();
+  beforeEach(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
     fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 
-  afterEach(() => {
-    core.resetDbInstance();
+  afterEach(async () => {
+    await core.resetDbInstanceDrained();
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
     if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = ORIGINAL_DATA_DIR;
@@ -128,9 +126,11 @@ describe("RTK strip-code-comments — config persistence", () => {
     assert.equal(settings.rtkConfig.stripCodeComments, true);
     assert.equal(settings.rtkConfig.preserveDocstrings, false);
 
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     const reread = await getCompressionSettings();
     assert.equal(reread.rtkConfig.stripCodeComments, true);
     assert.equal(reread.rtkConfig.preserveDocstrings, false);
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   });
 });

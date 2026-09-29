@@ -32,9 +32,11 @@ function buildLiteLLMFixture() {
 
 async function resetStorage() {
   pricingSync.stopPeriodicSync();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -48,7 +50,7 @@ test.after(async () => {
   pricingSync.stopPeriodicSync();
   globalThis.fetch = originalFetch;
   console.warn = originalWarn;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -71,8 +73,8 @@ test("fetchLiteLLMPricing parses JSON and rejects invalid payloads", async () =>
   await assert.rejects(() => pricingSync.fetchLiteLLMPricing(), /LiteLLM returned invalid JSON/);
 });
 
-test("synced pricing round-trips through SQLite and skips corrupted rows", () => {
-  pricingSync.saveSyncedPricing({
+test("synced pricing round-trips through SQLite and skips corrupted rows", async () => {
+  await pricingSync.saveSyncedPricing({
     openai: {
       "gpt-4o": { input: 2.5, output: 10 },
     },
@@ -87,12 +89,12 @@ test("synced pricing round-trips through SQLite and skips corrupted rows", () =>
   const warnings = [];
   console.warn = (message) => warnings.push(String(message));
 
-  const synced = pricingSync.getSyncedPricing();
+  const synced = await pricingSync.getSyncedPricing();
   assert.deepEqual(synced.openai["gpt-4o"], { input: 2.5, output: 10 });
   assert.equal(synced["broken-provider"], undefined);
   assert.equal(warnings.length, 1);
 
-  pricingSync.clearSyncedPricing();
+  await pricingSync.clearSyncedPricing();
   assert.deepEqual(pricingSync.getSyncedPricing(), {});
 });
 
@@ -136,7 +138,7 @@ test("syncPricingFromSources persists data and updates sync status", async () =>
     dryRun: false,
   });
 
-  const synced = pricingSync.getSyncedPricing();
+  const synced = await pricingSync.getSyncedPricing();
   const status = pricingSync.getSyncStatus();
 
   assert.equal(result.success, true);

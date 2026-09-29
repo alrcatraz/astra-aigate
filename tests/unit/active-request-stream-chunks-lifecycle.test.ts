@@ -16,8 +16,8 @@ const callLogs = await import("../../src/lib/usage/callLogs.ts");
 // before comparing the raw chunk payload.
 const stripChunkTs = (chunk: string): string => chunk.replace(/^\[\d{2}:\d{2}:\d{2}\.\d{3}\] /, "");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -30,8 +30,8 @@ test.after(() => {
 //
 // Each tier constructs the API response shape including pipelinePayloads.
 
-function buildApiResponseFromPending(id: string): Record<string, unknown> | null {
-  const active = usageHistory.getPendingById().get(id);
+async function buildApiResponseFromPending(id: string): Record<string, unknown> | null {
+  const active = await usageHistory.getPendingById().get(id);
   if (!active) return null;
 
   const pipelinePayloads: Record<string, unknown> = {
@@ -59,9 +59,9 @@ function buildApiResponseFromPending(id: string): Record<string, unknown> | null
   };
 }
 
-function buildApiResponseFromCompleted(id: string): Record<string, unknown> | null {
+async function buildApiResponseFromCompleted(id: string): Record<string, unknown> | null {
   const completed = usageHistory.getCompletedDetails();
-  const inMem = completed.get(id);
+  const inMem = await completed.get(id);
   if (!inMem) return null;
 
   const pipelinePayloads: Record<string, unknown> = {
@@ -421,7 +421,7 @@ test("pooling effect state merge preserves streamChunks across updates", () => {
   // By that point the Event Stream section is no longer needed (streaming is done).
 });
 
-test("pendingById references are live: push mutates the shared arrays visible to API", () => {
+test("pendingById references are live: push mutates the shared arrays visible to API", async () => {
   usageHistory.clearPendingRequests();
 
   const model = "gpt-4";
@@ -438,7 +438,7 @@ test("pendingById references are live: push mutates the shared arrays visible to
   });
 
   // Get the pending detail reference
-  const detailFromPending = usageHistory.getPendingById().get(requestId);
+  const detailFromPending = await usageHistory.getPendingById().get(requestId);
   assert.ok(detailFromPending, "detail should be in pendingById");
   assert.ok(detailFromPending!.streamChunks, "streamChunks should be set to wrapper object");
 
@@ -446,7 +446,7 @@ test("pendingById references are live: push mutates the shared arrays visible to
   detailFromPending!.streamChunks!.provider.push('data: {"chunk":"live"}');
 
   // Re-read from pendingById — should see the mutation
-  const detailReRead = usageHistory.getPendingById().get(requestId);
+  const detailReRead = await usageHistory.getPendingById().get(requestId);
   assert.equal(
     detailReRead!.streamChunks!.provider.length,
     1,
@@ -536,7 +536,7 @@ test("createRequestLogger and trackPendingRequest with matching model propagate 
   logger.appendOpenAIChunk('data: {"choices":[{"delta":{"content":"hi"}}]}');
   logger.appendConvertedChunk('data: {"content":"world"}');
 
-  const detail = usageHistory.getPendingById().get(requestId);
+  const detail = await usageHistory.getPendingById().get(requestId);
   assert.ok(detail, "pending detail should exist");
   assert.ok(detail!.streamChunks, "streamChunks should be set");
   assert.equal(detail!.streamChunks!.provider.length, 1);

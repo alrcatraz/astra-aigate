@@ -78,16 +78,18 @@ test.beforeEach(async () => {
   BaseExecutor.RETRY_CONFIG.delayMs = 0;
   clearInflight();
   resetAllCircuitBreakers();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   await initTranslators();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.afterEach(() => {
+test.afterEach(async () => {
   globalThis.fetch = originalFetch;
   BaseExecutor.RETRY_CONFIG.delayMs = originalRetryDelayMs;
   clearInflight();
   resetAllCircuitBreakers();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 });
@@ -112,7 +114,10 @@ test("llama-cpp provider: routes request to custom baseUrl with no auth header",
       headers: toPlainHeaders(init.headers),
       body: init.body ? JSON.parse(String(init.body)) : null,
     });
-    return buildLlamaResponse("Why did the programmer go broke? Because he used up all his cache!", "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ2_M");
+    return buildLlamaResponse(
+      "Why did the programmer go broke? Because he used up all his cache!",
+      "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ2_M"
+    );
   };
 
   const response = await handleChat(
@@ -135,7 +140,10 @@ test("llama-cpp provider: routes request to custom baseUrl with no auth header",
   assert.equal(upstream.headers.Authorization, undefined, "no auth header for local provider");
   assert.equal(upstream.body.messages[0].content, "Tell me a joke.");
   assert.equal(upstream.body.model, "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ2_M");
-  assert.equal(json.choices[0].message.content, "Why did the programmer go broke? Because he used up all his cache!");
+  assert.equal(
+    json.choices[0].message.content,
+    "Why did the programmer go broke? Because he used up all his cache!"
+  );
 });
 
 test("llama-cpp provider: alias matching works via model catalog prefix", async () => {
@@ -152,7 +160,12 @@ test("llama-cpp provider: alias matching works via model catalog prefix", async 
   const fetchCalls: FetchCall[] = [];
 
   globalThis.fetch = async (url, init: RequestInit = {}) => {
-    fetchCalls.push({ url: String(url), method: init.method, headers: toPlainHeaders(init.headers), body: init.body ? JSON.parse(String(init.body)) : null });
+    fetchCalls.push({
+      url: String(url),
+      method: init.method,
+      headers: toPlainHeaders(init.headers),
+      body: init.body ? JSON.parse(String(init.body)) : null,
+    });
     return buildLlamaResponse("42", "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ2_M");
   };
 
@@ -167,7 +180,11 @@ test("llama-cpp provider: alias matching works via model catalog prefix", async 
   );
 
   const json = (await response.json()) as any;
-  assert.equal(response.status, 200, `expected 200, got ${response.status}: ${JSON.stringify(json)}`);
+  assert.equal(
+    response.status,
+    200,
+    `expected 200, got ${response.status}: ${JSON.stringify(json)}`
+  );
   assert.equal(json.choices[0].message.content, "42");
 });
 

@@ -27,9 +27,9 @@ test.afterEach(() => {
   restoreGlobals();
 });
 
-test.after(() => {
+test.after(async () => {
   restoreGlobals();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -38,10 +38,10 @@ test.after(() => {
 // Cost may legitimately be 0 (free / unpriced modality) — formatOmniRouteCost
 // still emits a fixed-10-decimal string ("0.0000000000"), so the format check
 // holds regardless.
-function assertCostTelemetryHeaders(response: Response) {
+async function assertCostTelemetryHeaders(response: Response) {
   assert.equal(response.status, 200);
 
-  const cost = response.headers.get(OMNIROUTE_RESPONSE_HEADERS.responseCost);
+  const cost = await response.headers.get(OMNIROUTE_RESPONSE_HEADERS.responseCost);
   assert.ok(cost, "response cost header must be present");
   assert.match(
     cost as string,
@@ -49,10 +49,10 @@ function assertCostTelemetryHeaders(response: Response) {
     `cost header must be a fixed-10-decimal number, got: ${cost}`
   );
 
-  const version = response.headers.get(OMNIROUTE_RESPONSE_HEADERS.version);
+  const version = await response.headers.get(OMNIROUTE_RESPONSE_HEADERS.version);
   assert.ok(version && version.trim().length > 0, "version header must be non-empty");
 
-  const provider = response.headers.get(OMNIROUTE_RESPONSE_HEADERS.provider);
+  const provider = await response.headers.get(OMNIROUTE_RESPONSE_HEADERS.provider);
   assert.ok(provider && provider.trim().length > 0, "provider header must be present");
 }
 
@@ -101,7 +101,7 @@ test("rerank NVIDIA-format success Response reflects synthesized search unit in 
   // `data` has NO `meta` at all. The handler must read search units from the
   // transformed `result` (not the raw `data`), otherwise NVIDIA rerank is
   // always priced at $0 even when pricing exists.
-  saveSyncedPricing({
+  await saveSyncedPricing({
     nvidia: {
       // calculateModalCost("rerank","nvidia","nvidia/nv-rerankqa-mistral-4b-v3")
       // first looks up the scoped id, then retries with normalizeModelName

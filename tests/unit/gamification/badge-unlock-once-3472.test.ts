@@ -10,12 +10,12 @@ import { getDbInstance } from "../../../src/lib/db/core";
 // user_badges directly so dedup works regardless of whether badge_definitions is populated.
 
 describe("#3472 badge unlock dedup is independent of badge_definitions", () => {
-  it("hasBadge() sees an awarded badge even when badge_definitions has no matching row", () => {
+  it("hasBadge() sees an awarded badge even when badge_definitions has no matching row", async () => {
     const key = `t3472-${Date.now()}`;
     const badgeId = `first-token-3472-${Date.now()}`;
     const db = getDbInstance();
     try {
-      unlockBadge(key, badgeId);
+      await unlockBadge(key, badgeId);
       // getBadges INNER-JOINs badge_definitions → blind to this award (the bug surface).
       assert.equal(getBadges(key).length, 0, "getBadges is blind without a definition row");
       // The fixed guard reads user_badges directly.
@@ -25,14 +25,14 @@ describe("#3472 badge unlock dedup is independent of badge_definitions", () => {
     }
   });
 
-  it("hasBadge() is false before award and a repeated unlock stays a single row", () => {
+  it("hasBadge() is false before award and a repeated unlock stays a single row", async () => {
     const key = `t3472b-${Date.now()}`;
     const badgeId = `token-consumer-3472-${Date.now()}`;
     const db = getDbInstance();
     try {
       assert.equal(hasBadge(key, badgeId), false, "no badge before award");
-      unlockBadge(key, badgeId);
-      unlockBadge(key, badgeId); // INSERT OR IGNORE → still one row
+      await unlockBadge(key, badgeId);
+      await unlockBadge(key, badgeId); // INSERT OR IGNORE → still one row
       assert.equal(hasBadge(key, badgeId), true);
       const count = db
         .prepare("SELECT COUNT(*) AS n FROM user_badges WHERE api_key_id = ? AND badge_id = ?")

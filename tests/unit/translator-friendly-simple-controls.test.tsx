@@ -89,56 +89,53 @@ vi.mock("@/shared/components", () => ({
 }));
 
 // --- Mock useAvailableModels ---
-vi.mock(
-  "@/app/(dashboard)/dashboard/translator/hooks/useAvailableModels",
-  () => ({
-    useAvailableModels: () => ({
-      model: "gpt-4o",
-      setModel: vi.fn(),
-      availableModels: ["gpt-4o", "claude-sonnet-4-20250514"],
-      loading: false,
-      pickModelForFormat: () => "gpt-4o",
-    }),
-  })
-);
+vi.mock("@/app/(dashboard)/dashboard/translator/hooks/useAvailableModels", () => ({
+  useAvailableModels: () => ({
+    model: "gpt-4o",
+    setModel: vi.fn(),
+    availableModels: ["gpt-4o", "claude-sonnet-4-20250514"],
+    loading: false,
+    pickModelForFormat: () => "gpt-4o",
+  }),
+}));
 
 // --- Mock exampleTemplates ---
-vi.mock(
-  "@/app/(dashboard)/dashboard/translator/exampleTemplates",
-  () => ({
-    FORMAT_OPTIONS: [
-      { value: "openai", label: "OpenAI" },
-      { value: "claude", label: "Claude" },
-      { value: "gemini", label: "Gemini" },
-    ],
-    FORMAT_META: {
-      openai: { label: "OpenAI", color: "emerald", icon: "smart_toy" },
-      claude: { label: "Claude", color: "orange", icon: "psychology" },
-      gemini: { label: "Gemini", color: "blue", icon: "auto_awesome" },
+vi.mock("@/app/(dashboard)/dashboard/translator/exampleTemplates", () => ({
+  FORMAT_OPTIONS: [
+    { value: "openai", label: "OpenAI" },
+    { value: "claude", label: "Claude" },
+    { value: "gemini", label: "Gemini" },
+  ],
+  FORMAT_META: {
+    openai: { label: "OpenAI", color: "emerald", icon: "smart_toy" },
+    claude: { label: "Claude", color: "orange", icon: "psychology" },
+    gemini: { label: "Gemini", color: "blue", icon: "auto_awesome" },
+  },
+  getExampleTemplates: () => [
+    {
+      id: "simple-chat",
+      name: "Simple Chat",
+      icon: "chat",
+      description: "A simple chat example",
+      formats: {
+        openai: { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
+        claude: {
+          model: "claude-sonnet-4-20250514",
+          messages: [{ role: "user", content: "Hello" }],
+        },
+      },
     },
-    getExampleTemplates: () => [
-      {
-        id: "simple-chat",
-        name: "Simple Chat",
-        icon: "chat",
-        description: "A simple chat example",
-        formats: {
-          openai: { model: "gpt-4o", messages: [{ role: "user", content: "Hello" }] },
-          claude: { model: "claude-sonnet-4-20250514", messages: [{ role: "user", content: "Hello" }] },
-        },
+    {
+      id: "tool-calling",
+      name: "Tool Calling",
+      icon: "build",
+      description: "Tool calling example",
+      formats: {
+        openai: { model: "gpt-4o", tools: [] },
       },
-      {
-        id: "tool-calling",
-        name: "Tool Calling",
-        icon: "build",
-        description: "Tool calling example",
-        formats: {
-          openai: { model: "gpt-4o", tools: [] },
-        },
-      },
-    ],
-  })
-);
+    },
+  ],
+}));
 
 // --- Setup ---
 const cleanupCallbacks: Array<() => void> = [];
@@ -150,23 +147,25 @@ function makeContainer(): HTMLElement {
   return container;
 }
 
-function makeProps(overrides: Partial<{
-  source: FormatId;
-  target: FormatId;
-  provider: string;
-  inputText: string;
-  mode: TranslateMode;
-  onSourceChange: (s: FormatId) => void;
-  onTargetChange: (t: FormatId) => void;
-  onProviderChange: (p: string) => void;
-  onInputChange: (text: string) => void;
-  onModeChange: (m: TranslateMode) => void;
-  onSubmit: () => void;
-  onOpenAdvanced: () => void;
-  isLoading: boolean;
-  providerOptions: Array<{ value: string; label: string }>;
-  loading: boolean;
-}> = {}) {
+function makeProps(
+  overrides: Partial<{
+    source: FormatId;
+    target: FormatId;
+    provider: string;
+    inputText: string;
+    mode: TranslateMode;
+    onSourceChange: (s: FormatId) => void;
+    onTargetChange: (t: FormatId) => void;
+    onProviderChange: (p: string) => void;
+    onInputChange: (text: string) => void;
+    onModeChange: (m: TranslateMode) => void;
+    onSubmit: () => void;
+    onOpenAdvanced: () => void;
+    isLoading: boolean;
+    providerOptions: Array<{ value: string; label: string }>;
+    loading: boolean;
+  }> = {}
+) {
   return {
     source: "claude" as FormatId,
     target: "openai" as FormatId,
@@ -181,7 +180,10 @@ function makeProps(overrides: Partial<{
     onSubmit: vi.fn(),
     onOpenAdvanced: vi.fn(),
     isLoading: false,
-    providerOptions: [{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }],
+    providerOptions: [
+      { value: "openai", label: "OpenAI" },
+      { value: "anthropic", label: "Anthropic" },
+    ],
     loading: false,
     ...overrides,
   };
@@ -189,7 +191,9 @@ function makeProps(overrides: Partial<{
 
 describe("SimpleControls", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(() => {
@@ -199,16 +203,13 @@ describe("SimpleControls", () => {
   });
 
   it("exports a default function component", async () => {
-    const mod = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const mod = await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     expect(typeof mod.default).toBe("function");
   });
 
   it("renders smoke: mounts without throwing", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const props = makeProps();
@@ -219,9 +220,8 @@ describe("SimpleControls", () => {
   });
 
   it("renders 3 Select elements (source, provider, example) + 1 SegmentedControl", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const props = makeProps();
@@ -235,9 +235,8 @@ describe("SimpleControls", () => {
   });
 
   it("renders the submit button", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const props = makeProps({ inputText: "Hello" });
@@ -249,9 +248,8 @@ describe("SimpleControls", () => {
   });
 
   it("calls onSourceChange when source select changes", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const onSourceChange = vi.fn();
@@ -260,21 +258,22 @@ describe("SimpleControls", () => {
       root.render(<SimpleControls {...props} />);
     });
     // The first select is the source select (aria-label uses fallback "My app uses")
-    const sourceSelect = container.querySelector("select[aria-label='My app uses']") as HTMLSelectElement | null;
+    const sourceSelect = container.querySelector(
+      "select[aria-label='My app uses']"
+    ) as HTMLSelectElement | null;
     expect(sourceSelect).toBeTruthy();
     await act(async () => {
       if (sourceSelect) {
         Object.defineProperty(sourceSelect, "value", { writable: true, value: "openai" });
-        sourceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        await sourceSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
     expect(onSourceChange).toHaveBeenCalled();
   });
 
   it("calls onModeChange when segmented control tab is clicked", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const onModeChange = vi.fn();
@@ -294,9 +293,8 @@ describe("SimpleControls", () => {
   });
 
   it("calls onInputChange when textarea content changes", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const onInputChange = vi.fn();
@@ -309,16 +307,15 @@ describe("SimpleControls", () => {
     await act(async () => {
       if (textarea) {
         Object.defineProperty(textarea, "value", { writable: true, value: "Hello world" });
-        textarea.dispatchEvent(new Event("change", { bubbles: true }));
+        await textarea.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
     expect(onInputChange).toHaveBeenCalled();
   });
 
   it("calls onOpenAdvanced when Advanced button is clicked", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const onOpenAdvanced = vi.fn();
@@ -338,41 +335,34 @@ describe("SimpleControls", () => {
   });
 
   it("submit button is disabled when inputText is empty", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const props = makeProps({ inputText: "" });
     await act(async () => {
       root.render(<SimpleControls {...props} />);
     });
-    const submitBtn = container.querySelector(
-      "[data-testid='button']"
-    ) as HTMLButtonElement | null;
+    const submitBtn = container.querySelector("[data-testid='button']") as HTMLButtonElement | null;
     expect(submitBtn?.disabled).toBe(true);
   });
 
   it("submit button is enabled when inputText has content", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const props = makeProps({ inputText: "Hello" });
     await act(async () => {
       root.render(<SimpleControls {...props} />);
     });
-    const submitBtn = container.querySelector(
-      "[data-testid='button']"
-    ) as HTMLButtonElement | null;
+    const submitBtn = container.querySelector("[data-testid='button']") as HTMLButtonElement | null;
     expect(submitBtn?.disabled).toBe(false);
   });
 
   it("calls onOpenAdvanced when __custom__ example option is selected", async () => {
-    const { default: SimpleControls } = await import(
-      "@/app/(dashboard)/dashboard/translator/components/SimpleControls"
-    );
+    const { default: SimpleControls } =
+      await import("@/app/(dashboard)/dashboard/translator/components/SimpleControls");
     const container = makeContainer();
     const root = createRoot(container);
     const onOpenAdvanced = vi.fn();
@@ -388,7 +378,7 @@ describe("SimpleControls", () => {
     await act(async () => {
       if (exampleSelect) {
         Object.defineProperty(exampleSelect, "value", { writable: true, value: "__custom__" });
-        exampleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        await exampleSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
     expect(onOpenAdvanced).toHaveBeenCalled();

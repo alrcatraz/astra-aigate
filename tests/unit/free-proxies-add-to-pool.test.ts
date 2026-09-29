@@ -20,9 +20,11 @@ const bulkAddRoute =
   await import("../../src/app/api/settings/free-proxies/bulk-add-to-pool/route.ts");
 
 async function reset() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeReq(): Request {
@@ -43,8 +45,8 @@ test.beforeEach(async () => {
   bulkAddRoute._resetQuickTesterForTests();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;

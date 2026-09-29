@@ -18,9 +18,11 @@ const listRoute = await import("../../../src/app/api/settings/free-proxies/route
 const ORIGINAL_INITIAL_PASSWORD = process.env.INITIAL_PASSWORD;
 
 async function reset() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function make(host: string, quality: number, latency: number): FreeProxyItem {
@@ -37,8 +39,8 @@ function make(host: string, quality: number, latency: number): FreeProxyItem {
   };
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_INITIAL_PASSWORD === undefined) delete process.env.INITIAL_PASSWORD;
   else process.env.INITIAL_PASSWORD = ORIGINAL_INITIAL_PASSWORD;

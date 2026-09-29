@@ -34,9 +34,9 @@ function singleMessageBody(repeats: number): Record<string, unknown> {
 }
 
 describe("session-dedup intra-message dedup (#6467)", () => {
-  it("deduplicates a block repeated within a single message", () => {
+  it("deduplicates a block repeated within a single message", async () => {
     const body = singleMessageBody(3);
-    const result = sessionDedupEngine.apply(body, { stepConfig: {} });
+    const result = await sessionDedupEngine.apply(body, { stepConfig: {} });
 
     assert.equal(result.compressed, true, "a single message with an internal repeat must compress");
     const text = (result.body.messages as Array<{ content: string }>)[0].content;
@@ -48,9 +48,9 @@ describe("session-dedup intra-message dedup (#6467)", () => {
     assert.equal(markerCount, 2, "two of the three occurrences must become markers");
   });
 
-  it("leaves a single message with no internal repetition untouched", () => {
+  it("leaves a single message with no internal repetition untouched", async () => {
     const body = singleMessageBody(1);
-    const result = sessionDedupEngine.apply(body, { stepConfig: {} });
+    const result = await sessionDedupEngine.apply(body, { stepConfig: {} });
     assert.equal(result.compressed, false, "no repeated block → no compression");
   });
 });

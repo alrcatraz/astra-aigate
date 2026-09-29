@@ -40,13 +40,13 @@ test("hasTable / hasColumn / getTableColumns introspect a live table", () => {
   }
 });
 
-test("ensureUsageHistoryColumns adds missing columns and is idempotent", () => {
+test("ensureUsageHistoryColumns adds missing columns and is idempotent", async () => {
   const db = openMemoryDb();
   try {
     db.exec("CREATE TABLE usage_history (id INTEGER PRIMARY KEY, model TEXT)");
     assert.equal(hasColumn(db, "usage_history", "service_tier"), false);
 
-    ensureUsageHistoryColumns(db);
+    await ensureUsageHistoryColumns(db);
     for (const col of [
       "success",
       "latency_ms",
@@ -65,13 +65,13 @@ test("ensureUsageHistoryColumns adds missing columns and is idempotent", () => {
   }
 });
 
-test("ensureProviderConnectionsColumns repairs quota visibility with a visible default", () => {
+test("ensureProviderConnectionsColumns repairs quota visibility with a visible default", async () => {
   const db = openMemoryDb();
   try {
     db.exec("CREATE TABLE provider_connections (id TEXT PRIMARY KEY, provider TEXT NOT NULL)");
     assert.equal(hasColumn(db, "provider_connections", "quota_visible"), false);
 
-    ensureProviderConnectionsColumns(db);
+    await ensureProviderConnectionsColumns(db);
     assert.equal(hasColumn(db, "provider_connections", "quota_visible"), true);
     const column = db
       .prepare("PRAGMA table_info(provider_connections)")

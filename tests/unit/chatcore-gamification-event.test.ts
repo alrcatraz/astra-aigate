@@ -13,9 +13,8 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omni-gamification-tes
 process.env.DATA_DIR = testDataDir;
 
 const coreDb = await import("../../src/lib/db/core.ts");
-const { emitRequestGamificationEvent } = await import(
-  "../../open-sse/handlers/chatCore/gamificationEvent.ts"
-);
+const { emitRequestGamificationEvent } =
+  await import("../../open-sse/handlers/chatCore/gamificationEvent.ts");
 
 function countAuditRows(apiKeyId: string): number {
   const row = coreDb
@@ -38,8 +37,8 @@ before(async () => {
   await coreDb.ensureDbInitialized();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   try {
     fs.rmSync(testDataDir, { recursive: true, force: true });
   } catch {

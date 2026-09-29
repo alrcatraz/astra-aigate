@@ -19,28 +19,27 @@ const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../../src/lib/db/core.ts");
-const { getCompressionSettings, updateCompressionSettings } = await import(
-  "../../../src/lib/db/compression.ts"
-);
-const { compressionSettingsUpdateSchema } = await import(
-  "../../../src/shared/validation/compressionConfigSchemas.ts"
-);
-const { DEFAULT_CONTEXT_BUDGET } = await import(
-  "../../../open-sse/services/compression/adaptiveCompression/types.ts"
-);
+const { getCompressionSettings, updateCompressionSettings } =
+  await import("../../../src/lib/db/compression.ts");
+const { compressionSettingsUpdateSchema } =
+  await import("../../../src/shared/validation/compressionConfigSchemas.ts");
+const { DEFAULT_CONTEXT_BUDGET } =
+  await import("../../../open-sse/services/compression/adaptiveCompression/types.ts");
 
-beforeEach(() => {
-  core.resetDbInstance();
+beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-afterEach(() => {
-  core.resetDbInstance();
+afterEach(async () => {
+  await core.resetDbInstanceDrained();
 });
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
@@ -71,7 +70,12 @@ describe("bug #7005: adaptive context-budget dial is configurable", () => {
 
   it("updateCompressionSettings() persists a partial contextBudget merge", async () => {
     await updateCompressionSettings({
-      contextBudget: { ...DEFAULT_CONTEXT_BUDGET, mode: "floor", policy: "absolute", absoluteBudget: 8000 },
+      contextBudget: {
+        ...DEFAULT_CONTEXT_BUDGET,
+        mode: "floor",
+        policy: "absolute",
+        absoluteBudget: 8000,
+      },
     });
     const settings = await getCompressionSettings();
     assert.equal(settings.contextBudget?.mode, "floor");

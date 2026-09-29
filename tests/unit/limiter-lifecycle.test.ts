@@ -49,9 +49,11 @@ async function flushBackgroundWork() {
 await flushBackgroundWork();
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -66,7 +68,7 @@ test.afterEach(async () => {
 test.after(async () => {
   await rateLimitManager.__resetRateLimitManagerForTests();
   await flushBackgroundWork();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

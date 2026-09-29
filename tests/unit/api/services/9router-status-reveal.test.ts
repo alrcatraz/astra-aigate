@@ -34,7 +34,7 @@ await updateVersionManagerTool("9router", {
 
 // Ensure audit_log table exists (compliance init)
 const { initAuditLog, countAuditLog } = await import("../../../../src/lib/compliance/index.ts");
-initAuditLog();
+await initAuditLog();
 
 // Import GET after env is set
 const { GET } =
@@ -44,8 +44,8 @@ function makeRequest(url: string, headers?: Record<string, string>): Request {
   return new Request(url, { headers });
 }
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -95,7 +95,7 @@ describe("GET /api/services/9router/status", () => {
   });
 
   it("reveal logs an audit entry with action=service.reveal_api_key", async () => {
-    const countBefore = countAuditLog({ action: "service.reveal_api_key" });
+    const countBefore = await countAuditLog({ action: "service.reveal_api_key" });
 
     const req = makeRequest("http://localhost/api/services/9router/status?reveal=key", {
       "X-Reveal-Confirm": "yes",
@@ -103,7 +103,7 @@ describe("GET /api/services/9router/status", () => {
     const res = await GET(req);
     assert.equal(res.status, 200);
 
-    const countAfter = countAuditLog({ action: "service.reveal_api_key" });
+    const countAfter = await countAuditLog({ action: "service.reveal_api_key" });
     assert.equal(
       countAfter,
       countBefore + 1,

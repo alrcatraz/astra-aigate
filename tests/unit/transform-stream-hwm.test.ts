@@ -13,10 +13,10 @@ function setupDb() {
   process.env.DATA_DIR = tempDir;
 }
 
-function cleanupDb() {
+async function cleanupDb() {
   try {
     const { resetDbInstance } = require("../../src/lib/db/core.ts");
-    resetDbInstance();
+    await resetDbInstanceDrained();
   } catch {}
   if (originalDataDir !== undefined) {
     process.env.DATA_DIR = originalDataDir;
@@ -26,6 +26,8 @@ function cleanupDb() {
   try {
     fs.rmSync(tempDir, { recursive: true, force: true });
   } catch {}
+  getDbInstance();
+  await awaitDbMigrations();
 }
 
 const encoder = new TextEncoder();
@@ -74,7 +76,7 @@ test("createSSEStream: passthrough mode writes and reads a single SSE chunk", as
     assert.ok(output.includes('"Hello"'), "output should contain the content delta");
     assert.ok(output.includes("[DONE]"), "output should contain [DONE] terminator");
   } finally {
-    cleanupDb();
+    await cleanupDb();
   }
 });
 
@@ -103,7 +105,7 @@ test("createSSEStream: passthrough mode forwards multiple chunks preserving orde
     assert.ok(output.includes("world"), "should contain second chunk");
     assert.ok(output.includes("[DONE]"), "should contain DONE terminator");
   } finally {
-    cleanupDb();
+    await cleanupDb();
   }
 });
 
@@ -132,7 +134,7 @@ test("createSSEStream: handles backpressure with >16KB payload", async () => {
     assert.ok(output.includes(bigContent), "output should contain the full 32KB content");
     assert.ok(output.includes("[DONE]"), "output should contain DONE terminator");
   } finally {
-    cleanupDb();
+    await cleanupDb();
   }
 });
 
@@ -159,7 +161,7 @@ test("createSSEStream: idle timeout fires when no data arrives", async () => {
       "empty stream should either emit [DONE] or nothing"
     );
   } finally {
-    cleanupDb();
+    await cleanupDb();
   }
 });
 

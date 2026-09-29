@@ -271,8 +271,8 @@ test("SLM tier preserves fenced code + URLs verbatim (structure wrapper)", async
 
 import { ultraEngine } from "../../../open-sse/services/compression/engines/cavemanAdapter.ts";
 
-test("stacked ultraEngine.apply stays synchronous and compresses via heuristic", () => {
-  const res = ultraEngine.apply(
+test("stacked ultraEngine.apply stays synchronous and compresses via heuristic", async () => {
+  const res = await ultraEngine.apply(
     { messages: [{ role: "user", content: "the quick brown fox jumps over the lazy dog" }] },
     { config: { ultra: { compressionRate: 0.5 } } as never }
   );

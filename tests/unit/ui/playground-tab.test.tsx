@@ -32,7 +32,7 @@ vi.mock("@/shared/components", () => ({
     React.createElement(
       "button",
       { onClick, disabled: disabled || loading, "data-testid": testId, className },
-      children,
+      children
     ),
   Input: ({
     value,
@@ -53,7 +53,16 @@ vi.mock("@/shared/components", () => ({
     max?: string;
     step?: string;
   }) =>
-    React.createElement("input", { value, onChange, "data-testid": testId, onKeyDown, type, min, max, step }),
+    React.createElement("input", {
+      value,
+      onChange,
+      "data-testid": testId,
+      onKeyDown,
+      type,
+      min,
+      max,
+      step,
+    }),
   Select: ({
     children,
     value,
@@ -69,17 +78,23 @@ vi.mock("@/shared/components", () => ({
     React.createElement("span", { "data-variant": variant }, children),
 }));
 
-vi.mock(
-  "../../../src/app/(dashboard)/dashboard/memory/components/RetrievePreview",
-  () => ({
-    default: ({ result }: { result: { memories: unknown[]; resolution: Record<string, unknown>; totalTokensUsed: number; budgetMaxTokens: number } }) =>
-      React.createElement(
-        "div",
-        { "data-testid": "retrieve-preview" },
-        `results:${result.memories.length}`,
-      ),
-  }),
-);
+vi.mock("../../../src/app/(dashboard)/dashboard/memory/components/RetrievePreview", () => ({
+  default: ({
+    result,
+  }: {
+    result: {
+      memories: unknown[];
+      resolution: Record<string, unknown>;
+      totalTokensUsed: number;
+      budgetMaxTokens: number;
+    };
+  }) =>
+    React.createElement(
+      "div",
+      { "data-testid": "retrieve-preview" },
+      `results:${result.memories.length}`
+    ),
+}));
 
 const MOCK_RESULT = {
   memories: [
@@ -118,8 +133,9 @@ function makeContainer(): HTMLElement {
 
 describe("PlaygroundTab", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-      true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => MOCK_RESULT,
@@ -133,9 +149,8 @@ describe("PlaygroundTab", () => {
   });
 
   it("renders input and submit button", async () => {
-    const { default: PlaygroundTab } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab"
-    );
+    const { default: PlaygroundTab } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -148,24 +163,22 @@ describe("PlaygroundTab", () => {
   });
 
   it("submit button is disabled when query is empty", async () => {
-    const { default: PlaygroundTab } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab"
-    );
+    const { default: PlaygroundTab } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
       root.render(<PlaygroundTab />);
     });
     const submitBtn = container.querySelector(
-      "[data-testid='playground-submit']",
+      "[data-testid='playground-submit']"
     ) as HTMLButtonElement | null;
     expect(submitBtn?.disabled).toBe(true);
   });
 
   it("calls fetch and renders results when query is submitted", async () => {
-    const { default: PlaygroundTab } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab"
-    );
+    const { default: PlaygroundTab } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -174,26 +187,26 @@ describe("PlaygroundTab", () => {
 
     // Set query input
     const input = container.querySelector(
-      "[data-testid='playground-query-input']",
+      "[data-testid='playground-query-input']"
     ) as HTMLInputElement | null;
     expect(input).toBeTruthy();
     await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
-        "value",
+        "value"
       )?.set;
       nativeInputValueSetter?.call(input, "test query");
-      input?.dispatchEvent(new Event("input", { bubbles: true }));
+      await input?.dispatchEvent(new Event("input", { bubbles: true }));
       // Also trigger onChange via React's change event
       const event = new Event("change", { bubbles: true });
       Object.defineProperty(event, "target", { writable: false, value: { value: "test query" } });
-      input?.dispatchEvent(event);
+      await input?.dispatchEvent(event);
     });
 
     // Click submit
     await act(async () => {
       const submitBtn = container.querySelector(
-        "[data-testid='playground-submit']",
+        "[data-testid='playground-submit']"
       ) as HTMLButtonElement | null;
       submitBtn?.click();
     });
@@ -205,15 +218,14 @@ describe("PlaygroundTab", () => {
     // Check fetch was called with the right endpoint
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
     const calls = fetchMock.mock.calls.filter(
-      (c: [string, ...unknown[]]) => typeof c[0] === "string" && c[0].includes("retrieve-preview"),
+      (c: [string, ...unknown[]]) => typeof c[0] === "string" && c[0].includes("retrieve-preview")
     );
     expect(calls.length).toBeGreaterThan(0);
   });
 
   it("renders results via RetrievePreview component after successful fetch", async () => {
-    const { default: PlaygroundTab } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab"
-    );
+    const { default: PlaygroundTab } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
     await act(async () => {
@@ -222,17 +234,17 @@ describe("PlaygroundTab", () => {
 
     // Manually trigger state with result by simulating the whole flow
     const input = container.querySelector(
-      "[data-testid='playground-query-input']",
+      "[data-testid='playground-query-input']"
     ) as HTMLInputElement | null;
 
     await act(async () => {
       if (input) {
         const nativeSetter = Object.getOwnPropertyDescriptor(
           window.HTMLInputElement.prototype,
-          "value",
+          "value"
         )?.set;
         nativeSetter?.call(input, "test");
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        await input.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
 

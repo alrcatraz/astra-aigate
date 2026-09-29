@@ -130,12 +130,14 @@ function getAllEntries(): Array<Record<string, unknown>> {
     .all() as Array<Record<string, unknown>>;
 }
 
-beforeEach(() => {
-  core.resetDbInstance();
+beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   testAdapter = createTestAdapter();
   globalThis.__omnirouteDb = testAdapter as never;
   stopArenaEloSync();
   delete process.env.ARENA_ELO_SYNC_ENABLED;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 afterEach(() => {
@@ -654,7 +656,7 @@ describe("syncArenaElo()", () => {
     const syncResult = await syncArenaElo();
     assert.strictEqual(syncResult.success, true);
 
-    const expiredEntry = testAdapter
+    const expiredEntry = await testAdapter
       .prepare("SELECT * FROM model_intelligence WHERE model = 'old-model'")
       .get();
     assert.strictEqual(expiredEntry, undefined);
@@ -781,7 +783,7 @@ describe("getArenaEloSyncStatus()", () => {
     }
   });
 
-  it("reflects dashboard feature flag DB overrides before env values", () => {
+  it("reflects dashboard feature flag DB overrides before env values", async () => {
     process.env.ARENA_ELO_SYNC_ENABLED = "true";
     try {
       setFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED", "false");
@@ -789,7 +791,7 @@ describe("getArenaEloSyncStatus()", () => {
       const status = getArenaEloSyncStatus();
       assert.strictEqual(status.enabled, false);
     } finally {
-      removeFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED");
+      await removeFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED");
     }
   });
 
@@ -813,7 +815,7 @@ describe("stopArenaEloSync()", () => {
       const started = await initArenaEloSync();
       assert.strictEqual(started, false);
     } finally {
-      removeFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED");
+      await removeFeatureFlagOverride("ARENA_ELO_SYNC_ENABLED");
     }
   });
 

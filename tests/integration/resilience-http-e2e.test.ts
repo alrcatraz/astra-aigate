@@ -108,7 +108,7 @@ function createFakeOpenAiRelay() {
         return;
       }
 
-      const behavior = behaviors.get(token);
+      const behavior = await behaviors.get(token);
       if (!behavior) {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: { message: `Unknown token: ${token || "missing"}` } }));
@@ -159,13 +159,13 @@ function createFakeOpenAiRelay() {
         bodies: [],
       });
     },
-    getState(token: string) {
-      const state = behaviors.get(token);
+    async getState(token: string) {
+      const state = await behaviors.get(token);
       if (!state) throw new Error(`Unknown token state for ${token}`);
       return state;
     },
-    resetState(token: string, queue?: PlannedResponse[]) {
-      const state = behaviors.get(token);
+    async resetState(token: string, queue?: PlannedResponse[]) {
+      const state = await behaviors.get(token);
       if (!state) throw new Error(`Unknown token state for ${token}`);
       state.hits = 0;
       state.startedAt = [];

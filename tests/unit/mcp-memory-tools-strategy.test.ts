@@ -26,15 +26,17 @@ process.env.VECTOR_STORE_DISABLE_VEC = "true";
 
 const core = await import("../../src/lib/db/core.ts");
 
-function cleanup() {
-  core.resetDbInstance();
+async function cleanup() {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => cleanup());
+test.afterEach(async () => await cleanup());
 test.after(() => {
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
@@ -44,9 +46,8 @@ test.after(() => {
 // ── A: toMemoryRetrievalConfig: "hybrid" → retrievalStrategy="hybrid" ─────────
 
 test("toMemoryRetrievalConfig: strategy=hybrid → retrievalStrategy=hybrid", async () => {
-  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } = await import(
-    "../../src/lib/memory/settings.ts"
-  );
+  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } =
+    await import("../../src/lib/memory/settings.ts");
   const settings = { ...DEFAULT_MEMORY_SETTINGS, strategy: "hybrid" as const };
   const config = toMemoryRetrievalConfig(settings);
   assert.equal(
@@ -59,9 +60,8 @@ test("toMemoryRetrievalConfig: strategy=hybrid → retrievalStrategy=hybrid", as
 // ── B: toMemoryRetrievalConfig: "semantic" → retrievalStrategy="semantic" ─────
 
 test("toMemoryRetrievalConfig: strategy=semantic → retrievalStrategy=semantic", async () => {
-  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } = await import(
-    "../../src/lib/memory/settings.ts"
-  );
+  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } =
+    await import("../../src/lib/memory/settings.ts");
   const settings = { ...DEFAULT_MEMORY_SETTINGS, strategy: "semantic" as const };
   const config = toMemoryRetrievalConfig(settings);
   assert.equal(
@@ -74,9 +74,8 @@ test("toMemoryRetrievalConfig: strategy=semantic → retrievalStrategy=semantic"
 // ── C: toMemoryRetrievalConfig: "recent" → retrievalStrategy="exact" ──────────
 
 test("toMemoryRetrievalConfig: strategy=recent → retrievalStrategy=exact (mapped)", async () => {
-  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } = await import(
-    "../../src/lib/memory/settings.ts"
-  );
+  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } =
+    await import("../../src/lib/memory/settings.ts");
   const settings = { ...DEFAULT_MEMORY_SETTINGS, strategy: "recent" as const };
   const config = toMemoryRetrievalConfig(settings);
   assert.equal(
@@ -105,9 +104,7 @@ test("omniroute_memory_search: strategy=hybrid in DB → handler returns success
   const { invalidateMemorySettingsCache } = await import("../../src/lib/memory/settings.ts");
   invalidateMemorySettingsCache();
 
-  const { memoryTools } = await import(
-    "../../open-sse/mcp-server/tools/memoryTools.ts"
-  );
+  const { memoryTools } = await import("../../open-sse/mcp-server/tools/memoryTools.ts");
   const handler = memoryTools.omniroute_memory_search.handler;
 
   const result = await handler({ apiKeyId: "api-mcp-h", query: "Paris" });
@@ -135,9 +132,7 @@ test("omniroute_memory_search: strategy=recent in DB → handler maps to exact, 
   const { invalidateMemorySettingsCache } = await import("../../src/lib/memory/settings.ts");
   invalidateMemorySettingsCache();
 
-  const { memoryTools } = await import(
-    "../../open-sse/mcp-server/tools/memoryTools.ts"
-  );
+  const { memoryTools } = await import("../../open-sse/mcp-server/tools/memoryTools.ts");
   const handler = memoryTools.omniroute_memory_search.handler;
 
   const result = await handler({ apiKeyId: "api-mcp-r" });
@@ -150,9 +145,8 @@ test("omniroute_memory_search: strategy=recent in DB → handler maps to exact, 
 //       toMemoryRetrievalConfig used on DEFAULT maps to retrievalStrategy="hybrid" ──
 
 test("toMemoryRetrievalConfig: DEFAULT_MEMORY_SETTINGS maps to retrievalStrategy=hybrid", async () => {
-  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } = await import(
-    "../../src/lib/memory/settings.ts"
-  );
+  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } =
+    await import("../../src/lib/memory/settings.ts");
   // Verify the default strategy is "hybrid" so fallback in handler resolves to hybrid
   assert.equal(
     DEFAULT_MEMORY_SETTINGS.strategy,
@@ -174,9 +168,8 @@ test("omniroute_memory_search: hardcoded fallback config has retrievalStrategy=e
   // We verify this by examining the fallback object directly from the source logic:
   // When memorySettings is null, the handler uses retrievalStrategy: "exact" as const.
   // We test this via toMemoryRetrievalConfig with a minimal disabled-settings object.
-  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } = await import(
-    "../../src/lib/memory/settings.ts"
-  );
+  const { toMemoryRetrievalConfig, DEFAULT_MEMORY_SETTINGS } =
+    await import("../../src/lib/memory/settings.ts");
 
   // Simulate the catch path: strategy "recent" maps to "exact" (same as hardcoded fallback)
   const disabledSettings = { ...DEFAULT_MEMORY_SETTINGS, strategy: "recent" as const };

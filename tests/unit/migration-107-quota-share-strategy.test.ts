@@ -58,15 +58,15 @@ function insertCombo(db: TestDb, id: string, name: string, strategy: string): vo
   ).run(id, name, data);
 }
 
-function strategyOf(db: TestDb, name: string): string | null {
-  const row = db
+async function strategyOf(db: TestDb, name: string): string | null {
+  const row = await db
     .prepare("SELECT json_extract(data, '$.strategy') AS s FROM combos WHERE name = ?")
     .get(name);
   return (row?.s as string | undefined) ?? null;
 }
 
-function dataOf(db: TestDb, name: string): Record<string, unknown> {
-  const row = db.prepare("SELECT data FROM combos WHERE name = ?").get(name);
+async function dataOf(db: TestDb, name: string): Record<string, unknown> {
+  const row = await db.prepare("SELECT data FROM combos WHERE name = ?").get(name);
   return JSON.parse(row!.data as string) as Record<string, unknown>;
 }
 

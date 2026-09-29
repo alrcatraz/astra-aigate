@@ -133,8 +133,8 @@ describe("NoAuthAccountCard compact grid", () => {
     await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 3);
     const firstChip = grid(el)!.querySelector<HTMLElement>("[data-account-id]")!;
     const proxyBtn = firstChip.querySelector<HTMLButtonElement>("button[title]")!;
-    act(() => {
-      proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await waitForCondition(() => el.textContent?.includes("Proxy for Account 1") ?? false);
     expect(el.textContent).toContain("Proxy for Account 1");
@@ -216,9 +216,9 @@ describe("NoAuthAccountCard proxy pool dropdown (#5217 Gap 1)", () => {
       window.HTMLSelectElement.prototype,
       "value"
     )!.set!;
-    act(() => {
+    act(async () => {
       setter.call(select, "pool-2");
-      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await select.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const saveBtn = Array.from(el.querySelectorAll("button")).find(

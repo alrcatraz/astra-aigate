@@ -11,24 +11,26 @@ const core = await import("../../src/lib/db/core.ts");
 const compliance = await import("../../src/lib/compliance/index.ts");
 const auditRoute = await import("../../src/app/api/compliance/audit-log/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("compliance audit route keeps array payloads and exposes total count with structured filters", async () => {
-  compliance.initAuditLog();
-  compliance.logAuditEvent({
+  await compliance.initAuditLog();
+  await compliance.logAuditEvent({
     action: "auth.login.success",
     actor: "admin",
     resourceType: "auth_session",
@@ -37,7 +39,7 @@ test("compliance audit route keeps array payloads and exposes total count with s
     ipAddress: "203.0.113.5",
     createdAt: "2026-04-14T12:00:00.000Z",
   });
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "provider.validation.ssrf_blocked",
     actor: "admin",
     target: "provider-node",

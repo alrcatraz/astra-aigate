@@ -71,7 +71,7 @@ test("Batch processor produces output file for successful items", async () => {
       }),
     ].join("\n");
 
-    const file = createFile({
+    const file = await createFile({
       bytes: Buffer.byteLength(fileContent),
       filename: "embeddings_batch.jsonl",
       purpose: "batch",
@@ -79,7 +79,7 @@ test("Batch processor produces output file for successful items", async () => {
       apiKeyId: null,
     });
 
-    const batch = createBatch({
+    const batch = await createBatch({
       endpoint: "/v1/embeddings",
       completionWindow: "24h",
       inputFileId: file.id,
@@ -90,14 +90,14 @@ test("Batch processor produces output file for successful items", async () => {
     await processPendingBatches();
 
     let maxAttempts = 30;
-    let currentBatch = getBatch(batch.id);
+    let currentBatch = await getBatch(batch.id);
     while (
       maxAttempts > 0 &&
       currentBatch?.status !== "completed" &&
       currentBatch?.status !== "failed"
     ) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      currentBatch = getBatch(batch.id);
+      currentBatch = await getBatch(batch.id);
       maxAttempts--;
     }
 
@@ -118,7 +118,7 @@ test("Batch processor produces output file for successful items", async () => {
     // If the batch completed successfully, it should have produced an output file
     if (currentBatch?.status === "completed") {
       assert.ok(currentBatch.outputFileId, "Batch should have an outputFileId");
-      const outputContent = getFileContent(currentBatch.outputFileId!);
+      const outputContent = await getFileContent(currentBatch.outputFileId!);
       assert.ok(outputContent, "Output file should have content");
       const lines = outputContent.toString().split("\n").filter(Boolean);
       assert.strictEqual(lines.length, 1, "Should have one result line");
@@ -128,7 +128,7 @@ test("Batch processor produces output file for successful items", async () => {
 
       // Output file should have an expiration timestamp set (30 days default)
       const { getFile } = await import("../../src/lib/localDb.ts");
-      const fileRow = getFile(currentBatch.outputFileId!);
+      const fileRow = await getFile(currentBatch.outputFileId!);
       assert.ok(fileRow?.expiresAt && typeof fileRow.expiresAt === "number");
     }
   } finally {

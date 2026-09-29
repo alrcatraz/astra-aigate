@@ -117,7 +117,7 @@ describe("CompressionHub — PUT sends patch only, not full settings", () => {
     await act(async () => {
       if (select) {
         Object.defineProperty(select, "value", { writable: true, value: "c1" });
-        select.dispatchEvent(new Event("change", { bubbles: true }));
+        await select.dispatchEvent(new Event("change", { bubbles: true }));
       }
     });
 

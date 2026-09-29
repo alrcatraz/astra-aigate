@@ -3,9 +3,8 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, vi, afterEach } from "vitest";
 
-const { ModelVisibilityToolbar } = await import(
-  "../../../src/app/(dashboard)/dashboard/providers/[id]/components/ModelRow"
-);
+const { ModelVisibilityToolbar } =
+  await import("../../../src/app/(dashboard)/dashboard/providers/[id]/components/ModelRow");
 
 // providerText() falls back to the English string when t.has(key) is false.
 const t: any = Object.assign((k: string) => k, { has: () => false });
@@ -63,12 +62,12 @@ describe("ModelVisibilityToolbar — free filter & sort", () => {
   it("fires onFreeFilterChange with the chosen filter", () => {
     const onFreeFilterChange = vi.fn();
     const el = render({ freeFilter: "all", onFreeFilterChange });
-    act(() => {
-      byText(el, "Free only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await byText(el, "Free only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onFreeFilterChange).toHaveBeenCalledWith("free");
-    act(() => {
-      byText(el, "Paid only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await byText(el, "Paid only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onFreeFilterChange).toHaveBeenCalledWith("paid");
   });
@@ -78,8 +77,8 @@ describe("ModelVisibilityToolbar — free filter & sort", () => {
     const el = render({ sortFreeFirst: false, onSortFreeFirstChange });
     const btn = byTextIncludes(el, "Free first")!;
     expect(btn.getAttribute("aria-pressed")).toBe("false");
-    act(() => {
-      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onSortFreeFirstChange).toHaveBeenCalledWith(true);
   });

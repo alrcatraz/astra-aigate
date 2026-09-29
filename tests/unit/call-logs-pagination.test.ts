@@ -69,7 +69,7 @@ function insertCallLog(row: Record<string, unknown>) {
 }
 
 test.before(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // Seed 25 rows with strictly increasing timestamps (id N -> minute N).
@@ -77,10 +77,12 @@ test.before(async () => {
     const mm = String(i).padStart(2, "0");
     insertCallLog({ id: `log_${mm}`, timestamp: `2026-05-22T10:${mm}:00.000Z` });
   }
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

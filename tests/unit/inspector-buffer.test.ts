@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { TrafficBuffer } from "../../src/mitm/inspector/buffer.ts";
-import type {
-  InterceptedRequest,
-  WsEvent,
-} from "../../src/mitm/inspector/types.ts";
+import type { InterceptedRequest, WsEvent } from "../../src/mitm/inspector/types.ts";
 
 function makeReq(overrides: Partial<InterceptedRequest> = {}): InterceptedRequest {
   return {
@@ -30,39 +27,39 @@ function makeReq(overrides: Partial<InterceptedRequest> = {}): InterceptedReques
   };
 }
 
-test("push appends entries and auto-applies detectedKind=llm", () => {
+test("push appends entries and auto-applies detectedKind=llm", async () => {
   const buf = new TrafficBuffer(10);
   const r = makeReq({ id: "r1" });
   buf.push(r);
-  const got = buf.get("r1");
+  const got = await buf.get("r1");
   assert.ok(got);
   assert.equal(got.detectedKind, "llm");
 });
 
-test("push auto-computes contextKey from system prompt", () => {
+test("push auto-computes contextKey from system prompt", async () => {
   const buf = new TrafficBuffer(10);
   const r = makeReq({ id: "r1" });
   buf.push(r);
-  const got = buf.get("r1");
+  const got = await buf.get("r1");
   assert.ok(got);
   assert.ok(got.contextKey);
   assert.match(got.contextKey!, /^[0-9a-f]{12}$/);
 });
 
-test("push does not override an existing contextKey", () => {
+test("push does not override an existing contextKey", async () => {
   const buf = new TrafficBuffer(10);
   const r = makeReq({ id: "r1", contextKey: "preexisting1" });
   buf.push(r);
-  const got = buf.get("r1");
+  const got = await buf.get("r1");
   assert.equal(got!.contextKey, "preexisting1");
 });
 
-test("push truncates large requestBody with marker", () => {
+test("push truncates large requestBody with marker", async () => {
   // 1 KiB so cap is hit reliably; override env via fresh buffer w/ explicit byte cap
   const big = "a".repeat(3000);
   const buf = new TrafficBuffer(10, 1024); // 1 KiB max body
   buf.push(makeReq({ id: "r1", requestBody: big }));
-  const got = buf.get("r1");
+  const got = await buf.get("r1");
   assert.ok(got);
   assert.ok(got.requestBody!.length > 1024); // marker increases length slightly
   assert.match(got.requestBody!, /truncated for performance/);
@@ -79,23 +76,23 @@ test("push rotates oldest when over maxSize", () => {
   assert.ok(buf.get("d"));
 });
 
-test("update replaces existing entry by id and broadcasts update", () => {
+test("update replaces existing entry by id and broadcasts update", async () => {
   const buf = new TrafficBuffer(5);
   buf.push(makeReq({ id: "r1" }));
   const events: WsEvent[] = [];
   const off = buf.subscribe((e) => events.push(e));
   // initial snapshot received
-  buf.update("r1", makeReq({ id: "r1", status: 500, responseBody: "err" }));
+  await buf.update("r1", makeReq({ id: "r1", status: 500, responseBody: "err" }));
   off();
-  const got = buf.get("r1");
+  const got = await buf.get("r1");
   assert.equal(got!.status, 500);
   const updates = events.filter((e) => e.type === "update");
   assert.equal(updates.length, 1);
 });
 
-test("update is a no-op when id is unknown", () => {
+test("update is a no-op when id is unknown", async () => {
   const buf = new TrafficBuffer(5);
-  buf.update("missing", makeReq({ id: "missing" }));
+  await buf.update("missing", makeReq({ id: "missing" }));
   assert.equal(buf.size(), 0);
 });
 
@@ -126,10 +123,7 @@ test("list applies filters by source, host, status, profile, agent, sessionId", 
   assert.equal(buf.list({ host: "api.openai.com" }).length, 1);
   assert.equal(buf.list({ status: "5xx" }).length, 1);
   assert.equal(buf.list({ agent: "codex" }).length, 1);
-  assert.equal(
-    buf.list({ sessionId: "00000000-0000-0000-0000-000000000000" }).length,
-    1
-  );
+  assert.equal(buf.list({ sessionId: "00000000-0000-0000-0000-000000000000" }).length, 1);
   assert.equal(buf.list({ profile: "custom" }).length, 1);
   assert.equal(buf.list({ profile: "all" }).length, 3);
 });
@@ -195,10 +189,10 @@ test("broadcasts new event with the pushed request", () => {
   }
 });
 
-test("body cap applies to responseBody as well", () => {
+test("body cap applies to responseBody as well", async () => {
   const buf = new TrafficBuffer(5, 100);
   const r = makeReq({ id: "r", responseBody: "x".repeat(500) });
   buf.push(r);
-  const got = buf.get("r");
+  const got = await buf.get("r");
   assert.match(got!.responseBody!, /truncated for performance/);
 });

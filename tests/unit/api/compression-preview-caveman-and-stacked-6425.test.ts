@@ -26,9 +26,7 @@ import { makeManagementSessionRequest } from "../../helpers/managementSession.ts
 
 // ─── temp DB isolation ────────────────────────────────────────────────────────
 
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-compression-preview-6425-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-compression-preview-6425-"));
 const originalDataDir = process.env.DATA_DIR;
 const originalJwtSecret = process.env.JWT_SECRET;
 
@@ -45,7 +43,7 @@ const CAVEMAN_TRIGGER =
   "actually really understand the very important issue at hand.";
 
 async function setupAuth(): Promise<void> {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   await settingsDb.updateSettings({
@@ -53,6 +51,8 @@ async function setupAuth(): Promise<void> {
     setupComplete: true,
     password: "test-password-hash",
   });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // ─── lifecycle ────────────────────────────────────────────────────────────────
@@ -62,28 +62,25 @@ test.beforeEach(async () => {
   await setupAuth();
 });
 
-test.after(() => {
+test.after(async () => {
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
   if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
   else process.env.JWT_SECRET = originalJwtSecret;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 // ─── tests ────────────────────────────────────────────────────────────────────
 
 test("#6425 (a): POST /api/compression/preview accepts mode:'caveman' and produces >0% savings", async () => {
-  const request = await makeManagementSessionRequest(
-    "http://localhost/api/compression/preview",
-    {
-      method: "POST",
-      body: {
-        messages: [{ role: "user", content: CAVEMAN_TRIGGER }],
-        mode: "caveman",
-      },
-    }
-  );
+  const request = await makeManagementSessionRequest("http://localhost/api/compression/preview", {
+    method: "POST",
+    body: {
+      messages: [{ role: "user", content: CAVEMAN_TRIGGER }],
+      mode: "caveman",
+    },
+  });
 
   const response = await previewRoute.POST(request);
   assert.equal(
@@ -109,16 +106,13 @@ test("#6425 (a): POST /api/compression/preview accepts mode:'caveman' and produc
 });
 
 test("#6425 (b): POST /api/compression/preview mode:'stacked' returns >0% on caveman-trigger prose", async () => {
-  const request = await makeManagementSessionRequest(
-    "http://localhost/api/compression/preview",
-    {
-      method: "POST",
-      body: {
-        messages: [{ role: "user", content: CAVEMAN_TRIGGER }],
-        mode: "stacked",
-      },
-    }
-  );
+  const request = await makeManagementSessionRequest("http://localhost/api/compression/preview", {
+    method: "POST",
+    body: {
+      messages: [{ role: "user", content: CAVEMAN_TRIGGER }],
+      mode: "stacked",
+    },
+  });
 
   const response = await previewRoute.POST(request);
   assert.equal(response.status, 200, `Expected 200, got ${response.status}`);

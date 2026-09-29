@@ -33,18 +33,18 @@ test.afterEach(() => {
   restoreGlobals();
 });
 
-test.after(() => {
+test.after(async () => {
   restoreGlobals();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 // Shared assertions: every successful media Response must carry the
 // X-OmniRoute-* cost telemetry headers (parity with chat/embeddings).
-function assertCostTelemetryHeaders(response: Response) {
+async function assertCostTelemetryHeaders(response: Response) {
   assert.equal(response.status, 200);
 
-  const cost = response.headers.get(OMNIROUTE_RESPONSE_HEADERS.responseCost);
+  const cost = await response.headers.get(OMNIROUTE_RESPONSE_HEADERS.responseCost);
   assert.ok(cost, "response cost header must be present");
   assert.match(
     cost as string,
@@ -52,10 +52,10 @@ function assertCostTelemetryHeaders(response: Response) {
     `cost header must be a fixed-10-decimal number, got: ${cost}`
   );
 
-  const version = response.headers.get(OMNIROUTE_RESPONSE_HEADERS.version);
+  const version = await response.headers.get(OMNIROUTE_RESPONSE_HEADERS.version);
   assert.ok(version && version.trim().length > 0, "version header must be non-empty");
 
-  const provider = response.headers.get(OMNIROUTE_RESPONSE_HEADERS.provider);
+  const provider = await response.headers.get(OMNIROUTE_RESPONSE_HEADERS.provider);
   assert.ok(provider && provider.trim().length > 0, "provider header must be present");
 }
 
@@ -142,7 +142,9 @@ test("v1 music generation success Response carries cost telemetry headers", asyn
       return new Response(
         JSON.stringify({
           "music-cost-1": {
-            outputs: { 7: { audio: [{ filename: "track.wav", subfolder: "out", type: "output" }] } },
+            outputs: {
+              7: { audio: [{ filename: "track.wav", subfolder: "out", type: "output" }] },
+            },
           },
         }),
         { status: 200, headers: { "content-type": "application/json" } }

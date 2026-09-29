@@ -12,16 +12,15 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omni-comp-settings-te
 process.env.DATA_DIR = testDataDir;
 
 const coreDb = await import("../../src/lib/db/core.ts");
-const { resolveCompressionSettings } = await import(
-  "../../open-sse/handlers/chatCore/compressionSettings.ts"
-);
+const { resolveCompressionSettings } =
+  await import("../../open-sse/handlers/chatCore/compressionSettings.ts");
 
 before(async () => {
   await coreDb.ensureDbInitialized();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   try {
     fs.rmSync(testDataDir, { recursive: true, force: true });
   } catch {

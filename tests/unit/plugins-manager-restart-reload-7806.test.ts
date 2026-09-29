@@ -61,11 +61,11 @@ describe("pluginManager reload after restart (#7806)", () => {
   const testPlugins: string[] = [];
   const tmpDirs: string[] = [];
 
-  beforeEach(() => {
+  beforeEach(async () => {
     getDbInstance();
     for (const name of testPlugins) {
       try {
-        db.deletePlugin(name);
+        await db.deletePlugin(name);
       } catch {
         // not present — fine
       }
@@ -90,7 +90,7 @@ describe("pluginManager reload after restart (#7806)", () => {
         "sanity: in-memory state cleared, mirroring a fresh process"
       );
 
-      const dbRow = db.getPluginByName(name);
+      const dbRow = await db.getPluginByName(name);
       assert.equal(dbRow!.status, "active", "DB row still says active across the 'restart'");
 
       await mod.pluginManager.activate(name);

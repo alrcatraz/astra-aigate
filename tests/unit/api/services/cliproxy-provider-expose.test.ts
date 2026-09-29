@@ -20,10 +20,12 @@ const { upsertVersionManagerTool, getVersionManagerTool } =
 
 const { POST } = await import("../../../../src/app/api/services/cliproxy/provider-expose/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeRequest(body: unknown): Request {
@@ -34,8 +36,8 @@ function makeRequest(body: unknown): Request {
   });
 }
 
-beforeEach(() => {
-  resetDb();
+beforeEach(async () => {
+  await resetDb();
 });
 
 describe("POST /api/services/cliproxy/provider-expose", () => {

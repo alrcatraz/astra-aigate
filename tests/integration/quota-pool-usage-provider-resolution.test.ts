@@ -32,19 +32,21 @@ const { createPool, upsertAllocations, createProviderConnection } = localDb;
 const { resetQuotaStoreSingleton } = await import("../../src/lib/quota/QuotaStore.ts");
 const usageRoute = await import("../../src/app/api/quota/pools/[id]/usage/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   resetQuotaStoreSingleton();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   resetQuotaStoreSingleton();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -58,8 +60,8 @@ test("GET /usage surfaces catalog dimensions for a catalog-only pool (provider r
     apiKey: "sk-kimi-test",
   })) as { id: string };
 
-  const pool = createPool({ name: "Kimi Shared Pool", connectionId: conn.id });
-  upsertAllocations(pool.id, [{ apiKeyId: "key-a", weight: 100, policy: "hard" }]);
+  const pool = await createPool({ name: "Kimi Shared Pool", connectionId: conn.id });
+  await upsertAllocations(pool.id, [{ apiKeyId: "key-a", weight: 100, policy: "hard" }]);
 
   const req = await makeManagementSessionRequest(
     `http://localhost/api/quota/pools/${pool.id}/usage`
@@ -94,7 +96,7 @@ test("GET /usage still returns a 200 snapshot when the provider has no catalog p
     apiKey: "sk-unknown-test",
   })) as { id: string };
 
-  const pool = createPool({ name: "Unknown Pool", connectionId: conn.id });
+  const pool = await createPool({ name: "Unknown Pool", connectionId: conn.id });
 
   const req = await makeManagementSessionRequest(
     `http://localhost/api/quota/pools/${pool.id}/usage`

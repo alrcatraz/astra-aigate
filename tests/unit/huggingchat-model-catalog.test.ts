@@ -102,11 +102,11 @@ test("huggingchat registry contains only final concrete production models", () =
   }
 });
 
-test("huggingchat registry preserves supported boolean capabilities", () => {
+test("huggingchat registry preserves supported boolean capabilities", async () => {
   const byId = new Map(huggingchatProvider.models.map((model) => [model.id, model]));
 
   for (const id of HUGGINGCHAT_CONCRETE_MODELS) {
-    const model = byId.get(id);
+    const model = await byId.get(id);
     assert.ok(model, `${id} should be registered`);
     assert.equal(model.supportsVision === true, MULTIMODAL_MODELS.has(id), `${id} vision flag`);
     assert.equal(model.toolCalling === true, TOOL_CALLING_MODELS.has(id), `${id} tools flag`);

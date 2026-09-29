@@ -19,20 +19,22 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const syncBundle = await import("../../src/lib/sync/bundle.ts");
 
-function resetStorage() {
+async function resetStorage() {
   apiKeysDb.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
+test.after(async () => {
   apiKeysDb.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 
   if (ORIGINAL_DATA_DIR === undefined) {

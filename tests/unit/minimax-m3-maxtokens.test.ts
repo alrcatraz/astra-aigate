@@ -29,23 +29,23 @@ const core = await import("../../src/lib/db/core.ts");
 const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
 const { getModelSpec } = await import("../../src/shared/constants/modelSpecs.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 const DEFAULT_CAP = 8192;
 
-test("#3141 MiniMax-M3 max_tokens is not capped to the 8192 default", () => {
-  const cap = modelCapabilities.capMaxOutputTokens({ provider: "minimax", model: "MiniMax-M3" });
-  assert.ok(
-    cap > DEFAULT_CAP,
-    `expected MiniMax-M3 maxOutputTokens > ${DEFAULT_CAP}, got ${cap}`
-  );
+test("#3141 MiniMax-M3 max_tokens is not capped to the 8192 default", async () => {
+  const cap = await modelCapabilities.capMaxOutputTokens({
+    provider: "minimax",
+    model: "MiniMax-M3",
+  });
+  assert.ok(cap > DEFAULT_CAP, `expected MiniMax-M3 maxOutputTokens > ${DEFAULT_CAP}, got ${cap}`);
 });
 
-test("#3141 MiniMaxAI/MiniMax-M3 (prefixed id) resolves above the 8192 default", () => {
-  const cap = modelCapabilities.capMaxOutputTokens({
+test("#3141 MiniMaxAI/MiniMax-M3 (prefixed id) resolves above the 8192 default", async () => {
+  const cap = await modelCapabilities.capMaxOutputTokens({
     provider: "minimax",
     model: "MiniMaxAI/MiniMax-M3",
   });
@@ -55,16 +55,22 @@ test("#3141 MiniMaxAI/MiniMax-M3 (prefixed id) resolves above the 8192 default",
   );
 });
 
-test("#3141 capitalized MiniMax-M2.7 resolves to its lowercase spec (case-insensitive)", () => {
-  const cap = modelCapabilities.capMaxOutputTokens({ provider: "minimax", model: "MiniMax-M2.7" });
+test("#3141 capitalized MiniMax-M2.7 resolves to its lowercase spec (case-insensitive)", async () => {
+  const cap = await modelCapabilities.capMaxOutputTokens({
+    provider: "minimax",
+    model: "MiniMax-M2.7",
+  });
   assert.ok(
     cap > DEFAULT_CAP,
     `expected MiniMax-M2.7 maxOutputTokens > ${DEFAULT_CAP}, got ${cap}`
   );
 });
 
-test("#3141 lowercase minimax-m2.7 spec is unchanged", () => {
-  const cap = modelCapabilities.capMaxOutputTokens({ provider: "minimax", model: "minimax-m2.7" });
+test("#3141 lowercase minimax-m2.7 spec is unchanged", async () => {
+  const cap = await modelCapabilities.capMaxOutputTokens({
+    provider: "minimax",
+    model: "minimax-m2.7",
+  });
   assert.ok(
     cap > DEFAULT_CAP,
     `expected minimax-m2.7 maxOutputTokens > ${DEFAULT_CAP}, got ${cap}`

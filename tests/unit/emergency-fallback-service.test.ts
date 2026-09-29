@@ -27,16 +27,18 @@ function restoreEnv(name: string, value: string | undefined) {
   }
 }
 
-function resetTestState() {
-  core.resetDbInstance();
+async function resetTestState() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
   delete process.env.OMNIROUTE_EMERGENCY_FALLBACK;
   resetEmergencyFallbackEnvCache();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetTestState();
+test.beforeEach(async () => {
+  await resetTestState();
 });
 
 test.afterEach(() => {
@@ -44,8 +46,8 @@ test.afterEach(() => {
   resetEmergencyFallbackEnvCache();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   restoreEnv("DATA_DIR", previousDataDir);
   restoreEnv("DISABLE_SQLITE_AUTO_BACKUP", previousDisableSqliteAutoBackup);

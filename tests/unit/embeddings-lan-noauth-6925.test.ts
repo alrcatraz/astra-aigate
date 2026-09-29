@@ -12,8 +12,8 @@ const core = await import("../../src/lib/db/core.ts");
 const { createProviderNode } = await import("../../src/lib/db/providers/nodes.ts");
 const { createEmbeddingResponse } = await import("../../src/lib/embeddings/service.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
