@@ -23,7 +23,7 @@ async function freshCompressionDb() {
     await import("../../../src/lib/db/core.ts");
   const db = getDbInstance(); // runs migrations on first call
   db.prepare("DELETE FROM key_value WHERE namespace = 'compression'").run();
-  return { db, resetDbInstance };
+  return { db, getDbInstance, resetDbInstanceDrained, awaitDbMigrations };
 }
 
 async function readSettings() {
