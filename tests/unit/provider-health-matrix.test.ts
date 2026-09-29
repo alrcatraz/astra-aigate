@@ -24,7 +24,7 @@ const accountFallback = await import("@omniroute/open-sse/services/accountFallba
 const PROVIDER = "matrix-test-provider";
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   for (const lockout of accountFallback.getAllModelLockouts()) {
@@ -33,6 +33,8 @@ async function resetStorage() {
     }
   }
   accountFallback.clearProviderFailure(PROVIDER);
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {

@@ -17,13 +17,15 @@ const { getProvider, getEnabledProviders, getAllProviders } =
   await import("../../src/lib/freeProxyProviders/index.ts");
 
 async function reset() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -259,7 +261,10 @@ test("IplocateProvider.sync parses the plain-text ip:port lists (.txt, not .json
       seenUrls.length > 0 && seenUrls.every((u) => u.endsWith(".txt")),
       `expected .txt URLs, got: ${seenUrls.join(", ")}`
     );
-    assert.ok(result.fetched > 0, `expected proxies parsed from the txt list, got ${result.fetched}`);
+    assert.ok(
+      result.fetched > 0,
+      `expected proxies parsed from the txt list, got ${result.fetched}`
+    );
     const items = await p.list({ limit: 50 });
     assert.ok(
       items.some((i) => i.host === "103.173.141.10" && i.port === 8080),

@@ -7,7 +7,7 @@
  *
  * Endpoint model (gateway mode):
  *   - builtin endpoints expose a locally-registered tool domain
- *     (aigate-omniroute=all / aigate-mcp=mcp_* / aigate-infra=none)
+ *     (aigate-omniroute=all / aigate-mcp=mcp_* / aigate-infra=none, reserved)
  *   - stdio/http endpoints forward to a downstream MCP server through a
  *     per-endpoint bridge (bridge.ts); downstream tools are registered on
  *     the local server as forwarding handlers.

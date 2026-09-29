@@ -28,13 +28,7 @@ vi.mock("next/dynamic", () => ({
 }));
 
 vi.mock("@/shared/components/MonacoEditor", () => ({
-  default: ({
-    value,
-    onChange,
-  }: {
-    value?: string;
-    onChange?: (v: string) => void;
-  }) => (
+  default: ({ value, onChange }: { value?: string; onChange?: (v: string) => void }) => (
     <textarea
       data-testid="monaco-editor"
       value={value}
@@ -76,7 +70,9 @@ vi.mock("@/shared/components", () => ({
       ))}
     </select>
   ),
-  Badge: ({ children }: { children: React.ReactNode }) => <span data-testid="badge">{children}</span>,
+  Badge: ({ children }: { children: React.ReactNode }) => (
+    <span data-testid="badge">{children}</span>
+  ),
 }));
 
 vi.mock("@/shared/constants/providers", () => ({
@@ -97,9 +93,8 @@ vi.stubGlobal("fetch", mockFetch);
 
 // ── Import under test ──────────────────────────────────────────────────────────
 
-const { default: ApiTab } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/components/tabs/ApiTab"
-);
+const { default: ApiTab } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/components/tabs/ApiTab");
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -128,8 +123,9 @@ async function waitFor(fn: () => boolean, timeout = 3000): Promise<void> {
 
 describe("ApiTab", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-      .IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
 
     // Default fetch mock: models + providers return empty
     mockFetch.mockImplementation(async (url: string) => {
@@ -207,16 +203,14 @@ describe("ApiTab", () => {
 
     const endpointSelect = el.querySelector("select") as HTMLSelectElement;
 
-    act(() => {
+    act(async () => {
       endpointSelect.value = "embeddings";
-      endpointSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await endpointSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     // The badge should reflect the new endpoint
     const badges = el.querySelectorAll("[data-testid='badge']");
-    const endpointBadge = Array.from(badges).find((b) =>
-      b.textContent?.includes("/v1/")
-    );
+    const endpointBadge = Array.from(badges).find((b) => b.textContent?.includes("/v1/"));
     expect(endpointBadge?.textContent).toContain("embeddings");
   });
 
@@ -257,14 +251,14 @@ describe("ApiTab", () => {
     const modelSelect = el.querySelectorAll("select")[2] as HTMLSelectElement;
     await waitFor(() => modelSelect.options.length > 0);
 
-    act(() => {
+    act(async () => {
       modelSelect.value = "openai/gpt-4";
-      modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     // Find Send button
-    const sendBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.includes("send")
+    const sendBtn = Array.from(el.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("send")
     ) as HTMLButtonElement | undefined;
 
     // Selecting a model + the auto-populated request body must enable Send —

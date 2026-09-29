@@ -14,7 +14,7 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const { safeResolveProxy } = await import("../../src/sse/handlers/chatHelpers.ts");
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_INITIAL_PASSWORD === undefined) delete process.env.INITIAL_PASSWORD;
   else process.env.INITIAL_PASSWORD = ORIGINAL_INITIAL_PASSWORD;

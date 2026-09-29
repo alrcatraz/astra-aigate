@@ -319,7 +319,7 @@ describe("CliCodePageClient", () => {
 
     await act(async () => {
       input.value = "claude";
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await input.dispatchEvent(new Event("input", { bubbles: true }));
       // Simulate onChange
       const syntheticEvent = {
         target: { value: "claude" },
@@ -329,7 +329,7 @@ describe("CliCodePageClient", () => {
       if (!reactProps) {
         // Fallback: change event
         Object.defineProperty(input, "value", { value: "claude", writable: true });
-        input.dispatchEvent(
+        await input.dispatchEvent(
           Object.assign(new Event("change", { bubbles: true }), {
             target: input,
           })
@@ -366,7 +366,7 @@ describe("CliCodePageClient", () => {
         "value"
       )?.set;
       nativeInputValueSetter?.call(input, "claude code");
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const cards = container.querySelectorAll('[data-testid="cli-tool-card"]');

@@ -62,8 +62,8 @@ function buildRequest(maxTokens: number) {
   };
 }
 
-test.before(() => {
-  core.resetDbInstance();
+test.before(async () => {
+  await core.resetDbInstanceDrained();
   assert.equal(
     overridesDb.setModelCapabilityOverride(`${PROVIDER}/${MODEL}`, "max_token", OUTPUT_CAP),
     true,
@@ -83,11 +83,13 @@ test.before(() => {
       { status: 200, headers: { "content-type": "application/json" } }
     );
   };
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

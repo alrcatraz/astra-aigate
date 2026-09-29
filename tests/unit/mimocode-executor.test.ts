@@ -394,7 +394,7 @@ describe("mimocode per-account proxy", () => {
     }
   });
 
-  it("authenticated proxy includes credentials in URL", () => {
+  it("authenticated proxy includes credentials in URL", async () => {
     const testExec = new MimocodeExecutor();
     const fp = "fp-auth";
     (testExec as any).accounts = [
@@ -418,7 +418,7 @@ describe("mimocode per-account proxy", () => {
     });
 
     const map: Map<string, string> = (testExec as any).proxyUrlMap;
-    const url = map.get(fp);
+    const url = await map.get(fp);
     assert.ok(url);
     assert.ok(url.includes("user:pass@"), "URL should include encoded credentials");
   });

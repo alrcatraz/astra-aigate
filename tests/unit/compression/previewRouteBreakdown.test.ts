@@ -11,16 +11,27 @@ const core = await import("../../../src/lib/db/core.ts");
 const route = await import("../../../src/app/api/compression/preview/route.ts");
 function makeReq(body: unknown) {
   return new Request("http://localhost/api/compression/preview", {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
   });
 }
-test.beforeEach(() => core.resetDbInstance());
-test.after(() => { core.resetDbInstance(); rmSync(TEST_DATA_DIR, { recursive: true, force: true }); });
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
+test.after(async () => {
+  await core.resetDbInstanceDrained();
+  rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+});
 test("response carries a non-empty engineBreakdown for a single engine", async () => {
-  const res = await route.POST(makeReq({
-    messages: [{ role: "user", content: "$ git status\nOn branch main\nnothing to commit" }],
-    engineId: "rtk",
-  }));
+  const res = await route.POST(
+    makeReq({
+      messages: [{ role: "user", content: "$ git status\nOn branch main\nnothing to commit" }],
+      engineId: "rtk",
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.ok(Array.isArray(body.engineBreakdown));

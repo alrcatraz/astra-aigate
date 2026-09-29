@@ -24,8 +24,8 @@ const handler = await import("../../src/sse/handlers/reasoningRouting.ts");
  * paths that reorder touched; they pass identically before and after it.
  */
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -662,7 +662,7 @@ export async function handleChat(
   combo = virtualCombo;
   if (combo) {
     if (reasoningDecision) {
-      const filtered = filterReasoningCombo(combo, reasoningDecision);
+      const filtered = await filterReasoningCombo(combo, reasoningDecision);
       if (filtered instanceof Response) return filtered;
       combo = filtered;
     }

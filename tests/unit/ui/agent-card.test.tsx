@@ -66,9 +66,8 @@ describe("AgentCard", { timeout: 30000 }, () => {
   });
 
   it("renders agent name and hosts", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const container = makeContainer();
     await act(async () => {
@@ -90,9 +89,8 @@ describe("AgentCard", { timeout: 30000 }, () => {
   }, 30000);
 
   it("expands on click and shows DNS toggle", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const container = makeContainer();
     await act(async () => {
@@ -113,16 +111,15 @@ describe("AgentCard", { timeout: 30000 }, () => {
     expect(header).not.toBeNull();
 
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(document.body.innerHTML).toContain("startDns");
   }, 30000);
 
   it("calls onDnsToggle when DNS button clicked", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     // Simulate that the per-agent RiskNoticeModal (Fix4 M5) has already been
     // accepted for this agent — otherwise the DNS click opens the modal first
@@ -158,7 +155,7 @@ describe("AgentCard", { timeout: 30000 }, () => {
     // Expand card
     const header = container.querySelector("button[aria-expanded]");
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Find and click DNS button
@@ -168,16 +165,15 @@ describe("AgentCard", { timeout: 30000 }, () => {
     expect(dnsButton).not.toBeNull();
 
     await act(async () => {
-      dnsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await dnsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onDnsToggle).toHaveBeenCalledWith("copilot", true);
   }, 30000);
 
   it("opens wizard when setup wizard button clicked", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const container = makeContainer();
     await act(async () => {
@@ -197,7 +193,7 @@ describe("AgentCard", { timeout: 30000 }, () => {
     // Expand card first
     const header = container.querySelector("button[aria-expanded]");
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Find setup wizard button
@@ -206,7 +202,7 @@ describe("AgentCard", { timeout: 30000 }, () => {
     );
 
     await act(async () => {
-      wizardBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await wizardBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();

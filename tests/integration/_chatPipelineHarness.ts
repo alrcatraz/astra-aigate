@@ -285,10 +285,12 @@ export async function createChatPipelineHarness(prefix) {
     invalidateMemorySettingsCache();
     clearSkillState();
     await new Promise((resolve) => setTimeout(resolve, 20));
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     fs.rmSync(testDataDir, { recursive: true, force: true });
     fs.mkdirSync(testDataDir, { recursive: true });
     initTranslators();
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
   async function cleanup() {
@@ -299,8 +301,10 @@ export async function createChatPipelineHarness(prefix) {
     semanticCacheModule.clearCache();
     clearSkillState();
     resetAllCircuitBreakers();
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     fs.rmSync(testDataDir, { recursive: true, force: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
   async function seedConnection(provider: string, overrides: SeedConnectionOverrides = {}) {

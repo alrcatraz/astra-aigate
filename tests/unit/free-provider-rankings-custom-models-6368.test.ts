@@ -37,8 +37,8 @@ const rankings = await import("../../src/lib/freeProviderRankings.ts");
 
 const CUSTOM_MODEL_ID = "claude-fable-5-6368";
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -49,10 +49,7 @@ test("mergeProviderModels: additively includes custom models, de-duping by id", 
     { id: "claude-fable-5-6368", name: "Claude Fable 5" },
   ];
   const merged = rankings.mergeProviderModels(registryModels, customModels);
-  assert.deepEqual(
-    merged.map((m) => m.id).sort(),
-    ["claude-fable-5-6368", "known-model"]
-  );
+  assert.deepEqual(merged.map((m) => m.id).sort(), ["claude-fable-5-6368", "known-model"]);
 });
 
 test("mergeProviderModels: no custom models returns the registry list unchanged", () => {

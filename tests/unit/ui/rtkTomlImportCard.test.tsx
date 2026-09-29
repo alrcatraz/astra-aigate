@@ -29,7 +29,7 @@ async function setTextarea(container: HTMLElement, value: string) {
       "value"
     )!.set!;
     setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 

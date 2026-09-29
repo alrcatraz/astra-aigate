@@ -30,15 +30,17 @@ process.env.VECTOR_STORE_DISABLE_VEC = "true"; // force vec → null
 const core = await import("../../src/lib/db/core.ts");
 const { MemoryEngineStatusSchema } = await import("../../src/shared/schemas/memory.ts");
 
-function cleanup() {
-  core.resetDbInstance();
+async function cleanup() {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => cleanup());
+test.afterEach(async () => await cleanup());
 test.after(() => {
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
@@ -153,11 +155,7 @@ test("engineStatus(): detail strings are English, not mixed Portuguese (#5596)",
     "degradado",
     "selecionado",
   ];
-  for (const reason of [
-    status.embedding.reason,
-    status.vectorStore.reason,
-    status.rerank.reason,
-  ]) {
+  for (const reason of [status.embedding.reason, status.vectorStore.reason, status.rerank.reason]) {
     for (const w of ptWords) {
       assert.ok(!reason.includes(w), `reason "${reason}" still contains Portuguese "${w}"`);
     }

@@ -213,7 +213,7 @@ describe("OAuthModal Grok Device Code", () => {
     expect(browserLoginButton).toBeTruthy();
 
     await act(async () => {
-      browserLoginButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await browserLoginButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
@@ -237,7 +237,7 @@ describe("OAuthModal Grok Device Code", () => {
     expect(deviceCodeButton).toBeTruthy();
 
     await act(async () => {
-      deviceCodeButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await deviceCodeButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
@@ -282,8 +282,8 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
       (b) => b.textContent === "Import auth.json"
     );
     expect(importButton).toBeTruthy();
-    act(() => {
-      importButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await importButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     const textarea = element.querySelector('textarea[aria-label="Grok Build auth.json"]');
     expect(textarea).toBeTruthy();
@@ -294,13 +294,13 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
     return { element, textarea: textarea as HTMLTextAreaElement, saveButton: saveButton! };
   }
 
-  function setPasteValue(textarea: HTMLTextAreaElement, value: string) {
+  async function setPasteValue(textarea: HTMLTextAreaElement, value: string) {
     const setter = Object.getOwnPropertyDescriptor(
       window.HTMLTextAreaElement.prototype,
       "value"
     )!.set!;
     setter.call(textarea, value);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    await textarea.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   it("rejects a bare Grok JWT paste with the #7610 guidance message", async () => {
@@ -312,18 +312,14 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
     });
     await flushEffects();
 
-    act(() => {
-      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
-    expect(element.textContent).toContain(
-      'Do not paste only the JWT "key" field'
-    );
+    expect(element.textContent).toContain('Do not paste only the JWT "key" field');
     // No import-token request should have been fired — validation must short-circuit.
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))
-    ).toBe(false);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))).toBe(false);
   });
 
   it("rejects a full auth.json missing refresh_token", async () => {
@@ -338,15 +334,13 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
     });
     await flushEffects();
 
-    act(() => {
-      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
     expect(element.textContent).toContain("auth.json is missing refresh_token");
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))
-    ).toBe(false);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))).toBe(false);
   });
 
   it("accepts a valid full auth.json and POSTs the parsed object to import-token", async () => {
@@ -372,14 +366,12 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
     });
     await flushEffects();
 
-    act(() => {
-      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))
-    ).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))).toBe(true);
     expect(element.textContent).not.toContain("auth.json is missing refresh_token");
     expect(element.textContent).not.toContain('Do not paste only the JWT "key"');
   });
@@ -412,14 +404,12 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
     });
     await flushEffects();
 
-    act(() => {
-      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
     expect(element.textContent).not.toContain("auth.json is missing refresh_token");
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))
-    ).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/import-token"))).toBe(true);
   });
 });

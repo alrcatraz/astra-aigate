@@ -113,30 +113,30 @@ const REAL_OPENCODE_DATA = {
 before(async () => {
   // Seed the DB exactly the way the previous sync wrote it: under the
   // historical "opencode-zen" alias, NOT under "opencode".
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     "opencode-zen": REAL_OPENCODE_DATA,
   });
 });
 
 after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 // ─── Tests ──────────────────────────────────────────────────────────────
 
 describe("opencode-zen ↔ opencode alias fix (end-to-end)", () => {
-  it("getSyncedCapability('opencode', 'big-pickle') finds data stored under 'opencode-zen'", () => {
+  it("getSyncedCapability('opencode', 'big-pickle') finds data stored under 'opencode-zen'", async () => {
     // Pre-fix: returns null (the bug)
     // Post-fix: returns the opencode-zen row
-    const cap = modelsDevSync.getSyncedCapability("opencode", "big-pickle");
+    const cap = await modelsDevSync.getSyncedCapability("opencode", "big-pickle");
     assert.ok(cap, "expected the alias fallback to find the opencode-zen row");
     assert.equal(cap?.limit_context, 200000);
     assert.equal(cap?.limit_output, 128000);
   });
 
-  it("getSyncedCapability('opencode', 'gpt-5-nano') finds the 400K context row", () => {
-    const cap = modelsDevSync.getSyncedCapability("opencode", "gpt-5-nano");
+  it("getSyncedCapability('opencode', 'gpt-5-nano') finds the 400K context row", async () => {
+    const cap = await modelsDevSync.getSyncedCapability("opencode", "gpt-5-nano");
     assert.ok(cap);
     assert.equal(cap?.limit_context, 400000);
   });
@@ -195,14 +195,14 @@ describe("opencode-zen ↔ opencode alias fix (end-to-end)", () => {
     assert.equal(minContext, 200000, "min of 200k, 400k, 200k, 200k = 200k");
   });
 
-  it("direct lookup under 'opencode-zen' still works (regression)", () => {
-    const cap = modelsDevSync.getSyncedCapability("opencode-zen", "big-pickle");
+  it("direct lookup under 'opencode-zen' still works (regression)", async () => {
+    const cap = await modelsDevSync.getSyncedCapability("opencode-zen", "big-pickle");
     assert.ok(cap);
     assert.equal(cap?.limit_context, 200000);
   });
 
-  it("unknown model still returns null (regression)", () => {
-    const cap = modelsDevSync.getSyncedCapability("opencode", "nonexistent-model");
+  it("unknown model still returns null (regression)", async () => {
+    const cap = await modelsDevSync.getSyncedCapability("opencode", "nonexistent-model");
     assert.equal(cap, null);
   });
 });

@@ -15,12 +15,15 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const { createEmbeddingResponse } = await import("../../src/lib/embeddings/service.ts");
 const { resolveProxyForRequest } = await import("../../open-sse/utils/proxyFetch.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-async function withHttpServer(handler: http.RequestListener, fn: (baseUrl: string) => Promise<void>) {
+async function withHttpServer(
+  handler: http.RequestListener,
+  fn: (baseUrl: string) => Promise<void>
+) {
   const server = http.createServer(handler);
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);

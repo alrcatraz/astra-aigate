@@ -9,9 +9,8 @@ const {
   injectEmptyReasoningContentForToolCalls,
 } = await import("../../open-sse/translator/helpers/schemaCoercion.ts");
 const { translateRequest } = await import("../../open-sse/translator/index.ts");
-const { NON_ANTHROPIC_THINKING_PLACEHOLDER } = await import(
-  "../../open-sse/translator/helpers/claudeHelper.ts"
-);
+const { NON_ANTHROPIC_THINKING_PLACEHOLDER } =
+  await import("../../open-sse/translator/helpers/claudeHelper.ts");
 const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 const { clearModelsDevCapabilities, saveModelsDevCapabilities } =
   await import("../../src/lib/modelsDevSync.ts");
@@ -198,9 +197,9 @@ test("tool sanitization: injects empty reasoning_content only for DeepSeek tool-
   assert.equal(openaiMessages[1].reasoning_content, undefined);
 });
 
-test("translateRequest injects reasoning_content for DeepSeek assistant tool calls", () => {
-  clearModelsDevCapabilities();
-  saveModelsDevCapabilities({
+test("translateRequest injects reasoning_content for DeepSeek assistant tool calls", async () => {
+  await clearModelsDevCapabilities();
+  await saveModelsDevCapabilities({
     deepseek: {
       "deepseek-v4-flash": buildCapability({
         interleaved_field: "reasoning_content",
@@ -232,5 +231,5 @@ test("translateRequest injects reasoning_content for DeepSeek assistant tool cal
   );
 
   assert.equal(translated.messages[1].reasoning_content, NON_ANTHROPIC_THINKING_PLACEHOLDER);
-  clearModelsDevCapabilities();
+  await clearModelsDevCapabilities();
 });

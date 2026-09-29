@@ -18,10 +18,12 @@ const core = await import("../../src/lib/db/core.ts");
 const compliance = await import("../../src/lib/compliance/index.ts");
 const auditRoute = await import("../../src/app/api/compliance/audit-log/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // The compliance audit-log route requires management auth (requireManagementAuth).
@@ -32,12 +34,12 @@ async function makeRequest(url: string): Promise<Request> {
   return new Request(url, { headers: Object.fromEntries(headers.entries()) });
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -46,37 +48,37 @@ test.after(() => {
  * - 2 with HIGH_LEVEL_ACTIONS (provider.credentials.created, quota.pool.created)
  * - 3 with arbitrary non-high actions
  */
-function seedEntries() {
-  compliance.initAuditLog();
+async function seedEntries() {
+  await compliance.initAuditLog();
 
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "provider.credentials.created",
     actor: "admin",
     target: "openai-conn-1",
     status: "success",
     createdAt: "2026-05-27T10:00:00.000Z",
   });
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "quota.pool.created",
     actor: "admin",
     target: "my-pool",
     status: "success",
     createdAt: "2026-05-27T10:01:00.000Z",
   });
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "debug.probe",
     actor: "system",
     target: "provider-node",
     status: "success",
     createdAt: "2026-05-27T10:02:00.000Z",
   });
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "system.startup",
     actor: "system",
     status: "success",
     createdAt: "2026-05-27T10:03:00.000Z",
   });
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "debug.test_call",
     actor: "dev",
     status: "success",
@@ -134,7 +136,7 @@ test("GET /api/compliance/audit-log?level=high x-total-count reflects filtered C
   );
 
   assert.equal(res.status, 200);
-  const totalCount = res.headers.get("x-total-count");
+  const totalCount = await res.headers.get("x-total-count");
   assert.equal(totalCount, "2", `Expected x-total-count=2, got ${totalCount}`);
 });
 

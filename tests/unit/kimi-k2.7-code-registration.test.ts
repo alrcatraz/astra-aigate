@@ -31,8 +31,8 @@ test("legacy kimi-coding-apikey shares the current stable offline aliases", () =
   assert.deepEqual(ids, ["k3", "kimi-for-coding", "kimi-for-coding-highspeed"]);
 });
 
-test("Kimi Code k3 fallback advertises the documented 1M context and thinking", () => {
-  const caps = getResolvedModelCapabilities({ provider: "kimi-coding", model: "k3" });
+test("Kimi Code k3 fallback advertises the documented 1M context and thinking", async () => {
+  const caps = await getResolvedModelCapabilities({ provider: "kimi-coding", model: "k3" });
   assert.equal(caps.contextWindow, 1048576);
   assert.equal(caps.supportsThinking, true);
 });
@@ -65,12 +65,12 @@ test("kimi (OpenAI endpoint) advertises kimi-k2.7-code + highspeed", () => {
   assert.ok(ids.includes(K27_HS), "kimi must list kimi-k2.7-code-highspeed");
 });
 
-test("Moonshot kimi-k2.7-code reports native 262144 context and is reasoning-capable", () => {
-  const caps = getResolvedModelCapabilities({ provider: "moonshot", model: K27 });
+test("Moonshot kimi-k2.7-code reports native 262144 context and is reasoning-capable", async () => {
+  const caps = await getResolvedModelCapabilities({ provider: "moonshot", model: K27 });
   assert.equal(caps.contextWindow, 262144, "context window must be the native 256K (262144)");
   // thinking-only model: the thinking budget pipeline must not strip its thinking
   // config (applyThinkingBudget early-exits via supportsReasoning(model)).
-  assert.equal(supportsReasoning(K27), true, "kimi-k2.7-code must be reasoning-capable");
+  assert.equal(await supportsReasoning(K27), true, "kimi-k2.7-code must be reasoning-capable");
 });
 
 test("kimi-k2.7-code strips client temperature/top_p (fixed sampling upstream)", () => {

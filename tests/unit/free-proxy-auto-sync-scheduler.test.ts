@@ -39,24 +39,26 @@ function restoreEnv() {
   }
 }
 
-function reset() {
+async function reset() {
   scheduler.stopFreeProxyAutoSync();
   scheduler._setSyncCycleRunnerForTests(null);
   restoreEnv();
   process.env.FREE_PROXY_AUTO_SYNC_ENABLED = "false";
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  reset();
+test.beforeEach(async () => {
+  await reset();
 });
 
-test.after(() => {
+test.after(async () => {
   scheduler.stopFreeProxyAutoSync();
   scheduler._setSyncCycleRunnerForTests(null);
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   restoreEnv();
 });
@@ -155,11 +157,11 @@ test("reentrancy guard: a second forced cycle is skipped while the first is stil
     return { results: {}, lastSyncAt: new Date().toISOString() };
   });
 
-  const firstCycle = scheduler.forceFreeProxySyncCycle();
+  const firstCycle = await scheduler.forceFreeProxySyncCycle();
   // Fire the second cycle while the first is still awaiting the gate. The
   // reentrancy guard must skip it entirely — the runner must not be invoked
   // a second time while isRunning is true.
-  const secondCycle = scheduler.forceFreeProxySyncCycle();
+  const secondCycle = await scheduler.forceFreeProxySyncCycle();
 
   releaseFirst?.();
   await Promise.all([firstCycle, secondCycle]);
@@ -171,7 +173,10 @@ test("cycle delegates to the shared sync-cycle runner (same path as the manual r
   let called = false;
   scheduler._setSyncCycleRunnerForTests(async () => {
     called = true;
-    return { results: { "1proxy": { fetched: 1, added: 1, updated: 0, errors: [] } }, lastSyncAt: "x" };
+    return {
+      results: { "1proxy": { fetched: 1, added: 1, updated: 0, errors: [] } },
+      lastSyncAt: "x",
+    };
   });
 
   await scheduler.forceFreeProxySyncCycle();
@@ -208,6 +213,6 @@ test("initial delay: a recent lastSyncAt shortens the first tick below a full in
     mock.timers.tick(10_000);
     assert.equal(cycleRuns, 1, "expected exactly one cycle once the initial delay elapses");
   } finally {
-    mock.timers.reset();
+    await mock.timers.reset();
   }
 });

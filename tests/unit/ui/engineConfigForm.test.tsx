@@ -189,8 +189,8 @@ describe("EngineConfigForm", () => {
     // React listens to the native "click" event for checkboxes; setting
     // .checked + dispatching a MouseEvent("click") is what triggers the
     // synthetic onChange handler in jsdom.
-    act(() => {
-      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onChange).toHaveBeenCalledWith({ ...INITIAL_VALUE, enabled: true });
@@ -212,9 +212,9 @@ describe("EngineConfigForm", () => {
       "value"
     )?.set;
 
-    act(() => {
+    act(async () => {
       nativeSetter?.call(numInput, "2048");
-      numInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await numInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     expect(onChange).toHaveBeenCalledWith({ ...INITIAL_VALUE, maxTokens: 2048 });
@@ -237,8 +237,8 @@ describe("EngineConfigForm", () => {
     expect(stripCommentsCheckbox).toBeTruthy();
 
     // React listens to native "click" for checkboxes to trigger synthetic onChange.
-    act(() => {
-      stripCommentsCheckbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await stripCommentsCheckbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onChange).toHaveBeenCalledWith({

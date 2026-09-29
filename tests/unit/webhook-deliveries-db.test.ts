@@ -12,23 +12,25 @@ const webhooksDb = await import("../../src/lib/db/webhooks.ts");
 const deliveriesDb = await import("../../src/lib/db/webhookDeliveries.ts");
 
 async function resetStorage() {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  coreDb.resetDbInstance();
+test.after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
-test("insertDelivery stores a row and getDeliveries returns it", () => {
-  const wh = webhooksDb.createWebhook({ url: "https://example.com/hook" });
-  deliveriesDb.insertDelivery({
+test("insertDelivery stores a row and getDeliveries returns it", async () => {
+  const wh = await webhooksDb.createWebhook({ url: "https://example.com/hook" });
+  await deliveriesDb.insertDelivery({
     webhookId: wh.id,
     eventType: "request.failed",
     status: "delivered",
@@ -36,7 +38,7 @@ test("insertDelivery stores a row and getDeliveries returns it", () => {
     latencyMs: 142,
     payloadSnapshot: JSON.stringify({ event: "request.failed" }),
   });
-  const rows = deliveriesDb.getDeliveries(wh.id, 10);
+  const rows = await deliveriesDb.getDeliveries(wh.id, 10);
   assert.equal(rows.length, 1);
   assert.equal(rows[0].event_type, "request.failed");
   assert.equal(rows[0].http_status, 200);
@@ -45,10 +47,10 @@ test("insertDelivery stores a row and getDeliveries returns it", () => {
   assert.equal("payload_snapshot" in rows[0], false);
 });
 
-test("rotation keeps only last 100 deliveries per webhook", () => {
-  const wh = webhooksDb.createWebhook({ url: "https://example.com/hook" });
+test("rotation keeps only last 100 deliveries per webhook", async () => {
+  const wh = await webhooksDb.createWebhook({ url: "https://example.com/hook" });
   for (let i = 0; i < 105; i++) {
-    deliveriesDb.insertDelivery({
+    await deliveriesDb.insertDelivery({
       webhookId: wh.id,
       eventType: "test.ping",
       status: "delivered",
@@ -56,14 +58,14 @@ test("rotation keeps only last 100 deliveries per webhook", () => {
       latencyMs: 10,
     });
   }
-  const rows = deliveriesDb.getDeliveries(wh.id, 200);
+  const rows = await deliveriesDb.getDeliveries(wh.id, 200);
   assert.equal(rows.length, 100);
 });
 
-test("getDeliveries respects limit parameter", () => {
-  const wh = webhooksDb.createWebhook({ url: "https://example.com/hook" });
+test("getDeliveries respects limit parameter", async () => {
+  const wh = await webhooksDb.createWebhook({ url: "https://example.com/hook" });
   for (let i = 0; i < 10; i++) {
-    deliveriesDb.insertDelivery({
+    await deliveriesDb.insertDelivery({
       webhookId: wh.id,
       eventType: "test.ping",
       status: "delivered",
@@ -71,41 +73,41 @@ test("getDeliveries respects limit parameter", () => {
       latencyMs: 10,
     });
   }
-  const rows = deliveriesDb.getDeliveries(wh.id, 5);
+  const rows = await deliveriesDb.getDeliveries(wh.id, 5);
   assert.equal(rows.length, 5);
 });
 
-test("CASCADE delete removes deliveries when webhook is deleted", () => {
-  const wh = webhooksDb.createWebhook({ url: "https://example.com/hook" });
-  deliveriesDb.insertDelivery({
+test("CASCADE delete removes deliveries when webhook is deleted", async () => {
+  const wh = await webhooksDb.createWebhook({ url: "https://example.com/hook" });
+  await deliveriesDb.insertDelivery({
     webhookId: wh.id,
     eventType: "test.ping",
     status: "delivered",
     httpStatus: 200,
     latencyMs: 10,
   });
-  webhooksDb.deleteWebhook(wh.id);
-  const rows = deliveriesDb.getDeliveries(wh.id, 10);
+  await webhooksDb.deleteWebhook(wh.id);
+  const rows = await deliveriesDb.getDeliveries(wh.id, 10);
   assert.equal(rows.length, 0);
 });
 
-test("createWebhook uses kind=custom by default", () => {
-  const wh = webhooksDb.createWebhook({ url: "https://example.com/hook" });
+test("createWebhook uses kind=custom by default", async () => {
+  const wh = await webhooksDb.createWebhook({ url: "https://example.com/hook" });
   assert.equal(wh.kind, "custom");
   assert.equal(wh.metadata_encrypted, null);
 });
 
-test("createWebhook accepts kind=slack", () => {
-  const wh = webhooksDb.createWebhook({
+test("createWebhook accepts kind=slack", async () => {
+  const wh = await webhooksDb.createWebhook({
     url: "https://hooks.slack.com/services/T/B/xxx",
     kind: "slack",
   });
   assert.equal(wh.kind, "slack");
 });
 
-test("updateWebhook can change kind and metadataEncrypted", () => {
-  const wh = webhooksDb.createWebhook({ url: "https://example.com/hook" });
-  const updated = webhooksDb.updateWebhook(wh.id, {
+test("updateWebhook can change kind and metadataEncrypted", async () => {
+  const wh = await webhooksDb.createWebhook({ url: "https://example.com/hook" });
+  const updated = await webhooksDb.updateWebhook(wh.id, {
     kind: "telegram",
     metadataEncrypted: "enc:v1:test",
   });

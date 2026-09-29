@@ -14,9 +14,11 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const providerModelsRoute = await import("../../src/app/api/provider-models/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function buildPatchRequest(url, body) {
@@ -32,7 +34,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -67,7 +69,7 @@ test("provider-models PATCH persists visibility overrides for catalog models", a
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
 
-  const overrides = modelsDb.getModelCompatOverrides("claude");
+  const overrides = await modelsDb.getModelCompatOverrides("claude");
   assert.equal(overrides.find((model) => model.id === "claude-sonnet-4-6")?.isHidden, true);
 });
 
@@ -90,7 +92,7 @@ test("provider-models PATCH supports bulk visibility updates", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.updated, 2);
 
-  const overrides = modelsDb.getModelCompatOverrides("claude");
+  const overrides = await modelsDb.getModelCompatOverrides("claude");
   assert.equal(overrides.find((model) => model.id === "claude-opus-4-6")?.isHidden, false);
   assert.equal(overrides.find((model) => model.id === "claude-sonnet-4-6")?.isHidden, false);
 });

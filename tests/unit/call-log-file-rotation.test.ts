@@ -23,7 +23,7 @@ async function resetTestDataDir() {
   let lastError;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       for (const entry of fs.readdirSync(TEST_DATA_DIR)) {
         if (/^storage\.sqlite(?:-shm|-wal)?$/i.test(entry)) {
           continue;
@@ -31,6 +31,7 @@ async function resetTestDataDir() {
         fs.rmSync(path.join(TEST_DATA_DIR, entry), { recursive: true, force: true });
       }
       const db = core.getDbInstance();
+      await core.awaitDbMigrations();
       db.prepare("DELETE FROM call_logs").run();
       return;
     } catch (error: any) {
@@ -81,12 +82,12 @@ test.beforeEach(async () => {
   await resetTestDataDir();
 });
 
-test.afterEach(() => {
-  core.resetDbInstance();
+test.afterEach(async () => {
+  await core.resetDbInstanceDrained();
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;
   } else {
@@ -108,7 +109,7 @@ test.after(async () => {
   await resetTestDataDir();
 });
 
-test("call log file rotation honors both retention days and file count", () => {
+test("call log file rotation honors both retention days and file count", async () => {
   assert.ok(CALL_LOGS_DIR, "CALL_LOGS_DIR should resolve for test data dir");
   fs.rmSync(CALL_LOGS_DIR, { recursive: true, force: true });
   fs.mkdirSync(CALL_LOGS_DIR, { recursive: true });
@@ -172,7 +173,9 @@ test("call log file rotation honors both retention days and file count", () => {
     new Date(now - oneDay)
   );
 
-  rotateCallLogs();
+  // rotateCallLogs is async (paged deletes over the async adapter); awaiting
+  // it keeps the deletion from racing this test's assertions. (#8716 family)
+  await rotateCallLogs();
 
   const db = core.getDbInstance();
   assert.equal(
@@ -181,7 +184,7 @@ test("call log file rotation honors both retention days and file count", () => {
   );
   assert.equal(fs.existsSync(path.join(CALL_LOGS_DIR, oldRelPath)), false);
 
-  const keepARow = db
+  const keepARow = await db
     .prepare("SELECT detail_state, artifact_relpath FROM call_logs WHERE id = ?")
     .get("keep-a");
   assert.equal((keepARow as any).detail_state, "missing");
@@ -192,7 +195,7 @@ test("call log file rotation honors both retention days and file count", () => {
   assert.equal(fs.existsSync(path.join(CALL_LOGS_DIR, keepCRelPath)), true);
 });
 
-test("rotateCallLogs swallows filesystem errors during cleanup", () => {
+test("rotateCallLogs swallows filesystem errors during cleanup", async () => {
   assert.ok(CALL_LOGS_DIR, "CALL_LOGS_DIR should resolve for test data dir");
   fs.mkdirSync(CALL_LOGS_DIR, { recursive: true });
 
@@ -208,7 +211,10 @@ test("rotateCallLogs swallows filesystem errors during cleanup", () => {
   };
 
   try {
-    assert.doesNotThrow(() => rotateCallLogs());
+    // rotateCallLogs is async now — its internal fs failure surfaces as a
+    // rejected promise AFTER the sync doesNotThrow check would have restored
+    // the readdir stub. Await it inside the patched window instead.
+    await assert.doesNotReject(() => rotateCallLogs());
   } finally {
     fs.readdirSync = originalReaddirSync;
     console.error = originalConsoleError;

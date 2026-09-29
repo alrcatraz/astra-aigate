@@ -27,14 +27,17 @@ process.env.DATA_DIR = tmpDir;
 
 const { replaceCustomModels, mergeModelCompatOverride, getModelIsHidden, getModelCompatOverrides } =
   await import("../../src/lib/localDb.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
-before(() => {
-  resetDbInstance();
+before(async () => {
+  await resetDbInstanceDrained();
+  getDbInstance();
+  await awaitDbMigrations();
 });
 
-after(() => {
-  resetDbInstance();
+after(async () => {
+  await resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -42,7 +45,7 @@ const PROVIDER = "llama-cpp-5086";
 
 test("an eye-hidden override survives replaceCustomModels when the new list omits it", async () => {
   // Operator hides a SYNCED model "ghost" with the EYE toggle (visibility only).
-  mergeModelCompatOverride(PROVIDER, "ghost", { isHidden: true });
+  await mergeModelCompatOverride(PROVIDER, "ghost", { isHidden: true });
   assert.equal(getModelIsHidden(PROVIDER, "ghost"), true, "ghost is eye-hidden before sync");
 
   // A periodic sync / import replaces the CUSTOM models with a list that does

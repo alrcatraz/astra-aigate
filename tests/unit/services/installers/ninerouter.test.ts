@@ -69,9 +69,9 @@ const {
   NINEROUTER_INSTALL_DIR,
 } = await import("../../../../src/lib/services/installers/ninerouter.ts");
 
-test.after(() => {
+test.after(async () => {
   process.env.PATH = originalPath;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.rmSync(FAKE_BIN_DIR, { recursive: true, force: true });
 });

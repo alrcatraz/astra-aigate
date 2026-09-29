@@ -11,9 +11,11 @@ const core = await import("../../src/lib/db/core.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -21,7 +23,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -48,7 +50,7 @@ test("removeSyncedAvailableModel deletes a single model from syncedAvailableMode
   assert.deepEqual(ids.sort(), ["model-a", "model-c"]);
 
   // Verify conn-a still has model-a
-  const rowA = db
+  const rowA = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
     .get("llama-cpp:conn-a");
   const modelsA = JSON.parse(rowA.value);
@@ -56,7 +58,7 @@ test("removeSyncedAvailableModel deletes a single model from syncedAvailableMode
   assert.equal(modelsA[0].id, "model-a");
 
   // Verify conn-b still has model-c
-  const rowB = db
+  const rowB = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
     .get("llama-cpp:conn-b");
   const modelsB = JSON.parse(rowB.value);
@@ -74,7 +76,7 @@ test("removeSyncedAvailableModel deletes the key when a connection becomes empty
   const removed = await modelsDb.removeSyncedAvailableModel("llama-cpp", "only-model");
   assert.equal(removed, true);
 
-  const row = db
+  const row = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
     .get("llama-cpp:conn-x");
   assert.equal(row, undefined, "key should be deleted when empty");
@@ -111,7 +113,7 @@ test("removeSyncedAvailableModel skips malformed syncedAvailableModels rows", as
   const removed = await modelsDb.removeSyncedAvailableModel("llama-cpp", "model-delete");
   assert.equal(removed, true);
 
-  const valid = db
+  const valid = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
     .get("llama-cpp:conn-ok");
   const validModels = JSON.parse(valid.value);
@@ -120,7 +122,7 @@ test("removeSyncedAvailableModel skips malformed syncedAvailableModels rows", as
     ["model-ok"]
   );
 
-  const malformed = db
+  const malformed = await db
     .prepare("SELECT value FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
     .get("llama-cpp:broken");
   assert.equal(malformed.value, "{not valid json");

@@ -24,17 +24,21 @@ const core = await import("../../../src/lib/db/core.ts");
 const versionManager = await import("../../../src/lib/db/versionManager.ts");
 
 async function resetDb() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  // The migration runner is deferred to a macrotask after open; these tests
+  // assert on migrated schema immediately, so join it first.
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

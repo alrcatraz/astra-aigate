@@ -113,7 +113,9 @@ export async function applyCatalogPostFilters(
 export async function finalizeCatalogResponse(
   request: Request,
   finalModels: Array<Record<string, unknown>>,
-  getContextFallback: (model: Record<string, unknown>) => number | undefined,
+  getContextFallback: (
+    model: Record<string, unknown>
+  ) => number | undefined | Promise<number | undefined>,
   headers: Record<string, string>
 ): Promise<Response> {
   const includeModelNames = isModelCatalogNamesEnabled();
@@ -130,7 +132,7 @@ export async function finalizeCatalogResponse(
         // is a Promise, which serialised to {} (BUG: every provider model came
         // back as an empty object after the catalog started listing them).
         const enriched = await enrichCatalogModelEntry(model);
-        const fallbackContextLength = getContextFallback(enriched);
+        const fallbackContextLength = await getContextFallback(enriched);
         const listedModel = fallbackContextLength
           ? { ...enriched, context_length: fallbackContextLength }
           : enriched;

@@ -64,7 +64,7 @@ test("withSpinner aceita update callback sem erro", async () => {
   await withSpinner(
     "test",
     async ({ update }) => {
-      update("progress 50%");
+      await update("progress 50%");
       updateCalled = true;
     },
     { quiet: true }

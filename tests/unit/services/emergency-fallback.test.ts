@@ -29,17 +29,19 @@ function restoreEnv(name: string, value: string | undefined) {
   }
 }
 
-function resetTestState() {
-  core.resetDbInstance();
+async function resetTestState() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
   delete process.env.OMNIROUTE_EMERGENCY_FALLBACK;
   resetEmergencyFallbackEnvCache();
   setEmergencyFallbackFeatureFlagResolverForTest(null);
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetTestState();
+test.beforeEach(async () => {
+  await resetTestState();
 });
 
 test.afterEach(() => {
@@ -48,8 +50,8 @@ test.afterEach(() => {
   delete process.env.OMNIROUTE_EMERGENCY_FALLBACK;
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   restoreEnv("DATA_DIR", previousDataDir);
   restoreEnv("DISABLE_SQLITE_AUTO_BACKUP", previousDisableSqliteAutoBackup);
@@ -71,13 +73,13 @@ function withEnv(value: string | undefined, fn: () => void) {
   }
 }
 
-function withFeatureFlagOverride(value: string, fn: () => void) {
+async function withFeatureFlagOverride(value: string, fn: () => void) {
   try {
     setFeatureFlagOverride("OMNIROUTE_EMERGENCY_FALLBACK", value);
     resetEmergencyFallbackEnvCache();
     fn();
   } finally {
-    removeFeatureFlagOverride("OMNIROUTE_EMERGENCY_FALLBACK");
+    await removeFeatureFlagOverride("OMNIROUTE_EMERGENCY_FALLBACK");
     resetEmergencyFallbackEnvCache();
   }
 }

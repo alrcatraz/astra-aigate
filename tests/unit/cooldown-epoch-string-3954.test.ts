@@ -24,12 +24,11 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
-const { isAccountUnavailable, getEarliestRateLimitedUntil, filterAvailableAccounts } = await import(
-  "../../open-sse/services/accountFallback.ts"
-);
+const { isAccountUnavailable, getEarliestRateLimitedUntil, filterAvailableAccounts } =
+  await import("../../open-sse/services/accountFallback.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -97,7 +96,7 @@ test("#3954 setConnectionRateLimitUntil stores a numeric string that selection s
   const db = core.getDbInstance() as unknown as {
     prepare: (sql: string) => { get: (id: string) => { rate_limited_until: unknown } | undefined };
   };
-  const row = db
+  const row = await db
     .prepare("SELECT rate_limited_until FROM provider_connections WHERE id = ?")
     .get(connId);
   const stored = row?.rate_limited_until;

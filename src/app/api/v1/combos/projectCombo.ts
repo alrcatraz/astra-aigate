@@ -38,11 +38,17 @@ export interface PublicCombo {
   capabilities?: PublicComboCapabilities;
 }
 
-/** Capability subset projectCombo needs; injectable so tests stay DB-free + deterministic. */
-export type ComboCapabilityResolver = (model: string) => {
-  supportsVision: boolean | null;
-  reasoning: boolean;
-};
+/**
+ * Capability subset projectCombo needs; injectable so tests stay DB-free + deterministic.
+ *
+ * ASYNC by contract: the default resolver awaits `getResolvedModelCapabilities`
+ * (a DB/registry read). A synchronous resolver would return a Promise whose
+ * property reads are always `undefined` — every combo then advertised
+ * `multimodal: false / reasoning: false`.
+ */
+export type ComboCapabilityResolver = (
+  model: string
+) => Promise<{ supportsVision: boolean | null; reasoning: boolean }>;
 
 export interface ProjectComboOptions {
   /** When true, attach the resolved `capabilities` block to the projection (#3979). */
@@ -51,8 +57,8 @@ export interface ProjectComboOptions {
   resolveCapabilities?: ComboCapabilityResolver;
 }
 
-const defaultCapabilityResolver: ComboCapabilityResolver = (model) => {
-  const caps = getResolvedModelCapabilities(model);
+const defaultCapabilityResolver: ComboCapabilityResolver = async (model) => {
+  const caps = await getResolvedModelCapabilities(model);
   return { supportsVision: caps.supportsVision, reasoning: caps.reasoning };
 };
 
@@ -80,10 +86,10 @@ export function projectComboStep(step: Record<string, unknown>): PublicComboStep
  *   choice (no registry caching flag exists), so caching is never advertised
  *   unless the operator opted in — avoiding surprise prompt-cache cost.
  */
-export function computeComboCapabilities(
+export async function computeComboCapabilities(
   combo: Record<string, unknown>,
   resolve: ComboCapabilityResolver = defaultCapabilityResolver
-): PublicComboCapabilities {
+): Promise<PublicComboCapabilities> {
   const rawModels = Array.isArray(combo.models) ? combo.models : [];
   const modelIds: string[] = [];
   let hasComboRef = false;
@@ -103,7 +109,7 @@ export function computeComboCapabilities(
 
   if (multimodal || reasoning) {
     for (const id of modelIds) {
-      const caps = resolve(id);
+      const caps = await resolve(id);
       if (caps.supportsVision !== true) multimodal = false;
       if (caps.reasoning !== true) reasoning = false;
     }
@@ -114,10 +120,10 @@ export function computeComboCapabilities(
   return { multimodal, reasoning, caching };
 }
 
-export function projectCombo(
+export async function projectCombo(
   combo: Record<string, unknown>,
   options?: ProjectComboOptions
-): PublicCombo | null {
+): Promise<PublicCombo | null> {
   const name = typeof combo.name === "string" ? combo.name.trim() : "";
   if (!name) return null;
 
@@ -137,7 +143,7 @@ export function projectCombo(
   }
 
   if (options?.includeCapabilities) {
-    out.capabilities = computeComboCapabilities(combo, options.resolveCapabilities);
+    out.capabilities = await computeComboCapabilities(combo, options.resolveCapabilities);
   }
 
   return out;

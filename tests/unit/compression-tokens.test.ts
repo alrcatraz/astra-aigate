@@ -27,11 +27,11 @@ test("tokensCompressed round-trips through saveCallLog → getCallLogs", async (
   const dir = setupTempDataDir();
   try {
     const core = await freshImport("../../src/lib/db/core.ts");
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
 
     const db = core.getDbInstance();
     const runner = await freshImport("../../src/lib/db/migrationRunner.ts");
-    runner.runMigrations(db);
+    await runner.runMigrations(db);
 
     const callLogs = await freshImport("../../src/lib/usage/callLogs.ts");
 
@@ -68,26 +68,14 @@ test("tokensCompressed round-trips through saveCallLog → getCallLogs", async (
       limit: 10,
     });
 
-    const logNull = logs.find(
-      (l: { id: string }) => l.id === "log-null"
-    );
-    const logComp = logs.find(
-      (l: { id: string }) => l.id === "log-350"
-    );
+    const logNull = logs.find((l: { id: string }) => l.id === "log-null");
+    const logComp = logs.find((l: { id: string }) => l.id === "log-350");
 
     // null when no compression
-    assert.equal(
-      logNull.tokens?.compressed,
-      null,
-      "uncompressed log should have null compressed"
-    );
+    assert.equal(logNull.tokens?.compressed, null, "uncompressed log should have null compressed");
 
     // Positive value when compressed
-    assert.equal(
-      logComp.tokens?.compressed,
-      350,
-      "compressed log should store exact token delta"
-    );
+    assert.equal(logComp.tokens?.compressed, 350, "compressed log should store exact token delta");
 
     // Input tokens unaffected
     assert.equal(logComp.tokens?.in, 1000);
@@ -95,4 +83,5 @@ test("tokensCompressed round-trips through saveCallLog → getCallLogs", async (
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+  await core.awaitDbMigrations();
 });

@@ -19,11 +19,13 @@ let collectCompactableArrays: typeof import("../../../open-sse/services/compress
 let headroomEngine: import("../../../open-sse/services/compression/engines/headroom/index.ts").headroomEngine;
 
 before(async () => {
-  const mod = await import("../../../open-sse/services/compression/engines/headroom/smartcrusher.ts");
+  const mod =
+    await import("../../../open-sse/services/compression/engines/headroom/smartcrusher.ts");
   crushMessages = mod.crushMessages;
   collectCompactableArrays = mod.collectCompactableArrays;
 
-  const engineMod = await import("../../../open-sse/services/compression/engines/headroom/index.ts");
+  const engineMod =
+    await import("../../../open-sse/services/compression/engines/headroom/index.ts");
   headroomEngine = engineMod.headroomEngine;
 });
 
@@ -64,14 +66,12 @@ describe("headroom SmartCrusher — developer-role guard (9router#2132)", () => 
 
   it("collectCompactableArrays does not surface arrays from developer-role messages", () => {
     const json = JSON.stringify(makePlanSchemaExample());
-    const messages = [
-      { role: "developer", content: `\`\`\`json\n${json}\n\`\`\`` },
-    ];
+    const messages = [{ role: "developer", content: `\`\`\`json\n${json}\n\`\`\`` }];
     const found = collectCompactableArrays(messages, 8);
     assert.equal(found.length, 0);
   });
 
-  it("headroomEngine.apply leaves a Codex-CLI-shaped developer turn untouched end-to-end", () => {
+  it("headroomEngine.apply leaves a Codex-CLI-shaped developer turn untouched end-to-end", async () => {
     const json = JSON.stringify(makePlanSchemaExample());
     const body: Record<string, unknown> = {
       model: "gpt-5-codex",
@@ -84,7 +84,7 @@ describe("headroom SmartCrusher — developer-role guard (9router#2132)", () => 
       ],
     };
 
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, false);
     assert.deepEqual(result.body, body);
   });

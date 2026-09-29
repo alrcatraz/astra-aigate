@@ -42,9 +42,8 @@ const {
 
 // Import DB helpers AFTER harness so they share the same DB instance (DATA_DIR
 // is set by the harness before any import triggers DB init).
-const { recordSessionModelUsage, getHandoff } = await import(
-  "../../../src/lib/db/contextHandoffs.ts"
-);
+const { recordSessionModelUsage, getHandoff } =
+  await import("../../../src/lib/db/contextHandoffs.ts");
 
 // A minimal but valid handoff-JSON blob that parseHandoffJSON will accept.
 // Must have at minimum a non-empty "summary" field.
@@ -163,7 +162,7 @@ test("context-relay universal handoff: fires and writes handoff record on model 
 
   // Seed the prior model usage so getLastSessionModel returns PREV_MODEL.
   // universalHandoffConfig.enabled = true by DEFAULT_UNIVERSAL_HANDOFF_CONFIG.
-  recordSessionModelUsage(SESSION_ID, COMBO_NAME, PREV_MODEL, "gemini", undefined);
+  await recordSessionModelUsage(SESSION_ID, COMBO_NAME, PREV_MODEL, "gemini", undefined);
 
   installHandoffAwareFetch();
 
@@ -172,10 +171,7 @@ test("context-relay universal handoff: fires and writes handoff record on model 
 
   // Wait for the setImmediate + generateUniversalHandoffAsync to complete and
   // write the DB record. Poll for up to 2 s — typically resolves in <100 ms.
-  const handoff = await waitFor(
-    () => getHandoff(SESSION_ID, COMBO_NAME),
-    2000
-  );
+  const handoff = await waitFor(() => getHandoff(SESSION_ID, COMBO_NAME), 2000);
 
   assert.ok(
     handoff !== null,
@@ -185,16 +181,8 @@ test("context-relay universal handoff: fires and writes handoff record on model 
     typeof handoff!.summary === "string" && handoff!.summary.length > 0,
     `handoff.summary must be non-empty; got: ${JSON.stringify(handoff!.summary)}`
   );
-  assert.equal(
-    handoff!.comboName,
-    COMBO_NAME,
-    "handoff must be keyed to the correct combo"
-  );
-  assert.equal(
-    handoff!.sessionId,
-    SESSION_ID,
-    "handoff must be keyed to the correct session"
-  );
+  assert.equal(handoff!.comboName, COMBO_NAME, "handoff must be keyed to the correct combo");
+  assert.equal(handoff!.sessionId, SESSION_ID, "handoff must be keyed to the correct session");
 
   // Extra dispatch observable: main (index 0) + summary (index ≥ 1).
   assert.ok(
@@ -227,7 +215,7 @@ test("context-relay universal handoff: does NOT fire when no prior model is reco
   // Give setImmediate time to fire if the bug were present.
   await new Promise((res) => setTimeout(res, 250));
 
-  const handoff = getHandoff(SESSION_ID, COMBO_NAME);
+  const handoff = await getHandoff(SESSION_ID, COMBO_NAME);
   assert.equal(
     handoff,
     null,
@@ -257,7 +245,7 @@ test("context-relay universal handoff: does NOT fire when x-omniroute-session-id
   });
 
   // Seed prior model — but without the header the session block won't fire.
-  recordSessionModelUsage(SESSION_ID, COMBO_NAME, PREV_MODEL, "gemini", undefined);
+  await recordSessionModelUsage(SESSION_ID, COMBO_NAME, PREV_MODEL, "gemini", undefined);
 
   installHandoffAwareFetch();
 
@@ -267,7 +255,7 @@ test("context-relay universal handoff: does NOT fire when x-omniroute-session-id
 
   await new Promise((res) => setTimeout(res, 250));
 
-  const handoff = getHandoff(SESSION_ID, COMBO_NAME);
+  const handoff = await getHandoff(SESSION_ID, COMBO_NAME);
   assert.equal(
     handoff,
     null,

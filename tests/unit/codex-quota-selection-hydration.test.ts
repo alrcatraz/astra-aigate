@@ -19,10 +19,12 @@ function futureIso(ms = 60_000) {
 }
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   quotaCache.__clearForTests();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -30,7 +32,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -55,7 +57,7 @@ test("Codex selection ignores hydrated Spark-only exhaustion for normal Codex mo
     ["gpt_5_3_codex_spark_weekly", 0, 1, futureIso(240_000)],
   ] as const;
   for (const [windowKey, remaining, exhausted, resetAt] of snapshots) {
-    quotaSnapshotsDb.saveQuotaSnapshot({
+    await quotaSnapshotsDb.saveQuotaSnapshot({
       provider: "codex",
       connection_id: connectionId,
       window_key: windowKey,

@@ -5,11 +5,11 @@ import { calculateLevel } from "../../../src/lib/gamification/xp";
 import { getDbInstance } from "../../../src/lib/db/core";
 
 describe("DB Gamification — addXp level computation", () => {
-  it("sets correct level for large initial XP", () => {
+  it("sets correct level for large initial XP", async () => {
     const testKey = `test-addxp-level-${Date.now()}`;
-    addXp(testKey, "invite_redeem", 50000);
+    await addXp(testKey, "invite_redeem", 50000);
 
-    const xp = getXp(testKey);
+    const xp = await getXp(testKey);
     assert.ok(xp);
     assert.equal(xp.currentLevel, calculateLevel(50000));
 
@@ -19,11 +19,11 @@ describe("DB Gamification — addXp level computation", () => {
     db.prepare("DELETE FROM xp_audit_log WHERE api_key_id = ?").run(testKey);
   });
 
-  it("sets level 1 for small initial XP", () => {
+  it("sets level 1 for small initial XP", async () => {
     const testKey = `test-addxp-small-${Date.now()}`;
-    addXp(testKey, "request", 1);
+    await addXp(testKey, "request", 1);
 
-    const xp = getXp(testKey);
+    const xp = await getXp(testKey);
     assert.ok(xp);
     assert.equal(xp.currentLevel, 1);
 

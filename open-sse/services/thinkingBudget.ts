@@ -218,7 +218,7 @@ export async function applyThinkingBudget(
   // Provider-specific Cloud Code restrictions should be handled at the executor boundary.
   const bodyRecord = body as JsonRecord;
   const modelStr = typeof bodyRecord.model === "string" ? bodyRecord.model : "";
-  if (modelStr && !supportsReasoning(modelStr)) {
+  if (modelStr && !(await supportsReasoning(modelStr))) {
     return stripThinkingConfig(body);
   }
 

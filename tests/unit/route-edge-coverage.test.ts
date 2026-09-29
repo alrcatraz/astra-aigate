@@ -35,10 +35,12 @@ async function resetStorage() {
   delete process.env.REQUIRE_API_KEY;
   delete process.env.ENABLE_SOCKS5_PROXY;
 
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {

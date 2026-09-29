@@ -21,9 +21,9 @@ describe("plugin analytics", () => {
     db.exec("DELETE FROM plugin_analytics");
   });
 
-  it("recordPluginExecution inserts a row", () => {
-    recordPluginExecution("test-plugin", "onRequest", 42, true);
-    const rows = getPluginAnalytics("test-plugin");
+  it("recordPluginExecution inserts a row", async () => {
+    await recordPluginExecution("test-plugin", "onRequest", 42, true);
+    const rows = await getPluginAnalytics("test-plugin");
     assert.strictEqual(rows.length, 1);
     assert.strictEqual(rows[0].pluginName, "test-plugin");
     assert.strictEqual(rows[0].hook, "onRequest");
@@ -31,37 +31,38 @@ describe("plugin analytics", () => {
     assert.strictEqual(rows[0].success, true);
   });
 
-  it("records failure with error message", () => {
-    recordPluginExecution("fail-plugin", "onError", 100, false, "something broke");
-    const rows = getPluginAnalytics("fail-plugin");
+  it("records failure with error message", async () => {
+    await recordPluginExecution("fail-plugin", "onError", 100, false, "something broke");
+    const rows = await getPluginAnalytics("fail-plugin");
     assert.strictEqual(rows[0].success, false);
     assert.strictEqual(rows[0].errorMessage, "something broke");
   });
 
-  it("getPluginAnalytics returns most recent first", () => {
-    recordPluginExecution("order-plugin", "onRequest", 10, true);
+  it("getPluginAnalytics returns most recent first", async () => {
+    await recordPluginExecution("order-plugin", "onRequest", 10, true);
     // Force different timestamp by inserting directly
     const db = getDbInstance();
-    db.prepare("INSERT INTO plugin_analytics (plugin_name, hook, duration_ms, success, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run("order-plugin", "onResponse", 20, 1, "2099-01-01T00:00:00");
-    const rows = getPluginAnalytics("order-plugin");
+    db.prepare(
+      "INSERT INTO plugin_analytics (plugin_name, hook, duration_ms, success, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).run("order-plugin", "onResponse", 20, 1, "2099-01-01T00:00:00");
+    const rows = await getPluginAnalytics("order-plugin");
     assert.strictEqual(rows[0].hook, "onResponse");
     assert.strictEqual(rows[1].hook, "onRequest");
   });
 
-  it("getPluginAnalyticsSummary counts correctly", () => {
-    recordPluginExecution("sum-plugin", "onRequest", 100, true);
-    recordPluginExecution("sum-plugin", "onRequest", 200, true);
-    recordPluginExecution("sum-plugin", "onRequest", 300, false, "err");
-    const summary = getPluginAnalyticsSummary("sum-plugin");
+  it("getPluginAnalyticsSummary counts correctly", async () => {
+    await recordPluginExecution("sum-plugin", "onRequest", 100, true);
+    await recordPluginExecution("sum-plugin", "onRequest", 200, true);
+    await recordPluginExecution("sum-plugin", "onRequest", 300, false, "err");
+    const summary = await getPluginAnalyticsSummary("sum-plugin");
     assert.strictEqual(summary.totalCalls, 3);
     assert.strictEqual(summary.successCount, 2);
     assert.strictEqual(summary.failureCount, 1);
     assert.ok(summary.avgDurationMs > 0);
   });
 
-  it("empty plugin returns zero summary", () => {
-    const summary = getPluginAnalyticsSummary("nonexistent");
+  it("empty plugin returns zero summary", async () => {
+    const summary = await getPluginAnalyticsSummary("nonexistent");
     assert.strictEqual(summary.totalCalls, 0);
   });
 });

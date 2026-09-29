@@ -23,14 +23,16 @@ const { deriveDefaultPlan } =
 const { compressionModeSchema } = await import("../../../src/shared/validation/schemas/combo.ts");
 const { compressionConfigureInput } = await import("../../../open-sse/mcp-server/schemas/tools.ts");
 
-beforeEach(() => {
-  core.resetDbInstance();
+beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;

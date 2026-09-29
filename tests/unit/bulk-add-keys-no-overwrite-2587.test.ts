@@ -33,7 +33,7 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const { resolveBulkNameCollisions } = await import("../../src/shared/utils/bulkApiKeyParser.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -50,6 +50,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -57,7 +59,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -138,9 +140,7 @@ test("bulk-add appends N+M connections and preserves the existing connection's s
   assert.equal(survivor!.rateLimitedUntil, future, "existing cooldown must survive");
   assert.equal(survivor!.backoffLevel, 2, "existing backoffLevel must survive");
 
-  const newNames = after
-    .filter((c) => c.id !== (existing as ConnectionRow).id)
-    .map((c) => c.name);
+  const newNames = after.filter((c) => c.id !== (existing as ConnectionRow).id).map((c) => c.name);
   assert.equal(new Set(newNames).size, newNames.length, "no duplicate names among new entries");
   assert.ok(!newNames.includes("Key 1"));
 });

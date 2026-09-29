@@ -35,8 +35,8 @@ afterEach(() => {
   clearUpstreamProxyConfigCache();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   if (fs.existsSync(testDataDir)) fs.rmSync(testDataDir, { recursive: true, force: true });
 });
 

@@ -9,13 +9,15 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {
@@ -25,7 +27,7 @@ test.after(() => {
 
 test("getCcDiscoveryMetrics starts at zero", async () => {
   const { getCcDiscoveryMetrics } = await import("../../src/lib/db/ccDiscoveryMetrics.ts");
-  const metrics = getCcDiscoveryMetrics();
+  const metrics = await getCcDiscoveryMetrics();
   assert.deepEqual(metrics, { aliasRequests: 0, discoveryHits: 0, byModel: {} });
 });
 
@@ -37,7 +39,7 @@ test("incrementCcAliasRequestCount bumps total and per-model counters", async ()
   incrementCcAliasRequestCount("kimi/kimi-k2.6");
   incrementCcAliasRequestCount("openai/gpt-5.2");
 
-  const metrics = getCcDiscoveryMetrics();
+  const metrics = await getCcDiscoveryMetrics();
   assert.equal(metrics.aliasRequests, 3);
   assert.deepEqual(metrics.byModel, {
     "kimi/kimi-k2.6": 2,
@@ -53,7 +55,7 @@ test("incrementCcDiscoveryHitCount bumps the discovery-hit counter", async () =>
   incrementCcDiscoveryHitCount();
   incrementCcDiscoveryHitCount();
 
-  const metrics = getCcDiscoveryMetrics();
+  const metrics = await getCcDiscoveryMetrics();
   assert.equal(metrics.discoveryHits, 3);
 });
 
@@ -61,14 +63,14 @@ test("getCcDiscoveryMetrics aggregates both counters together and repeated incre
   const { incrementCcAliasRequestCount, incrementCcDiscoveryHitCount, getCcDiscoveryMetrics } =
     await import("../../src/lib/db/ccDiscoveryMetrics.ts");
 
-  const before = getCcDiscoveryMetrics();
+  const before = await getCcDiscoveryMetrics();
 
   incrementCcAliasRequestCount("combo/my-combo");
   incrementCcAliasRequestCount("combo/my-combo");
   incrementCcAliasRequestCount("combo/my-combo");
   incrementCcDiscoveryHitCount();
 
-  const after = getCcDiscoveryMetrics();
+  const after = await getCcDiscoveryMetrics();
   assert.equal(after.aliasRequests - before.aliasRequests, 3);
   assert.equal(after.discoveryHits - before.discoveryHits, 1);
   assert.equal(after.byModel["combo/my-combo"], 3);

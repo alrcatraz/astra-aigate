@@ -43,32 +43,31 @@ function makeVec(...values: number[]): Float32Array {
   return new Float32Array(values);
 }
 
-function insertMemory(
-  db: ReturnType<typeof core.getDbInstance>,
-  id: string,
-) {
+function insertMemory(db: ReturnType<typeof core.getDbInstance>, id: string) {
   db.prepare(
     `INSERT INTO memories (id, api_key_id, type, key, content, created_at)
-     VALUES (?, 'key1', 'factual', ?, ?, datetime('now'))`,
+     VALUES (?, 'key1', 'factual', ?, ?, datetime('now'))`
   ).run(id, `key-${id}`, `content-${id}`);
 }
 
-function cleanup() {
+async function cleanup() {
   mock.restoreAll();
   _resetVectorStoreSingleton();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => {
-  cleanup();
+test.afterEach(async () => {
+  await cleanup();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
@@ -130,7 +129,7 @@ test("stats(): needsReindex reflects memories marked for reindex", async (t) => 
   }
 
   // Mark all as needing reindex.
-  const affected = markAllMemoriesNeedReindex();
+  const affected = await markAllMemoriesNeedReindex();
   assert.equal(affected, 5, "should mark 5 memories as needing reindex");
 
   const result = await store.stats();
@@ -161,7 +160,7 @@ test("stats(): needsReindex decreases as vectors are inserted (marking reindex=0
   insertMemory(db, "m2");
 
   // Mark all as pending.
-  markAllMemoriesNeedReindex();
+  await markAllMemoriesNeedReindex();
 
   const before = await store.stats();
   assert.equal(before.needsReindex, 2);

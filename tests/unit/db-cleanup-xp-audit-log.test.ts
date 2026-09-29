@@ -17,10 +17,12 @@ type CountRow = {
   count: number;
 };
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeJsonRequest(method: string, body?: unknown): Request {
@@ -45,12 +47,12 @@ function countXpAuditLogRows(): number {
   return row.count;
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  resetStorage();
+test.after(async () => {
+  await resetStorage();
 });
 
 test("cleanupXpAuditLog deletes rows older than the retention window and keeps recent rows", async () => {
@@ -84,8 +86,8 @@ test("cleanupXpAuditLog honors a configurable retention.xpAuditLog value", async
   const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
   insertXpAuditLogRow(tenDaysAgo);
 
-  const current = databaseSettings.getUserDatabaseSettings();
-  databaseSettings.updateDatabaseSettings({
+  const current = await databaseSettings.getUserDatabaseSettings();
+  await databaseSettings.updateDatabaseSettings({
     retention: { ...current.retention, xpAuditLog: 15 },
   });
 
@@ -93,7 +95,7 @@ test("cleanupXpAuditLog honors a configurable retention.xpAuditLog value", async
   assert.equal(result.deleted, 0);
   assert.equal(countXpAuditLogRows(), 1);
 
-  databaseSettings.updateDatabaseSettings({
+  await databaseSettings.updateDatabaseSettings({
     retention: { ...databaseSettings.getUserDatabaseSettings().retention, xpAuditLog: 5 },
   });
 
@@ -103,7 +105,7 @@ test("cleanupXpAuditLog honors a configurable retention.xpAuditLog value", async
 });
 
 test("PATCH /api/settings/database round-trips retention.xpAuditLog without stripping it", async () => {
-  const current = databaseSettings.getUserDatabaseSettings();
+  const current = await databaseSettings.getUserDatabaseSettings();
   const response = await databaseSettingsRoute.PATCH(
     makeJsonRequest("PATCH", {
       retention: { ...current.retention, xpAuditLog: 45 },

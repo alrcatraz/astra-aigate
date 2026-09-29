@@ -14,9 +14,7 @@ before(() => {
   process.env.DATA_DIR = dataDir;
 });
 
-const {
-  MemoryType,
-} = await import("../../../src/lib/memory/types.ts");
+const { MemoryType } = await import("../../../src/lib/memory/types.ts");
 const {
   resolveTypedDecayConfig,
   isTypeImmune,
@@ -27,10 +25,10 @@ const {
   DEFAULT_TTL_DAYS_BY_TYPE,
   DEFAULT_ACCESS_IMMUNITY_THRESHOLD,
 } = await import("../../../src/lib/memory/typedDecay.ts");
-const { createMemory, getMemory, recordMemoryAccess, listMemoriesForDecay } = await import(
-  "../../../src/lib/memory/store.ts"
-);
-const { resetDbInstance, getDbInstance } = await import("../../../src/lib/db/core.ts");
+const { createMemory, getMemory, recordMemoryAccess, listMemoriesForDecay } =
+  await import("../../../src/lib/memory/store.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../../src/lib/db/core.ts");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -45,9 +43,9 @@ function candidate(over: Record<string, unknown> = {}) {
   } as Parameters<typeof isMemoryDecayed>[0];
 }
 
-after(() => {
+after(async () => {
   try {
-    resetDbInstance();
+    await resetDbInstanceDrained();
   } catch {
     /* ignore */
   }
@@ -113,7 +111,10 @@ describe("typedDecay — env config", () => {
     const cfg = resolveTypedDecayConfig({} as NodeJS.ProcessEnv);
     assert.equal(cfg.enabled, false);
     assert.equal(cfg.accessImmunityThreshold, DEFAULT_ACCESS_IMMUNITY_THRESHOLD);
-    assert.equal(cfg.ttlDaysByType[MemoryType.EPISODIC], DEFAULT_TTL_DAYS_BY_TYPE[MemoryType.EPISODIC]);
+    assert.equal(
+      cfg.ttlDaysByType[MemoryType.EPISODIC],
+      DEFAULT_TTL_DAYS_BY_TYPE[MemoryType.EPISODIC]
+    );
   });
 
   it("MEMORY_TYPED_DECAY_EPISODIC_DAYS=0 makes episodic immune too", () => {
@@ -137,11 +138,12 @@ describe("typedDecay — env config", () => {
 });
 
 describe("typedDecay — access tracking + sweep (DB)", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Each test starts from a clean memories table. resetDbInstance() only resets the
     // singleton — the on-disk file persists across tests — so we must actively clear rows.
-    resetDbInstance();
+    await resetDbInstanceDrained();
     getDbInstance().prepare("DELETE FROM memories").run();
+    await awaitDbMigrations();
   });
 
   it("recordMemoryAccess increments access_count and stamps last_accessed_at", async () => {
@@ -154,8 +156,8 @@ describe("typedDecay — access tracking + sweep (DB)", () => {
       metadata: {},
       expiresAt: null,
     });
-    recordMemoryAccess([mem.id]);
-    recordMemoryAccess([mem.id]);
+    await recordMemoryAccess([mem.id]);
+    await recordMemoryAccess([mem.id]);
     const reloaded = await getMemory(mem.id);
     assert.equal(reloaded?.accessCount, 2);
     assert.ok(reloaded?.lastAccessedAt instanceof Date);
@@ -255,7 +257,7 @@ describe("typedDecay — access tracking + sweep (DB)", () => {
         expiresAt: null,
       });
     }
-    const rows = listMemoriesForDecay({ apiKeyId: "k1", limit: 2 });
+    const rows = await listMemoriesForDecay({ apiKeyId: "k1", limit: 2 });
     assert.equal(rows.length, 2);
     assert.ok(rows[0].createdAt instanceof Date);
     assert.equal(typeof rows[0].accessCount, "number");

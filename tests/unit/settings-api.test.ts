@@ -19,14 +19,18 @@ async function createSettingsApiHarness() {
   const settingsRoute = await import("../../src/app/api/settings/route.ts");
 
   async function resetStorage() {
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     fs.rmSync(testDataDir, { recursive: true, force: true });
     fs.mkdirSync(testDataDir, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
-  function cleanup() {
-    core.resetDbInstance();
+  async function cleanup() {
+    await core.resetDbInstanceDrained();
     fs.rmSync(testDataDir, { recursive: true, force: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
   return {
@@ -54,8 +58,8 @@ afterEach(async () => {
   await harness.resetStorage();
 });
 
-after(() => {
-  harness.cleanup();
+after(async () => {
+  await harness.cleanup();
 });
 
 describe("Settings API - persisted preferences", () => {

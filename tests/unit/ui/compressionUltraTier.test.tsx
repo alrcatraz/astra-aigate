@@ -25,8 +25,9 @@ function mount(ui: React.ReactElement): HTMLElement {
 }
 
 beforeEach(() => {
-  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-    true;
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 afterEach(async () => {
@@ -70,7 +71,8 @@ function setupFetchMock(overrides?: Record<string, unknown>): { puts: CapturedPu
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       const method = (init?.method ?? "GET").toUpperCase();
-      if (url.includes("/api/settings/compression/mcp-accessibility")) return json({ enabled: true });
+      if (url.includes("/api/settings/compression/mcp-accessibility"))
+        return json({ enabled: true });
       if (url.includes("/api/settings/compression")) {
         if (method === "PUT") {
           const body = JSON.parse(String(init?.body ?? "{}"));
@@ -88,9 +90,8 @@ function setupFetchMock(overrides?: Record<string, unknown>): { puts: CapturedPu
 describe("CompressionPanel ultra SLM tier", () => {
   it("renders the ultra-engine select defaulting to heuristic", async () => {
     setupFetchMock();
-    const { default: CompressionPanel } = await import(
-      "../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel"
-    );
+    const { default: CompressionPanel } =
+      await import("../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel");
     let container!: HTMLElement;
     await act(async () => {
       container = mount(<CompressionPanel />);
@@ -103,16 +104,13 @@ describe("CompressionPanel ultra SLM tier", () => {
     expect(select, "ultra-engine select must render").toBeTruthy();
     expect(select?.value).toBe("heuristic");
     // The pre-warm toggle is hidden while heuristic is selected.
-    expect(
-      container.querySelector(`[data-testid="ultra-slm-prewarm-toggle"]`)
-    ).toBeFalsy();
+    expect(container.querySelector(`[data-testid="ultra-slm-prewarm-toggle"]`)).toBeFalsy();
   });
 
   it("selecting SLM PUTs ultraEngine:'slm' and reveals the pre-warm toggle", async () => {
     const { puts } = setupFetchMock();
-    const { default: CompressionPanel } = await import(
-      "../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel"
-    );
+    const { default: CompressionPanel } =
+      await import("../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel");
     let container!: HTMLElement;
     await act(async () => {
       container = mount(<CompressionPanel />);
@@ -125,7 +123,7 @@ describe("CompressionPanel ultra SLM tier", () => {
     expect(select).toBeTruthy();
     await act(async () => {
       select.value = "slm";
-      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await select.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await flush();
 
@@ -140,9 +138,8 @@ describe("CompressionPanel ultra SLM tier", () => {
 
   it("toggling pre-warm PUTs ultraSlmPrewarm:true when SLM is active", async () => {
     const { puts } = setupFetchMock({ ultraEngine: "slm", ultraSlmPrewarm: false });
-    const { default: CompressionPanel } = await import(
-      "../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel"
-    );
+    const { default: CompressionPanel } =
+      await import("../../../src/app/(dashboard)/dashboard/context/settings/CompressionPanel");
     let container!: HTMLElement;
     await act(async () => {
       container = mount(<CompressionPanel />);

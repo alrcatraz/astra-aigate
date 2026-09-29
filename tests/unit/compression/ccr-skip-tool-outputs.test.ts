@@ -53,7 +53,7 @@ describe("ccr engine — skip tool outputs", () => {
     registerBuiltinCompressionEngines();
   });
 
-  it("does NOT compress role:tool messages (OpenAI format)", () => {
+  it("does NOT compress role:tool messages (OpenAI format)", async () => {
     const body = {
       model: "gpt-4",
       messages: [
@@ -65,7 +65,7 @@ describe("ccr engine — skip tool outputs", () => {
       ],
     };
 
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     assert.equal(
       result.compressed,
@@ -85,7 +85,7 @@ describe("ccr engine — skip tool outputs", () => {
     );
   });
 
-  it("does NOT compress Anthropic-style user message containing only tool_result parts", () => {
+  it("does NOT compress Anthropic-style user message containing only tool_result parts", async () => {
     const body = {
       model: "claude-sonnet-4-5",
       messages: [
@@ -107,7 +107,7 @@ describe("ccr engine — skip tool outputs", () => {
       ],
     };
 
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     assert.equal(
       result.compressed,
@@ -132,7 +132,7 @@ describe("ccr engine — skip tool outputs", () => {
     );
   });
 
-  it("still compresses plain user text — the skip rule is scoped to tool outputs", () => {
+  it("still compresses plain user text — the skip rule is scoped to tool outputs", async () => {
     // Sanity check: the fix must NOT regress the existing compression path.
     // A plain user-role message with large text content must still be compressed.
     const LARGE_USER_TEXT = LARGE_TOOL_OUTPUT; // same length, same trigger
@@ -141,7 +141,7 @@ describe("ccr engine — skip tool outputs", () => {
       messages: [{ role: "user", content: LARGE_USER_TEXT }],
     };
 
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     assert.equal(
       result.compressed,
@@ -155,7 +155,7 @@ describe("ccr engine — skip tool outputs", () => {
     );
   });
 
-  it("does NOT compress when the user message is purely a tool_result (even one part)", () => {
+  it("does NOT compress when the user message is purely a tool_result (even one part)", async () => {
     // Single-element edge case: a user message with a single tool_result part
     // must still be skipped, not compressed.
     const body = {
@@ -174,7 +174,7 @@ describe("ccr engine — skip tool outputs", () => {
       ],
     };
 
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     assert.equal(result.compressed, false, "single tool_result part must also be skipped");
     const messages = result.body.messages as Array<{
@@ -185,7 +185,7 @@ describe("ccr engine — skip tool outputs", () => {
   });
 });
 
-it("does NOT crash on malformed user content with null / non-object parts (defensive guard)", () => {
+it("does NOT crash on malformed user content with null / non-object parts (defensive guard)", async () => {
   // Regression guard for gemini-code-assist review on PR #7869:
   // msg.content is parsed from external client input, so a malformed
   // payload could deliver `null` or non-object entries in the parts
@@ -204,7 +204,7 @@ it("does NOT crash on malformed user content with null / non-object parts (defen
   };
 
   // Must not throw.
-  const result = ccrEngine.apply(body as Record<string, unknown>);
+  const result = await ccrEngine.apply(body as Record<string, unknown>);
 
   // Null is not a tool_result, so the message must NOT be skipped as
   // a tool-only message — it falls through to the normal array path

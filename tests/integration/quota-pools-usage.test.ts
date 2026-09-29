@@ -39,20 +39,22 @@ async function enableManagementAuth() {
   await localDb.updateSettings({ requireLogin: true, password: "" });
 }
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   resetQuotaStoreSingleton();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
-  resetDb();
-  compliance.initAuditLog();
+  await resetDb();
+  await compliance.initAuditLog();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   resetQuotaStoreSingleton();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -92,7 +94,7 @@ test("GET /api/quota/pools/[id]/usage → PoolUsageSnapshot shape with correct f
   const poolId = pool.id;
 
   // 2. Add allocations for 2 API keys
-  upsertAllocations(poolId, [
+  await upsertAllocations(poolId, [
     { apiKeyId: "key-alice", weight: 60, policy: "soft" },
     { apiKeyId: "key-bob", weight: 40, policy: "soft" },
   ]);
@@ -137,11 +139,7 @@ test("GET /api/quota/pools/[id]/usage → PoolUsageSnapshot shape with correct f
   // Even with no plan dimensions (empty plan for unknown provider), the response
   // is valid with an empty dimensions array — endpoint falls back to poolUsage()
   // which returns what's available from the store.
-  assert.doesNotMatch(
-    JSON.stringify(body),
-    /\s+at\s+\//,
-    "No stack trace in usage response"
-  );
+  assert.doesNotMatch(JSON.stringify(body), /\s+at\s+\//, "No stack trace in usage response");
 });
 
 test("GET /api/quota/pools/[id]/usage response has required PoolUsageSnapshot fields", async () => {

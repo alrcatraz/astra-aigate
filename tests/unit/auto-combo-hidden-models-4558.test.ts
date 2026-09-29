@@ -27,17 +27,19 @@ import fs from "node:fs";
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-test-hidden-4558-"));
 process.env.DATA_DIR = tmpDir;
 
-const { mergeModelCompatOverride, getHiddenModelsByProvider, getModelIsHidden } = await import(
-  "../../src/lib/localDb.ts"
-);
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { mergeModelCompatOverride, getHiddenModelsByProvider, getModelIsHidden } =
+  await import("../../src/lib/localDb.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
-before(() => {
-  resetDbInstance();
+before(async () => {
+  await resetDbInstanceDrained();
+  getDbInstance();
+  await awaitDbMigrations();
 });
 
-after(() => {
-  resetDbInstance();
+after(async () => {
+  await resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -45,22 +47,22 @@ const PROVIDER = "openai";
 const HIDDEN_MODEL = "gpt-hidden-preview";
 const VISIBLE_MODEL = "gpt-visible-4o";
 
-test("getHiddenModelsByProvider: empty before any model is hidden", () => {
-  const map = getHiddenModelsByProvider();
+test("getHiddenModelsByProvider: empty before any model is hidden", async () => {
+  const map = await getHiddenModelsByProvider();
   assert.equal(map.get(PROVIDER)?.has(HIDDEN_MODEL) ?? false, false);
 });
 
-test("a hidden model lands in the provider's hidden set; a visible sibling does not", () => {
+test("a hidden model lands in the provider's hidden set; a visible sibling does not", async () => {
   // Hide one model, leave a sibling visible (overridden for an unrelated reason).
-  mergeModelCompatOverride(PROVIDER, HIDDEN_MODEL, { isHidden: true });
-  mergeModelCompatOverride(PROVIDER, VISIBLE_MODEL, { normalizeToolCallId: true });
+  await mergeModelCompatOverride(PROVIDER, HIDDEN_MODEL, { isHidden: true });
+  await mergeModelCompatOverride(PROVIDER, VISIBLE_MODEL, { normalizeToolCallId: true });
 
   // Sanity: the per-model read agrees.
   assert.equal(getModelIsHidden(PROVIDER, HIDDEN_MODEL), true);
   assert.equal(getModelIsHidden(PROVIDER, VISIBLE_MODEL), false);
 
-  const map = getHiddenModelsByProvider();
-  const hiddenForProvider = map.get(PROVIDER);
+  const map = await getHiddenModelsByProvider();
+  const hiddenForProvider = await map.get(PROVIDER);
   assert.ok(hiddenForProvider, "expected an entry for the provider");
   assert.equal(hiddenForProvider.has(HIDDEN_MODEL), true, "hidden model must be in the set");
   assert.equal(
@@ -70,9 +72,9 @@ test("a hidden model lands in the provider's hidden set; a visible sibling does 
   );
 });
 
-test("un-hiding a model (isHidden: null) removes it from the map", () => {
-  mergeModelCompatOverride(PROVIDER, HIDDEN_MODEL, { isHidden: null });
-  const map = getHiddenModelsByProvider();
+test("un-hiding a model (isHidden: null) removes it from the map", async () => {
+  await mergeModelCompatOverride(PROVIDER, HIDDEN_MODEL, { isHidden: null });
+  const map = await getHiddenModelsByProvider();
   assert.equal(
     map.get(PROVIDER)?.has(HIDDEN_MODEL) ?? false,
     false,

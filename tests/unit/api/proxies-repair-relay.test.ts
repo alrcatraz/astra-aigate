@@ -19,17 +19,19 @@ const repairRelayRoute =
   await import("../../../src/app/api/settings/proxies/[id]/repair-relay/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_KEY === undefined) delete process.env.STORAGE_ENCRYPTION_KEY;
   else process.env.STORAGE_ENCRYPTION_KEY = ORIGINAL_KEY;

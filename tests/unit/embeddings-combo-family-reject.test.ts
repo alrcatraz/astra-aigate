@@ -10,12 +10,13 @@ import { join } from "node:path";
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "omniroute-embed-combo-reject-"));
 
 const { createCombo } = await import("../../src/lib/db/combos.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 const { createEmbeddingResponse } = await import("../../src/lib/embeddings/service.ts");
 
-test.after(() => {
+test.after(async () => {
   // Release the SQLite handle so the native test runner can exit (CLAUDE.md #3).
-  resetDbInstance();
+  await resetDbInstanceDrained();
 });
 
 test("createEmbeddingResponse rejects a mixed-dimension embedding combo without dispatching upstream", async () => {

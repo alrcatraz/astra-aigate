@@ -16,7 +16,7 @@ const proxiesDb = await import("../../src/lib/db/proxies.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -35,6 +35,8 @@ async function resetStorage() {
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   delete process.env.INITIAL_PASSWORD;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -42,7 +44,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 
   if (ORIGINAL_INITIAL_PASSWORD === undefined) {
@@ -206,7 +208,7 @@ test("LKGP values can be set, read and cleared", async () => {
   assert.deepEqual(await settingsDb.getLKGP("combo-a", "model-a"), { provider: "openai" });
   assert.deepEqual(await settingsDb.getLKGP("combo-a", "model-b"), { provider: "anthropic" });
 
-  settingsDb.clearAllLKGP();
+  await settingsDb.clearAllLKGP();
 
   assert.equal(await settingsDb.getLKGP("combo-a", "model-a"), null);
 });

@@ -53,12 +53,14 @@ function insertUsageHistory(row: Record<string, unknown>) {
   ).run(full);
 }
 
-test.before(() => {
-  core.resetDbInstance();
+test.before(async () => {
+  await core.resetDbInstanceDrained();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -66,7 +68,7 @@ test("#4009 getProviderDailyUsageRows is exported as a function", () => {
   assert.equal(typeof mod.getProviderDailyUsageRows, "function");
 });
 
-test("#4009 getProviderDailyUsageRows — groups requests by date + provider", () => {
+test("#4009 getProviderDailyUsageRows — groups requests by date + provider", async () => {
   const rawCutoffDate = "2020-01-01";
   const day1 = "2026-02-10T09:00:00.000Z";
   const day2 = "2026-02-11T09:00:00.000Z";
@@ -92,7 +94,7 @@ test("#4009 getProviderDailyUsageRows — groups requests by date + provider", (
     apiKeyParams: {},
   });
 
-  const rows = mod.getProviderDailyUsageRows(unifiedSource, unifiedParams);
+  const rows = await mod.getProviderDailyUsageRows(unifiedSource, unifiedParams);
 
   const openaiDay1 = rows.find((r) => r.date === "2026-02-10" && r.provider === "openai");
   const anthropicDay1 = rows.find((r) => r.date === "2026-02-10" && r.provider === "anthropic");
@@ -114,7 +116,7 @@ test("#4009 getProviderDailyUsageRows — groups requests by date + provider", (
   assert.notEqual(openaiDay1!.requests, openaiDay2!.requests);
 });
 
-test("#4009 getProviderDailyUsageRows — lowercases provider for consistent grouping", () => {
+test("#4009 getProviderDailyUsageRows — lowercases provider for consistent grouping", async () => {
   const rawCutoffDate = "2020-01-01";
   const ts = "2026-03-01T09:00:00.000Z";
 
@@ -129,7 +131,7 @@ test("#4009 getProviderDailyUsageRows — lowercases provider for consistent gro
     apiKeyParams: {},
   });
 
-  const rows = mod.getProviderDailyUsageRows(unifiedSource, unifiedParams);
+  const rows = await mod.getProviderDailyUsageRows(unifiedSource, unifiedParams);
   const openaiRows = rows.filter((r) => r.date === "2026-03-01" && r.provider === "openai");
 
   assert.equal(openaiRows.length, 1, "mixed-case provider values fold into one group");

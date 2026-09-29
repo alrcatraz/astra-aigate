@@ -6,8 +6,8 @@ import { resetDbInstance } from "@/lib/db/core.ts";
 
 // resolveAutoStrategyOrder loads the LKGP via the DB singleton (dynamic import);
 // release the handle so the node:test runner does not hang on teardown (learning #3).
-after(() => {
-  resetDbInstance();
+after(async () => {
+  await resetDbInstanceDrained();
 });
 
 // Split guard for Block J Task 2 (coupled slice): the `if (strategy === "auto")`

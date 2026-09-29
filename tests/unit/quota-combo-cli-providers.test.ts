@@ -28,9 +28,11 @@ const combosDb = await import("../../src/lib/db/combos.ts");
 const { REGISTRY } = await import("../../open-sse/config/providerRegistry.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -38,7 +40,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -59,7 +61,7 @@ test("syncQuotaCombos generates qtSd/ combos for a CLI provider (codex) via REGI
     apiKey: "sk-codex",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "Codex Quota" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "Codex Quota" });
 
   await syncQuotaCombos(pool.id);
 

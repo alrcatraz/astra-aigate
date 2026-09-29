@@ -21,14 +21,14 @@ test.beforeEach(() => {
   db.prepare("DELETE FROM combos").run();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = ORIGINAL_DATA_DIR;
 });
 
-test("runJsonMigration preserves exported snapshots and camelCase connection attribution", () => {
+test("runJsonMigration preserves exported snapshots and camelCase connection attribution", async () => {
   const db = core.getDbInstance();
 
   runJsonMigration(db, {
@@ -57,7 +57,7 @@ test("runJsonMigration preserves exported snapshots and camelCase connection att
     ],
   });
 
-  const row = db
+  const row = await db
     .prepare(
       `SELECT connection_id, account_key, account_label, account_label_priority,
               tokens_input + tokens_output total_tokens
@@ -102,7 +102,7 @@ test("usage snapshots survive an export, connection deletion, and import round t
   db.prepare("DELETE FROM provider_connections").run();
   runJsonMigration(db, exported);
 
-  const restored = db
+  const restored = await db
     .prepare(
       `SELECT COUNT(*) requests, SUM(tokens_input + tokens_output) tokens,
               MAX(account_label) label
@@ -143,7 +143,6 @@ test("runJsonMigration normalizes legacy combo strategy names at the import boun
   assert.equal(byId.get("combo-usage").config.strategy, "context-optimized");
   assert.equal(byId.get("combo-unknown").strategy, "priority");
 });
-
 
 test("runJsonMigration rejects invalid combo invariants atomically", () => {
   const db = core.getDbInstance();

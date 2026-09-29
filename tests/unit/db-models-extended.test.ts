@@ -21,7 +21,7 @@ function cleanupGlobalDb() {
 
 async function resetStorage() {
   cleanupGlobalDb();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -34,6 +34,7 @@ async function resetStorage() {
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test("sanitizeUpstreamHeadersMap returns empty for null/undefined", () => {
@@ -103,7 +104,7 @@ test("sanitizeUpstreamHeadersMap rejects forbidden header names", () => {
 
 test("getModelCompatOverrides returns empty array for unknown provider", async () => {
   await resetStorage();
-  const overrides = models.getModelCompatOverrides("unknown-provider");
+  const overrides = await models.getModelCompatOverrides("unknown-provider");
   assert.ok(Array.isArray(overrides));
 });
 
@@ -114,19 +115,19 @@ test("getModelIsHidden returns false for unknown model", async () => {
 
 test("getModelNormalizeToolCallId returns boolean or undefined", async () => {
   await resetStorage();
-  const result = models.getModelNormalizeToolCallId("openai", "gpt-4o");
+  const result = await models.getModelNormalizeToolCallId("openai", "gpt-4o");
   assert.ok(result === undefined || typeof result === "boolean");
 });
 
 test("getModelPreserveOpenAIDeveloperRole returns boolean or undefined", async () => {
   await resetStorage();
-  const result = models.getModelPreserveOpenAIDeveloperRole("openai", "gpt-4o");
+  const result = await models.getModelPreserveOpenAIDeveloperRole("openai", "gpt-4o");
   assert.ok(result === undefined || typeof result === "boolean");
 });
 
 test("getModelUpstreamExtraHeaders returns empty object when no overrides", async () => {
   await resetStorage();
-  const result = models.getModelUpstreamExtraHeaders("openai", "gpt-4o");
+  const result = await models.getModelUpstreamExtraHeaders("openai", "gpt-4o");
   assert.deepEqual(result, {});
 });
 

@@ -260,18 +260,20 @@ function collectTextBlocks(messages) {
 async function resetStorage() {
   clearUpstreamProxyConfigCache();
   resetPayloadRulesConfigForTests();
-  register(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, originalResponsesToOpenAI, null);
+  await register(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, originalResponsesToOpenAI, null);
   invalidateCacheControlSettingsCache();
   clearCache();
   clearIdempotency();
   clearInflight();
-  clearModelsDevCapabilities();
+  await clearModelsDevCapabilities();
   setBackgroundDegradationConfig(originalBackgroundConfig);
   resetBackgroundStats();
   globalThis.setTimeout = originalSetTimeout;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // 30s ceiling: c8 instrumentation plus --test-concurrency=8 can stall CI workers
@@ -1215,7 +1217,7 @@ test("chatCore logs chat completions endpoint as OpenAI protocol", async () => {
 });
 
 test("chatCore surfaces translation errors with explicit status codes", async () => {
-  register(
+  await register(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.OPENAI,
     () => {
@@ -1242,7 +1244,7 @@ test("chatCore surfaces translation errors with explicit status codes", async ()
 });
 
 test("chatCore surfaces typed translation errors with the declared error type", async () => {
-  register(
+  await register(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.OPENAI,
     () => {
@@ -1273,7 +1275,7 @@ test("chatCore surfaces typed translation errors with the declared error type", 
 });
 
 test("chatCore returns 500 when translation throws a generic error", async () => {
-  register(
+  await register(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.OPENAI,
     () => {
@@ -1931,7 +1933,7 @@ test("chatCore falls back to the next family model when the requested model is u
 });
 
 test("chatCore falls back to a larger-context sibling when the request overflows context", async () => {
-  saveModelsDevCapabilities({
+  await saveModelsDevCapabilities({
     unknown: {
       "gpt-5": capabilityEntry(128_000),
       "gpt-5-mini": capabilityEntry(64_000),

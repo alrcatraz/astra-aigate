@@ -13,9 +13,8 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omni-caveman-test-"))
 process.env.DATA_DIR = testDataDir;
 
 const coreDb = await import("../../src/lib/db/core.ts");
-const { writeCavemanOutputAnalytics } = await import(
-  "../../open-sse/handlers/chatCore/cavemanOutputAnalytics.ts"
-);
+const { writeCavemanOutputAnalytics } =
+  await import("../../open-sse/handlers/chatCore/cavemanOutputAnalytics.ts");
 
 function rowFor(requestId: string): Record<string, unknown> | undefined {
   return coreDb
@@ -30,8 +29,8 @@ before(async () => {
   await coreDb.ensureDbInitialized();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   try {
     fs.rmSync(testDataDir, { recursive: true, force: true });
   } catch {
@@ -60,7 +59,7 @@ test("writes a caveman-output analytics row and the promise resolves", async () 
 
 test("the returned promise never rejects even on a bad write", async () => {
   // resetting the DB instance makes the dynamic insert path fail; the helper must swallow it
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   await assert.doesNotReject(
     writeCavemanOutputAnalytics({
       comboName: "combo-x",
@@ -72,4 +71,6 @@ test("the returned promise never rejects even on a bad write", async () => {
     })
   );
   await coreDb.ensureDbInitialized();
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 });

@@ -131,7 +131,7 @@ async function getVisionCapableModels(
       if (!model?.id) continue;
 
       const fullModelId = `${providerAlias}/${model.id}`;
-      const caps = getResolvedModelCapabilities(fullModelId);
+      const caps = await getResolvedModelCapabilities(fullModelId);
 
       if (caps.supportsVision === true) {
         checks.push(

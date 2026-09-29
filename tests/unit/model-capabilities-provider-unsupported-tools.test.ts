@@ -16,24 +16,26 @@ import { getResolvedModelCapabilities } from "../../src/lib/modelCapabilities.ts
 // this fix reuses that same signal here so capability-based combo filtering
 // (filterTargetsByRequestCompatibility in comboStructure.ts) actually skips
 // these targets for tool-bearing requests instead of guessing wrong.
-test("a dynamically-discovered aihorde model resolves toolCalling: false via the provider-level unsupportedParams fallback", () => {
-  const caps = getResolvedModelCapabilities("aihorde/aphrodite/TheDrummer/Behemoth-X-123B-v2.1");
+test("a dynamically-discovered aihorde model resolves toolCalling: false via the provider-level unsupportedParams fallback", async () => {
+  const caps = await getResolvedModelCapabilities(
+    "aihorde/aphrodite/TheDrummer/Behemoth-X-123B-v2.1"
+  );
   assert.equal(caps.toolCalling, false);
   assert.equal(caps.supportsTools, false);
 });
 
-test("any other live-discovered aihorde model also resolves toolCalling: false", () => {
-  const caps = getResolvedModelCapabilities("aihorde/deepseek/deepseek-v4-flash");
+test("any other live-discovered aihorde model also resolves toolCalling: false", async () => {
+  const caps = await getResolvedModelCapabilities("aihorde/deepseek/deepseek-v4-flash");
   assert.equal(caps.toolCalling, false);
 });
 
-test("a statically-catalogued aihorde model keeps its explicit per-model toolCalling: false", () => {
-  const caps = getResolvedModelCapabilities("aihorde/aphrodite/TheDrummer/Cydonia-24B-v4.3");
+test("a statically-catalogued aihorde model keeps its explicit per-model toolCalling: false", async () => {
+  const caps = await getResolvedModelCapabilities("aihorde/aphrodite/TheDrummer/Cydonia-24B-v4.3");
   assert.equal(caps.toolCalling, false);
 });
 
-test("the provider-level fallback does not affect providers with no unsupportedParams declaration", () => {
-  const caps = getResolvedModelCapabilities("mistral/mistral-small-latest");
+test("the provider-level fallback does not affect providers with no unsupportedParams declaration", async () => {
+  const caps = await getResolvedModelCapabilities("mistral/mistral-small-latest");
   // Mistral's real models genuinely support tools; heuristic default (true)
   // should still apply since Mistral has no provider-level unsupportedParams.
   assert.equal(caps.toolCalling, true);

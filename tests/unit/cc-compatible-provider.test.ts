@@ -33,9 +33,11 @@ const originalAllowPrivateProviderUrls = process.env.OMNIROUTE_ALLOW_PRIVATE_PRO
 const originalAllowLocalProviderUrls = process.env.OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS;
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.afterEach(async () => {
@@ -58,7 +60,7 @@ test.afterEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
   if (originalFlag === undefined) {
     delete process.env.ENABLE_CC_COMPATIBLE_PROVIDER;
@@ -75,7 +77,7 @@ test.after(() => {
   } else {
     process.env.OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS = originalAllowLocalProviderUrls;
   }
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -943,7 +945,7 @@ test("provider-nodes validate route blocks cloud metadata provider hosts before 
     error: "Blocked cloud-metadata endpoint",
   });
   assert.equal(called, false);
-  const auditEntries = compliance.getAuditLog({
+  const auditEntries = await compliance.getAuditLog({
     action: "provider.validation.ssrf_blocked",
     resourceType: "provider_validation",
   });

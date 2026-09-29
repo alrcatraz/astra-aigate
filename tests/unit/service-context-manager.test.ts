@@ -27,25 +27,25 @@ describe("contextManager helpers", () => {
   });
 
   describe("getTokenLimit", () => {
-    it("returns a number for known providers", () => {
-      const limit = mod.getTokenLimit("openai", "gpt-4");
+    it("returns a number for known providers", async () => {
+      const limit = await mod.getTokenLimit("openai", "gpt-4");
       assert.ok(limit > 0);
       assert.equal(typeof limit, "number");
     });
 
-    it("returns default limit for unknown provider", () => {
-      const limit = mod.getTokenLimit("unknown-provider");
+    it("returns default limit for unknown provider", async () => {
+      const limit = await mod.getTokenLimit("unknown-provider");
       assert.ok(limit > 0);
     });
 
-    it("uses model hints for known model families", () => {
-      const claudeLimit = mod.getTokenLimit("unknown", "claude-3-opus");
+    it("uses model hints for known model families", async () => {
+      const claudeLimit = await mod.getTokenLimit("unknown", "claude-3-opus");
       assert.ok(claudeLimit > 0);
 
-      const geminiLimit = mod.getTokenLimit("unknown", "gemini-pro");
+      const geminiLimit = await mod.getTokenLimit("unknown", "gemini-pro");
       assert.ok(geminiLimit > 0);
 
-      const gptLimit = mod.getTokenLimit("unknown", "gpt-4-turbo");
+      const gptLimit = await mod.getTokenLimit("unknown", "gpt-4-turbo");
       assert.ok(gptLimit > 0);
     });
   });
@@ -92,19 +92,19 @@ describe("contextManager helpers", () => {
   });
 
   describe("compressContext", () => {
-    it("returns unchanged body for null/missing messages", () => {
-      const result = mod.compressContext({});
+    it("returns unchanged body for null/missing messages", async () => {
+      const result = await mod.compressContext({});
       assert.equal(result.compressed, false);
     });
 
-    it("returns unchanged body for null body", () => {
-      const result = mod.compressContext(null as any);
+    it("returns unchanged body for null body", async () => {
+      const result = await mod.compressContext(null as any);
       assert.equal(result.compressed, false);
     });
 
-    it("processes valid messages array", () => {
+    it("processes valid messages array", async () => {
       const body = { messages: [{ role: "user", content: "hello" }] };
-      const result = mod.compressContext(body);
+      const result = await mod.compressContext(body);
       assert.ok(result.body);
       assert.ok(Array.isArray(result.body.messages));
     });

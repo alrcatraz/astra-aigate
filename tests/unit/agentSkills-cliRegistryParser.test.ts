@@ -146,13 +146,13 @@ test("parseCliRegistry() returns commands Map and families Map", () => {
   }
 });
 
-test("parseCliRegistry() recognises providers family with ≥5 subcommands", () => {
+test("parseCliRegistry() recognises providers family with ≥5 subcommands", async () => {
   const { cleanup } = withFixtureCli({
     "providers.mjs": FIXTURE_PROVIDERS_MJS,
   });
   try {
     const { families } = parseCliRegistry();
-    const providerCmds = families.get("cli-providers");
+    const providerCmds = await families.get("cli-providers");
     assert.ok(providerCmds, "Expected 'cli-providers' family to exist");
     assert.ok(
       providerCmds!.length >= 5,
@@ -163,13 +163,13 @@ test("parseCliRegistry() recognises providers family with ≥5 subcommands", () 
   }
 });
 
-test("parseCliRegistry() recognises health family commands", () => {
+test("parseCliRegistry() recognises health family commands", async () => {
   const { cleanup } = withFixtureCli({
     "health.mjs": FIXTURE_HEALTH_MJS,
   });
   try {
     const { families } = parseCliRegistry();
-    const healthCmds = families.get("cli-health");
+    const healthCmds = await families.get("cli-health");
     assert.ok(healthCmds, "Expected 'cli-health' family to exist");
     assert.ok(healthCmds!.length >= 2, `Expected ≥2 health commands, got ${healthCmds!.length}`);
   } finally {
@@ -234,7 +234,7 @@ test("parseCliRegistry() extracts flags from .option() calls", () => {
   }
 });
 
-test("parseCliRegistry() does not mis-attribute child options to parent command when subcommand variable is created inline", () => {
+test("parseCliRegistry() does not mis-attribute child options to parent command when subcommand variable is created inline", async () => {
   const fixture = `
 export function registerBackup(program) {
   const backup = program.command("backup").description("Manage backups");
@@ -262,7 +262,7 @@ export function registerBackup(program) {
   });
   try {
     const { commands } = parseCliRegistry();
-    const backupCmd = commands.get("backup");
+    const backupCmd = await commands.get("backup");
     assert.ok(backupCmd, "backup command should exist");
     assert.deepEqual(
       backupCmd.flags,
@@ -270,7 +270,7 @@ export function registerBackup(program) {
       "parent backup command should not collect flags from nested subcommands"
     );
 
-    const statusCmd = commands.get("backup status");
+    const statusCmd = await commands.get("backup status");
     assert.ok(statusCmd, "backup status command should exist");
     assert.deepEqual(
       statusCmd.flags,
@@ -278,7 +278,7 @@ export function registerBackup(program) {
       "backup status should not collect flags from other subcommands"
     );
 
-    const createCmd = commands.get("backup create");
+    const createCmd = await commands.get("backup create");
     assert.ok(createCmd, "backup create command should exist");
     assert.deepEqual(createCmd.flags, ["--name <name>", "--cloud"]);
   } finally {
@@ -321,11 +321,11 @@ test("parseCliRegistry() throws if commands directory is missing", () => {
 
 // ─── Integration test: real providers.mjs (always runs — it's in the repo) ───
 
-test("parseCliRegistry() with real providers.mjs: providers family has ≥5 commands", () => {
+test("parseCliRegistry() with real providers.mjs: providers family has ≥5 commands", async () => {
   // This test uses the actual project files (not a fixture).
   // We rely on the CWD being the worktree root during `npm run test:unit`.
   const result = parseCliRegistry();
-  const providerCmds = result.families.get("cli-providers");
+  const providerCmds = await result.families.get("cli-providers");
   assert.ok(providerCmds, "Expected cli-providers family from real providers.mjs");
   assert.ok(
     providerCmds!.length >= 5,

@@ -101,7 +101,7 @@ describe("Size threshold — checkKnownPath", () => {
       process.platform === "win32"
         ? "@echo off\r\necho 1.0.0\r\nREM PADDING_PADDIN\r\nexit 0\r\n"
         : "#!/bin/sh\necho 1.0.0\n# PADDING_PADDING_PAD\nexit 0\n";
-    const script = createFile(tmpDir, "droid-valid", content);
+    const script = await createFile(tmpDir, "droid-valid", content);
     // Verify it's at least 30 bytes
     const stat = fs.statSync(script);
     assert.ok(stat.size >= 30, `File should be >= 30 bytes, got ${stat.size}`);

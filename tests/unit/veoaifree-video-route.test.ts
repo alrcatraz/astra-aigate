@@ -48,10 +48,10 @@ test.afterEach(() => {
   globalThis.setTimeout = originalSetTimeout;
 });
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
   globalThis.setTimeout = originalSetTimeout;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

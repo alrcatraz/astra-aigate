@@ -39,12 +39,12 @@ async function importHandler(): Promise<typeof import("../../scripts/dev/webdav-
 
 /** Encrypt a string with the OmniRoute enc:v1: format using the given secret.
  *  Mirrors src/lib/db/encryption.ts: scrypt with static salt, AES-256-GCM. */
-function encryptTs(secret: string, plaintext: string): string {
+async function encryptTs(secret: string, plaintext: string): string {
   const STATIC_SALT = "omniroute-field-encryption-v1";
   const key = scryptSync(secret, STATIC_SALT, 32);
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
-  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  let encrypted = await cipher.update(plaintext, "utf8", "hex");
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag().toString("hex");
   return `enc:v1:${iv.toString("hex")}:${encrypted}:${authTag}`;
@@ -243,10 +243,7 @@ test("verifyBasicAuth: empty header returns false", async () => {
 
 test("verifyBasicAuth: non-Basic scheme returns false", async () => {
   const { verifyBasicAuth } = await importHandler();
-  assert.equal(
-    verifyBasicAuth("Bearer some-token", "alice", "s3cr3t"),
-    false
-  );
+  assert.equal(verifyBasicAuth("Bearer some-token", "alice", "s3cr3t"), false);
 });
 
 test("verifyBasicAuth: malformed base64 returns false", async () => {
@@ -362,7 +359,15 @@ test("buildPropfindXml: escapes XML special chars in names", async () => {
 test("buildPropfindXml: file entry has no D:collection resourcetype", async () => {
   const { buildPropfindXml } = await importHandler();
   const xml = buildPropfindXml(
-    [{ name: "note.md", href: "/api/v1/webdav/note.md", isDir: false, size: 99, mtime: new Date() }],
+    [
+      {
+        name: "note.md",
+        href: "/api/v1/webdav/note.md",
+        isDir: false,
+        size: 99,
+        mtime: new Date(),
+      },
+    ],
     "/api/v1/webdav/"
   );
   // File should have empty resourcetype, not a collection

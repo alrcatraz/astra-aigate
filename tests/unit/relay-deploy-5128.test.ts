@@ -27,8 +27,8 @@ const proxiesDb = await import("../../src/lib/db/proxies.ts");
 const proxyTestRoute = await import("../../src/app/api/settings/proxy/test/route.ts");
 const proxySchemas = await import("../../src/shared/validation/schemas/proxy.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {

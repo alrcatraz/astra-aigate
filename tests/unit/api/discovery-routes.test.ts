@@ -27,23 +27,24 @@ before(async () => {
   delete process.env.REQUIRE_API_KEY;
   process.env.OMNIROUTE_DISABLE_AUTH = "1";
   core = await import("@/lib/db/core");
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   core.getDbInstance();
   db = await import("@/lib/db/discoveryResults");
   resultsRoute = await import("@/app/api/discovery/results/route");
   resultByIdRoute = await import("@/app/api/discovery/results/[id]/route");
   scanRoute = await import("@/app/api/discovery/scan/route");
   verifyRoute = await import("@/app/api/discovery/verify/[id]/route");
+  await core.awaitDbMigrations();
 });
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   if (tmpDataDir) rmSync(tmpDataDir, { recursive: true, force: true });
 });
 
 describe("discovery API routes", () => {
   test("GET /results lists persisted findings (and filters by providerId)", async () => {
-    db.upsertDiscoveryResult({
+    await db.upsertDiscoveryResult({
       providerId: "acme",
       method: "free_tier",
       authType: "none",
@@ -59,7 +60,7 @@ describe("discovery API routes", () => {
   });
 
   test("GET /results/:id returns the row, 404 when missing, 400 on bad id", async () => {
-    const created = db.upsertDiscoveryResult({
+    const created = await db.upsertDiscoveryResult({
       providerId: "beta",
       method: "trial",
       authType: "api_key",
@@ -105,7 +106,7 @@ describe("discovery API routes", () => {
   });
 
   test("POST /verify/:id marks verified, 404 when missing", async () => {
-    const created = db.upsertDiscoveryResult({
+    const created = await db.upsertDiscoveryResult({
       providerId: "delta",
       method: "public_api",
       authType: "api_key",
@@ -127,7 +128,7 @@ describe("discovery API routes", () => {
   });
 
   test("DELETE /results/:id removes the row, 404 on second delete", async () => {
-    const created = db.upsertDiscoveryResult({
+    const created = await db.upsertDiscoveryResult({
       providerId: "epsilon",
       method: "free_tier",
       authType: "none",
@@ -135,13 +136,19 @@ describe("discovery API routes", () => {
       riskLevel: "none",
       status: "pending",
     });
-    const first = await resultByIdRoute.DELETE(req("DELETE", `/api/discovery/results/${created.id}`), {
-      params: Promise.resolve({ id: String(created.id) }),
-    });
+    const first = await resultByIdRoute.DELETE(
+      req("DELETE", `/api/discovery/results/${created.id}`),
+      {
+        params: Promise.resolve({ id: String(created.id) }),
+      }
+    );
     assert.equal(first.status, 200);
-    const second = await resultByIdRoute.DELETE(req("DELETE", `/api/discovery/results/${created.id}`), {
-      params: Promise.resolve({ id: String(created.id) }),
-    });
+    const second = await resultByIdRoute.DELETE(
+      req("DELETE", `/api/discovery/results/${created.id}`),
+      {
+        params: Promise.resolve({ id: String(created.id) }),
+      }
+    );
     assert.equal(second.status, 404);
   });
 

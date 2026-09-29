@@ -15,26 +15,26 @@ type CatalogPricing = {
 };
 
 describe("catalog pricing surface (#8018)", () => {
-  before(() => {
+  before(async () => {
     const pricing: PricingByProvider = {
       openai: {
         "gpt-4o": { input: 2.5, output: 10 },
         "whisper-1": { input: 0.006, output: 0 },
       },
     };
-    saveModelsDevPricing(pricing);
+    await saveModelsDevPricing(pricing);
   });
 
-  after(() => {
+  after(async () => {
     try {
-      clearModelsDevPricing();
+      await clearModelsDevPricing();
     } catch {
       // ignore
     }
   });
 
-  it("attaches models.dev pricing onto catalog entries", () => {
-    const entry = enrichCatalogModelEntry({
+  it("attaches models.dev pricing onto catalog entries", async () => {
+    const entry = await enrichCatalogModelEntry({
       id: "openai/gpt-4o",
       owned_by: "openai",
       root: "gpt-4o",
@@ -44,8 +44,8 @@ describe("catalog pricing surface (#8018)", () => {
     assert.equal((entry.pricing as CatalogPricing).output, 10);
   });
 
-  it("attaches specialty pricing when present", () => {
-    const entry = enrichCatalogModelEntry({
+  it("attaches specialty pricing when present", async () => {
+    const entry = await enrichCatalogModelEntry({
       id: "openai/whisper-1",
       owned_by: "openai",
       root: "whisper-1",
@@ -56,8 +56,8 @@ describe("catalog pricing surface (#8018)", () => {
     assert.equal((entry.pricing as CatalogPricing).input, 0.006);
   });
 
-  it("omits pricing when unknown", () => {
-    const entry = enrichCatalogModelEntry({
+  it("omits pricing when unknown", async () => {
+    const entry = await enrichCatalogModelEntry({
       id: "unknown/provider-model-xyz",
       owned_by: "unknown",
       root: "provider-model-xyz",

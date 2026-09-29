@@ -97,8 +97,8 @@ function assertSanitized(raw: string, context: string): void {
   assert.ok(!/at \/|[A-Za-z]:\\/.test(raw), `${context}: matched /at \\/|[A-Za-z]:\\\\/ → ${raw}`);
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;

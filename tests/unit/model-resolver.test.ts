@@ -36,7 +36,7 @@ function withEnv(name: string, value: string | undefined, fn: () => Promise<void
 test.after(async () => {
   const core = await import("../../src/lib/db/core.ts");
   const { invalidateDbCache } = await import("../../src/lib/db/readCache.ts");
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   invalidateDbCache();
   fs.rmSync(modelResolverDataDir, { recursive: true, force: true });
   if (previousDataDir === undefined) {
@@ -185,8 +185,7 @@ test(
 );
 
 test("getModelInfoCore routes unprefixed Claude models to Claude Code from settings toggle", async () => {
-  const previousEnvFlag =
-    process.env.OMNIROUTE_PREFER_CLAUDE_CODE_FOR_UNPREFIXED_CLAUDE_MODELS;
+  const previousEnvFlag = process.env.OMNIROUTE_PREFER_CLAUDE_CODE_FOR_UNPREFIXED_CLAUDE_MODELS;
   delete process.env.OMNIROUTE_PREFER_CLAUDE_CODE_FOR_UNPREFIXED_CLAUDE_MODELS;
 
   try {
@@ -216,8 +215,7 @@ test("getModelInfoCore routes unprefixed Claude models to Claude Code from setti
 });
 
 test("getModelInfoCore lets settings toggle disable Claude Code preference", async () => {
-  const previousEnvFlag =
-    process.env.OMNIROUTE_PREFER_CLAUDE_CODE_FOR_UNPREFIXED_CLAUDE_MODELS;
+  const previousEnvFlag = process.env.OMNIROUTE_PREFER_CLAUDE_CODE_FOR_UNPREFIXED_CLAUDE_MODELS;
   process.env.OMNIROUTE_PREFER_CLAUDE_CODE_FOR_UNPREFIXED_CLAUDE_MODELS = "true";
 
   try {

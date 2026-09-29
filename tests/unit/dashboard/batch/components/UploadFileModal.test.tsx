@@ -11,9 +11,8 @@ vi.mock("next-intl", () => ({
 
 // ── Import component after mocks ─────────────────────────────────────────────
 
-const { default: UploadFileModal } = await import(
-  "../../../../../src/app/(dashboard)/dashboard/batch/components/UploadFileModal"
-);
+const { default: UploadFileModal } =
+  await import("../../../../../src/app/(dashboard)/dashboard/batch/components/UploadFileModal");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -82,9 +81,9 @@ describe("UploadFileModal", () => {
     expect(input).not.toBeNull();
 
     const txtFile = makeFile("data.txt", 100, "text/plain");
-    act(() => {
+    act(async () => {
       Object.defineProperty(input, "files", { value: [txtFile], configurable: true });
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     // Error banner should appear
@@ -103,9 +102,9 @@ describe("UploadFileModal", () => {
     const input = el.querySelector("input[type='file']") as HTMLInputElement;
 
     const jsonlFile = makeFile("batch.jsonl", 1024);
-    act(() => {
+    act(async () => {
       Object.defineProperty(input, "files", { value: [jsonlFile], configurable: true });
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     // Filename visible
@@ -130,12 +129,12 @@ describe("UploadFileModal", () => {
       configurable: true,
     }) as File;
 
-    act(() => {
+    act(async () => {
       Object.defineProperty(input, "files", {
         value: [oversizedFile],
         configurable: true,
       });
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const alert = el.querySelector("[role='alert']");
@@ -157,9 +156,9 @@ describe("UploadFileModal", () => {
 
     const input = el.querySelector("input[type='file']") as HTMLInputElement;
     const jsonlFile = makeFile("batch.jsonl", 100);
-    act(() => {
+    act(async () => {
       Object.defineProperty(input, "files", { value: [jsonlFile], configurable: true });
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const buttons = Array.from(el.querySelectorAll("button"));
@@ -193,9 +192,9 @@ describe("UploadFileModal", () => {
 
     const input = el.querySelector("input[type='file']") as HTMLInputElement;
     const jsonlFile = makeFile("batch.jsonl", 100);
-    act(() => {
+    act(async () => {
       Object.defineProperty(input, "files", { value: [jsonlFile], configurable: true });
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const buttons = Array.from(el.querySelectorAll("button"));
@@ -223,8 +222,8 @@ describe("UploadFileModal", () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    act(() => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    act(async () => {
+      await document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -240,24 +239,24 @@ describe("UploadFileModal", () => {
 
     const jsonlFile = makeFile("dropped.jsonl", 512);
 
-    act(() => {
+    act(async () => {
       const dragOverEvent = new Event("dragover", { bubbles: true }) as DragEvent;
       Object.defineProperty(dragOverEvent, "dataTransfer", {
         value: { files: [jsonlFile] },
         configurable: true,
       });
       Object.defineProperty(dragOverEvent, "preventDefault", { value: vi.fn() });
-      dropZone.dispatchEvent(dragOverEvent);
+      await dropZone.dispatchEvent(dragOverEvent);
     });
 
-    act(() => {
+    act(async () => {
       const dropEvent = new Event("drop", { bubbles: true }) as DragEvent;
       Object.defineProperty(dropEvent, "dataTransfer", {
         value: { files: [jsonlFile] },
         configurable: true,
       });
       Object.defineProperty(dropEvent, "preventDefault", { value: vi.fn() });
-      dropZone.dispatchEvent(dropEvent);
+      await dropZone.dispatchEvent(dropEvent);
     });
 
     // Filename should be visible
@@ -286,9 +285,9 @@ describe("UploadFileModal", () => {
 
     const input = el.querySelector("input[type='file']") as HTMLInputElement;
     const jsonlFile = makeFile("test.jsonl", 50);
-    act(() => {
+    act(async () => {
       Object.defineProperty(input, "files", { value: [jsonlFile], configurable: true });
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const buttons = Array.from(el.querySelectorAll("button"));

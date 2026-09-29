@@ -26,10 +26,12 @@ const { GET } = await import("../../../../src/app/api/services/9router/models/ro
 
 const originalFetch = globalThis.fetch;
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeRequest(url: string): Request {
@@ -44,8 +46,8 @@ function makeFetch(status: number, body: unknown): typeof fetch {
     });
 }
 
-beforeEach(() => {
-  resetDb();
+beforeEach(async () => {
+  await resetDb();
   globalThis.fetch = originalFetch;
 });
 
@@ -65,7 +67,7 @@ describe("GET /api/services/9router/models", () => {
   });
 
   it("returns stored models as { data: [...] }", async () => {
-    saveServiceModels("9router", [
+    await saveServiceModels("9router", [
       { id: "9router/cx/gpt-5-mini", name: "GPT-5 mini", available: true },
       { id: "9router/auto/sonnet", name: "Sonnet", available: true },
     ]);
@@ -82,7 +84,7 @@ describe("GET /api/services/9router/models", () => {
 
   it("?refresh=true triggers a sync before returning", async () => {
     // Pre-seed with one model so we can tell that the sync ran.
-    saveServiceModels("9router", [{ id: "9router/old-model", available: true }]);
+    await saveServiceModels("9router", [{ id: "9router/old-model", available: true }]);
 
     let fetchCalled = false;
     globalThis.fetch = async () => {
@@ -107,7 +109,7 @@ describe("GET /api/services/9router/models", () => {
   });
 
   it("?refresh=false (default) does NOT trigger a sync", async () => {
-    saveServiceModels("9router", [{ id: "9router/cached-model", available: true }]);
+    await saveServiceModels("9router", [{ id: "9router/cached-model", available: true }]);
 
     let fetchCalled = false;
     globalThis.fetch = async () => {

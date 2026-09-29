@@ -11,7 +11,7 @@ const core = await import("../../src/lib/db/core.ts");
 const secretsDb = await import("../../src/lib/db/secrets.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -29,6 +29,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -36,7 +38,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -44,15 +46,15 @@ test("getPersistedSecret returns null for missing keys", () => {
   assert.equal(secretsDb.getPersistedSecret("missing"), null);
 });
 
-test("persistSecret stores and reads secrets from the key_value table", () => {
-  secretsDb.persistSecret("oauth_token", "secret-value");
+test("persistSecret stores and reads secrets from the key_value table", async () => {
+  await secretsDb.persistSecret("oauth_token", "secret-value");
 
   assert.equal(secretsDb.getPersistedSecret("oauth_token"), "secret-value");
 });
 
-test("persistSecret does not overwrite an existing secret because storage is insert-only", () => {
-  secretsDb.persistSecret("api_token", "first-value");
-  secretsDb.persistSecret("api_token", "second-value");
+test("persistSecret does not overwrite an existing secret because storage is insert-only", async () => {
+  await secretsDb.persistSecret("api_token", "first-value");
+  await secretsDb.persistSecret("api_token", "second-value");
 
   assert.equal(secretsDb.getPersistedSecret("api_token"), "first-value");
 });

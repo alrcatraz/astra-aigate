@@ -11,7 +11,7 @@ const core = await import("../../src/lib/db/core.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -29,6 +29,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -36,7 +38,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -134,7 +136,7 @@ test("replaceCustomModels preserves compat fields and respects the empty-list gu
 
 test("removing a custom model also removes its compat override", async () => {
   await modelsDb.addCustomModel("anthropic", "claude-3-haiku", "Claude 3 Haiku");
-  modelsDb.mergeModelCompatOverride("anthropic", "claude-3-haiku", {
+  await modelsDb.mergeModelCompatOverride("anthropic", "claude-3-haiku", {
     normalizeToolCallId: true,
     isHidden: true,
   });
@@ -166,7 +168,7 @@ test("synced available models are unioned across connections and cleaned per con
 });
 
 test("compat overrides expose per-protocol getters and removable extra headers", async () => {
-  modelsDb.mergeModelCompatOverride("openai", "gpt-4.1", {
+  await modelsDb.mergeModelCompatOverride("openai", "gpt-4.1", {
     normalizeToolCallId: true,
     preserveOpenAIDeveloperRole: false,
     isHidden: true,
@@ -195,7 +197,7 @@ test("compat overrides expose per-protocol getters and removable extra headers",
     "X-Proto": "yes",
   });
 
-  modelsDb.removeModelCompatOverride("openai", "gpt-4.1");
+  await modelsDb.removeModelCompatOverride("openai", "gpt-4.1");
 
   assert.equal(modelsDb.getModelNormalizeToolCallId("openai", "gpt-4.1"), false);
   assert.deepEqual(modelsDb.getModelCompatOverrides("openai"), []);
@@ -216,8 +218,8 @@ test("sanitizeUpstreamHeadersMap keeps only safe trimmed headers", () => {
   });
 });
 
-test("compat overrides ignore invalid protocol keys and can be fully removed again", () => {
-  modelsDb.mergeModelCompatOverride("openai", "gpt-4.1-mini", {
+test("compat overrides ignore invalid protocol keys and can be fully removed again", async () => {
+  await modelsDb.mergeModelCompatOverride("openai", "gpt-4.1-mini", {
     normalizeToolCallId: true,
     preserveOpenAIDeveloperRole: true,
     isHidden: true,
@@ -235,13 +237,13 @@ test("compat overrides ignore invalid protocol keys and can be fully removed aga
     },
   });
 
-  let overrides = modelsDb.getModelCompatOverrides("openai");
+  let overrides = await modelsDb.getModelCompatOverrides("openai");
 
   assert.equal(overrides.length, 1);
   assert.equal(overrides[0].compatByProtocol.invalid, undefined);
   assert.deepEqual(overrides[0].upstreamHeaders, { "X-Test": "enabled" });
 
-  modelsDb.mergeModelCompatOverride("openai", "gpt-4.1-mini", {
+  await modelsDb.mergeModelCompatOverride("openai", "gpt-4.1-mini", {
     normalizeToolCallId: false,
     preserveOpenAIDeveloperRole: null,
     isHidden: null,
@@ -253,7 +255,7 @@ test("compat overrides ignore invalid protocol keys and can be fully removed aga
     },
   });
 
-  overrides = modelsDb.getModelCompatOverrides("openai");
+  overrides = await modelsDb.getModelCompatOverrides("openai");
 
   assert.deepEqual(overrides, [
     {
@@ -286,7 +288,7 @@ test("compat getters fall back to override rows when custom model storage is mal
     },
   });
 
-  modelsDb.mergeModelCompatOverride("anthropic", "claude-edge", {
+  await modelsDb.mergeModelCompatOverride("anthropic", "claude-edge", {
     normalizeToolCallId: true,
     preserveOpenAIDeveloperRole: false,
     isHidden: true,

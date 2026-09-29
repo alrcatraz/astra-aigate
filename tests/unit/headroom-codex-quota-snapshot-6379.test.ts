@@ -44,16 +44,16 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 // the DB instead of short-circuiting to [].
 const codexFetcher = await import("../../open-sse/services/codexQuotaFetcher.ts");
 codexFetcher.registerCodexQuotaFetcher();
-const { orderTargetsByHeadroom } = await import(
-  "../../open-sse/services/combo/quotaStrategies.ts"
-);
+const { orderTargetsByHeadroom } = await import("../../open-sse/services/combo/quotaStrategies.ts");
 const { _clearSaturationCache } = await import("../../src/lib/quota/saturationSignals.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   _clearSaturationCache();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -61,7 +61,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -111,8 +111,7 @@ test("orderTargetsByHeadroom (codex): ranks the account with more free quota fir
   globalThis.fetch = (async (_url: string, init?: RequestInit) => {
     const headers = init?.headers as Record<string, string> | undefined;
     const auth = headers?.["Authorization"] ?? "";
-    const body =
-      auth === "Bearer tok-busy" ? usageResponse(90, 10) : usageResponse(5, 5);
+    const body = auth === "Bearer tok-busy" ? usageResponse(90, 10) : usageResponse(5, 5);
     return new Response(JSON.stringify(body), { status: 200 });
   }) as typeof fetch;
 

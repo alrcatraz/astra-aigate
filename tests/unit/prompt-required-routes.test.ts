@@ -13,8 +13,8 @@ const videoRoute = await import("../../src/app/api/v1/videos/generations/route.t
 
 type ErrorResponseBody = { error: { message: string } };
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -31,35 +31,26 @@ const memorySettings = await import("../../src/lib/memory/settings.ts");
 
 // ── Route imports ──
 const qdrantSettingsRoute = await import("../../src/app/api/settings/qdrant/route.ts");
-const qdrantHealthRoute = await import(
-  "../../src/app/api/settings/qdrant/health/route.ts"
-);
-const qdrantSearchRoute = await import(
-  "../../src/app/api/settings/qdrant/search/route.ts"
-);
-const qdrantCleanupRoute = await import(
-  "../../src/app/api/settings/qdrant/cleanup/route.ts"
-);
-const qdrantEmbeddingModelsRoute = await import(
-  "../../src/app/api/settings/qdrant/embedding-models/route.ts"
-);
+const qdrantHealthRoute = await import("../../src/app/api/settings/qdrant/health/route.ts");
+const qdrantSearchRoute = await import("../../src/app/api/settings/qdrant/search/route.ts");
+const qdrantCleanupRoute = await import("../../src/app/api/settings/qdrant/cleanup/route.ts");
+const qdrantEmbeddingModelsRoute =
+  await import("../../src/app/api/settings/qdrant/embedding-models/route.ts");
 
 // ── Helpers ──
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // #5597 follow-up: the memory-settings cache is a module-level singleton that
   // survives per-test DB resets — bust it so each test starts from a clean read.
   memorySettings.invalidateMemorySettingsCache();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-async function makeAuthRequest(
-  method: "GET" | "POST" | "PUT",
-  url: string,
-  body?: unknown
-) {
+async function makeAuthRequest(method: "GET" | "POST" | "PUT", url: string, body?: unknown) {
   return makeManagementSessionRequest(url, { method, body });
 }
 

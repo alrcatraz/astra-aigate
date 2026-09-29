@@ -98,9 +98,9 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(getReasoningCache("call_test_1")?.reasoning, "The user wants to read the file...");
   });
 
-  it("should fall back to SQLite when memory misses", () => {
+  it("should fall back to SQLite when memory misses", async () => {
     clearReasoningCacheAll();
-    setReasoningCache("call_db_only", "deepseek", "deepseek-reasoner", "DB-only reasoning");
+    await setReasoningCache("call_db_only", "deepseek", "deepseek-reasoner", "DB-only reasoning");
 
     assert.equal(lookupReasoning("call_db_only"), "DB-only reasoning");
 
@@ -365,9 +365,15 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning("call_cleanup_test"), "Not expired yet");
   });
 
-  it("should not return expired SQLite entries and cleanup should prune them", () => {
+  it("should not return expired SQLite entries and cleanup should prune them", async () => {
     clearReasoningCacheAll();
-    setReasoningCache("call_expired", "deepseek", "deepseek-chat", "Expired reasoning", -1_000);
+    await setReasoningCache(
+      "call_expired",
+      "deepseek",
+      "deepseek-chat",
+      "Expired reasoning",
+      -1_000
+    );
 
     assert.equal(lookupReasoning("call_expired"), null);
     assert.equal(cleanupReasoningCache(), 1);
@@ -533,14 +539,14 @@ describe("Reasoning Replay Cache — Provider Detection", () => {
 });
 
 describe("Reasoning Replay Cache — Translator Replay", () => {
-  before(() => {
+  before(async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
+    await clearModelsDevCapabilities();
   });
 
-  after(() => {
+  after(async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
+    await clearModelsDevCapabilities();
   });
 
   function translateWithToolHistory(provider: string, model: string, callId: string) {
@@ -567,10 +573,10 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     );
   }
 
-  it("should inject cached reasoning for DeepSeek instead of empty fallback", () => {
+  it("should inject cached reasoning for DeepSeek instead of empty fallback", async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       deepseek: {
         "deepseek-reasoner": buildCapability({
           interleaved_field: "reasoning_content",
@@ -591,10 +597,10 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     assert.equal(getReasoningCacheServiceStats().replays, 1);
   });
 
-  it("should preserve client-provided reasoning content", () => {
+  it("should preserve client-provided reasoning content", async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       deepseek: {
         "deepseek-reasoner": buildCapability({
           interleaved_field: "reasoning_content",
@@ -635,10 +641,10 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     assert.equal(getReasoningCacheServiceStats().replays, 0);
   });
 
-  it("should inject cached reasoning for Qwen and GLM thinking models", () => {
+  it("should inject cached reasoning for Qwen and GLM thinking models", async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       qwen: {
         "qwen3-thinking-235b": buildCapability({
           interleaved_field: "reasoning_content",
@@ -665,9 +671,9 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     assert.equal(getReasoningCacheServiceStats().replays, 2);
   });
 
-  it("should not inject reasoning_content for generic non-reasoning providers", () => {
+  it("should not inject reasoning_content for generic non-reasoning providers", async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
+    await clearModelsDevCapabilities();
     cacheReasoning("call_openai", "openai", "gpt-4o", "Should not replay");
 
     const translated = translateWithToolHistory("openai", "gpt-4o", "call_openai");
@@ -676,10 +682,10 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     assert.equal(getReasoningCacheServiceStats().replays, 0);
   });
 
-  it("should support the full capture then replay flow", () => {
+  it("should support the full capture then replay flow", async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       deepseek: {
         "deepseek-reasoner": buildCapability({
           interleaved_field: "reasoning_content",
@@ -706,9 +712,9 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     assert.equal(getReasoningCacheServiceStats().replays, 1);
   });
 
-  it("should strip reasoning_content when model has no interleaved replay signal", () => {
+  it("should strip reasoning_content when model has no interleaved replay signal", async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
+    await clearModelsDevCapabilities();
 
     const translated = translateRequest(
       FORMATS.OPENAI,
@@ -732,10 +738,10 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     assert.equal(translated.messages[1].reasoning_content, undefined);
   });
 
-  it("should not inject reasoning_content when interleaved field is reasoning_details", () => {
+  it("should not inject reasoning_content when interleaved field is reasoning_details", async () => {
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       testprovider: {
         "test-reasoning-details": buildCapability({
           interleaved_field: "reasoning_details",
@@ -761,8 +767,8 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     // `msg.reasoning_content === undefined` never fired on cache miss, leaving the
     // empty string in place. DeepSeek V4+ rejects "" with a 400.
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       deepseek: {
         "deepseek-v4-flash": buildCapability({
           interleaved_field: "reasoning_content",
@@ -816,8 +822,8 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     // from history. DeepSeek V4+ still requires reasoning_content on every assistant
     // message in thinking mode, so without a placeholder the upstream returns 400.
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       deepseek: {
         "deepseek-v4-pro": buildCapability({
           interleaved_field: "reasoning_content",
@@ -854,12 +860,12 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     );
   });
 
-  it("should replay cached reasoning for a plain (non-tool-call) DeepSeek turn when available (#1682)", () => {
+  it("should replay cached reasoning for a plain (non-tool-call) DeepSeek turn when available (#1682)", async () => {
     // When a request_id-keyed cache entry exists for the plain turn, the real
     // reasoning is replayed instead of the placeholder.
     clearReasoningCacheAll();
-    clearModelsDevCapabilities();
-    saveModelsDevCapabilities({
+    await clearModelsDevCapabilities();
+    await saveModelsDevCapabilities({
       deepseek: {
         "deepseek-v4-pro": buildCapability({
           interleaved_field: "reasoning_content",

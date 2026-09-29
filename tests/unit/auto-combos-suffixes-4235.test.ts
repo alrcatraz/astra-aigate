@@ -20,15 +20,17 @@ const modePacks = await import("../../open-sse/services/autoCombo/modePacks.ts")
 const builtinCatalog = await import("../../open-sse/services/autoCombo/builtinCatalog.ts");
 const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => resetStorage());
-test.after(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => await resetStorage());
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

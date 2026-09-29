@@ -55,9 +55,8 @@ describe("EmptyStateNoProviders", () => {
   });
 
   it("renders empty state component with link to providers", async () => {
-    const { EmptyStateNoProviders } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/EmptyStateNoProviders"
-    );
+    const { EmptyStateNoProviders } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/EmptyStateNoProviders");
 
     const container = makeContainer();
     await act(async () => {
@@ -81,16 +80,23 @@ describe("RiskNoticeBanner", () => {
     while (cleanupCallbacks.length > 0) cleanupCallbacks.pop()?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
-    try { localStorage.clear(); } catch { /* ignore */ }
+    try {
+      localStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders risk notice banner when not dismissed", async () => {
     // Ensure not dismissed
-    try { localStorage.removeItem("omniroute-agentbridge-risk-dismissed"); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem("omniroute-agentbridge-risk-dismissed");
+    } catch {
+      /* ignore */
+    }
 
-    const { RiskNoticeBanner } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/RiskNoticeBanner"
-    );
+    const { RiskNoticeBanner } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/RiskNoticeBanner");
 
     const container = makeContainer();
     await act(async () => {
@@ -106,11 +112,12 @@ describe("RiskNoticeBanner", () => {
   it("does not render risk banner when already dismissed", async () => {
     try {
       localStorage.setItem("omniroute-agentbridge-risk-dismissed", "true");
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
-    const { RiskNoticeBanner } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/RiskNoticeBanner"
-    );
+    const { RiskNoticeBanner } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/RiskNoticeBanner");
 
     const container = makeContainer();
     await act(async () => {
@@ -122,11 +129,14 @@ describe("RiskNoticeBanner", () => {
   });
 
   it("dismisses banner on close click", async () => {
-    try { localStorage.removeItem("omniroute-agentbridge-risk-dismissed"); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem("omniroute-agentbridge-risk-dismissed");
+    } catch {
+      /* ignore */
+    }
 
-    const { RiskNoticeBanner } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/RiskNoticeBanner"
-    );
+    const { RiskNoticeBanner } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/RiskNoticeBanner");
 
     const container = makeContainer();
     await act(async () => {
@@ -135,9 +145,9 @@ describe("RiskNoticeBanner", () => {
     });
 
     // Click dismiss
-    const closeBtn = container.querySelector('button[aria-label]');
+    const closeBtn = container.querySelector("button[aria-label]");
     await act(async () => {
-      closeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await closeBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Banner gone
@@ -159,9 +169,8 @@ describe("BypassListEditor", () => {
   });
 
   it("renders default bypass patterns", async () => {
-    const { BypassListEditor } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor"
-    );
+    const { BypassListEditor } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor");
 
     const container = makeContainer();
     await act(async () => {
@@ -179,9 +188,8 @@ describe("BypassListEditor", () => {
   });
 
   it("renders initial user patterns in textarea", async () => {
-    const { BypassListEditor } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor"
-    );
+    const { BypassListEditor } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/BypassListEditor");
 
     const container = makeContainer();
     await act(async () => {

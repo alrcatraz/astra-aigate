@@ -14,15 +14,16 @@ const memoryStore = await import("../../src/lib/memory/store.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const { invalidateMemorySettingsCache } = await import("../../src/lib/memory/settings.ts");
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
   core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
-  resetStorage();
+  await resetStorage();
   // PRD-2026-06-19: memory is OFF by default now. The memory MCP tools operate
   // within the memory subsystem (omniroute_memory_search → retrieveMemories, which
   // returns nothing while memory is disabled), so enable memory explicitly — the
@@ -31,8 +32,8 @@ test.beforeEach(async () => {
   invalidateMemorySettingsCache();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   process.env.DATA_DIR = originalDataDir;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

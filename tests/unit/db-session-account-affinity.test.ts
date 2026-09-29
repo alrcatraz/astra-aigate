@@ -45,11 +45,11 @@ describe("sessionAccountAffinity", () => {
     assert.equal(getSessionAccountAffinity(delSess, provider, ttl), null);
   });
 
-  it("cleanupStaleSessionAccountAffinities removes expired entries", () => {
+  it("cleanupStaleSessionAccountAffinities removes expired entries", async () => {
     const oldSess = `old-${Date.now()}`;
     const past = Date.now() - 120_000; // 2 min ago
     upsertSessionAccountAffinity(oldSess, provider, connId, past, 60_000); // 1 min ttl, already expired
-    const deleted = cleanupStaleSessionAccountAffinities(30 * 60_000, Date.now());
+    const deleted = await cleanupStaleSessionAccountAffinities(30 * 60_000, Date.now());
     assert.ok(deleted >= 0, "should return count of deleted");
   });
 

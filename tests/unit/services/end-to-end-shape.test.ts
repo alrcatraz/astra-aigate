@@ -547,7 +547,7 @@ describe("Cross-service shape consistency", () => {
 // Cleanup
 // ---------------------------------------------------------------------------
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });

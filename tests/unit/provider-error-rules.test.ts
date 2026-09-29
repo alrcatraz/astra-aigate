@@ -44,7 +44,7 @@ test("S2: Minimax 429 with x-model-quota-remaining header → QUOTA_EXHAUSTED wi
     await import("../../open-sse/config/providerErrorRules.ts");
 
   // The registry must be loaded for minimax
-  const minimaxRules = providerRuleRegistry.get("minimax");
+  const minimaxRules = await providerRuleRegistry.get("minimax");
   assert.ok(
     minimaxRules && minimaxRules.length > 0,
     "minimax must be registered in the provider rule registry"

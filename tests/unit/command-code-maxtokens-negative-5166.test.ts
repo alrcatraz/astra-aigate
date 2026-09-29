@@ -29,9 +29,9 @@ test.afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 });
 
 async function captureParams(body: Record<string, unknown>): Promise<FetchCall> {

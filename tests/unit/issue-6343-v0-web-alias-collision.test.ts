@@ -21,8 +21,9 @@ process.env.API_KEY_SECRET = "0123456789abcdef0123456789abcdef";
 describe("#6343: v0-vercel-web credential detection (alias collision)", () => {
   after(async () => {
     try {
-      const { resetDbInstance } = await import("../../src/lib/db/core.ts");
-      resetDbInstance();
+      const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+        await import("../../src/lib/db/core.ts");
+      await resetDbInstanceDrained();
     } catch {
       // best-effort cleanup
     }

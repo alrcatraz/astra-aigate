@@ -19,7 +19,7 @@ const providerModelsRoute =
   await import("../../src/app/api/v1/providers/[provider]/models/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // These routes all derive from the shared unified catalog (getUnifiedModelsResponse),
@@ -29,6 +29,8 @@ async function resetStorage() {
   // a previous one gets served the previous test's stale catalog instead of a fresh
   // build reflecting this test's own seeded connections.
   v1ModelsCatalog.__resetCatalogBuilderRunsForTest();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider: string) {
@@ -57,8 +59,8 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

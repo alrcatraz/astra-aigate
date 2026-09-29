@@ -50,14 +50,16 @@ const ORIGINAL_FETCH = globalThis.fetch;
 
 let tmpHome: string;
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-kiro-1253-"));
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   process.env.HOME = tmpHome;
   delete process.env.APPDATA;
   globalThis.fetch = ORIGINAL_FETCH;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test.afterEach(() => {
@@ -71,8 +73,8 @@ test.afterEach(() => {
   if (tmpHome) fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -142,7 +144,11 @@ test("auto-import: resolves clientId/clientSecret from a direct `clientId` field
       assert.equal(parsed.clientId, "correct-client-id");
       assert.equal(parsed.clientSecret, "correct-secret");
       return new Response(
-        JSON.stringify({ accessToken: "access-refreshed", refreshToken: "aorAAAAAGrefreshed", expiresIn: 3600 }),
+        JSON.stringify({
+          accessToken: "access-refreshed",
+          refreshToken: "aorAAAAAGrefreshed",
+          expiresIn: 3600,
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -185,7 +191,11 @@ test("KiroService.validateImportToken: prefers the client registration matching 
       fetchedBodies.push(parsed);
       if (parsed.clientId === "correct-client-id" && parsed.clientSecret === "correct-secret") {
         return new Response(
-          JSON.stringify({ accessToken: "ok-access", refreshToken: "aorAAAAAGok", expiresIn: 3600 }),
+          JSON.stringify({
+            accessToken: "ok-access",
+            refreshToken: "aorAAAAAGok",
+            expiresIn: 3600,
+          }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }

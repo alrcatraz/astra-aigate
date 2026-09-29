@@ -15,22 +15,22 @@ describe("specialty catalog surfaces (#8016)", () => {
     assert.equal(isNonChatCatalogSurface(undefined), false);
   });
 
-  it("does not optimistically enable tools/reasoning for specialty model ids", () => {
-    const whisper = getResolvedModelCapabilities({ provider: "openai", model: "whisper-1" });
+  it("does not optimistically enable tools/reasoning for specialty model ids", async () => {
+    const whisper = await getResolvedModelCapabilities({ provider: "openai", model: "whisper-1" });
     assert.equal(whisper.toolCalling, false);
     assert.equal(whisper.reasoning, false);
 
-    const tts = getResolvedModelCapabilities({ provider: "openai", model: "tts-1" });
+    const tts = await getResolvedModelCapabilities({ provider: "openai", model: "tts-1" });
     assert.equal(tts.toolCalling, false);
     assert.equal(tts.reasoning, false);
 
-    const veo = getResolvedModelCapabilities({ provider: "veo-free", model: "veo" });
+    const veo = await getResolvedModelCapabilities({ provider: "veo-free", model: "veo" });
     assert.equal(veo.toolCalling, false);
     assert.equal(veo.reasoning, false);
   });
 
-  it("enrichment does not invent chat tool/reasoning on typed specialty rows", () => {
-    const enriched = enrichCatalogModelEntry({
+  it("enrichment does not invent chat tool/reasoning on typed specialty rows", async () => {
+    const enriched = await enrichCatalogModelEntry({
       id: "openai/whisper-1",
       owned_by: "openai",
       root: "whisper-1",

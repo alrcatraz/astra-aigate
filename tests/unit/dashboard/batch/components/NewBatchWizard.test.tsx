@@ -86,17 +86,14 @@ afterEach(() => {
 
 // ── Component import ──────────────────────────────────────────────────────────
 
-const { default: NewBatchWizard } = await import(
-  "../../../../../src/app/(dashboard)/dashboard/batch/components/NewBatchWizard"
-);
+const { default: NewBatchWizard } =
+  await import("../../../../../src/app/(dashboard)/dashboard/batch/components/NewBatchWizard");
 
 // ── Render helpers ────────────────────────────────────────────────────────────
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
-const DEFAULT_PROVIDERS = [
-  { id: "openai", name: "OpenAI", models: ["gpt-4o-mini", "gpt-4o"] },
-];
+const DEFAULT_PROVIDERS = [{ id: "openai", name: "OpenAI", models: ["gpt-4o-mini", "gpt-4o"] }];
 
 function renderWizard(props?: {
   onClose?: () => void;
@@ -144,13 +141,13 @@ async function goToStep2(el: HTMLElement) {
   const selects = el.querySelectorAll("select");
   await act(async () => {
     (selects[0] as HTMLSelectElement).value = "openai";
-    selects[0].dispatchEvent(new Event("change", { bubbles: true }));
+    await selects[0].dispatchEvent(new Event("change", { bubbles: true }));
   });
   // After provider selected, get updated selects
   const selectsAfter = el.querySelectorAll("select");
   await act(async () => {
     (selectsAfter[2] as HTMLSelectElement).value = "gpt-4o-mini";
-    selectsAfter[2].dispatchEvent(new Event("change", { bubbles: true }));
+    await selectsAfter[2].dispatchEvent(new Event("change", { bubbles: true }));
   });
   const nextBtn = el.querySelector("button:not([disabled])")!;
   // find Next button by text
@@ -168,7 +165,7 @@ async function injectFileContent(el: HTMLElement, content: string, filename = "b
   const file = new File([content], filename, { type: "application/jsonl" });
   await act(async () => {
     Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
-    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await fileInput.dispatchEvent(new Event("change", { bubbles: true }));
   });
   // File.text() is async — wait a tick
   await new Promise((r) => setTimeout(r, 100));
@@ -205,8 +202,8 @@ describe("NewBatchWizard", () => {
   it("calls onClose on Escape key press", () => {
     const onClose = vi.fn();
     renderWizard({ onClose });
-    act(() => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    act(async () => {
+      await document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -232,8 +229,8 @@ describe("NewBatchWizard", () => {
     // Overlay has the backdrop-blur-sm + bg-black/40 class
     const overlay = el.querySelector(".backdrop-blur-sm");
     expect(overlay).not.toBeNull();
-    act(() => {
-      overlay!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await overlay!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -244,12 +241,12 @@ describe("NewBatchWizard", () => {
     const selects = el.querySelectorAll("select");
     await act(async () => {
       (selects[0] as HTMLSelectElement).value = "openai";
-      selects[0].dispatchEvent(new Event("change", { bubbles: true }));
+      await selects[0].dispatchEvent(new Event("change", { bubbles: true }));
     });
     const selectsAfter = el.querySelectorAll("select");
     await act(async () => {
       (selectsAfter[2] as HTMLSelectElement).value = "gpt-4o-mini";
-      selectsAfter[2].dispatchEvent(new Event("change", { bubbles: true }));
+      await selectsAfter[2].dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const nextBtns = Array.from(el.querySelectorAll("button")).filter(
@@ -435,7 +432,10 @@ describe("NewBatchWizard", () => {
     expect(onClose).toHaveBeenCalled();
 
     // Assert fetch shapes
-    expect(mockFetch).toHaveBeenCalledWith("/api/v1/files", expect.objectContaining({ method: "POST" }));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/files",
+      expect.objectContaining({ method: "POST" })
+    );
     const batchCall = mockFetch.mock.calls.find((c) => c[0] === "/api/v1/batches");
     expect(batchCall).toBeDefined();
     const body = JSON.parse(batchCall![1].body as string) as Record<string, unknown>;
@@ -452,7 +452,9 @@ describe("NewBatchWizard", () => {
           ok: false,
           status: 500,
           json: async () => ({
-            error: { message: "Internal error at /home/user/server/files.ts:42 — stack at line 42" },
+            error: {
+              message: "Internal error at /home/user/server/files.ts:42 — stack at line 42",
+            },
           }),
         };
       }

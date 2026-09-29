@@ -25,18 +25,20 @@ const { hasManageScope } = await import("../../../src/shared/constants/managemen
 const MACHINE_ID = "machine1234567890";
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -55,7 +57,7 @@ test("createApiKey persists scopes to the api_keys row", async () => {
   const db = core.getDbInstance() as unknown as {
     prepare: (sql: string) => { get: (id: string) => { scopes: string | null } | undefined };
   };
-  const row = db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
+  const row = await db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
   assert.equal(row?.scopes, JSON.stringify(["manage"]));
 });
 
@@ -64,7 +66,7 @@ test("createApiKey with default scopes writes an empty JSON array", async () => 
   const db = core.getDbInstance() as unknown as {
     prepare: (sql: string) => { get: (id: string) => { scopes: string | null } | undefined };
   };
-  const row = db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
+  const row = await db.prepare("SELECT scopes FROM api_keys WHERE id = ?").get(created.id);
   assert.equal(row?.scopes, "[]");
 });
 
@@ -110,7 +112,7 @@ test("legacy rows with NULL scopes parse to an empty array and never hold manage
 test("updateApiKeyPermissions granting manage emits apiKey.scopes.grant", async () => {
   const created = await apiKeysDb.createApiKey("for-grant", MACHINE_ID);
 
-  const before = compliance.getAuditLog({ limit: 100 });
+  const before = await compliance.getAuditLog({ limit: 100 });
   const beforeGrant = before.filter(
     (e) => e.action === "apiKey.scopes.grant" && e.target === created.id
   );
@@ -119,7 +121,7 @@ test("updateApiKeyPermissions granting manage emits apiKey.scopes.grant", async 
   const ok = await apiKeysDb.updateApiKeyPermissions(created.id, { scopes: ["manage"] });
   assert.equal(ok, true);
 
-  const after = compliance.getAuditLog({ limit: 100 });
+  const after = await compliance.getAuditLog({ limit: 100 });
   const grants = after.filter((e) => e.action === "apiKey.scopes.grant" && e.target === created.id);
   assert.equal(grants.length, 1, "expected exactly one grant audit event");
 
@@ -135,7 +137,7 @@ test("updateApiKeyPermissions revoking manage emits apiKey.scopes.revoke", async
   const ok = await apiKeysDb.updateApiKeyPermissions(created.id, { scopes: [] });
   assert.equal(ok, true);
 
-  const after = compliance.getAuditLog({ limit: 100 });
+  const after = await compliance.getAuditLog({ limit: 100 });
   const revokes = after.filter(
     (e) => e.action === "apiKey.scopes.revoke" && e.target === created.id
   );
@@ -152,7 +154,7 @@ test("updateApiKeyPermissions setting same manage scope does not emit duplicate 
   const ok = await apiKeysDb.updateApiKeyPermissions(created.id, { scopes: ["manage"] });
   assert.equal(ok, true);
 
-  const after = compliance.getAuditLog({ limit: 100 });
+  const after = await compliance.getAuditLog({ limit: 100 });
   const scopeEvents = after.filter(
     (e) =>
       (e.action === "apiKey.scopes.grant" ||
@@ -173,7 +175,7 @@ test("updateApiKeyPermissions changing non-manage scopes emits apiKey.scopes.upd
   const ok = await apiKeysDb.updateApiKeyPermissions(created.id, { scopes: ["read:logs"] });
   assert.equal(ok, true);
 
-  const after = compliance.getAuditLog({ limit: 100 });
+  const after = await compliance.getAuditLog({ limit: 100 });
   const updates = after.filter(
     (e) => e.action === "apiKey.scopes.update" && e.target === created.id
   );
@@ -230,7 +232,7 @@ test("updateApiKeyPermissions without scopes field does not emit any scope audit
   const ok = await apiKeysDb.updateApiKeyPermissions(created.id, { name: "renamed" });
   assert.equal(ok, true);
 
-  const after = compliance.getAuditLog({ limit: 100 });
+  const after = await compliance.getAuditLog({ limit: 100 });
   const scopeEvents = after.filter(
     (e) =>
       (e.action === "apiKey.scopes.grant" ||

@@ -20,13 +20,16 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-usage-ded
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 // Dynamic imports so DATA_DIR is set before any module initialises the DB.
-const { resetDbInstance, getDbInstance } = await import("../../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../../src/lib/db/core.ts");
 const { onUsageRecorded } = await import("../../../src/lib/usage/usageEvents.ts");
 const { saveRequestUsage } = await import("../../../src/lib/usage/usageHistory.ts");
 
 // Cleanup: close DB handle and temp directory so the test runner doesn't hang.
-test.after(() => {
-  resetDbInstance();
+test.after(async () => {
+  // Drained close: the sync variant yanked the connection mid-migration and
+  // left the fresh DB without migration 105's `endpoint` column.
+  await resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -57,8 +60,10 @@ function makeEntry(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function countRows(db: ReturnType<typeof getDbInstance>): number {
-  const row = db.prepare("SELECT COUNT(*) AS cnt FROM usage_history").get() as { cnt: number };
+async function countRows(db: ReturnType<typeof getDbInstance>): Promise<number> {
+  const row = (await db.prepare("SELECT COUNT(*) AS cnt FROM usage_history").get()) as {
+    cnt: number;
+  };
   return row.cnt;
 }
 
@@ -66,12 +71,12 @@ function countRows(db: ReturnType<typeof getDbInstance>): number {
 
 test("saveRequestUsage: first insert creates exactly one row", async () => {
   const db = getDbInstance();
-  const before = countRows(db);
+  const before = await countRows(db);
   const entry = makeEntry({ timestamp: new Date().toISOString() });
 
   await saveRequestUsage(entry);
 
-  assert.equal(countRows(db), before + 1, "Expected exactly one new row after first insert");
+  assert.equal(await countRows(db), before + 1, "Expected exactly one new row after first insert");
 });
 
 test("saveRequestUsage: duplicate entry (same key fields) inserts only ONE row", async () => {
@@ -80,11 +85,11 @@ test("saveRequestUsage: duplicate entry (same key fields) inserts only ONE row",
   const entry = makeEntry({ timestamp: ts });
 
   await saveRequestUsage(entry);
-  const afterFirst = countRows(db);
+  const afterFirst = await countRows(db);
 
   // Insert identical entry a second time — should be a no-op.
   await saveRequestUsage(entry);
-  const afterSecond = countRows(db);
+  const afterSecond = await countRows(db);
 
   assert.equal(
     afterSecond,
@@ -114,13 +119,13 @@ test("saveRequestUsage: emitUsageRecorded fires on real insert but NOT on duplic
 
 test("saveRequestUsage: two entries with different timestamps are both inserted", async () => {
   const db = getDbInstance();
-  const before = countRows(db);
+  const before = await countRows(db);
 
   await saveRequestUsage(makeEntry({ timestamp: new Date(Date.now() - 5000).toISOString() }));
   await saveRequestUsage(makeEntry({ timestamp: new Date(Date.now() - 4000).toISOString() }));
 
   assert.equal(
-    countRows(db),
+    await countRows(db),
     before + 2,
     "Two distinct entries (different timestamps) should both be inserted"
   );
@@ -128,14 +133,14 @@ test("saveRequestUsage: two entries with different timestamps are both inserted"
 
 test("saveRequestUsage: two entries with different providers are both inserted", async () => {
   const db = getDbInstance();
-  const before = countRows(db);
+  const before = await countRows(db);
   const ts = new Date().toISOString();
 
   await saveRequestUsage(makeEntry({ timestamp: ts, provider: "provider-A" }));
   await saveRequestUsage(makeEntry({ timestamp: ts, provider: "provider-B" }));
 
   assert.equal(
-    countRows(db),
+    await countRows(db),
     before + 2,
     "Two entries with different providers should both be inserted"
   );

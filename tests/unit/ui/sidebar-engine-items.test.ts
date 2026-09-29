@@ -35,29 +35,29 @@ describe("COMPRESSION_CONTEXT_GROUP contains all 4 engine items", () => {
     });
   }
 
-  it('headroom has href "/dashboard/context/headroom" and labelFallback "Headroom"', () => {
-    const item = itemMap.get("context-headroom");
+  it('headroom has href "/dashboard/context/headroom" and labelFallback "Headroom"', async () => {
+    const item = await itemMap.get("context-headroom");
     assert.ok(item, "context-headroom item not found");
     assert.equal(item.href, "/dashboard/context/headroom");
     assert.equal(item.labelFallback, "Headroom");
   });
 
-  it('session-dedup has href "/dashboard/context/session-dedup" and labelFallback "Session Dedup"', () => {
-    const item = itemMap.get("context-session-dedup");
+  it('session-dedup has href "/dashboard/context/session-dedup" and labelFallback "Session Dedup"', async () => {
+    const item = await itemMap.get("context-session-dedup");
     assert.ok(item, "context-session-dedup item not found");
     assert.equal(item.href, "/dashboard/context/session-dedup");
     assert.equal(item.labelFallback, "Session Dedup");
   });
 
-  it('ccr has href "/dashboard/context/ccr" and labelFallback "CCR"', () => {
-    const item = itemMap.get("context-ccr");
+  it('ccr has href "/dashboard/context/ccr" and labelFallback "CCR"', async () => {
+    const item = await itemMap.get("context-ccr");
     assert.ok(item, "context-ccr item not found");
     assert.equal(item.href, "/dashboard/context/ccr");
     assert.equal(item.labelFallback, "CCR");
   });
 
-  it('llmlingua has href "/dashboard/context/llmlingua" and labelFallback "LLMLingua"', () => {
-    const item = itemMap.get("context-llmlingua");
+  it('llmlingua has href "/dashboard/context/llmlingua" and labelFallback "LLMLingua"', async () => {
+    const item = await itemMap.get("context-llmlingua");
     assert.ok(item, "context-llmlingua item not found");
     assert.equal(item.href, "/dashboard/context/llmlingua");
     assert.equal(item.labelFallback, "LLMLingua");
@@ -82,11 +82,7 @@ describe("COMPRESSION_CONTEXT_GROUP contains all 4 engine items", () => {
     const ids = itemIds as string[];
     assert.equal(ids[0], "context-settings", "Settings must be first");
     assert.equal(ids[1], "context-combos", "Combos must be second");
-    assert.equal(
-      ids[ids.length - 1],
-      "compression-exclusions",
-      "Exclusions must be last"
-    );
+    assert.equal(ids[ids.length - 1], "compression-exclusions", "Exclusions must be last");
     assert.equal(
       ids[ids.length - 2],
       "compression-studio",

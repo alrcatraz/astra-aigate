@@ -161,7 +161,7 @@ test("log-streamer.ts calls /api/cli-tools/logs (correct URL, not the missing ro
     const reader = stream.getReader();
     // Consume until done (mock stream closes immediately)
     await reader.read().catch(() => {});
-    stop();
+    await stop();
   } finally {
     globalThis.fetch = origFetch;
   }
@@ -201,7 +201,7 @@ test("log-streamer forwards auth headers to fetch (regression: 401 against authe
     });
     const reader = stream.getReader();
     await reader.read().catch(() => {});
-    stop();
+    await stop();
   } finally {
     globalThis.fetch = origFetch;
   }

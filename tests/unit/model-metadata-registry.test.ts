@@ -13,9 +13,11 @@ const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 const registry = await import("../../src/lib/modelMetadataRegistry.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -28,7 +30,7 @@ test.after(async () => {
 });
 
 test("canonical model metadata merges static and synced capabilities into one record", async () => {
-  modelsDevSync.saveModelsDevCapabilities({
+  await modelsDevSync.saveModelsDevCapabilities({
     openai: {
       "gpt-4o": {
         tool_call: true,

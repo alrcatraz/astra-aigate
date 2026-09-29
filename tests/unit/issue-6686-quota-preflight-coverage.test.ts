@@ -84,7 +84,7 @@ test("#6686: getProviderCredentialsWithQuotaPreflight (now used by every credent
   const auth = await import("../../src/sse/services/auth.ts");
   const quotaPreflight = await import("../../open-sse/services/quotaPreflight.ts");
 
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
@@ -133,8 +133,10 @@ test("#6686: getProviderCredentialsWithQuotaPreflight (now used by every credent
       "getProviderCredentialsWithQuotaPreflight should correctly block the exhausted account"
     );
   } finally {
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     apiKeysDb.resetApiKeyState();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });

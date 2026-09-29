@@ -40,8 +40,8 @@ const virtualFactory = await import("../../open-sse/services/autoCombo/virtualFa
 const contextManager = await import("../../open-sse/services/contextManager.ts");
 const combosAutoRoute = await import("../../src/app/api/combos/auto/route.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {
@@ -51,12 +51,11 @@ test.after(() => {
 
 // ── virtualFactory.computeAdvertisedLimits ───────────────────────────────────
 
-test("computeAdvertisedLimits returns MAX of candidates' known context windows", () => {
+test("computeAdvertisedLimits returns MAX of candidates' known context windows", async () => {
   const { computeAdvertisedLimits } = virtualFactory as unknown as {
-    computeAdvertisedLimits: (candidates: Array<{ provider: string; model: string }>) => {
-      contextLength: number | null;
-      maxOutputTokens: number | null;
-    };
+    computeAdvertisedLimits: (
+      candidates: Array<{ provider: string; model: string }>
+    ) => Promise<{ contextLength: number | null; maxOutputTokens: number | null }>;
   };
   assert.equal(
     typeof computeAdvertisedLimits,
@@ -66,7 +65,7 @@ test("computeAdvertisedLimits returns MAX of candidates' known context windows",
 
   // gemini has registry defaultContextLength=1048576; claude-sonnet-4-6 has 1000000 (#7129:
   // 1M GA per Anthropic docs) -- gemini's binary-1M window still wins as the MAX.
-  const result = computeAdvertisedLimits([
+  const result = await computeAdvertisedLimits([
     { provider: "claude", model: "claude-sonnet-4-6" },
     { provider: "gemini", model: "gemini-2.5-pro" },
   ]);
@@ -77,26 +76,24 @@ test("computeAdvertisedLimits returns MAX of candidates' known context windows",
   );
 });
 
-test("computeAdvertisedLimits returns null limits for an empty candidate pool", () => {
+test("computeAdvertisedLimits returns null limits for an empty candidate pool", async () => {
   const { computeAdvertisedLimits } = virtualFactory as unknown as {
-    computeAdvertisedLimits: (candidates: Array<{ provider: string; model: string }>) => {
-      contextLength: number | null;
-      maxOutputTokens: number | null;
-    };
+    computeAdvertisedLimits: (
+      candidates: Array<{ provider: string; model: string }>
+    ) => Promise<{ contextLength: number | null; maxOutputTokens: number | null }>;
   };
-  const result = computeAdvertisedLimits([]);
+  const result = await computeAdvertisedLimits([]);
   assert.equal(result.contextLength, null);
   assert.equal(result.maxOutputTokens, null);
 });
 
-test("computeAdvertisedLimits never returns 0 for a non-empty pool (unknown models fall back)", () => {
+test("computeAdvertisedLimits never returns 0 for a non-empty pool (unknown models fall back)", async () => {
   const { computeAdvertisedLimits } = virtualFactory as unknown as {
-    computeAdvertisedLimits: (candidates: Array<{ provider: string; model: string }>) => {
-      contextLength: number | null;
-      maxOutputTokens: number | null;
-    };
+    computeAdvertisedLimits: (
+      candidates: Array<{ provider: string; model: string }>
+    ) => Promise<{ contextLength: number | null; maxOutputTokens: number | null }>;
   };
-  const result = computeAdvertisedLimits([
+  const result = await computeAdvertisedLimits([
     { provider: "totally-unknown-provider", model: "mystery-model" },
   ]);
   assert.ok(
@@ -134,7 +131,7 @@ test("GET /api/combos/auto includes positive context_length for combos with cand
 
 // ── contextManager.resolveComboContextLimit (per-target compression limit) ──
 
-test("resolveComboContextLimit prefers the executing target's own limit over combo min", () => {
+test("resolveComboContextLimit prefers the executing target's own limit over combo min", async () => {
   const { resolveComboContextLimit } = contextManager as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
@@ -150,7 +147,7 @@ test("resolveComboContextLimit prefers the executing target's own limit over com
 
   // Executing on gemini (1048576 provider default) while the combo also has
   // a tiny 32k target: compression must use the EXECUTING target's window.
-  const result = resolveComboContextLimit({
+  const result = await resolveComboContextLimit({
     provider: "gemini",
     model: "gemini-2.5-pro",
     comboTargetLimits: [32000, 1048576],
@@ -159,7 +156,7 @@ test("resolveComboContextLimit prefers the executing target's own limit over com
   assert.equal(result.source, "target");
 });
 
-test("resolveComboContextLimit regression: claude target must not be compressed at an 8k sibling", () => {
+test("resolveComboContextLimit regression: claude target must not be compressed at an 8k sibling", async () => {
   const { resolveComboContextLimit } = contextManager as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
@@ -167,7 +164,7 @@ test("resolveComboContextLimit regression: claude target must not be compressed 
       comboTargetLimits: number[];
     }) => { limit: number; source: string };
   };
-  const result = resolveComboContextLimit({
+  const result = await resolveComboContextLimit({
     provider: "claude",
     model: "claude-sonnet-4-6",
     comboTargetLimits: [8000],
@@ -179,7 +176,7 @@ test("resolveComboContextLimit regression: claude target must not be compressed 
   assert.equal(result.source, "target");
 });
 
-test("resolveComboContextLimit falls back to combo min when the target has no specific limit", () => {
+test("resolveComboContextLimit falls back to combo min when the target has no specific limit", async () => {
   const { resolveComboContextLimit } = contextManager as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
@@ -187,7 +184,7 @@ test("resolveComboContextLimit falls back to combo min when the target has no sp
       comboTargetLimits: number[];
     }) => { limit: number; source: string };
   };
-  const result = resolveComboContextLimit({
+  const result = await resolveComboContextLimit({
     provider: "totally-unknown-provider",
     model: "mystery-model",
     comboTargetLimits: [32000, 200000],
@@ -196,7 +193,7 @@ test("resolveComboContextLimit falls back to combo min when the target has no sp
   assert.equal(result.source, "combo-min");
 });
 
-test("resolveComboContextLimit uses generic fallback when nothing else is known", () => {
+test("resolveComboContextLimit uses generic fallback when nothing else is known", async () => {
   const { resolveComboContextLimit } = contextManager as unknown as {
     resolveComboContextLimit: (opts: {
       provider: string;
@@ -204,7 +201,7 @@ test("resolveComboContextLimit uses generic fallback when nothing else is known"
       comboTargetLimits: number[];
     }) => { limit: number; source: string };
   };
-  const result = resolveComboContextLimit({
+  const result = await resolveComboContextLimit({
     provider: "totally-unknown-provider",
     model: "mystery-model",
     comboTargetLimits: [],

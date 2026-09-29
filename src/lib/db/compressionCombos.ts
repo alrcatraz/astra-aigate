@@ -34,7 +34,7 @@ const DEFAULT_COMPRESSION_COMBO_NAME = "Standard Savings";
 const DEFAULT_COMPRESSION_COMBO_DESCRIPTION = "Default RTK + Caveman compression pipeline";
 const LEGACY_DEFAULT_COMPRESSION_COMBO_DESCRIPTION = "Default Caveman compression pipeline";
 
-async function defaultCompressionComboPipeline(): Promise<CompressionPipelineStep[]> {
+function defaultCompressionComboPipeline(): CompressionPipelineStep[] {
   return [
     { engine: "rtk", intensity: "standard" },
     { engine: "caveman", intensity: "full" },
@@ -84,9 +84,10 @@ async function normalizeLanguagePacks(value: unknown): Promise<string[]> {
   return [...new Set(packs.length > 0 ? packs.map((pack) => pack.trim()) : ["en"])];
 }
 
-async function isLegacySeededDefaultPipeline(
-  pipeline: CompressionPipelineStep[]
-): Promise<boolean> {
+function isLegacySeededDefaultPipeline(pipeline: CompressionPipelineStep[]): boolean {
+  // SYNCHRONOUS predicate: the guard at its call site does !pred(...) — an async
+  // version returns a Promise which is always truthy, so !Promise === false and
+  // the guard never blocked, overwriting the user's pipeline on every read.
   if (pipeline.length !== 1) return false;
   const [step] = pipeline;
   return step.engine === "caveman" && (step.intensity === undefined || step.intensity === "full");
@@ -176,7 +177,7 @@ async function ensureCompressionComboTables(): Promise<void> {
       "full",
       1
     );
-  upgradeLegacySeededDefaultCompressionCombo();
+  await upgradeLegacySeededDefaultCompressionCombo();
 }
 
 async function rowToCompressionCombo(row: unknown): Promise<CompressionCombo | null> {
@@ -453,7 +454,7 @@ export async function setEngineInDefaultCombo(
   config?: Record<string, unknown>
 ): Promise<CompressionCombo | null> {
   if (!KNOWN_ENGINE_IDS.includes(engineId)) return null;
-  ensureCompressionComboTables();
+  await ensureCompressionComboTables();
   const existing = await getDefaultCompressionCombo();
   if (!existing) return null;
 
@@ -494,7 +495,7 @@ export async function updateAssignments(
   compressionComboId: string,
   routingComboIds: string[]
 ): Promise<boolean> {
-  ensureCompressionComboTables();
+  await ensureCompressionComboTables();
   if (!(await getCompressionCombo(compressionComboId))) return false;
   const cleanedIds = [...new Set(routingComboIds.map((id) => id.trim()).filter(Boolean))];
   const db = await getAsyncDb();

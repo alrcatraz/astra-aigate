@@ -51,8 +51,8 @@ for (const providerId of ["opencode", "opencode-zen"]) {
     );
   });
 
-  test(`#2900 ${providerId}/big-pickle resolves interleavedField via capabilities`, () => {
-    const caps = getResolvedModelCapabilities({ provider: providerId, model: "big-pickle" });
+  test(`#2900 ${providerId}/big-pickle resolves interleavedField via capabilities`, async () => {
+    const caps = await getResolvedModelCapabilities({ provider: providerId, model: "big-pickle" });
     assert.strictEqual(
       caps.interleavedField,
       "reasoning_content",
@@ -60,8 +60,8 @@ for (const providerId of ["opencode", "opencode-zen"]) {
     );
   });
 
-  test(`#2900 ${providerId}/big-pickle triggers reasoning replay`, () => {
-    const caps = getResolvedModelCapabilities({ provider: providerId, model: "big-pickle" });
+  test(`#2900 ${providerId}/big-pickle triggers reasoning replay`, async () => {
+    const caps = await getResolvedModelCapabilities({ provider: providerId, model: "big-pickle" });
     const isReasoner = requiresReasoningReplay({
       provider: providerId,
       model: "big-pickle",

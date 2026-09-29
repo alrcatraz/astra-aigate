@@ -9,25 +9,26 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-test-intercept-f
 process.env.DATA_DIR = tmpDir;
 
 const core = await import("../../src/lib/db/core.ts");
-const { setInterceptionRules, resolveInterceptFetch } = await import(
-  "../../src/lib/db/interceptionRules.ts"
-);
+const { setInterceptionRules, resolveInterceptFetch } =
+  await import("../../src/lib/db/interceptionRules.ts");
 
 // #7339 — resolveInterceptFetch, a structural twin of resolveInterceptSearch
 // (tests/unit/interception-rules.test.ts), covering Phase 3 of #3384.
 describe("db/interceptionRules — resolveInterceptFetch precedence (#7339)", () => {
-  function resetDb() {
-    core.resetDbInstance();
+  async function resetDb() {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.mkdirSync(tmpDir, { recursive: true });
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   }
 
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -35,14 +36,14 @@ describe("db/interceptionRules — resolveInterceptFetch precedence (#7339)", ()
     assert.equal(resolveInterceptFetch("anthropic", "claude-opus-4"), undefined);
   });
 
-  it("returns the provider-level interceptFetch value when only a provider rule is set", () => {
-    setInterceptionRules("anthropic", { interceptFetch: true });
+  it("returns the provider-level interceptFetch value when only a provider rule is set", async () => {
+    await setInterceptionRules("anthropic", { interceptFetch: true });
     assert.equal(resolveInterceptFetch("anthropic", "claude-opus-4"), true);
     assert.equal(resolveInterceptFetch("anthropic", "claude-haiku-4"), true);
   });
 
-  it("model-level interceptFetch wins over the provider-level rule when both are set", () => {
-    setInterceptionRules("anthropic", {
+  it("model-level interceptFetch wins over the provider-level rule when both are set", async () => {
+    await setInterceptionRules("anthropic", {
       interceptFetch: false,
       models: { "claude-opus-4": { interceptFetch: true } },
     });
@@ -50,8 +51,8 @@ describe("db/interceptionRules — resolveInterceptFetch precedence (#7339)", ()
     assert.equal(resolveInterceptFetch("anthropic", "claude-haiku-4"), false);
   });
 
-  it("does not read interceptSearch when resolving interceptFetch (fields stay independent)", () => {
-    setInterceptionRules("anthropic", { interceptSearch: true, interceptFetch: false });
+  it("does not read interceptSearch when resolving interceptFetch (fields stay independent)", async () => {
+    await setInterceptionRules("anthropic", { interceptSearch: true, interceptFetch: false });
     assert.equal(resolveInterceptFetch("anthropic", "claude-opus-4"), false);
   });
 

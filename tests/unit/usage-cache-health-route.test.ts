@@ -26,7 +26,7 @@ process.on("exit", () => {
   }
 });
 
-const { getDbInstance, resetDbInstance } = await import("@/lib/db/core");
+const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } = await import("@/lib/db/core");
 const { buildCacheHealthResponse } = await import("@/lib/usage/cacheHealth");
 const { GET } = await import("@/app/api/usage/cache-health/route");
 
@@ -118,6 +118,7 @@ test("erro interno responde 500 sem vazar stack trace nem SQL", async () => {
     assert.ok(!/\.ts:\d+/.test(text), "sem caminho de arquivo no corpo");
     assert.ok(!/SELECT|call_logs/i.test(text), "sem o texto do SQL nem nome de tabela no corpo");
   } finally {
-    resetDbInstance();
+    await resetDbInstanceDrained();
   }
+  await awaitDbMigrations();
 });

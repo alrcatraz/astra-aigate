@@ -43,7 +43,7 @@ async function withEnv(name, value, fn) {
 }
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -59,10 +59,12 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -122,7 +124,7 @@ test(
     fs.mkdirSync(core.DB_BACKUPS_DIR, { recursive: true });
     await db.backup(backupPath);
 
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     fs.writeFileSync(`${core.SQLITE_FILE}-wal`, "STALE-WAL-MARKER");
     fs.writeFileSync(`${core.SQLITE_FILE}-shm`, "STALE-SHM-MARKER");
     fs.writeFileSync(`${core.SQLITE_FILE}-journal`, "STALE-JOURNAL-MARKER");
@@ -137,10 +139,11 @@ test(
     }
 
     const reopenedDb = core.getDbInstance();
-    const row = reopenedDb
+    const row = await reopenedDb
       .prepare("SELECT COUNT(*) AS cnt FROM provider_connections WHERE id = ?")
       .get("restore-test-conn");
     assert.equal((row as any).cnt, 1);
+    await core.awaitDbMigrations();
   }
 );
 
@@ -161,7 +164,7 @@ test("closeDbInstance checkpoints WAL changes into the primary SQLite file", asy
   const Database = (await import("better-sqlite3")).default;
   const snapshotDb = new Database(snapshotPath, { readonly: true });
   try {
-    const row = snapshotDb
+    const row = await snapshotDb
       .prepare("SELECT name FROM provider_connections WHERE id = ?")
       .get("checkpoint-test-conn");
     (assert as any).equal((row as any).name, "checkpoint-test");
@@ -278,16 +281,18 @@ test("provider connection persists rateLimitProtection across reopen", async () 
   const firstRead = await providersDb.getProviderConnectionById((created as any).id);
   assert.equal(firstRead.rateLimitProtection, true);
 
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   const secondRead = await providersDb.getProviderConnectionById((created as any).id);
   assert.equal(secondRead.rateLimitProtection, true);
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test('provider connection migration adds "group" column for existing databases', async () => {
   await resetStorage();
 
   const sqlitePath = core.SQLITE_FILE;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   const Database = (await import("better-sqlite3")).default;
   const db = new Database(sqlitePath);
@@ -338,6 +343,7 @@ test('provider connection migration adds "group" column for existing databases',
   const columns = reopened.prepare("PRAGMA table_info(provider_connections)").all();
   const names = new Set(columns.map((column) => (column as any).name));
   assert.equal(names.has("group"), true);
+  await core.awaitDbMigrations();
 });
 
 test("resolveProxyForConnection applies combo proxy for object/string model entries", async () => {

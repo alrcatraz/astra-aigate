@@ -22,12 +22,10 @@ const core = await import("../../src/lib/db/core.ts");
 const poolsDb = await import("../../src/lib/db/quotaPools.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const combosDb = await import("../../src/lib/db/combos.ts");
-const { syncQuotaCombos, removeQuotaCombosForPool } = await import(
-  "../../src/lib/quota/quotaCombos.ts"
-);
-const { quotaModelName, isQuotaModelName, parseQuotaModelName, quotaPoolSlug } = await import(
-  "../../src/lib/quota/quotaModelNaming.ts"
-);
+const { syncQuotaCombos, removeQuotaCombosForPool } =
+  await import("../../src/lib/quota/quotaCombos.ts");
+const { quotaModelName, isQuotaModelName, parseQuotaModelName, quotaPoolSlug } =
+  await import("../../src/lib/quota/quotaModelNaming.ts");
 const { PROVIDER_MODELS } = await import("../../open-sse/config/providerModels.ts");
 
 // ---------------------------------------------------------------------------
@@ -35,7 +33,7 @@ const { PROVIDER_MODELS } = await import("../../open-sse/config/providerModels.t
 // ---------------------------------------------------------------------------
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -52,6 +50,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -59,7 +59,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -93,7 +93,7 @@ test("syncQuotaCombos: creates one combo per glm model with correct name and tar
   assert.ok(connId, "connection should have an id");
 
   // Pool defaults to "group-demo" (GroupDemo → slug "groupdemo").
-  const pool = poolsDb.createPool({ connectionId: connId, name: "TestGlmPool" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "TestGlmPool" });
 
   await syncQuotaCombos(pool.id);
 
@@ -129,7 +129,7 @@ test("syncQuotaCombos: each combo has a single step with provider=glm and connec
     apiKey: "sk-test-glm-step",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "StepCheckPool" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "StepCheckPool" });
 
   await syncQuotaCombos(pool.id);
 
@@ -169,7 +169,7 @@ test("syncQuotaCombos: idempotent — calling twice produces no duplicates", asy
     apiKey: "sk-test-glm-idem",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "IdempotentPool" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "IdempotentPool" });
 
   await syncQuotaCombos(pool.id);
   const afterFirst = await listQuotaCombos();
@@ -197,7 +197,7 @@ test("syncQuotaCombos: prunes stale combos for same pool slug", async () => {
     apiKey: "sk-test-glm-prune",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "PrunePool" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "PrunePool" });
 
   await syncQuotaCombos(pool.id);
 
@@ -242,7 +242,7 @@ test("removeQuotaCombosForPool: removes all quota combos for the pool", async ()
     apiKey: "sk-test-glm-remove",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "RemovePool" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "RemovePool" });
 
   await syncQuotaCombos(pool.id);
 
@@ -277,8 +277,8 @@ test("syncQuotaCombos: does not affect quota combos for a different provider in 
   const connOrId = (connOr as Record<string, unknown>).id as string;
 
   // Both pools default to "group-demo" (same group).
-  const poolA = poolsDb.createPool({ connectionId: connGlmId, name: "PoolAlpha" });
-  const poolB = poolsDb.createPool({ connectionId: connOrId, name: "PoolBeta" });
+  const poolA = await poolsDb.createPool({ connectionId: connGlmId, name: "PoolAlpha" });
+  const poolB = await poolsDb.createPool({ connectionId: connOrId, name: "PoolBeta" });
 
   await syncQuotaCombos(poolA.id);
   await syncQuotaCombos(poolB.id);
@@ -312,7 +312,11 @@ test("syncQuotaCombos: does not affect quota combos for a different provider in 
   });
 
   assert.equal(remainingForA.length, 0, "PoolAlpha (glm) combos should all be removed");
-  assert.equal(remainingForB.length, forB.length, "PoolBeta (openrouter) combos should be untouched");
+  assert.equal(
+    remainingForB.length,
+    forB.length,
+    "PoolBeta (openrouter) combos should be untouched"
+  );
 });
 
 test("syncQuotaCombos: unknown pool id — no throw, prunes nothing (no combos exist)", async () => {
@@ -351,7 +355,7 @@ test("syncQuotaCombos: pool with no resolvable connection does NOT prune existin
     apiKey: "sk-test-glm-guardb",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "GuardBPool" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "GuardBPool" });
 
   await syncQuotaCombos(pool.id);
   const before = await listQuotaCombos();
@@ -397,7 +401,7 @@ test("syncQuotaCombos: pool whose join table is emptied (truly no connectionIds)
     apiKey: "sk-test-glm-guardb-empty",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "GuardBEmptyPool" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "GuardBEmptyPool" });
 
   await syncQuotaCombos(pool.id);
   const before = await listQuotaCombos();

@@ -17,18 +17,20 @@ const { normalizeComboStep } = await import("../../src/lib/combos/steps.ts");
 
 async function resetStorage() {
   comboMetrics.resetAllComboMetrics();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
+test.after(async () => {
   comboMetrics.resetAllComboMetrics();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -64,7 +66,7 @@ test("combo health route exposes step-level target health for structured combos"
     index: 1,
   });
 
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "openai",
     connection_id: "conn-openai-a",
     window_key: "daily",
@@ -74,7 +76,7 @@ test("combo health route exposes step-level target health for structured combos"
     window_duration_ms: 86_400_000,
     raw_data: null,
   });
-  quotaSnapshotsDb.saveQuotaSnapshot({
+  await quotaSnapshotsDb.saveQuotaSnapshot({
     provider: "openai",
     connection_id: "conn-openai-b",
     window_key: "daily",

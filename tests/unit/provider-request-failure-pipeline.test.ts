@@ -61,7 +61,7 @@ async function resetStorage() {
   clearIdempotency();
   clearInflight();
   clearModelLock();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   // A full reset must also drop the settings read-cache. Otherwise the cached
   // value (e.g. call_log_pipeline_enabled=true seeded earlier) survives the DB
   // wipe and silently masks the fact that the fresh DB has the default. In CI
@@ -70,6 +70,8 @@ async function resetStorage() {
   invalidateDbCache("settings");
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 // Re-seed per test, NOT once: every `afterEach` runs resetStorage(), which wipes

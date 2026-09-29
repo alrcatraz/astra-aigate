@@ -28,7 +28,7 @@ const { resolveQuotaKeyScope } = await import("../../src/lib/quota/quotaKey.ts")
 // ---------------------------------------------------------------------------
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -45,6 +45,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -52,7 +54,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -92,7 +94,7 @@ test("resolveQuotaKeyScope: valid pool returns its connectionId, provider, and g
   assert.ok(connId, "connection should have an id");
 
   // Seed a pool referencing that connection (defaults to group-demo)
-  const pool = poolsDb.createPool({ connectionId: connId, name: "Test Pool A2" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "Test Pool A2" });
 
   const scope = await resolveQuotaKeyScope([pool.id]);
 
@@ -120,8 +122,8 @@ test("resolveQuotaKeyScope: multiple pools same provider deduplicates providers"
   const id2 = (conn2 as Record<string, unknown>).id as string;
 
   // Both pools default to group-demo
-  const pool1 = poolsDb.createPool({ connectionId: id1, name: "Pool Anthro 1" });
-  const pool2 = poolsDb.createPool({ connectionId: id2, name: "Pool Anthro 2" });
+  const pool1 = await poolsDb.createPool({ connectionId: id1, name: "Pool Anthro 1" });
+  const pool2 = await poolsDb.createPool({ connectionId: id2, name: "Pool Anthro 2" });
 
   const scope = await resolveQuotaKeyScope([pool1.id, pool2.id]);
 
@@ -153,8 +155,8 @@ test("resolveQuotaKeyScope: multiple pools different providers (same group-demo)
   const idB = (connB as Record<string, unknown>).id as string;
 
   // Both pools in group-demo (default)
-  const poolA = poolsDb.createPool({ connectionId: idA, name: "Pool OAI" });
-  const poolB = poolsDb.createPool({ connectionId: idB, name: "Pool GEM" });
+  const poolA = await poolsDb.createPool({ connectionId: idA, name: "Pool OAI" });
+  const poolB = await poolsDb.createPool({ connectionId: idB, name: "Pool GEM" });
 
   const scope = await resolveQuotaKeyScope([poolA.id, poolB.id]);
 
@@ -171,7 +173,7 @@ test("resolveQuotaKeyScope: multiple pools different providers (same group-demo)
 
 test("resolveQuotaKeyScope: pool referencing non-existent connectionId is skipped gracefully", async () => {
   // Create a pool with a fictitious connectionId (no matching row in provider_connections)
-  const pool = poolsDb.createPool({
+  const pool = await poolsDb.createPool({
     connectionId: "conn-does-not-exist",
     name: "Orphan Pool",
   });
@@ -188,7 +190,7 @@ test("resolveQuotaKeyScope: mix of valid and invalid pool ids — only valid con
     apiKey: "sk-mix",
   });
   const connId = (conn as Record<string, unknown>).id as string;
-  const pool = poolsDb.createPool({ connectionId: connId, name: "Pool Mix" });
+  const pool = await poolsDb.createPool({ connectionId: connId, name: "Pool Mix" });
 
   const scope = await resolveQuotaKeyScope(["no-such-pool-id", pool.id, "another-ghost"]);
 

@@ -54,8 +54,8 @@ function errorResponseWithConnectionId(status: number, connectionId: string) {
   });
 }
 
-test.afterEach(() => {
-  core.resetDbInstance();
+test.afterEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

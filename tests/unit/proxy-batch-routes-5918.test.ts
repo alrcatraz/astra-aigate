@@ -20,12 +20,10 @@ delete process.env.INITIAL_PASSWORD; // auth not required in this test env
 
 const core = await import("../../src/lib/db/core.ts");
 const proxiesDb = await import("../../src/lib/db/proxies.ts");
-const { POST: batchDeletePost } = await import(
-  "../../src/app/api/settings/proxies/batch-delete/route.ts"
-);
-const { POST: autoTestPost } = await import(
-  "../../src/app/api/settings/proxies/auto-test/route.ts"
-);
+const { POST: batchDeletePost } =
+  await import("../../src/app/api/settings/proxies/batch-delete/route.ts");
+const { POST: autoTestPost } =
+  await import("../../src/app/api/settings/proxies/auto-test/route.ts");
 
 function jsonRequest(body: unknown): Request {
   return new Request("http://localhost/api/settings/proxies/batch-delete", {
@@ -37,13 +35,15 @@ function jsonRequest(body: unknown): Request {
 
 async function resetStorage() {
   delete process.env.INITIAL_PASSWORD;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -66,23 +66,25 @@ function insertCallLog(row: Record<string, unknown>) {
   ).run(full);
 }
 
-test.before(() => {
-  core.resetDbInstance();
+test.before(async () => {
+  await core.resetDbInstanceDrained();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#3175 getProviderCallStats aggregates totals, success and latency per provider", () => {
+test("#3175 getProviderCallStats aggregates totals, success and latency per provider", async () => {
   insertCallLog({ provider: "openai", status: 200, duration: 100, tokens_in: 10, tokens_out: 20 });
   insertCallLog({ provider: "openai", status: 500, duration: 300, tokens_in: 5, tokens_out: 0 });
   insertCallLog({ provider: "anthropic", status: 200, duration: 50, tokens_in: 1, tokens_out: 2 });
   // excluded: provider '-' / null
   insertCallLog({ provider: "-", status: 200 });
 
-  const rows = stats.getProviderCallStats();
+  const rows = await stats.getProviderCallStats();
   const openai = rows.find((r) => r.provider === "openai");
   assert.ok(openai, "openai stats present");
   assert.equal(openai.totalRequests, 2);
@@ -95,8 +97,8 @@ test("#3175 getProviderCallStats aggregates totals, success and latency per prov
   assert.equal(rows[0].provider, "openai");
 });
 
-test("#3175 getModelCallStats groups by provider+model", () => {
-  const rows = stats.getModelCallStats();
+test("#3175 getModelCallStats groups by provider+model", async () => {
+  const rows = await stats.getModelCallStats();
   const m = rows.find((r) => r.model === "openai/gpt-4.1" && r.provider === "openai");
   assert.ok(m, "model row present");
   assert.equal(m.requests, 2);

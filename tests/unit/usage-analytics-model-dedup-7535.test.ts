@@ -21,16 +21,18 @@ function makeRequest(url: string) {
   return new Request(url, { method: "GET" });
 }
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   usageHistory.clearPendingRequests();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 
@@ -48,7 +50,18 @@ test("#7535: byModel must not list the same logical model twice under one raw/on
   db.prepare(
     `INSERT INTO usage_history (provider, model, connection_id, api_key_id, api_key_name, tokens_input, tokens_output, success, latency_ms, timestamp)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run("zai", "glm-5.2", "test-conn", "test-key", "Primary Key", 100, 50, 1, 200, now.toISOString());
+  ).run(
+    "zai",
+    "glm-5.2",
+    "test-conn",
+    "test-key",
+    "Primary Key",
+    100,
+    50,
+    1,
+    200,
+    now.toISOString()
+  );
   db.prepare(
     `INSERT INTO usage_history (provider, model, connection_id, api_key_id, api_key_name, tokens_input, tokens_output, success, latency_ms, timestamp)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -78,5 +91,9 @@ test("#7535: byModel must not list the same logical model twice under one raw/on
     1,
     `expected exactly one "glm-5.2" row in byModel, got ${glmEntries.length}: ${JSON.stringify(glmEntries)} (#7535)`
   );
-  assert.equal(glmEntries[0].requests, 2, "the two raw spellings should merge into one aggregated row");
+  assert.equal(
+    glmEntries[0].requests,
+    2,
+    "the two raw spellings should merge into one aggregated row"
+  );
 });

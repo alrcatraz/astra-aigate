@@ -21,7 +21,7 @@ describe("installBasePathFetch", () => {
       // shape (the caller passed no `init`) instead of the two-argument shape the wrapper
       // produces once basePath is set.
       assert.deepEqual(native.mock.calls[0].arguments, ["/api/health/ping"]);
-      uninstall();
+      await uninstall();
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -35,7 +35,7 @@ describe("installBasePathFetch", () => {
       const uninstall = installBasePathFetch("/omniroute");
       await fetch("/api/health/ping");
       assert.deepEqual(native.mock.calls[0].arguments, ["/omniroute/api/health/ping", undefined]);
-      uninstall();
+      await uninstall();
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -49,7 +49,7 @@ describe("installBasePathFetch", () => {
       const uninstall = installBasePathFetch("/omniroute");
       await fetch("/omniroute/api/health/ping");
       assert.deepEqual(native.mock.calls[0].arguments, ["/omniroute/api/health/ping", undefined]);
-      uninstall();
+      await uninstall();
     } finally {
       globalThis.fetch = originalFetch;
     }

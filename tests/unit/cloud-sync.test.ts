@@ -36,7 +36,7 @@ async function loadCloudSync(label) {
 
 async function resetStorage() {
   apiKeysDb.resetApiKeyState();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   globalThis.fetch = ORIGINAL_FETCH;
@@ -44,15 +44,17 @@ async function resetStorage() {
   delete process.env.NEXT_PUBLIC_CLOUD_URL;
   delete process.env.CLOUD_SYNC_TIMEOUT_MS;
   delete process.env.OMNIROUTE_CLOUD_SYNC_SECRETS;
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
+test.after(async () => {
   apiKeysDb.resetApiKeyState();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   globalThis.fetch = ORIGINAL_FETCH;
   if (ORIGINAL_DATA_DIR === undefined) {
@@ -131,11 +133,7 @@ test("cloudSync returns a generic error when the API responds with a non-OK stat
   const originalConsoleLog = console.log;
   const logged = [];
   console.log = (...args) =>
-    logged.push(
-      args
-        .map((x) => (typeof x === "object" ? JSON.stringify(x) : String(x)))
-        .join(" ")
-    );
+    logged.push(args.map((x) => (typeof x === "object" ? JSON.stringify(x) : String(x))).join(" "));
   globalThis.fetch = async () =>
     new Response("upstream unavailable", {
       status: 503,

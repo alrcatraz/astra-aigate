@@ -4,8 +4,8 @@ import { augmentDockerLocalhostHint } from "../../src/app/api/provider-nodes/val
 import { SafeOutboundFetchError } from "../../src/shared/network/safeOutboundFetch.ts";
 import { resetDbInstance } from "../../src/lib/db/core.ts";
 
-test.after(() => {
-  resetDbInstance();
+test.after(async () => {
+  await resetDbInstanceDrained();
 });
 
 function networkError(causeCode: string): SafeOutboundFetchError {

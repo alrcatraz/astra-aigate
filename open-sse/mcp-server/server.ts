@@ -656,7 +656,7 @@ async function handleWebFetch(args: {
  * tools are exposed to clients:
  *   - "all":  everything (aigate-omniroute → the 40-tool AI Gate set)
  *   - "mcp":  only mcp_* admin tools (aigate-mcp)
- *   - "none": empty tool set (aigate-infra, reserved for Phase 4)
+ *   - "none": empty tool set (aigate-infra, reserved for future infra-class tools)
  * stdio/http endpoints register downstream tools dynamically and always
  * use "all" for the local registry.
  */

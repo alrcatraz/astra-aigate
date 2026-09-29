@@ -51,8 +51,8 @@ describe("vertex self-tracked spend", () => {
     insertUsage("conn-other", "vertex", "gemini-2.5-flash", 9_000_000, 9_000_000, 1);
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     try {
       fs.rmSync(TMP, { recursive: true, force: true });
     } catch {

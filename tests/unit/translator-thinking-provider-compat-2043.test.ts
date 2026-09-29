@@ -122,7 +122,7 @@ test("deepseek: injected placeholder thinking text is non-empty dot sentinel", (
 
 // ──────────────── Fix (c): Gemini reasoning_effort "auto" → high budget ────────────────
 
-test("Gemini: reasoning_effort 'auto' maps to a defined (non-zero) thinking budget", () => {
+test("Gemini: reasoning_effort 'auto' maps to a defined (non-zero) thinking budget", async () => {
   const out = openaiToGeminiRequest(
     "gemini-3-pro",
     {
@@ -138,7 +138,7 @@ test("Gemini: reasoning_effort 'auto' maps to a defined (non-zero) thinking budg
     `reasoning_effort 'auto' should produce a positive thinkingBudget, got: ${thinkingBudget}`
   );
   // Specifically should be at least the high-tier budget level (clamped to model max)
-  const highBudget = capThinkingBudget("gemini-3-pro", 32768);
+  const highBudget = await capThinkingBudget("gemini-3-pro", 32768);
   assert.equal(
     thinkingBudget,
     highBudget,
@@ -148,7 +148,7 @@ test("Gemini: reasoning_effort 'auto' maps to a defined (non-zero) thinking budg
 
 // ──────────────── Fix (d): Gemini reasoning_effort "max"/"xhigh" → high budget ────────────────
 
-test("Gemini: reasoning_effort 'max' clamps to high budget (not default fallback)", () => {
+test("Gemini: reasoning_effort 'max' clamps to high budget (not default fallback)", async () => {
   const out = openaiToGeminiRequest(
     "gemini-3-pro",
     {
@@ -159,7 +159,7 @@ test("Gemini: reasoning_effort 'max' clamps to high budget (not default fallback
   ) as any;
 
   const thinkingBudget = out.generationConfig?.thinkingConfig?.thinkingBudget;
-  const highBudget = capThinkingBudget("gemini-3-pro", 32768);
+  const highBudget = await capThinkingBudget("gemini-3-pro", 32768);
   assert.equal(
     thinkingBudget,
     highBudget,
@@ -167,7 +167,7 @@ test("Gemini: reasoning_effort 'max' clamps to high budget (not default fallback
   );
 });
 
-test("Gemini: reasoning_effort 'xhigh' clamps to high budget (not default fallback)", () => {
+test("Gemini: reasoning_effort 'xhigh' clamps to high budget (not default fallback)", async () => {
   const out = openaiToGeminiRequest(
     "gemini-3-pro",
     {
@@ -178,7 +178,7 @@ test("Gemini: reasoning_effort 'xhigh' clamps to high budget (not default fallba
   ) as any;
 
   const thinkingBudget = out.generationConfig?.thinkingConfig?.thinkingBudget;
-  const highBudget = capThinkingBudget("gemini-3-pro", 32768);
+  const highBudget = await capThinkingBudget("gemini-3-pro", 32768);
   assert.equal(
     thinkingBudget,
     highBudget,

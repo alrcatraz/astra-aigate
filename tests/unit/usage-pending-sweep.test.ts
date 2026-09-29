@@ -13,7 +13,7 @@ const {
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 
-test("sweepStalePendingRequests evicts orphaned pending details and self-heals counts", () => {
+test("sweepStalePendingRequests evicts orphaned pending details and self-heals counts", async () => {
   clearPendingRequests();
 
   // One request that will be treated as orphaned (never finalized), one fresh.
@@ -25,7 +25,7 @@ test("sweepStalePendingRequests evicts orphaned pending details and self-heals c
   assert.equal(getPendingRequests().byModel["gpt-x (openai)"], 2);
 
   // Age the stale entry well beyond the max age.
-  const stale = getPendingById().get(staleId);
+  const stale = await getPendingById().get(staleId);
   assert.ok(stale, "stale detail should exist");
   stale.startedAt = Date.now() - 2 * HOUR_MS;
 
@@ -55,7 +55,7 @@ test("sweepStalePendingRequests is a no-op when nothing is stale", () => {
   clearPendingRequests();
 });
 
-test("sweepStalePendingRequests defaults to a one hour max pending age", () => {
+test("sweepStalePendingRequests defaults to a one hour max pending age", async () => {
   clearPendingRequests();
 
   const staleId = trackPendingRequest("m", "p", "old", true);
@@ -63,8 +63,8 @@ test("sweepStalePendingRequests defaults to a one hour max pending age", () => {
   assert.ok(staleId && recentId);
 
   const now = Date.now();
-  const stale = getPendingById().get(staleId);
-  const recent = getPendingById().get(recentId);
+  const stale = await getPendingById().get(staleId);
+  const recent = await getPendingById().get(recentId);
   assert.ok(stale && recent);
 
   stale.startedAt = now - 61 * MINUTE_MS;
@@ -78,7 +78,7 @@ test("sweepStalePendingRequests defaults to a one hour max pending age", () => {
   clearPendingRequests();
 });
 
-test("pending sweep max age can be overridden through environment", () => {
+test("pending sweep max age can be overridden through environment", async () => {
   clearPendingRequests();
   const previous = process.env.MAX_PENDING_REQUEST_AGE_MS;
   process.env.MAX_PENDING_REQUEST_AGE_MS = String(2 * HOUR_MS);
@@ -87,7 +87,7 @@ test("pending sweep max age can be overridden through environment", () => {
     const requestId = trackPendingRequest("m", "p", "custom-age", true);
     assert.ok(requestId);
 
-    const detail = getPendingById().get(requestId);
+    const detail = await getPendingById().get(requestId);
     assert.ok(detail);
     detail.startedAt = Date.now() - 90 * MINUTE_MS;
 

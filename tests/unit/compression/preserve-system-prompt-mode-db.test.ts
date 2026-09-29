@@ -19,7 +19,8 @@ const TEMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-preserve-mode-
 process.env.DATA_DIR = TEMP_DIR;
 
 async function freshCompressionDb() {
-  const { getDbInstance, resetDbInstance } = await import("../../../src/lib/db/core.ts");
+  const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } =
+    await import("../../../src/lib/db/core.ts");
   const db = getDbInstance(); // runs migrations on first call
   db.prepare("DELETE FROM key_value WHERE namespace = 'compression'").run();
   return { db, resetDbInstance };
@@ -32,8 +33,9 @@ async function readSettings() {
 
 test.after(async () => {
   try {
-    const { resetDbInstance } = await import("../../../src/lib/db/core.ts");
-    resetDbInstance();
+    const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+      await import("../../../src/lib/db/core.ts");
+    await resetDbInstanceDrained();
   } catch {
     /* core never loaded */
   }
@@ -45,11 +47,12 @@ test.after(async () => {
 });
 
 test("legacy preserveSystemPrompt=false (no mode row) derives whenNoCache", async () => {
-  const { db, resetDbInstance } = await freshCompressionDb();
+  const { db, resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+    await freshCompressionDb();
   db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('compression','preserveSystemPrompt','false')"
   ).run();
-  resetDbInstance(); // new db object => TTL cache miss on the next read
+  await resetDbInstanceDrained(); // new db object => TTL cache miss on the next read
 
   const cfg = await readSettings();
   assert.equal(
@@ -59,35 +62,41 @@ test("legacy preserveSystemPrompt=false (no mode row) derives whenNoCache", asyn
   );
 
   // End-to-end: without a cacheable prefix, a legacy-off install must still compress the prompt.
-  const { resolveCacheAwareConfig } = await import(
-    "../../../open-sse/services/compression/cacheAwareConfig.ts"
-  );
+  const { resolveCacheAwareConfig } =
+    await import("../../../open-sse/services/compression/cacheAwareConfig.ts");
   assert.equal(
     resolveCacheAwareConfig(cfg).preserveSystemPrompt,
     false,
     "legacy-off install must compress the system prompt when there is no cache"
   );
+  getDbInstance();
+  await awaitDbMigrations();
 });
 
 test("fresh install (no override rows) defaults to always", async () => {
-  const { resetDbInstance } = await freshCompressionDb(); // wipes all compression rows
-  resetDbInstance();
+  const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } = await freshCompressionDb(); // wipes all compression rows
+  await resetDbInstanceDrained();
 
   const cfg = await readSettings();
   assert.equal(cfg.preserveSystemPromptMode, "always", "fresh default mode is always");
   assert.equal(cfg.preserveSystemPrompt, true, "fresh default boolean is true");
+  getDbInstance();
+  await awaitDbMigrations();
 });
 
 test("an explicit mode row wins over the legacy boolean", async () => {
-  const { db, resetDbInstance } = await freshCompressionDb();
+  const { db, resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+    await freshCompressionDb();
   db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('compression','preserveSystemPrompt','false')"
   ).run();
   db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('compression','preserveSystemPromptMode','\"never\"')"
   ).run();
-  resetDbInstance();
+  await resetDbInstanceDrained();
 
   const cfg = await readSettings();
   assert.equal(cfg.preserveSystemPromptMode, "never", "an explicit stored mode row wins");
+  getDbInstance();
+  await awaitDbMigrations();
 });

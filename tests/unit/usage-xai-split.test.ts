@@ -36,8 +36,8 @@ describe("xai leaf self-tracked usage", () => {
     insertUsage("conn-leaf", "xai", 2_000_000, 300_000, new Date().toISOString());
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     try {
       fs.rmSync(TMP, { recursive: true, force: true });
     } catch {

@@ -14,7 +14,6 @@ import {
   type ReasoningRuleDecision,
 } from "@/lib/reasoningRouting/policy";
 
-
 type RoutingPolicy = {
   apiKey?: string | null;
   apiKeyInfo?: ApiKeyMetadata | null;
@@ -177,8 +176,8 @@ export async function applyReasoningRouting({
   };
 }
 
-export function filterReasoningCombo(combo: any, decision: ReasoningRuleDecision) {
-  const filtered = filterComboForReasoningDecision(combo, decision);
+export async function filterReasoningCombo(combo: any, decision: ReasoningRuleDecision) {
+  const filtered = await filterComboForReasoningDecision(combo, decision);
   if (!filtered.combo) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,

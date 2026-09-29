@@ -35,9 +35,11 @@ interface ProviderNodeResponseBody {
 async function resetStorage() {
   delete process.env.OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS;
   delete process.env.OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeRequest(body: unknown) {

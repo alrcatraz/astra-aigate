@@ -28,8 +28,8 @@ async function fetchCatalog(): Promise<Array<{ id: string; type?: string }>> {
   return body.data;
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {

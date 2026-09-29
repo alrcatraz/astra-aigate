@@ -21,10 +21,12 @@ const { upsertVersionManagerTool, getVersionManagerTool } =
 // Import route under test.
 const { POST } = await import("../../../../src/app/api/services/9router/provider-expose/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeRequest(body: unknown): Request {
@@ -35,8 +37,8 @@ function makeRequest(body: unknown): Request {
   });
 }
 
-beforeEach(() => {
-  resetDb();
+beforeEach(async () => {
+  await resetDb();
 });
 
 describe("POST /api/services/9router/provider-expose", () => {

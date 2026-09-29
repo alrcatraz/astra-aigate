@@ -23,14 +23,14 @@ const listRoute = await import("../../src/app/api/guardrails/route.ts");
 const testRoute = await import("../../src/app/api/guardrails/test/route.ts");
 const core = await import("../../src/lib/db/core.ts");
 
-test.after(() => {
+test.after(async () => {
   try {
     core.getDbInstance().close();
   } catch {
     /* ignore */
   }
   try {
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
   } catch {
     /* ignore */
   }
@@ -119,8 +119,6 @@ test("#3496 check-docs-symbols no longer freezes guardrails/shadow + API_REFEREN
   const src = fs.readFileSync(path.join(process.cwd(), apiRefRel), "utf8");
   const docPathsByFile = [{ file: apiRefRel, paths: extractDocApiPaths(src) }];
   const misses = findStaleDocApiRefs(docPathsByFile, routeFiles, KNOWN_STALE_DOC_REFS);
-  const ghosts = misses.filter(
-    (m) => m.includes("/api/guardrails") || m.includes("/api/shadow")
-  );
+  const ghosts = misses.filter((m) => m.includes("/api/guardrails") || m.includes("/api/shadow"));
   assert.deepEqual(ghosts, [], `stale guardrails/shadow refs remain: ${ghosts.join("; ")}`);
 });

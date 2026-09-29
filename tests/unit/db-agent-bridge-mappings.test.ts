@@ -4,16 +4,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-db-agent-bridge-mappings-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-db-agent-bridge-mappings-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const mod = await import("../../src/lib/db/agentBridgeMappings.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -31,6 +29,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -38,22 +38,22 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("getMappingsForAgent returns empty array when no mappings exist", () => {
-  const rows = mod.getMappingsForAgent("antigravity");
+test("getMappingsForAgent returns empty array when no mappings exist", async () => {
+  const rows = await mod.getMappingsForAgent("antigravity");
   assert.deepEqual(rows, []);
 });
 
-test("setMappings inserts and retrieves mappings for an agent", () => {
-  mod.setMappings("copilot", [
+test("setMappings inserts and retrieves mappings for an agent", async () => {
+  await mod.setMappings("copilot", [
     { source: "gpt-4", target: "openai/gpt-4.1" },
     { source: "gpt-3.5-turbo", target: "openai/gpt-4o-mini" },
   ]);
 
-  const rows = mod.getMappingsForAgent("copilot");
+  const rows = await mod.getMappingsForAgent("copilot");
   assert.equal(rows.length, 2);
 
   const sources = rows.map((r) => r.source_model);
@@ -65,19 +65,19 @@ test("setMappings inserts and retrieves mappings for an agent", () => {
   assert.equal(gpt4Row?.agent_id, "copilot");
 });
 
-test("setMappings is transactional — replaces all mappings idempotently", () => {
+test("setMappings is transactional — replaces all mappings idempotently", async () => {
   // First set
-  mod.setMappings("cursor", [
+  await mod.setMappings("cursor", [
     { source: "claude-3-5-sonnet", target: "anthropic/claude-sonnet-4-5" },
   ]);
 
   // Second set — should replace (not accumulate)
-  mod.setMappings("cursor", [
+  await mod.setMappings("cursor", [
     { source: "claude-3-opus", target: "anthropic/claude-opus-4" },
     { source: "gpt-4o", target: "openai/gpt-4.1" },
   ]);
 
-  const rows = mod.getMappingsForAgent("cursor");
+  const rows = await mod.getMappingsForAgent("cursor");
   assert.equal(rows.length, 2);
 
   const sources = rows.map((r) => r.source_model);
@@ -86,41 +86,41 @@ test("setMappings is transactional — replaces all mappings idempotently", () =
   assert.ok(sources.includes("gpt-4o"));
 });
 
-test("setMappings with empty array clears all mappings for agent", () => {
-  mod.setMappings("zed", [{ source: "gpt-4", target: "openai/gpt-4.1" }]);
-  mod.setMappings("zed", []);
+test("setMappings with empty array clears all mappings for agent", async () => {
+  await mod.setMappings("zed", [{ source: "gpt-4", target: "openai/gpt-4.1" }]);
+  await mod.setMappings("zed", []);
 
-  const rows = mod.getMappingsForAgent("zed");
+  const rows = await mod.getMappingsForAgent("zed");
   assert.equal(rows.length, 0);
 });
 
-test("setMappings does not affect mappings for other agents", () => {
-  mod.setMappings("kiro", [{ source: "gpt-4", target: "openai/gpt-4.1" }]);
-  mod.setMappings("codex", [{ source: "o3", target: "openai/o3" }]);
-  mod.setMappings("kiro", [{ source: "gpt-4o", target: "openai/gpt-4o" }]);
+test("setMappings does not affect mappings for other agents", async () => {
+  await mod.setMappings("kiro", [{ source: "gpt-4", target: "openai/gpt-4.1" }]);
+  await mod.setMappings("codex", [{ source: "o3", target: "openai/o3" }]);
+  await mod.setMappings("kiro", [{ source: "gpt-4o", target: "openai/gpt-4o" }]);
 
-  const codexRows = mod.getMappingsForAgent("codex");
+  const codexRows = await mod.getMappingsForAgent("codex");
   assert.equal(codexRows.length, 1);
   assert.equal(codexRows[0].source_model, "o3");
 });
 
-test("deleteMapping removes a specific source mapping", () => {
-  mod.setMappings("antigravity", [
+test("deleteMapping removes a specific source mapping", async () => {
+  await mod.setMappings("antigravity", [
     { source: "gpt-4", target: "openai/gpt-4.1" },
     { source: "gpt-3.5-turbo", target: "openai/gpt-4o-mini" },
   ]);
 
-  mod.deleteMapping("antigravity", "gpt-4");
+  await mod.deleteMapping("antigravity", "gpt-4");
 
-  const rows = mod.getMappingsForAgent("antigravity");
+  const rows = await mod.getMappingsForAgent("antigravity");
   assert.equal(rows.length, 1);
   assert.equal(rows[0].source_model, "gpt-3.5-turbo");
 });
 
-test("deleteMapping is a no-op when mapping does not exist", () => {
-  mod.setMappings("claude-code", [{ source: "claude-3", target: "anthropic/claude-opus-4" }]);
-  mod.deleteMapping("claude-code", "nonexistent-model");
+test("deleteMapping is a no-op when mapping does not exist", async () => {
+  await mod.setMappings("claude-code", [{ source: "claude-3", target: "anthropic/claude-opus-4" }]);
+  await mod.deleteMapping("claude-code", "nonexistent-model");
 
-  const rows = mod.getMappingsForAgent("claude-code");
+  const rows = await mod.getMappingsForAgent("claude-code");
   assert.equal(rows.length, 1);
 });

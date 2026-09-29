@@ -18,30 +18,34 @@ describe("cliToolState", () => {
     assert.equal(getCliToolLastConfigured(`unknown-${Date.now()}`), null);
   });
 
-  it("saveCliToolLastConfigured persists and retrieves", () => {
+  it("saveCliToolLastConfigured persists and retrieves", async () => {
     const ts = "2026-01-01T00:00:00.000Z";
-    saveCliToolLastConfigured(toolId, ts);
+    await saveCliToolLastConfigured(toolId, ts);
     assert.equal(getCliToolLastConfigured(toolId), ts);
   });
 
-  it("getAllCliToolLastConfigured returns all entries", () => {
-    const all = getAllCliToolLastConfigured();
+  it("getAllCliToolLastConfigured returns all entries", async () => {
+    const all = await getAllCliToolLastConfigured();
     assert.ok(toolId in all, "should contain saved tool");
   });
 
-  it("deleteCliToolLastConfigured removes entry", () => {
+  it("deleteCliToolLastConfigured removes entry", async () => {
     const delId = `del-tool-${Date.now()}`;
-    saveCliToolLastConfigured(delId, "2026-01-01T00:00:00.000Z");
-    deleteCliToolLastConfigured(delId);
+    await saveCliToolLastConfigured(delId, "2026-01-01T00:00:00.000Z");
+    await deleteCliToolLastConfigured(delId);
     assert.equal(getCliToolLastConfigured(delId), null);
   });
 
-  it("saveCliToolInitialConfig saves only on first call", () => {
+  it("saveCliToolInitialConfig saves only on first call", async () => {
     const initId = `init-tool-${Date.now()}`;
     const config = { foo: "bar" };
     assert.equal(saveCliToolInitialConfig(initId, config), true, "first save should return true");
-    assert.equal(saveCliToolInitialConfig(initId, { baz: "qux" }), false, "second save should return false");
-    const loaded = getCliToolInitialConfig(initId);
+    assert.equal(
+      saveCliToolInitialConfig(initId, { baz: "qux" }),
+      false,
+      "second save should return false"
+    );
+    const loaded = await getCliToolInitialConfig(initId);
     assert.deepEqual(loaded, { foo: "bar" }, "should keep first config");
   });
 
@@ -49,10 +53,10 @@ describe("cliToolState", () => {
     assert.equal(getCliToolInitialConfig(`unknown-init-${Date.now()}`), null);
   });
 
-  it("deleteCliToolInitialConfig removes entry", () => {
+  it("deleteCliToolInitialConfig removes entry", async () => {
     const delId = `del-init-${Date.now()}`;
-    saveCliToolInitialConfig(delId, { x: 1 });
-    deleteCliToolInitialConfig(delId);
+    await saveCliToolInitialConfig(delId, { x: 1 });
+    await deleteCliToolInitialConfig(delId);
     assert.equal(getCliToolInitialConfig(delId), null);
   });
 });

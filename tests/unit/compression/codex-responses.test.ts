@@ -7,9 +7,9 @@ import {
   applyCompressionAsync,
 } from "../../../open-sse/services/compression/index.ts";
 
-function run(input: unknown[], config: Record<string, unknown> = {}) {
+async function run(input: unknown[], config: Record<string, unknown> = {}) {
   const adapter = adaptBodyForCompression({ input });
-  const result = codexResponsesEngine.apply(adapter.body, {
+  const result = await codexResponsesEngine.apply(adapter.body, {
     stepConfig: { enabled: true, ...config },
   });
   return { result, body: adapter.restore(result.body) };

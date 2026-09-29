@@ -27,18 +27,19 @@ process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "test-secret-for-agen
 
 const core = await import("../../src/lib/db/core.ts");
 const { createApiKey } = await import("../../src/lib/db/apiKeys.ts");
-const { resolveRouterApiKey } = await import(
-  "../../src/app/api/tools/agent-bridge/server/route.ts"
-);
+const { resolveRouterApiKey } =
+  await import("../../src/app/api/tools/agent-bridge/server/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
   delete process.env.ROUTER_API_KEY;
 });
 

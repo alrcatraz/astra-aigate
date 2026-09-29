@@ -52,9 +52,8 @@ describe("SetupWizard", { timeout: 30000 }, () => {
   });
 
   it("renders step 1 (verify) on open", async () => {
-    const { SetupWizard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard"
-    );
+    const { SetupWizard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard");
 
     const container = makeContainer();
     await act(async () => {
@@ -76,9 +75,8 @@ describe("SetupWizard", { timeout: 30000 }, () => {
   }, 30000);
 
   it("navigates to step 2 when Next clicked", async () => {
-    const { SetupWizard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard"
-    );
+    const { SetupWizard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard");
 
     const container = makeContainer();
     await act(async () => {
@@ -100,16 +98,15 @@ describe("SetupWizard", { timeout: 30000 }, () => {
     expect(nextBtn).not.toBeNull();
 
     await act(async () => {
-      nextBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await nextBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(document.body.innerHTML).toContain("wizardStep2Desc");
   }, 30000);
 
   it("calls onDnsToggle when enabling DNS in step 2", async () => {
-    const { SetupWizard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard"
-    );
+    const { SetupWizard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard");
 
     const onDnsToggle = vi.fn().mockResolvedValue(undefined);
     const container = makeContainer();
@@ -139,7 +136,7 @@ describe("SetupWizard", { timeout: 30000 }, () => {
       b.textContent?.includes("next")
     );
     await act(async () => {
-      nextBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await nextBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const enableDnsBtn = Array.from(document.querySelectorAll("button")).find((b) =>
@@ -148,16 +145,15 @@ describe("SetupWizard", { timeout: 30000 }, () => {
     expect(enableDnsBtn).not.toBeNull();
 
     await act(async () => {
-      enableDnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await enableDnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onDnsToggle).toHaveBeenCalledWith("kiro", true);
   }, 30000);
 
   it("calls onClose when Cancel clicked on step 1", async () => {
-    const { SetupWizard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard"
-    );
+    const { SetupWizard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/SetupWizard");
 
     const onClose = vi.fn();
     const container = makeContainer();
@@ -179,7 +175,7 @@ describe("SetupWizard", { timeout: 30000 }, () => {
       b.textContent?.includes("cancel")
     );
     await act(async () => {
-      cancelBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await cancelBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onClose).toHaveBeenCalled();

@@ -21,7 +21,7 @@ const { createStructuredSSECollector } =
   await import("../../open-sse/utils/streamPayloadCollector.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   detailedLogsDb.resetRequestDetailLogsTableExistsCache();
 
@@ -41,6 +41,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -48,7 +50,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 
@@ -91,7 +93,7 @@ test("legacy detailed log helpers tolerate databases without request_detail_logs
   assert.equal(detailedLogsDb.getRequestDetailLogByCallLogId("call-missing-table"), null);
 });
 
-test("saveRequestDetailLog persists protected payloads and compacted stream summaries", () => {
+test("saveRequestDetailLog persists protected payloads and compacted stream summaries", async () => {
   const collector = createStructuredSSECollector({ stage: "provider-response" });
   collector.push({
     type: "response.output_text.delta",
@@ -103,7 +105,7 @@ test("saveRequestDetailLog persists protected payloads and compacted stream summ
     output_text: "Hello world",
   });
 
-  detailedLogsDb.saveRequestDetailLog({
+  await detailedLogsDb.saveRequestDetailLog({
     id: "detail-1",
     call_log_id: "call-1",
     timestamp: "2026-04-05T18:00:00.000Z",
@@ -118,7 +120,7 @@ test("saveRequestDetailLog persists protected payloads and compacted stream summ
     duration_ms: 321,
   });
 
-  const row = detailedLogsDb.getRequestDetailLogById("detail-1");
+  const row = await detailedLogsDb.getRequestDetailLogById("detail-1");
 
   assert.equal(row.call_log_id, "call-1");
   assert.deepEqual(row.client_request, {
@@ -137,22 +139,22 @@ test("saveRequestDetailLog persists protected payloads and compacted stream summ
   assert.equal(row.duration_ms, 321);
 });
 
-test("latest log lookup by call_log_id and paginated listing use newest-first ordering", () => {
-  detailedLogsDb.saveRequestDetailLog({
+test("latest log lookup by call_log_id and paginated listing use newest-first ordering", async () => {
+  await detailedLogsDb.saveRequestDetailLog({
     id: "older",
     call_log_id: "call-2",
     timestamp: "2026-04-05T18:00:00.000Z",
     provider: "openai",
     model: "gpt-4.1",
   });
-  detailedLogsDb.saveRequestDetailLog({
+  await detailedLogsDb.saveRequestDetailLog({
     id: "newer",
     call_log_id: "call-2",
     timestamp: "2026-04-05T18:00:02.000Z",
     provider: "anthropic",
     model: "claude-3-7-sonnet",
   });
-  detailedLogsDb.saveRequestDetailLog({
+  await detailedLogsDb.saveRequestDetailLog({
     id: "latest",
     call_log_id: "call-3",
     timestamp: "2026-04-05T18:00:03.000Z",
@@ -160,8 +162,8 @@ test("latest log lookup by call_log_id and paginated listing use newest-first or
     model: "gemini-2.5-pro",
   });
 
-  const firstPage = detailedLogsDb.getRequestDetailLogs(2, 0);
-  const secondPage = detailedLogsDb.getRequestDetailLogs(1, 1);
+  const firstPage = await detailedLogsDb.getRequestDetailLogs(2, 0);
+  const secondPage = await detailedLogsDb.getRequestDetailLogs(1, 1);
 
   assert.equal(detailedLogsDb.getRequestDetailLogByCallLogId("call-2").id, "newer");
   assert.deepEqual(
@@ -179,7 +181,7 @@ test("logs are skipped when the associated API key is marked as no_log", async (
   const apiKey = await apiKeysDb.createApiKey("No Log Key", "machine-303");
   await apiKeysDb.updateApiKeyPermissions(apiKey.id, { noLog: true });
 
-  detailedLogsDb.saveRequestDetailLog({
+  await detailedLogsDb.saveRequestDetailLog({
     id: "should-not-persist",
     api_key_id: apiKey.id,
     provider: "openai",
@@ -191,9 +193,9 @@ test("logs are skipped when the associated API key is marked as no_log", async (
   assert.equal(detailedLogsDb.getRequestDetailLogById("should-not-persist"), null);
 });
 
-test("request_detail_logs trigger keeps only the latest 500 rows", () => {
+test("request_detail_logs trigger keeps only the latest 500 rows", async () => {
   for (let i = 0; i < 505; i += 1) {
-    detailedLogsDb.saveRequestDetailLog({
+    await detailedLogsDb.saveRequestDetailLog({
       id: `ring-${i}`,
       timestamp: new Date(Date.UTC(2026, 3, 5, 18, 0, 0, i)).toISOString(),
       provider: "openai",
@@ -201,7 +203,7 @@ test("request_detail_logs trigger keeps only the latest 500 rows", () => {
     });
   }
 
-  const rows = detailedLogsDb.getRequestDetailLogs(600, 0);
+  const rows = await detailedLogsDb.getRequestDetailLogs(600, 0);
 
   assert.equal(detailedLogsDb.getRequestDetailLogCount(), 500);
   assert.equal(detailedLogsDb.getRequestDetailLogById("ring-0"), null);

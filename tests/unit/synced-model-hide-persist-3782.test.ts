@@ -38,16 +38,19 @@ const {
   mergeModelCompatOverride,
   getModelIsHidden,
 } = await import("../../src/lib/localDb.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
-before(() => {
-  resetDbInstance();
+before(async () => {
+  await resetDbInstanceDrained();
+  getDbInstance();
+  await awaitDbMigrations();
 });
 
-after(() => {
+after(async () => {
   // Release the SQLite handle so the Node test runner can exit, then remove the
   // throwaway DATA_DIR (CLAUDE.md "Database Handles in Tests").
-  resetDbInstance();
+  await resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -66,7 +69,7 @@ test("A: an EYE-hidden synced model is preserved (listed-but-hidden) across re-i
   assert.equal(getModelIsHidden(PROVIDER, "B"), false, "B is visible before eye-hide");
 
   // Operator hides B with the EYE toggle (visibility only, NOT a delete).
-  mergeModelCompatOverride(PROVIDER, "B", { isHidden: true });
+  await mergeModelCompatOverride(PROVIDER, "B", { isHidden: true });
   assert.equal(getModelIsHidden(PROVIDER, "B"), true, "B is eye-hidden");
 
   // Auto-fetch re-imports the SAME upstream list (still advertising B).
@@ -118,7 +121,7 @@ test("C: a DELETED synced model still stays out on re-import (delete signal)", a
 
   // Operator DELETES (trash) `del` → the route marks it deleted. Mirror the real
   // DELETE route: it sets BOTH the distinct delete marker and (back-compat) hidden.
-  mergeModelCompatOverride(provider, "del", { isDeleted: true, isHidden: true });
+  await mergeModelCompatOverride(provider, "del", { isDeleted: true, isHidden: true });
 
   // Auto-fetch re-imports the SAME upstream list (still advertising `del`).
   await replaceSyncedAvailableModelsForConnection(provider, connection, [

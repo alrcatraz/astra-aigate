@@ -192,11 +192,11 @@ test("LRUCache: TTL expiration works", async () => {
   assert.equal(cache.get("temp"), undefined);
 });
 
-test("LRUCache: stats track hits and misses", () => {
+test("LRUCache: stats track hits and misses", async () => {
   const cache = new LRUCache({ maxSize: 5 });
   cache.set("k", "v");
-  cache.get("k"); // hit
-  cache.get("missing"); // miss
+  await cache.get("k"); // hit
+  await cache.get("missing"); // miss
 
   const stats = cache.getStats();
   assert.equal(stats.hits, 1);

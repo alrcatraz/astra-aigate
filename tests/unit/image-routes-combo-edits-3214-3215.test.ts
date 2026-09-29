@@ -30,11 +30,12 @@ const {
   resolveSingleImageComboTarget,
   resolveImageRouteModel,
 } = await import("../../src/lib/images/imageRouteModel.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 const { createCombo } = await import("../../src/lib/db/combos.ts");
 
-test.after(() => {
-  resetDbInstance();
+test.after(async () => {
+  await resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = ORIGINAL_DATA_DIR;

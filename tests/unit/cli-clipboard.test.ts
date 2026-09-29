@@ -15,7 +15,7 @@ test("isClipboardSupported retorna boolean", async () => {
 
 test("copyToClipboard retorna boolean (true em macOS/win, qualquer em Linux)", async () => {
   const { copyToClipboard } = await import("../../bin/cli/utils/clipboard.mjs");
-  const result = copyToClipboard("test-text");
+  const result = await copyToClipboard("test-text");
   assert.ok(typeof result === "boolean");
 });
 
@@ -23,7 +23,7 @@ test("copyToClipboard não lança exceção mesmo sem xclip/xsel/wl-copy", async
   const { copyToClipboard } = await import("../../bin/cli/utils/clipboard.mjs");
   let threw = false;
   try {
-    copyToClipboard("some text");
+    await copyToClipboard("some text");
   } catch {
     threw = true;
   }

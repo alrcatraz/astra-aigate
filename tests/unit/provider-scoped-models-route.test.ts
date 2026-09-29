@@ -35,9 +35,11 @@ type ProviderModelsResponse = {
 };
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider: string, overrides: SeedConnectionOverrides = {}) {
@@ -58,7 +60,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -126,7 +128,7 @@ test("provider models route accepts provider alias in path", async () => {
 });
 
 test("provider models route supports service provider 9router", async () => {
-  serviceModelsDb.saveServiceModels("9router", [
+  await serviceModelsDb.saveServiceModels("9router", [
     { id: "gpt-4o-mini", name: "Local9R Test", available: true },
   ]);
 
@@ -149,7 +151,7 @@ test("provider models route supports service provider 9router", async () => {
 });
 
 test("provider models route supports service provider cliproxyapi", async () => {
-  serviceModelsDb.saveServiceModels("cliproxyapi", [
+  await serviceModelsDb.saveServiceModels("cliproxyapi", [
     { id: "llama-3", name: "Clip Test", available: true },
   ]);
 

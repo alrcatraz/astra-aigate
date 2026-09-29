@@ -117,7 +117,7 @@ test("#7847 downstream body resolution preserves the parsed object's identity", 
   assert.equal(downstreamJsonCalls, 0, "downstream must not parse or materialize another body");
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });

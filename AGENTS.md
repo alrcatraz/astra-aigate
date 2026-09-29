@@ -38,7 +38,7 @@ UI ships **43 locales** (British English base, zh-CN, zh-TW, and 40 more).
 - `src/` — OmniRoute's complete source (v3.8.50), fully preserved
 - LLM routing, provider/combo/API key management — from OmniRoute
 - MCP gateway — Phase 3 (completed: registry + multi-endpoint + bridge + admin tools)
-- Service monitoring — new, planned for Phase 4
+- Service monitoring — Phase 3.8 (completed: registry, health checker, UI)
 - Expo Design System — Phase 1 (completed)
 
 ## File Conventions
@@ -152,7 +152,8 @@ lands on development and is dual-pushed, complete ALL of:
    semantics `builtin|stdio|http` (never a brand name). Preset group id
    `aigate-*` (long IDs avoid confusion): `aigate-omniroute` (Phase 1-2
    tools, `system=1`, enabled by default), `aigate-mcp` (Phase 3 mgmt
-   tools), `aigate-infra` (Phase 4 placeholder, disabled). Preset entries
+   tools), `aigate-infra` (reserved empty group for future infra-class MCP
+   tools, disabled). Preset entries
    are disable-able but NOT deletable. External endpoints:
    `/api/mcp/servers/[id]/{sse,stream}`; legacy `/api/mcp/sse` +
    `/api/mcp/stream` 301 → `aigate-omniroute`. Auth = OmniRoute API Key +

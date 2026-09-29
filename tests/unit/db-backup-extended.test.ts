@@ -14,7 +14,7 @@ const backupDb = await import("../../src/lib/db/backup.ts");
 const dbBackupsRoute = await import("../../src/app/api/db-backups/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   await new Promise((resolve) => setTimeout(resolve, 50));
   if (fs.existsSync(TEST_DATA_DIR)) {
     for (const entry of fs.readdirSync(TEST_DATA_DIR, { recursive: true }).sort().reverse()) {
@@ -29,6 +29,8 @@ async function resetStorage() {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function seedConnections(count = 8) {
@@ -77,14 +79,14 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("backupDbFile creates manual backups and listDbBackups returns metadata", async () => {
   seedConnections(12);
 
-  const result = backupDb.backupDbFile("manual");
+  const result = await backupDb.backupDbFile("manual");
   assert.ok(result);
 
   const backupPath = path.join(core.DB_BACKUPS_DIR, result.filename);
@@ -224,19 +226,19 @@ test("getDbBackupMaxFiles defaults to 20 when nothing is stored (#3834)", () => 
   assert.equal(backupDb.getDbBackupMaxFiles(), 20);
 });
 
-test("setDbBackupMaxFiles persists and getDbBackupMaxFiles reflects it (#3834)", () => {
+test("setDbBackupMaxFiles persists and getDbBackupMaxFiles reflects it (#3834)", async () => {
   delete process.env.DB_BACKUP_MAX_FILES;
   core.getDbInstance();
-  backupDb.setDbBackupMaxFiles(5);
+  await backupDb.setDbBackupMaxFiles(5);
   assert.equal(backupDb.getDbBackupMaxFiles(), 5);
   // A second value overwrites the first (operator changes the setting again).
-  backupDb.setDbBackupMaxFiles(12);
+  await backupDb.setDbBackupMaxFiles(12);
   assert.equal(backupDb.getDbBackupMaxFiles(), 12);
 });
 
-test("DB_BACKUP_MAX_FILES env override wins over the persisted value (#3834)", () => {
+test("DB_BACKUP_MAX_FILES env override wins over the persisted value (#3834)", async () => {
   core.getDbInstance();
-  backupDb.setDbBackupMaxFiles(5);
+  await backupDb.setDbBackupMaxFiles(5);
   process.env.DB_BACKUP_MAX_FILES = "7";
   try {
     assert.equal(backupDb.getDbBackupMaxFiles(), 7);
@@ -251,13 +253,13 @@ test("getDbBackupRetentionDays defaults to 0 when nothing is stored", () => {
   assert.equal(backupDb.getDbBackupRetentionDays(), 0);
 });
 
-test("setDbBackupRetentionDays persists zero and positive values", () => {
+test("setDbBackupRetentionDays persists zero and positive values", async () => {
   delete process.env.DB_BACKUP_RETENTION_DAYS;
   core.getDbInstance();
-  backupDb.setDbBackupRetentionDays(0);
+  await backupDb.setDbBackupRetentionDays(0);
   assert.equal(backupDb.getDbBackupRetentionDays(), 0);
 
-  backupDb.setDbBackupRetentionDays(14);
+  await backupDb.setDbBackupRetentionDays(14);
   assert.equal(backupDb.getDbBackupRetentionDays(), 14);
 });
 
@@ -271,9 +273,9 @@ test("stored backup retention values must be JSON integers", () => {
   assert.equal(backupDb.getDbBackupRetentionDays(), 0);
 });
 
-test("DB_BACKUP_RETENTION_DAYS env override wins over the persisted value", () => {
+test("DB_BACKUP_RETENTION_DAYS env override wins over the persisted value", async () => {
   core.getDbInstance();
-  backupDb.setDbBackupRetentionDays(14);
+  await backupDb.setDbBackupRetentionDays(14);
   process.env.DB_BACKUP_RETENTION_DAYS = "3";
   try {
     assert.equal(backupDb.getDbBackupRetentionDays(), 3);

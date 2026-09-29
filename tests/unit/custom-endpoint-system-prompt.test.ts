@@ -17,9 +17,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { injectCustomSystemPrompt } = await import(
-  "../../open-sse/services/systemPrompt.ts"
-);
+const { injectCustomSystemPrompt } = await import("../../open-sse/services/systemPrompt.ts");
 
 // ─── injectCustomSystemPrompt ────────────────────────────────────────────────
 
@@ -135,7 +133,8 @@ process.env["DATA_DIR"] = tmpDir;
 
 test("settings defaults include customSystemPromptEnabled=false and customSystemPrompt=''", async (t) => {
   // Dynamic import after setting DATA_DIR to avoid polluting other tests
-  const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+  const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+    await import("../../src/lib/db/core.ts");
   const { getSettings } = await import("../../src/lib/db/settings.ts");
 
   const settings = await getSettings();
@@ -144,13 +143,9 @@ test("settings defaults include customSystemPromptEnabled=false and customSystem
     false,
     "customSystemPromptEnabled default is false"
   );
-  assert.equal(
-    settings.customSystemPrompt,
-    "",
-    "customSystemPrompt default is empty string"
-  );
+  assert.equal(settings.customSystemPrompt, "", "customSystemPrompt default is empty string");
 
-  t.after(() => {
-    resetDbInstance();
+  t.after(async () => {
+    await resetDbInstanceDrained();
   });
 });

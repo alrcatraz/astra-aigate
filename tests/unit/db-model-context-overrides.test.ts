@@ -12,20 +12,22 @@ process.env.DATA_DIR = moduleDataDir;
 const coreDb = await import("../../src/lib/db/core.ts");
 const mco = await import("../../src/lib/db/modelContextOverrides.ts");
 
-function resetStorage() {
-  coreDb.resetDbInstance();
+async function resetStorage() {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
   fs.mkdirSync(moduleDataDir, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
-beforeEach(() => {
-  resetStorage();
+beforeEach(async () => {
+  await resetStorage();
   // Touch the DB so migration 110 creates the table.
   coreDb.getDbInstance();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
 });
 
@@ -47,7 +49,10 @@ describe("modelContextOverrides", () => {
 
   it("upserts on the same (provider, model) key and records the source", () => {
     mco.setModelContextOverride("anthropic", "claude-sonnet-4-5", 200000, "auto:discovery");
-    assert.equal(mco.getModelContextOverrideRecord("anthropic", "claude-sonnet-4-5")?.source, "auto:discovery");
+    assert.equal(
+      mco.getModelContextOverrideRecord("anthropic", "claude-sonnet-4-5")?.source,
+      "auto:discovery"
+    );
     // Re-set as manual overwrites the same row.
     mco.setModelContextOverride("anthropic", "claude-sonnet-4-5", 1000000, "manual");
     const rec = mco.getModelContextOverrideRecord("anthropic", "claude-sonnet-4-5");
@@ -77,14 +82,14 @@ describe("modelContextOverrides", () => {
     assert.equal(mco.removeModelContextOverride("groq", "llama-3.3-70b"), false);
   });
 
-  it("lists all overrides", () => {
+  it("lists all overrides", async () => {
     mco.setModelContextOverride("openai", "gpt-5", 400000);
     mco.setModelContextOverride("anthropic", "claude-sonnet-4-5", 200000, "auto:discovery");
-    const all = mco.listModelContextOverrides();
+    const all = await mco.listModelContextOverrides();
     assert.equal(all.length, 2);
-    assert.deepEqual(
-      all.map((o) => `${o.provider}/${o.modelId}`).sort(),
-      ["anthropic/claude-sonnet-4-5", "openai/gpt-5"]
-    );
+    assert.deepEqual(all.map((o) => `${o.provider}/${o.modelId}`).sort(), [
+      "anthropic/claude-sonnet-4-5",
+      "openai/gpt-5",
+    ]);
   });
 });

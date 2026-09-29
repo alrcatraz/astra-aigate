@@ -16,9 +16,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const serviceModelsDb = await import("../../src/lib/db/serviceModels.ts");
-const routeModule = await import(
-  "../../src/app/api/v1/providers/[provider]/models/route.ts"
-);
+const routeModule = await import("../../src/app/api/v1/providers/[provider]/models/route.ts");
 
 function makeRequest(provider: string) {
   return new Request(`http://localhost/api/v1/providers/${encodeURIComponent(provider)}/models`);
@@ -30,12 +28,14 @@ async function callGET(provider: string) {
   });
 }
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -93,11 +93,11 @@ test("GET /v1/providers/:provider/models accepts openai-compatible-responses con
 });
 
 test("GET /v1/providers/:provider/models returns synced embedded service models", async () => {
-  serviceModelsDb.saveServiceModels("cliproxyapi", [
+  await serviceModelsDb.saveServiceModels("cliproxyapi", [
     { id: "cli/gpt-5", name: "GPT-5 via CLIProxyAPI" },
     { id: "old-model" },
   ]);
-  serviceModelsDb.saveServiceModels("cliproxyapi", [
+  await serviceModelsDb.saveServiceModels("cliproxyapi", [
     { id: "cli/gpt-5", name: "GPT-5 via CLIProxyAPI" },
   ]);
 

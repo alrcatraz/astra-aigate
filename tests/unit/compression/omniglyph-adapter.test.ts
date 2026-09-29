@@ -66,9 +66,9 @@ test("cache_control do cliente sobrevive byte a byte", async () => {
   assert.ok(JSON.stringify(r.body).includes('"cache_control"'));
 });
 
-test("apply síncrono é pass-through seguro (engine async-only)", () => {
+test("apply síncrono é pass-through seguro (engine async-only)", async () => {
   const body = claudeBody();
-  const r = omniglyphEngine.apply(body, OK);
+  const r = await omniglyphEngine.apply(body, OK);
   assert.equal(r.compressed, false);
   assert.deepEqual(r.body, body);
 });

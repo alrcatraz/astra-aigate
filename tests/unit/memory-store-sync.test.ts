@@ -40,16 +40,18 @@ const memoryVec = await import("../../src/lib/db/memoryVec.ts");
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function cleanup() {
-  core.resetDbInstance();
+async function cleanup() {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => {
-  cleanup();
+test.afterEach(async () => {
+  await cleanup();
 });
 
 test.after(() => {
@@ -87,8 +89,7 @@ test("createMemory() inserts row and returns valid Memory object", async () => {
   // Verify row exists in DB
   const db = core.getDbInstance();
   const row = db.prepare("SELECT * FROM memories WHERE id = ?").get(created.id) as
-    | { id: string; content: string }
-    | undefined;
+    { id: string; content: string } | undefined;
   assert.ok(row, "row should exist in DB after createMemory");
   assert.equal(row.content, "content for create test");
 });
@@ -121,7 +122,9 @@ test("createMemory() UPSERT: same apiKeyId+key updates existing row", async () =
   // Verify only one row in DB for this key
   const db = core.getDbInstance();
   const count = (
-    db.prepare("SELECT COUNT(*) as cnt FROM memories WHERE api_key_id = ? AND key = ?").get("key-b", "upsert:test") as {
+    db
+      .prepare("SELECT COUNT(*) as cnt FROM memories WHERE api_key_id = ? AND key = ?")
+      .get("key-b", "upsert:test") as {
       cnt: number;
     }
   ).cnt;
@@ -148,7 +151,7 @@ test("deleteMemory() removes the row from SQLite (Qdrant + vec errors do NOT blo
 
   // Verify row is gone from SQLite
   const db = core.getDbInstance();
-  const row = db.prepare("SELECT id FROM memories WHERE id = ?").get(created.id);
+  const row = await db.prepare("SELECT id FROM memories WHERE id = ?").get(created.id);
   assert.equal(row, undefined, "row should no longer exist after deleteMemory");
 });
 
@@ -180,8 +183,7 @@ test("updateMemory() with content change returns true and updates the row", asyn
   // Verify the DB was updated
   const db = core.getDbInstance();
   const row = db.prepare("SELECT content FROM memories WHERE id = ?").get(created.id) as
-    | { content: string }
-    | undefined;
+    { content: string } | undefined;
   assert.equal(row?.content, "new content changed", "content should be updated in DB");
 });
 
@@ -198,7 +200,7 @@ test("updateMemory() metadata-only change does NOT mark needs_reindex (content u
 
   // Clear any reindex flags from createMemory
   await drainSetImmediate();
-  memoryVec.markMemoryNeedsReindex(created.id, false);
+  await memoryVec.markMemoryNeedsReindex(created.id, false);
 
   const ok = await store.updateMemory(created.id, { metadata: { updated: true } });
   assert.equal(ok, true);
@@ -206,17 +208,13 @@ test("updateMemory() metadata-only change does NOT mark needs_reindex (content u
   // No content/key change → scheduleVectorUpsert NOT called
   await drainSetImmediate();
 
-  const pending = memoryVec.getMemoryReindexQueue(100);
+  const pending = await memoryVec.getMemoryReindexQueue(100);
   const inQueue = pending.some((item) => item.id === created.id);
-  assert.equal(
-    inQueue,
-    false,
-    "metadata-only update should NOT schedule vector re-gen"
-  );
+  assert.equal(inQueue, false, "metadata-only update should NOT schedule vector re-gen");
 });
 
-test("getMemoryTokensUsed() returns 0 for empty DB", () => {
-  const tokens = store.getMemoryTokensUsed("unknown-key");
+test("getMemoryTokensUsed() returns 0 for empty DB", async () => {
+  const tokens = await store.getMemoryTokensUsed("unknown-key");
   assert.equal(tokens, 0);
 });
 
@@ -231,7 +229,7 @@ test("getMemoryTokensUsed() returns correct estimate after createMemory", async 
     expiresAt: null,
   });
 
-  const tokens = store.getMemoryTokensUsed("key-f");
+  const tokens = await store.getMemoryTokensUsed("key-f");
   assert.ok(tokens > 0, "token estimate should be > 0 after storing memory");
   assert.equal(tokens, Math.ceil("Hello World".length / 4));
 });

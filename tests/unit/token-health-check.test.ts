@@ -18,7 +18,7 @@ const { PROVIDERS, OAUTH_ENDPOINTS } = await import("../../open-sse/config/const
 const tokenHealthCheck = await import("../../src/lib/tokenHealthCheck.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -36,6 +36,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function withHttpServer(handler, fn) {
@@ -133,7 +135,7 @@ async function withPatchedProvider(providerId, config, fn) {
 }
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

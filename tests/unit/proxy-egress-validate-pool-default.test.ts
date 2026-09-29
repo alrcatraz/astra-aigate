@@ -20,17 +20,19 @@ const core = await import("../../src/lib/db/core.ts");
 const proxiesDb = await import("../../src/lib/db/proxies.ts");
 const egress = await import("../../src/lib/proxyEgress.ts");
 const { validateProxyPool, _setEgressProbeForTests, clearEgressCache } = egress as unknown as {
-  validateProxyPool: (deps?: unknown) => Promise<
-    Array<{ proxyId: string; alive: boolean; newStatus: string }>
-  >;
+  validateProxyPool: (
+    deps?: unknown
+  ) => Promise<Array<{ proxyId: string; alive: boolean; newStatus: string }>>;
   _setEgressProbeForTests: (fn: unknown) => void;
   clearEgressCache: () => void;
 };
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -38,9 +40,9 @@ test.beforeEach(async () => {
   clearEgressCache();
 });
 
-test.after(() => {
+test.after(async () => {
   _setEgressProbeForTests(null);
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

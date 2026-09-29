@@ -18,22 +18,24 @@ const core = await import("../../src/lib/db/core.ts");
 const route = await import("../../src/app/api/settings/tier-config/route.ts");
 const tierResolver = await import("../../open-sse/services/tierResolver.ts");
 
-function resetStorage() {
+async function resetStorage() {
   delete process.env.INITIAL_PASSWORD;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // classifyTier() caches by provider::model — reset the routing-side config
   // too so tests don't leak assignments across each other.
   tierResolver.setTierConfig(null);
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  resetStorage();
+test.after(async () => {
+  await resetStorage();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

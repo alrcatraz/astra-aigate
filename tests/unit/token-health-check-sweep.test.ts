@@ -39,7 +39,7 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const { sweep } = await import("../../src/lib/tokenHealthCheck.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -56,10 +56,12 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   delete process.env.HEALTHCHECK_STAGGER_MS;
   delete process.env.HEALTHCHECK_JITTER_MIN_MS;
@@ -97,7 +99,7 @@ test("sweep() skips re-entrant calls while a previous sweep is still in flight",
   assert.equal(seeded.length, 21, "precondition: 21 oauth connections exist");
   assert.equal(isSweeping(), false, "precondition: no sweep in flight yet");
 
-  const first = sweep();
+  const first = await sweep();
   // sweep() sets state.sweeping = true synchronously before its first
   // `await`, so this is already true the instant sweep() returns control to
   // us — no microtask boundary needed to observe it.

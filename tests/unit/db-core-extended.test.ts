@@ -20,7 +20,7 @@ function cleanupGlobalDb() {
 
 async function resetStorage() {
   cleanupGlobalDb();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -32,6 +32,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test("isNativeSqliteLoadError returns false for non-error values", () => {
@@ -67,10 +69,11 @@ test("getDbInstance returns same instance on second call (singleton)", async () 
 test("resetDbInstance allows getting a fresh instance", async () => {
   await resetStorage();
   core.getDbInstance();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   const db2 = core.getDbInstance();
   assert.ok(db2);
   assert.ok(typeof db2.prepare === "function");
+  await core.awaitDbMigrations();
 });
 
 test("closeDbInstance closes the database", async () => {
@@ -82,10 +85,12 @@ test("closeDbInstance closes the database", async () => {
 
 test("closeDbInstance returns false when no instance", async () => {
   await resetStorage();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   delete (globalThis as any).__omnirouteDb;
   const result = core.closeDbInstance();
   assert.ok(typeof result === "boolean");
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test("getDriverInfo returns driver info object", async () => {
@@ -101,31 +106,31 @@ test("getDriverInfo returns driver info object", async () => {
 test("setAutoVacuum and getAutoVacuumMode round-trip", async () => {
   await resetStorage();
   core.getDbInstance();
-  core.setAutoVacuum("FULL");
-  const mode = core.getAutoVacuumMode();
+  await core.setAutoVacuum("FULL");
+  const mode = await core.getAutoVacuumMode();
   assert.equal(mode, "FULL");
 });
 
 test("setAutoVacuum accepts NONE", async () => {
   await resetStorage();
   core.getDbInstance();
-  core.setAutoVacuum("NONE");
-  const mode = core.getAutoVacuumMode();
+  await core.setAutoVacuum("NONE");
+  const mode = await core.getAutoVacuumMode();
   assert.equal(mode, "NONE");
 });
 
 test("setAutoVacuum accepts INCREMENTAL", async () => {
   await resetStorage();
   core.getDbInstance();
-  core.setAutoVacuum("INCREMENTAL");
-  const mode = core.getAutoVacuumMode();
+  await core.setAutoVacuum("INCREMENTAL");
+  const mode = await core.getAutoVacuumMode();
   assert.equal(mode, "INCREMENTAL");
 });
 
 test("runManualVacuum returns success result", async () => {
   await resetStorage();
   core.getDbInstance();
-  const result = core.runManualVacuum();
+  const result = await core.runManualVacuum();
   assert.ok(typeof result === "object");
   assert.ok(typeof result.success === "boolean");
   assert.ok(typeof result.duration === "number");
@@ -134,14 +139,14 @@ test("runManualVacuum returns success result", async () => {
 test("runManagedDbHealthCheck returns health info", async () => {
   await resetStorage();
   core.getDbInstance();
-  const result = core.runManagedDbHealthCheck();
+  const result = await core.runManagedDbHealthCheck();
   assert.ok(typeof result === "object");
 });
 
 test("runManagedDbHealthCheck with autoRepair option", async () => {
   await resetStorage();
   core.getDbInstance();
-  const result = core.runManagedDbHealthCheck({ autoRepair: true });
+  const result = await core.runManagedDbHealthCheck({ autoRepair: true });
   assert.ok(typeof result === "object");
 });
 

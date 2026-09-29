@@ -85,9 +85,9 @@ describe("llmCompressorEngine (T05/C3)", () => {
     assert.equal(out.compressed, false);
   });
 
-  it("sync apply is always a no-op pass-through", () => {
+  it("sync apply is always a no-op pass-through", async () => {
     const input = body([{ role: "user", content: "anything" }]);
-    const out = llmCompressorEngine.apply(input);
+    const out = await llmCompressorEngine.apply(input);
     assert.equal(out.compressed, false);
     assert.equal(out.body, input);
   });
@@ -95,7 +95,8 @@ describe("llmCompressorEngine (T05/C3)", () => {
   it("validateConfig accepts valid config and rejects bad fields", () => {
     assert.equal(llmCompressorEngine.validateConfig({ enabled: false }).valid, true);
     assert.equal(
-      llmCompressorEngine.validateConfig({ enabled: true, compressionRate: 0.5, minTokens: 1000 }).valid,
+      llmCompressorEngine.validateConfig({ enabled: true, compressionRate: 0.5, minTokens: 1000 })
+        .valid,
       true
     );
     assert.equal(llmCompressorEngine.validateConfig({ enabled: "yes" }).valid, false);

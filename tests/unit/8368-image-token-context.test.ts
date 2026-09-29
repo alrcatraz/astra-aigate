@@ -6,7 +6,7 @@ function makeFakePngBase64(approxBytes: number): string {
   return Buffer.alloc(approxBytes, 65).toString("base64");
 }
 
-test("#8368: inline base64 PNG image_url is NOT counted as raw text (bounded image-token estimate)", () => {
+test("#8368: inline base64 PNG image_url is NOT counted as raw text (bounded image-token estimate)", async () => {
   const base64 = makeFakePngBase64(1_900_000); // ~1.9MB, matches issue repro
   const messages = [
     { role: "user", content: "Please describe this image." },
@@ -21,7 +21,7 @@ test("#8368: inline base64 PNG image_url is NOT counted as raw text (bounded ima
   const estimated = estimateTokens(messages);
   assert.ok(
     estimated < 5000,
-    `BUG #8368 reproduced: image-bearing message estimated at ${estimated} tokens (limit ${getTokenLimit(
+    `BUG #8368 reproduced: image-bearing message estimated at ${estimated} tokens (limit ${await getTokenLimit(
       "codex"
     )})`
   );
@@ -81,7 +81,10 @@ test("#8368: Gemini inlineData image block shape is bounded", () => {
 test("#8368: multiple images accumulate a bounded sum, not one flat cap", () => {
   const base64 = makeFakePngBase64(200_000);
   const oneImageMessages = [
-    { role: "user", content: [{ type: "image_url", image_url: { url: `data:image/png;base64,${base64}` } }] },
+    {
+      role: "user",
+      content: [{ type: "image_url", image_url: { url: `data:image/png;base64,${base64}` } }],
+    },
   ];
   const threeImageMessages = [
     {
@@ -109,7 +112,10 @@ test("#8368: remote http(s) image URLs are unaffected (still measured as text)",
   const estimated = estimateTokens(messages);
   // Should just be the JSON-length/4 heuristic for the short URL string, not near-zero
   // and not a bounded image-token substitute — remote URLs stay on the text path.
-  assert.ok(estimated > 0 && estimated < 100, `expected small text-based estimate, got ${estimated}`);
+  assert.ok(
+    estimated > 0 && estimated < 100,
+    `expected small text-based estimate, got ${estimated}`
+  );
 });
 
 test("#8368: generic long base64 text (not an image field) still uses the text path", () => {

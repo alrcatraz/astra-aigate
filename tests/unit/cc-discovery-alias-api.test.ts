@@ -12,10 +12,12 @@ process.env.REQUIRE_API_KEY = "false";
 const core = await import("../../src/lib/db/core.ts");
 const route = await import("../../src/app/api/providers/[id]/cc-alias/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeParams(id: string): { params: Promise<{ id: string }> } {
@@ -35,12 +37,12 @@ function getRequest(): Request {
 }
 
 describe("PUT/GET /api/providers/[id]/cc-alias", () => {
-  beforeEach(() => {
-    resetDb();
+  beforeEach(async () => {
+    await resetDb();
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     fs.rmSync(tmpDir, { recursive: true, force: true });
     delete process.env.REQUIRE_API_KEY;
   });

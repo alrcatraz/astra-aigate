@@ -31,10 +31,12 @@ const originalGetCookieStore = callbackRoute.oidcCallbackInternals.getCookieStor
 let capturedCookies: Record<string, CapturedCookie> = {};
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   capturedCookies = {};
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeTestCookieStore() {
@@ -59,8 +61,8 @@ test.afterEach(() => {
   callbackRoute.oidcCallbackInternals.getCookieStore = originalGetCookieStore;
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   delete process.env.JWT_SECRET;
 });
@@ -142,7 +144,7 @@ test("OIDC callback happy path: exchanges code, validates ID token, mints identi
     );
 
     assert.equal(response.status, 307);
-    const location = response.headers.get("location");
+    const location = await response.headers.get("location");
     assert.ok(location && location.endsWith("/dashboard"));
 
     const authCookie = capturedCookies["auth_token"];

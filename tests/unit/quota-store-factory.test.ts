@@ -21,7 +21,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -38,6 +38,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 const origDriver = process.env.QUOTA_STORE_DRIVER;
@@ -54,7 +56,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
@@ -68,7 +70,8 @@ test.after(async () => {
 // ─── Default driver ──────────────────────────────────────────────────────────
 
 test("storeFactory: default driver is sqlite", async () => {
-  const { getQuotaStore, resetQuotaStoreSingleton } = await import("../../src/lib/quota/storeFactory.ts");
+  const { getQuotaStore, resetQuotaStoreSingleton } =
+    await import("../../src/lib/quota/storeFactory.ts");
   resetQuotaStoreSingleton();
 
   const store = await getQuotaStore();
@@ -83,7 +86,8 @@ test("storeFactory: default driver is sqlite", async () => {
 // ─── Singleton behaviour ─────────────────────────────────────────────────────
 
 test("storeFactory: multiple calls return same singleton", async () => {
-  const { getQuotaStore, resetQuotaStoreSingleton } = await import("../../src/lib/quota/storeFactory.ts");
+  const { getQuotaStore, resetQuotaStoreSingleton } =
+    await import("../../src/lib/quota/storeFactory.ts");
   resetQuotaStoreSingleton();
 
   const store1 = await getQuotaStore();
@@ -92,7 +96,8 @@ test("storeFactory: multiple calls return same singleton", async () => {
 });
 
 test("storeFactory: resetQuotaStoreSingleton() creates new instance on next call", async () => {
-  const { getQuotaStore, resetQuotaStoreSingleton } = await import("../../src/lib/quota/storeFactory.ts");
+  const { getQuotaStore, resetQuotaStoreSingleton } =
+    await import("../../src/lib/quota/storeFactory.ts");
   resetQuotaStoreSingleton();
 
   const store1 = await getQuotaStore();
@@ -107,7 +112,8 @@ test("storeFactory: resetQuotaStoreSingleton() creates new instance on next call
 // ─── Redis driver + no URL → fallback sqlite ─────────────────────────────────
 
 test("storeFactory: QUOTA_STORE_DRIVER=redis without URL → fallback to sqlite", async () => {
-  const { getQuotaStore, resetQuotaStoreSingleton } = await import("../../src/lib/quota/storeFactory.ts");
+  const { getQuotaStore, resetQuotaStoreSingleton } =
+    await import("../../src/lib/quota/storeFactory.ts");
   resetQuotaStoreSingleton();
 
   process.env.QUOTA_STORE_DRIVER = "redis";
@@ -122,7 +128,8 @@ test("storeFactory: QUOTA_STORE_DRIVER=redis without URL → fallback to sqlite"
 // ─── Unknown driver → fallback sqlite ────────────────────────────────────────
 
 test("storeFactory: unknown driver value → falls back to sqlite silently", async () => {
-  const { getQuotaStore, resetQuotaStoreSingleton } = await import("../../src/lib/quota/storeFactory.ts");
+  const { getQuotaStore, resetQuotaStoreSingleton } =
+    await import("../../src/lib/quota/storeFactory.ts");
   resetQuotaStoreSingleton();
 
   (process.env as Record<string, string>).QUOTA_STORE_DRIVER = "memcached";
@@ -135,7 +142,8 @@ test("storeFactory: unknown driver value → falls back to sqlite silently", asy
 // ─── Redis driver + invalid URL (ioredis not installed) → fallback ────────────
 
 test("storeFactory: QUOTA_STORE_DRIVER=redis with invalid URL → fallback or throws gracefully", async () => {
-  const { getQuotaStore, resetQuotaStoreSingleton } = await import("../../src/lib/quota/storeFactory.ts");
+  const { getQuotaStore, resetQuotaStoreSingleton } =
+    await import("../../src/lib/quota/storeFactory.ts");
   resetQuotaStoreSingleton();
 
   process.env.QUOTA_STORE_DRIVER = "redis";

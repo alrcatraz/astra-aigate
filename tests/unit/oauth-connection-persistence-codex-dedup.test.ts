@@ -12,7 +12,7 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const { persistOAuthConnection } = await import("../../src/lib/oauth/connectionPersistence.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -29,13 +29,15 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
   await resetStorage();
 });
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -90,9 +92,17 @@ test("persistOAuthConnection still merges a re-login for the SAME Codex chatgptU
     providerSpecificData: { chatgptUserId: "user-solo" },
   });
 
-  assert.equal(second.id, first.id, "re-authenticating the same Codex user must update the same row");
+  assert.equal(
+    second.id,
+    first.id,
+    "re-authenticating the same Codex user must update the same row"
+  );
 
   const rows = await providersDb.getProviderConnections({ provider: "codex" });
-  assert.equal(rows.length, 1, "no duplicate connection should be created for the same chatgptUserId");
+  assert.equal(
+    rows.length,
+    1,
+    "no duplicate connection should be created for the same chatgptUserId"
+  );
   assert.equal(rows[0]?.accessToken, "token-second", "the row must reflect the latest tokens");
 });

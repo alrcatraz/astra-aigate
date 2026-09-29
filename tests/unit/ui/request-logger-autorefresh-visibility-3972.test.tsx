@@ -161,12 +161,12 @@ describe("RequestLoggerV2 detail modal lifecycle", () => {
     expect(row).toBeTruthy();
 
     await act(async () => {
-      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(container.querySelector('[aria-label="Request log detail"]')).not.toBeNull();
 
     await act(async () => {
-      container
+      await container
         .querySelector<HTMLButtonElement>('[aria-label="Close detail modal"]')
         ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
@@ -263,7 +263,7 @@ describe("RequestLoggerV2 auto-refresh (#3972 + #4054)", () => {
     // Real background transition: the state flips AND the browser fires the event.
     setVisibility("hidden");
     await act(async () => {
-      document.dispatchEvent(new Event("visibilitychange"));
+      await document.dispatchEvent(new Event("visibilitychange"));
     });
     const afterHidden = callLogsRequests;
 
@@ -293,7 +293,7 @@ describe("RequestLoggerV2 auto-refresh (#3972 + #4054)", () => {
     // Real background event → pause.
     setVisibility("hidden");
     await act(async () => {
-      document.dispatchEvent(new Event("visibilitychange"));
+      await document.dispatchEvent(new Event("visibilitychange"));
     });
     const afterHidden = callLogsRequests;
 
@@ -322,13 +322,13 @@ describe("RequestLoggerV2 auto-refresh (#3972 + #4054)", () => {
 
     setVisibility("hidden");
     await act(async () => {
-      document.dispatchEvent(new Event("visibilitychange"));
+      await document.dispatchEvent(new Event("visibilitychange"));
     });
     const afterHidden = callLogsRequests;
 
     // visibilityState stays "hidden"; the user refocuses the window.
     await act(async () => {
-      window.dispatchEvent(new Event("focus"));
+      await window.dispatchEvent(new Event("focus"));
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(DEFAULT_REFRESH_INTERVAL_SEC * 1000);

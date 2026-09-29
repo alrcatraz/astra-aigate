@@ -31,8 +31,8 @@ const { handleComboChat } = await import("../../open-sse/services/combo.ts");
 const { registerQuotaFetcher } = await import("../../open-sse/services/quotaPreflight.ts");
 const { getCircuitBreaker } = await import("../../src/shared/utils/circuitBreaker.ts");
 
-test.after(() => {
-  dbCore.resetDbInstance();
+test.after(async () => {
+  await dbCore.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -12,26 +12,28 @@ process.env.CALL_LOG_RETENTION_DAYS = "5";
 const core = await import("../../src/lib/db/core.ts");
 const compliance = await import("../../src/lib/compliance/index.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
+test.beforeEach(async () => {
+  await resetDb();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("compliance audit log initialization, writes and filtered reads work end to end", () => {
-  compliance.initAuditLog();
-  compliance.logAuditEvent({
+test("compliance audit log initialization, writes and filtered reads work end to end", async () => {
+  await compliance.initAuditLog();
+  await compliance.logAuditEvent({
     action: "settings.update",
     actor: "admin",
     target: "system-settings",
@@ -41,13 +43,13 @@ test("compliance audit log initialization, writes and filtered reads work end to
     requestId: "req-123",
     ipAddress: "127.0.0.1",
   });
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "apiKey.create",
     details: '"manual note"',
   });
 
-  const all = compliance.getAuditLog();
-  const filtered = compliance.getAuditLog({
+  const all = await compliance.getAuditLog();
+  const filtered = await compliance.getAuditLog({
     action: "settings.update",
     actor: "admin",
     limit: 1,
@@ -77,10 +79,10 @@ test("compliance audit log initialization, writes and filtered reads work end to
   ]);
 });
 
-test("compliance audit log supports structured filters, totals and secret redaction", () => {
-  compliance.initAuditLog();
+test("compliance audit log supports structured filters, totals and secret redaction", async () => {
+  await compliance.initAuditLog();
 
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "provider.credentials.updated",
     actor: "admin",
     target: "openai:primary",
@@ -97,7 +99,7 @@ test("compliance audit log supports structured filters, totals and secret redact
     ipAddress: "10.0.0.4",
     createdAt: "2026-04-14T10:00:00.000Z",
   });
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "provider.validation.ssrf_blocked",
     actor: "admin",
     target: "provider-node",
@@ -111,7 +113,7 @@ test("compliance audit log supports structured filters, totals and secret redact
     createdAt: "2026-04-14T11:00:00.000Z",
   });
 
-  const filtered = compliance.getAuditLog({
+  const filtered = await compliance.getAuditLog({
     resourceType: "provider_validation",
     status: "blocked",
     requestId: "req-provider-2",
@@ -158,7 +160,7 @@ test("compliance noLog helpers cover missing ids, in-memory overrides and persis
 });
 
 test("cleanupExpiredLogs removes stale rows across all log tables and records an audit entry", async () => {
-  compliance.initAuditLog();
+  await compliance.initAuditLog();
   const db = core.getDbInstance();
 
   const oldCallTs = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
@@ -222,7 +224,7 @@ test("cleanupExpiredLogs removes stale rows across all log tables and records an
     freshTs
   );
 
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "admin.cleanup.seed",
     actor: "admin",
     details: { seeded: true },
@@ -237,11 +239,11 @@ test("cleanupExpiredLogs removes stale rows across all log tables and records an
   const callCount = (db.prepare("SELECT COUNT(*) as count FROM call_logs").get() as any).count;
   const proxyCount = (db.prepare("SELECT COUNT(*) as count FROM proxy_logs").get() as any).count;
   const requestDetailCount = (
-    db.prepare("SELECT COUNT(*) as count FROM request_detail_logs") as any
-  ).get().count;
+    await (db.prepare("SELECT COUNT(*) as count FROM request_detail_logs") as any).get()
+  ).count;
   const mcpAuditCount = (db.prepare("SELECT COUNT(*) as count FROM mcp_tool_audit").get() as any)
     .count;
-  const auditEntries = compliance.getAuditLog();
+  const auditEntries = await compliance.getAuditLog();
   const auditActions = auditEntries.map((entry) => entry.action);
 
   assert.deepEqual(result, {
@@ -271,7 +273,7 @@ test("cleanupExpiredLogs removes stale rows across all log tables and records an
 });
 
 test("cleanupExpiredLogs tolerates missing tables and logAuditEvent failures without breaking", async () => {
-  compliance.initAuditLog();
+  await compliance.initAuditLog();
   const db = core.getDbInstance();
 
   db.exec(`
@@ -283,7 +285,7 @@ test("cleanupExpiredLogs tolerates missing tables and logAuditEvent failures wit
     DROP TABLE mcp_tool_audit;
   `);
 
-  compliance.logAuditEvent({
+  await compliance.logAuditEvent({
     action: "will.fail.silently",
     details: { reason: "table dropped" },
   });

@@ -353,6 +353,14 @@ const SYNCED_CAPABILITY_FALLBACK_ALIASES: Record<string, string[]> = {
   opencode: ["opencode-zen"],
   "opencode-zen": ["opencode"],
   "opencode-go": ["opencode-zen"],
+  // DMXAPI (dmxapi-cn / family) is an aggregator reselling the Z.AI / GLM and
+  // DeepSeek upstreams under the SAME model ids, but models.dev has no dmxapi
+  // channel, so synced rows never land under this provider key. On a lookup
+  // miss, fall back to the upstream channels so truth flows in per model:
+  // glm-5.3-flash → zhipuai (1M), deepseek-v4-flash* → deepseek (1M). Only
+  // ids that genuinely exist upstream inherit anything; DMXAPI-exclusive ids
+  // keep falling through to registry/spec/defaults.
+  "dmxapi-cn": ["zhipuai", "zai", "alibaba", "deepseek"],
 };
 
 export async function getSyncedCapability(
@@ -382,19 +390,24 @@ export async function getSyncedCapability(
   const stmt = await db.prepare(
     "SELECT * FROM model_capabilities WHERE provider = ? AND model_id = ? LIMIT 1"
   );
-  const lookupDb = (p: string): ModelCapabilityEntry | null => {
-    const row = stmt.get(p, modelId);
+  const lookupDb = async (p: string): Promise<ModelCapabilityEntry | null> => {
+    // All DatabaseAdapter implementations return Promises from .get() — the row
+    // MUST be awaited. Consuming it synchronously made `!row` always false
+    // (Promise is truthy), so mapCapabilityRecord() received a Promise and every
+    // field came back undefined: synced capabilities silently degraded to
+    // "unknown" on the cold path, breaking combo vision routing (#8332 gate).
+    const row = await stmt.get(p, modelId);
     if (!row) return null;
     return mapCapabilityRecord(toRecord(row));
   };
 
-  const direct = lookupDb(provider);
+  const direct = await lookupDb(provider);
   if (direct) return direct;
 
   const fallbacks = SYNCED_CAPABILITY_FALLBACK_ALIASES[provider];
   if (fallbacks) {
     for (const alt of fallbacks) {
-      const found = lookupDb(alt);
+      const found = await lookupDb(alt);
       if (found) return found;
     }
   }

@@ -17,7 +17,8 @@ const core = await import("../../../src/lib/db/core.ts");
 const settingsDb = await import("../../../src/lib/db/settings.ts");
 const providersDb = await import("../../../src/lib/db/providers.ts");
 const autopilot = await import("../../../src/lib/monitoring/providerHealthAutopilot.ts");
-const actionsRoute = await import("../../../src/app/api/providers/health-autopilot/actions/route.ts");
+const actionsRoute =
+  await import("../../../src/app/api/providers/health-autopilot/actions/route.ts");
 const reportRoute = await import("../../../src/app/api/providers/health-autopilot/route.ts");
 const routeGuard = await import("../../../src/server/authz/routeGuard.ts");
 const authzPipeline = await import("../../../src/server/authz/pipeline.ts");
@@ -26,9 +27,11 @@ const accountFallback = await import("@omniroute/open-sse/services/accountFallba
 const PROVIDER = "autopilot-test-provider";
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {

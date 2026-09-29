@@ -25,7 +25,7 @@ rateLimiter.setRateLimiterTestMode(true);
 async function resetStorage() {
   apiKeysDb.resetApiKeyState();
   costRules.resetCostData();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -43,6 +43,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 async function loadPolicy(label: string) {
@@ -78,7 +80,7 @@ test.beforeEach(async () => {
 test.after(async () => {
   apiKeysDb.resetApiKeyState();
   costRules.resetCostData();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -137,10 +139,7 @@ test("chat-only key blocks /v1/embeddings", async () => {
   assert.ok(result.rejection, "Should reject the request");
   assert.equal(result.rejection.status, 403);
   const msg = await readErrorMessage(result.rejection);
-  assert.ok(
-    msg.includes("embeddings"),
-    `Error message should mention 'embeddings', got: ${msg}`
-  );
+  assert.ok(msg.includes("embeddings"), `Error message should mention 'embeddings', got: ${msg}`);
 });
 
 test("search-only key blocks /v1/images/generations", async () => {

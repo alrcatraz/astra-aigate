@@ -22,10 +22,12 @@ const modelDiscovery = await import("../../src/lib/providerModels/modelDiscovery
 const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -33,7 +35,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -107,9 +109,7 @@ test("#4264 synced OpenRouter vision model surfaces capabilities.vision in /v1/m
   assert.equal(response.status, 200);
   const body = (await response.json()) as any;
 
-  const visionModel = body.data.find((m: any) =>
-    String(m.id).endsWith("nex-agi/nex-n2-pro:free")
-  );
+  const visionModel = body.data.find((m: any) => String(m.id).endsWith("nex-agi/nex-n2-pro:free"));
   assert.ok(visionModel, `expected the synced vision model in the catalog`);
   // RED before the fix: synced models carried no capabilities at all.
   assert.equal(visionModel.capabilities?.vision, true);

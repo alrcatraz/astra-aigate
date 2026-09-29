@@ -14,10 +14,12 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const healthCheckDb = await import("../../src/lib/db/healthCheck.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -25,7 +27,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -67,7 +69,7 @@ test("runDbHealthCheck reports issues without mutating when autoRepair is disabl
   const db = core.getDbInstance();
   insertBrokenRows(db);
 
-  const result = healthCheckDb.runDbHealthCheck(db, { autoRepair: false });
+  const result = await healthCheckDb.runDbHealthCheck(db, { autoRepair: false });
 
   assert.equal(result.isHealthy, false);
   assert.equal(result.repairedCount, 0);
@@ -84,7 +86,7 @@ test("runDbHealthCheck tolerates databases without a combos table", async () => 
   const db = core.getDbInstance();
   db.exec("DROP TABLE combos");
 
-  const result = healthCheckDb.runDbHealthCheck(db, { autoRepair: false });
+  const result = await healthCheckDb.runDbHealthCheck(db, { autoRepair: false });
 
   assert.equal(result.isHealthy, true);
   assert.equal(
@@ -97,7 +99,7 @@ test("runDbHealthCheck auto-repairs orphan rows and invalid JSON payloads", asyn
   const db = core.getDbInstance();
   insertBrokenRows(db);
 
-  const result = healthCheckDb.runDbHealthCheck(db, {
+  const result = await healthCheckDb.runDbHealthCheck(db, {
     autoRepair: true,
     createBackupBeforeRepair: () => true,
   });
@@ -202,7 +204,7 @@ test("runDbHealthCheck repairs broken combo payloads, combo refs and stale conne
     now
   );
 
-  const result = healthCheckDb.runDbHealthCheck(db, {
+  const result = await healthCheckDb.runDbHealthCheck(db, {
     autoRepair: true,
     createBackupBeforeRepair: () => false,
   });
@@ -258,7 +260,7 @@ test("runDbHealthCheck diagnosis does not request backups for combo-only issues"
     now
   );
 
-  const result = healthCheckDb.runDbHealthCheck(db, {
+  const result = await healthCheckDb.runDbHealthCheck(db, {
     autoRepair: false,
     createBackupBeforeRepair: () => {
       backupAttempts += 1;
@@ -274,7 +276,7 @@ test("runDbHealthCheck diagnosis does not request backups for combo-only issues"
 test("getDbInstance can auto-repair persisted broken rows when startup repair is forced", async () => {
   let db = core.getDbInstance();
   insertBrokenRows(db);
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   const previousForce = process.env.OMNIROUTE_FORCE_DB_HEALTHCHECK;
   process.env.OMNIROUTE_FORCE_DB_HEALTHCHECK = "1";
@@ -310,12 +312,13 @@ test("getDbInstance can auto-repair persisted broken rows when startup repair is
     ).options,
     null
   );
+  await core.awaitDbMigrations();
 });
 
 test("getDbInstance skips automatic startup repair during tests unless forced", async () => {
   let db = core.getDbInstance();
   insertBrokenRows(db);
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   db = core.getDbInstance();
 
@@ -333,13 +336,14 @@ test("getDbInstance skips automatic startup repair during tests unless forced", 
     (db.prepare("SELECT COUNT(*) AS count FROM domain_lockout_state").get() as any).count,
     1
   );
+  await core.awaitDbMigrations();
 });
 
 test("runDbHealthCheck repairs a drifted db_meta schema version", async () => {
   const db = core.getDbInstance();
   db.prepare("UPDATE db_meta SET value = ? WHERE key = 'schema_version'").run("0");
 
-  const result = healthCheckDb.runDbHealthCheck(db, {
+  const result = await healthCheckDb.runDbHealthCheck(db, {
     autoRepair: true,
     createBackupBeforeRepair: () => false,
   });

@@ -36,8 +36,8 @@ test("DEFAULT_PRICING merges the 4 family files; families partition all entries"
   assert.ok(merged > 25);
 });
 
-test("shared tier consts feed the parts (a known model resolves to a shared rate)", () => {
-  const pricing = (P as Record<string, (p: string, m: string) => unknown>).getPricingForModel(
+test("shared tier consts feed the parts (a known model resolves to a shared rate)", async () => {
+  const pricing = await (P as Record<string, (p: string, m: string) => unknown>).getPricingForModel(
     "openai",
     "gpt-4o"
   );

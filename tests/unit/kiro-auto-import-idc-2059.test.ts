@@ -54,15 +54,17 @@ const ORIGINAL_FETCH = globalThis.fetch;
 
 let tmpHome: string;
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-kiro-idc-2059-"));
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   process.env.HOME = tmpHome;
   delete process.env.APPDATA;
   // Reset fetch so tests with mocks don't bleed into each other.
   globalThis.fetch = ORIGINAL_FETCH;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test.afterEach(() => {
@@ -76,8 +78,8 @@ test.afterEach(() => {
   if (tmpHome) fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -77,9 +77,11 @@ function buildQuotaResponse(usedPercent, resetAfterSeconds = 3600) {
 }
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function waitFor(fn, timeoutMs = 1500) {
@@ -389,8 +391,8 @@ test("getLastSessionModel uses latest id as deterministic tie-breaker", async ()
   const sessionId = "sess-model-history-tie";
   const comboName = "relay-model-history-tie";
 
-  handoffDb.recordSessionModelUsage(sessionId, comboName, "openai/old", "openai");
-  handoffDb.recordSessionModelUsage(sessionId, comboName, "anthropic/new", "anthropic");
+  await handoffDb.recordSessionModelUsage(sessionId, comboName, "openai/old", "openai");
+  await handoffDb.recordSessionModelUsage(sessionId, comboName, "anthropic/new", "anthropic");
 
   core
     .getDbInstance()
@@ -408,8 +410,8 @@ test("handleComboChat universal handoff does not accumulate injected handoffs ac
   const sessionId = "sess-universal-no-mutate";
   const comboName = "universal-no-mutate";
 
-  handoffDb.recordSessionModelUsage(sessionId, comboName, "openai/previous", "openai");
-  handoffDb.upsertHandoff({
+  await handoffDb.recordSessionModelUsage(sessionId, comboName, "openai/previous", "openai");
+  await handoffDb.upsertHandoff({
     sessionId,
     comboName,
     fromAccount: "universal:openai/previous",
@@ -473,7 +475,7 @@ test("handleComboChat universal handoff detects model switch before recording cu
   const sessionId = "sess-universal-switch";
   const comboName = "universal-switch";
 
-  handoffDb.recordSessionModelUsage(sessionId, comboName, "openai/previous", "openai");
+  await handoffDb.recordSessionModelUsage(sessionId, comboName, "openai/previous", "openai");
   core
     .getDbInstance()
     .prepare(
@@ -542,7 +544,7 @@ test("context_cache_protection: pins body.model to last session model when histo
   const comboName = "cache-pin-combo";
 
   // Pre-record a prior model usage for this session/combo
-  handoffDb.recordSessionModelUsage(
+  await handoffDb.recordSessionModelUsage(
     sessionId,
     comboName,
     "anthropic/claude-3-5-sonnet",
@@ -637,8 +639,8 @@ test("clearSessionModelHistoryForCombo removes all pins for a combo", async () =
   const comboName = "test-clear-pins";
 
   // Seed history for two different sessions on the same combo
-  handoffDb.recordSessionModelUsage("sess-A", comboName, "openai/gpt-4o", "openai");
-  handoffDb.recordSessionModelUsage(
+  await handoffDb.recordSessionModelUsage("sess-A", comboName, "openai/gpt-4o", "openai");
+  await handoffDb.recordSessionModelUsage(
     "sess-B",
     comboName,
     "anthropic/claude-3-5-sonnet",
@@ -650,7 +652,7 @@ test("clearSessionModelHistoryForCombo removes all pins for a combo", async () =
   assert.equal(handoffDb.getLastSessionModel("sess-B", comboName), "anthropic/claude-3-5-sonnet");
 
   // Clear pins for this combo
-  const cleared = handoffDb.clearSessionModelHistoryForCombo(comboName);
+  const cleared = await handoffDb.clearSessionModelHistoryForCombo(comboName);
   assert.ok(cleared >= 2, `should have cleared at least 2 entries, got ${cleared}`);
 
   // Pins are gone
@@ -662,11 +664,16 @@ test("clearSessionModelHistoryForCombo does not affect other combos", async () =
   const comboA = "combo-keep";
   const comboB = "combo-clear";
 
-  handoffDb.recordSessionModelUsage("sess-1", comboA, "openai/gpt-4o", "openai");
-  handoffDb.recordSessionModelUsage("sess-1", comboB, "anthropic/claude-3-5-sonnet", "anthropic");
+  await handoffDb.recordSessionModelUsage("sess-1", comboA, "openai/gpt-4o", "openai");
+  await handoffDb.recordSessionModelUsage(
+    "sess-1",
+    comboB,
+    "anthropic/claude-3-5-sonnet",
+    "anthropic"
+  );
 
   // Clear only comboB
-  handoffDb.clearSessionModelHistoryForCombo(comboB);
+  await handoffDb.clearSessionModelHistoryForCombo(comboB);
 
   // comboA is untouched
   assert.equal(handoffDb.getLastSessionModel("sess-1", comboA), "openai/gpt-4o");

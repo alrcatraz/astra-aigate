@@ -57,11 +57,11 @@ function seedSkill(overrides: Partial<Record<string, unknown>> = {}) {
 
 // ──────────────── updateSkill ────────────────
 
-test("updateSkill — patches enabled+mode, updates updated_at", () => {
+test("updateSkill — patches enabled+mode, updates updated_at", async () => {
   const id = seedSkill({ enabled: 1, mode: "auto" });
 
   // Act
-  const changed = skillsMod.updateSkill(id, { enabled: 0, mode: "off" });
+  const changed = await skillsMod.updateSkill(id, { enabled: 0, mode: "off" });
 
   assert.equal(changed, 1, "should affect 1 row");
 
@@ -74,10 +74,10 @@ test("updateSkill — patches enabled+mode, updates updated_at", () => {
   assert.equal(row.mode, "off");
 });
 
-test("updateSkill — only mode provided keeps enabled consistent", () => {
+test("updateSkill — only mode provided keeps enabled consistent", async () => {
   const id = seedSkill({ enabled: 0, mode: "off" });
 
-  skillsMod.updateSkill(id, { mode: "on" });
+  await skillsMod.updateSkill(id, { mode: "on" });
 
   const db = core.getDbInstance();
   const row = db.prepare("SELECT enabled, mode FROM skills WHERE id = ?").get(id) as {
@@ -87,37 +87,40 @@ test("updateSkill — only mode provided keeps enabled consistent", () => {
   assert.equal(row.mode, "on");
 });
 
-test("updateSkill — unknown columns are silently ignored (allowlist guard)", () => {
+test("updateSkill — unknown columns are silently ignored (allowlist guard)", async () => {
   const id = seedSkill({ enabled: 1, mode: "auto" });
 
   // Inject an unknown key; this must NOT throw or produce SQL with an injected column.
   const patch = { enabled: 0, "'; DROP TABLE skills; --": 1 } as Record<string, unknown>;
   // Cast via any to bypass TS type — testing the runtime allowlist
-  const changed = skillsMod.updateSkill(id, patch as Parameters<typeof skillsMod.updateSkill>[1]);
+  const changed = await skillsMod.updateSkill(
+    id,
+    patch as Parameters<typeof skillsMod.updateSkill>[1]
+  );
   assert.equal(changed, 1, "should still apply the known field");
 
   const db = core.getDbInstance();
-  const tableExists = db
+  const tableExists = await db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='skills'")
     .get();
   assert.ok(tableExists, "skills table must still exist after attempted injection");
 });
 
-test("updateSkill — empty patch (all unknown columns) returns 0 changes", () => {
+test("updateSkill — empty patch (all unknown columns) returns 0 changes", async () => {
   const id = seedSkill();
   const patch = { unknownField: "x" } as Parameters<typeof skillsMod.updateSkill>[1];
-  const changed = skillsMod.updateSkill(id, patch);
+  const changed = await skillsMod.updateSkill(id, patch);
   assert.equal(changed, 0);
 });
 
-test("updateSkill — non-existent id returns 0 changes", () => {
-  const changed = skillsMod.updateSkill("non-existent-id", { enabled: 1 });
+test("updateSkill — non-existent id returns 0 changes", async () => {
+  const changed = await skillsMod.updateSkill("non-existent-id", { enabled: 1 });
   assert.equal(changed, 0);
 });
 
 // ──────────────── exportAllSummaryRows ────────────────
 
-test("exportAllSummaryRows — returns key_value rows", () => {
+test("exportAllSummaryRows — returns key_value rows", async () => {
   const db = core.getDbInstance();
   // key_value schema: namespace TEXT, key TEXT, value TEXT — PK is (namespace, key)
   db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
@@ -126,13 +129,13 @@ test("exportAllSummaryRows — returns key_value rows", () => {
     "hello-value"
   );
 
-  const { settings } = backupMod.exportAllSummaryRows();
+  const { settings } = await backupMod.exportAllSummaryRows();
 
   // exportAllSummaryRows does "SELECT key, value FROM key_value" (all namespaces)
   assert.equal(settings["test.export.key"], "hello-value", "settings must contain seeded key");
 });
 
-test("exportAllSummaryRows — returns combos rows", () => {
+test("exportAllSummaryRows — returns combos rows", async () => {
   const db = core.getDbInstance();
   const comboId = uniqueId("combo");
   const now = new Date().toISOString();
@@ -141,7 +144,7 @@ test("exportAllSummaryRows — returns combos rows", () => {
     `INSERT INTO combos (id, name, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
   ).run(comboId, "export-test-combo", "{}", now, now);
 
-  const { combos } = backupMod.exportAllSummaryRows();
+  const { combos } = await backupMod.exportAllSummaryRows();
 
   assert.ok(
     (combos as Array<{ id: string }>).some((c) => c.id === comboId),
@@ -149,7 +152,7 @@ test("exportAllSummaryRows — returns combos rows", () => {
   );
 });
 
-test("exportAllSummaryRows — returns provider_connections rows (no credentials)", () => {
+test("exportAllSummaryRows — returns provider_connections rows (no credentials)", async () => {
   const db = core.getDbInstance();
   const connId = uniqueId("conn");
   const now = new Date().toISOString();
@@ -159,11 +162,9 @@ test("exportAllSummaryRows — returns provider_connections rows (no credentials
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(connId, "openai", "My Key", "api_key", 1, "test@example.com", now, now);
 
-  const { providers } = backupMod.exportAllSummaryRows();
+  const { providers } = await backupMod.exportAllSummaryRows();
 
-  const found = (providers as Array<{ id: string; provider: string }>).find(
-    (p) => p.id === connId
-  );
+  const found = (providers as Array<{ id: string; provider: string }>).find((p) => p.id === connId);
   assert.ok(found, "providers must include seeded row");
   assert.equal(found?.provider, "openai");
   // Sensitive credential columns must NOT be exported — the query only selects
@@ -172,7 +173,7 @@ test("exportAllSummaryRows — returns provider_connections rows (no credentials
   assert.ok(!("oauth_token" in (found as object)), "oauth_token column must not be exported");
 });
 
-test("exportAllSummaryRows — returns api_keys rows (masked prefix only)", () => {
+test("exportAllSummaryRows — returns api_keys rows (masked prefix only)", async () => {
   const db = core.getDbInstance();
   const keyId = uniqueId("apikey");
   const fullKey = "sk-supersecretvalue123456";
@@ -182,7 +183,7 @@ test("exportAllSummaryRows — returns api_keys rows (masked prefix only)", () =
      VALUES (?, ?, ?, datetime('now'))`
   ).run(keyId, "export-test-key", fullKey);
 
-  const { apiKeys } = backupMod.exportAllSummaryRows();
+  const { apiKeys } = await backupMod.exportAllSummaryRows();
 
   const found = (apiKeys as Array<{ id: string; prefix?: string }>).find((k) => k.id === keyId);
   assert.ok(found, "apiKeys must include seeded row");
@@ -209,8 +210,8 @@ test("getTableNamesFromAdapter — returns table names from the live db adapter"
 
 // ──────────────── countImportedRows ────────────────
 
-test("countImportedRows — returns correct non-negative counts", () => {
-  const counts = backupMod.countImportedRows();
+test("countImportedRows — returns correct non-negative counts", async () => {
+  const counts = await backupMod.countImportedRows();
 
   // Counts must be non-negative integers (we can't assert exact values since
   // other tests may have inserted rows, but we verify the shape).
@@ -222,9 +223,9 @@ test("countImportedRows — returns correct non-negative counts", () => {
 
 // ──────────────── Teardown ────────────────
 
-test.after(() => {
+test.after(async () => {
   try {
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
   } catch {
     /* best effort */
   }

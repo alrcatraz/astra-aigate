@@ -67,20 +67,22 @@ function exactNearestIds(query: number[], k: number): string[] {
     .map((x) => x.id);
 }
 
-function cleanup() {
+async function cleanup() {
   _resetVectorStoreSingleton();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => {
+test.afterEach(async () => {
   delete process.env.MEMORY_VEC_QUANTIZATION;
-  cleanup();
+  await cleanup();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -97,7 +99,7 @@ function getStoreOrSkip(t: { skip: (msg: string) => void }): ReturnType<typeof g
 function insertMemory(db: ReturnType<typeof core.getDbInstance>, id: string) {
   db.prepare(
     `INSERT INTO memories (id, api_key_id, type, key, content, created_at)
-     VALUES (?, 'key1', 'factual', ?, ?, datetime('now'))`,
+     VALUES (?, 'key1', 'factual', ?, ?, datetime('now'))`
   ).run(id, `key-${id}`, `content-${id}`);
 }
 
@@ -119,7 +121,7 @@ test("int8 mode: ensureReady stores an ':int8' signature", async (t) => {
   const stats = await store.stats();
   assert.ok(
     stats.signature?.endsWith(":int8"),
-    `signature must carry the int8 marker, got ${stats.signature}`,
+    `signature must carry the int8 marker, got ${stats.signature}`
   );
 });
 
@@ -139,9 +141,12 @@ test("int8 recall: nearest-neighbor matches exact float32 NN on the fixture", as
   assert.equal(hits[0].memoryId, exact[0], `top-1 must match exact NN (${exact[0]})`);
 
   const overlap = hits.slice(0, 3).filter((h) => exact.includes(h.memoryId)).length;
-  assert.ok(overlap >= 2, `top-3 overlap must be >= 2/3 (got ${overlap}; int8=${hits
-    .map((h) => h.memoryId)
-    .join(",")} exact=${exact.join(",")})`);
+  assert.ok(
+    overlap >= 2,
+    `top-3 overlap must be >= 2/3 (got ${overlap}; int8=${hits
+      .map((h) => h.memoryId)
+      .join(",")} exact=${exact.join(",")})`
+  );
 });
 
 test("switching none → int8 is a signature change that triggers reindex", async (t) => {

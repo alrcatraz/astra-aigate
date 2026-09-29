@@ -14,9 +14,11 @@ const { migrateCodexConnectionDefaultsFromLegacySettings } =
   await import("../../src/lib/providers/codexConnectionDefaults.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -24,7 +26,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -150,8 +152,7 @@ test("migration does not treat explicit default global tier as legacy fast", asy
 
   assert.equal(firstRun.legacyFastEnabled, false);
   const providerSpecificData = byId.get(created.id)?.providerSpecificData as
-    | { requestDefaults?: unknown }
-    | undefined;
+    { requestDefaults?: unknown } | undefined;
   assert.deepEqual(providerSpecificData?.requestDefaults, {
     reasoningEffort: "medium",
   });

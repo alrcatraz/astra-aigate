@@ -375,7 +375,8 @@ test("getDbInstance creates sqlite schema, metadata and applies migrations", ser
           .get("version_manager")
       );
 
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
+      await core.awaitDbMigrations();
     });
   } finally {
     removePath(dataDir);
@@ -399,7 +400,8 @@ test("getDbInstance reuses the singleton and closeDbInstance resets it", serial,
       const reopenedDb = core.getDbInstance();
       assert.notStrictEqual(reopenedDb, firstDb);
 
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
+      await core.awaitDbMigrations();
     });
   } finally {
     removePath(dataDir);
@@ -496,7 +498,8 @@ test("build phase uses an in-memory database without creating sqlite files", ser
         assert.equal(fs.existsSync(path.join(dataDir, "storage.sqlite")), false);
         assert.equal(db.pragma("journal_mode", { simple: true }), "memory");
 
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       }
     );
   } finally {
@@ -504,35 +507,39 @@ test("build phase uses an in-memory database without creating sqlite files", ser
   }
 });
 
-test("invalid DATA_DIR (a file where a dir is expected) surfaces as a startup failure", serial, async () => {
-  const sandboxDir = makeTempDir("omniroute-db-bad-path-");
-  const fileAsDir = path.join(sandboxDir, "not-a-directory");
-  fs.writeFileSync(fileAsDir, "blocked");
+test(
+  "invalid DATA_DIR (a file where a dir is expected) surfaces as a startup failure",
+  serial,
+  async () => {
+    const sandboxDir = makeTempDir("omniroute-db-bad-path-");
+    const fileAsDir = path.join(sandboxDir, "not-a-directory");
+    fs.writeFileSync(fileAsDir, "blocked");
 
-  try {
-    // Since #4767, db/core.ts resolves a writable data dir at module load via
-    // resolveWritableDataDir() → mkdirSync(recursive). Pointing DATA_DIR at a
-    // regular file is a non-permission misconfiguration (EEXIST/ENOTDIR), which
-    // resolveWritableDataDir rethrows by design (only EACCES/EPERM fall back), so
-    // the failure now surfaces at import time, not lazily from getDbInstance().
-    let caught: unknown;
-    await withEnv({ DATA_DIR: fileAsDir }, () => importFresh("src/lib/db/core.ts")).then(
-      () => {
-        throw new Error("expected importing db/core with an invalid DATA_DIR to reject");
-      },
-      (err) => {
-        caught = err;
-      }
-    );
-    assert.ok(caught instanceof Error, "an invalid DATA_DIR must surface as a thrown Error");
-    assert.match(
-      String((caught as Error).message),
-      /unable to open database file|ENOTDIR|EEXIST|not a directory|file already exists/i
-    );
-  } finally {
-    removePath(sandboxDir);
+    try {
+      // Since #4767, db/core.ts resolves a writable data dir at module load via
+      // resolveWritableDataDir() → mkdirSync(recursive). Pointing DATA_DIR at a
+      // regular file is a non-permission misconfiguration (EEXIST/ENOTDIR), which
+      // resolveWritableDataDir rethrows by design (only EACCES/EPERM fall back), so
+      // the failure now surfaces at import time, not lazily from getDbInstance().
+      let caught: unknown;
+      await withEnv({ DATA_DIR: fileAsDir }, () => importFresh("src/lib/db/core.ts")).then(
+        () => {
+          throw new Error("expected importing db/core with an invalid DATA_DIR to reject");
+        },
+        (err) => {
+          caught = err;
+        }
+      );
+      assert.ok(caught instanceof Error, "an invalid DATA_DIR must surface as a thrown Error");
+      assert.match(
+        String((caught as Error).message),
+        /unable to open database file|ENOTDIR|EEXIST|not a directory|file already exists/i
+      );
+    } finally {
+      removePath(sandboxDir);
+    }
   }
-});
+);
 
 test(
   "legacy empty schema databases are renamed before a fresh sqlite database is created",
@@ -560,7 +567,8 @@ test(
           undefined
         );
 
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       });
     } finally {
       removePath(dataDir);
@@ -604,7 +612,8 @@ test(
             .get("last_used_at")
         );
 
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       });
     } finally {
       removePath(dataDir);
@@ -678,7 +687,8 @@ test(
           { maxConcurrent: 2 }
         );
 
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       });
     } finally {
       removePath(dataDir);
@@ -735,7 +745,8 @@ test(
             .get("idx_cl_combo_target")
         );
 
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       });
     } finally {
       removePath(dataDir);
@@ -791,7 +802,8 @@ test(
         );
         assert.equal(listProbeFailedBackups(sqliteFile).length >= 1, true);
 
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       });
     } finally {
       Database.prototype.prepare = originalPrepare;
@@ -837,7 +849,8 @@ test(
         assert.equal(fs.existsSync(newerBackup), false);
         assert.equal(fs.existsSync(olderBackup), true);
 
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       });
     } finally {
       removePath(dataDir);
@@ -867,7 +880,8 @@ test(
           /Manual recovery required after probe failure/i
         );
         assert.equal(fs.existsSync(sqliteFile), false);
-        core.resetDbInstance();
+        await core.resetDbInstanceDrained();
+        await core.awaitDbMigrations();
       });
     } finally {
       removePath(dataDir);

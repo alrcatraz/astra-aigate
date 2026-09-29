@@ -112,12 +112,12 @@ test("parseOpenapi() returns paths Map with all operations from fixture", () => 
   }
 });
 
-test("parseOpenapi() groups /api/providers/* under 'providers' area", () => {
+test("parseOpenapi() groups /api/providers/* under 'providers' area", async () => {
   const { cleanup } = withFixtureOpenapi(FIXTURE_YAML);
   try {
     const { areas } = parseOpenapi();
 
-    const providerOps = areas.get("providers");
+    const providerOps = await areas.get("providers");
     assert.ok(providerOps, "Expected 'providers' area to exist");
     assert.ok(
       providerOps!.length >= 5,
@@ -133,11 +133,11 @@ test("parseOpenapi() groups /api/providers/* under 'providers' area", () => {
   }
 });
 
-test("parseOpenapi() groups /api/keys/* under 'api-keys' area", () => {
+test("parseOpenapi() groups /api/keys/* under 'api-keys' area", async () => {
   const { cleanup } = withFixtureOpenapi(FIXTURE_YAML);
   try {
     const { areas } = parseOpenapi();
-    const keyOps = areas.get("api-keys");
+    const keyOps = await areas.get("api-keys");
     assert.ok(keyOps, "Expected 'api-keys' area to exist");
     assert.ok(keyOps!.length >= 2, `Expected at least 2 key endpoints, got ${keyOps!.length}`);
   } finally {
@@ -145,11 +145,11 @@ test("parseOpenapi() groups /api/keys/* under 'api-keys' area", () => {
   }
 });
 
-test("parseOpenapi() groups /api/v1/* under 'inference' area", () => {
+test("parseOpenapi() groups /api/v1/* under 'inference' area", async () => {
   const { cleanup } = withFixtureOpenapi(FIXTURE_YAML);
   try {
     const { areas } = parseOpenapi();
-    const inferenceOps = areas.get("inference");
+    const inferenceOps = await areas.get("inference");
     assert.ok(inferenceOps, "Expected 'inference' area to exist");
     assert.ok(
       inferenceOps!.length >= 1,
@@ -220,11 +220,11 @@ const SKIP_REAL = process.env.SKIP_REAL_OPENAPI === "1";
 test(
   "parseOpenapi() with real openapi.yaml: providers area has ≥5 endpoints",
   { skip: SKIP_REAL ? "SKIP_REAL_OPENAPI=1" : false },
-  () => {
+  async () => {
     // This test runs from the project root (the worktree).
     // It will fail if openapi.yaml doesn't exist — that's intentional.
     const { areas } = parseOpenapi();
-    const providerOps = areas.get("providers");
+    const providerOps = await areas.get("providers");
     assert.ok(providerOps, "Expected 'providers' area in real OpenAPI spec");
     assert.ok(
       providerOps!.length >= 5,

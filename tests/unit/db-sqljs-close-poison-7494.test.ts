@@ -22,19 +22,16 @@ test(
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-7494-mech-"));
     const sqliteFile = path.join(dataDir, "storage.sqlite");
     try {
-      const { preInitSqlJs, getSqlJsAdapter } = await import(
-        "../../src/lib/db/adapters/driverFactory"
-      );
+      const { preInitSqlJs, getSqlJsAdapter } =
+        await import("../../src/lib/db/adapters/driverFactory");
 
       const boot = await preInitSqlJs(sqliteFile);
       boot.exec("CREATE TABLE t (id INTEGER)");
       boot.exec("INSERT INTO t (id) VALUES (1)");
 
       const probe = getSqlJsAdapter(sqliteFile);
-      probe!
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
-        )
+      await probe!
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
         .get();
       probe!.close();
 
@@ -59,9 +56,8 @@ test(
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-7494-guard-"));
     const sqliteFile = path.join(dataDir, "storage.sqlite");
     try {
-      const { preInitSqlJs, getSqlJsAdapter } = await import(
-        "../../src/lib/db/adapters/driverFactory"
-      );
+      const { preInitSqlJs, getSqlJsAdapter } =
+        await import("../../src/lib/db/adapters/driverFactory");
       const { closeProbeIfSafe } = await import("../../src/lib/db/core");
 
       const boot = await preInitSqlJs(sqliteFile);
@@ -71,10 +67,8 @@ test(
       // Simulate getDbInstance()'s probe step: inspect schema, then "close" via
       // the guarded helper instead of a raw .close() call.
       const probe = getSqlJsAdapter(sqliteFile);
-      probe!
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
-        )
+      await probe!
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
         .get();
       closeProbeIfSafe(probe);
 

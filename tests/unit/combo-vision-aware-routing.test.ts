@@ -34,24 +34,32 @@ import path from "node:path";
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-combo-vision-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
-const core = await import("../../src/lib/db/core.ts");
 const { getResolvedModelCapabilities } = await import("../../src/lib/modelCapabilities.ts");
 const { filterTargetsByRequestCompatibility } = await import("../../open-sse/services/combo.ts");
 
 test.after(() => {
-  core.resetDbInstance();
-  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  // Best-effort temp-dir cleanup only: node:test runs one process per file, and
+  // resetDbInstance() while capability reads are still in flight surfaces a
+  // "database table is locked" unhandled rejection after the tests have passed.
+  try {
+    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  } catch {
+    // ignore
+  }
 });
 
 // --- Part A: capability resolution -----------------------------------------
 
-test("Pixtral resolves supportsVision=true via model-id heuristic (no synced data)", () => {
-  assert.equal(getResolvedModelCapabilities("mistral/pixtral-12b-latest").supportsVision, true);
+test("Pixtral resolves supportsVision=true via model-id heuristic (no synced data)", async () => {
+  assert.equal(
+    (await getResolvedModelCapabilities("mistral/pixtral-12b-latest")).supportsVision,
+    true
+  );
 });
 
-test("a text-only Mistral model is NOT a vision false-positive", () => {
+test("a text-only Mistral model is NOT a vision false-positive", async () => {
   assert.notEqual(
-    getResolvedModelCapabilities("mistral/ministral-14b-latest").supportsVision,
+    (await getResolvedModelCapabilities("mistral/ministral-14b-latest")).supportsVision,
     true
   );
 });
@@ -89,8 +97,8 @@ const imageBody = {
   ],
 };
 
-test("image request: combo drops the non-vision target, keeps the vision target", () => {
-  const out = filterTargetsByRequestCompatibility(
+test("image request: combo drops the non-vision target, keeps the vision target", async () => {
+  const out = await filterTargetsByRequestCompatibility(
     [target("mistral/pixtral-12b-latest"), target("mistral/ministral-14b-latest")],
     imageBody,
     noopLog
@@ -103,8 +111,8 @@ test("image request: combo drops the non-vision target, keeps the vision target"
 test(
   "image request with NO confirmed-vision target: strip all (#8332 — never dispatch " +
     "an image body to a confirmed-non-vision target, even as a last resort)",
-  () => {
-    const out = filterTargetsByRequestCompatibility(
+  async () => {
+    const out = await filterTargetsByRequestCompatibility(
       [target("mistral/ministral-14b-latest"), target("groq/llama-3.1-8b-instant")],
       imageBody,
       noopLog
@@ -118,8 +126,8 @@ test(
   }
 );
 
-test("text-only request: targets are untouched by the vision filter", () => {
-  const out = filterTargetsByRequestCompatibility(
+test("text-only request: targets are untouched by the vision filter", async () => {
+  const out = await filterTargetsByRequestCompatibility(
     [target("mistral/ministral-14b-latest")],
     { messages: [{ role: "user", content: "hello" }] },
     noopLog
@@ -127,8 +135,8 @@ test("text-only request: targets are untouched by the vision filter", () => {
   assert.equal(out.length, 1);
 });
 
-test("large output request: unknown maxOutputTokens does not filter a target", () => {
-  const out = filterTargetsByRequestCompatibility(
+test("large output request: unknown maxOutputTokens does not filter a target", async () => {
+  const out = await filterTargetsByRequestCompatibility(
     [target("openai-compatible-local/custom-large-output-model"), target("openai/gpt-4o-mini")],
     { messages: [{ role: "user", content: "hello" }], max_tokens: 32000 },
     noopLog

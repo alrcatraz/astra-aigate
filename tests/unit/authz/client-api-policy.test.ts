@@ -18,8 +18,8 @@ const ORIGINAL_ROUTER_API_KEY = process.env.ROUTER_API_KEY;
 const ORIGINAL_JWT_SECRET = process.env.JWT_SECRET;
 const ORIGINAL_REQUIRE_API_KEY = process.env.REQUIRE_API_KEY;
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
@@ -27,10 +27,12 @@ function resetStorage() {
   delete process.env.ROUTER_API_KEY;
   delete process.env.JWT_SECRET;
   process.env.REQUIRE_API_KEY = "true";
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
 test.after(() => {

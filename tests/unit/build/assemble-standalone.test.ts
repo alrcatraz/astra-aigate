@@ -11,7 +11,7 @@ import {
 } from "../../../scripts/build/assembleStandalone.mjs";
 
 /** Recursively list relative file paths under dir (forward-slash normalised). */
-function listFiles(dir: string, rootDir: string = dir, out: string[] = []): string[] {
+async function listFiles(dir: string, rootDir: string = dir, out: string[] = []): string[] {
   let entries: string[] = [];
   try {
     entries = fs.readdirSync(dir);
@@ -21,7 +21,7 @@ function listFiles(dir: string, rootDir: string = dir, out: string[] = []): stri
   for (const entry of entries) {
     const full = path.join(dir, entry);
     if (fs.statSync(full).isDirectory()) {
-      listFiles(full, rootDir, out);
+      await listFiles(full, rootDir, out);
     } else {
       out.push(path.relative(rootDir, full).replace(/\\/g, "/"));
     }
@@ -146,7 +146,7 @@ test("async and sync sidecar copy paths produce identical bundle trees", async (
     copyNatives: true,
   });
 
-  const asyncTree = listFiles(outAsync);
+  const asyncTree = await listFiles(outAsync);
   // The sync path also copies the standalone server.js + patches package.json; compare only
   // the sidecar files the two paths share (drop server.js which is unique to assembleStandalone).
   const syncTree = listFiles(outSync).filter((f) => f !== "server.js");

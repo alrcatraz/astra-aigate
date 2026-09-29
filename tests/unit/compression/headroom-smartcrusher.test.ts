@@ -109,13 +109,20 @@ describe("tabular encoder round-trip", () => {
     // A null nested object must not be flattened (its leaves would encode absent and
     // unflatten to a missing key). These must all survive as null, not disappear.
     const cases: Record<string, unknown>[][] = [
-      [{ id: 0, meta: { a: 1, b: 2 } }, { id: 1, meta: null }, { id: 2, meta: { a: 3, b: 4 } }],
+      [
+        { id: 0, meta: { a: 1, b: 2 } },
+        { id: 1, meta: null },
+        { id: 2, meta: { a: 3, b: 4 } },
+      ],
       [
         { id: 0, meta: { owner: { name: "a" } } },
         { id: 1, meta: { owner: null } },
         { id: 2, meta: { owner: { name: "c" } } },
       ],
-      [{ id: 0, o: { p: { team: { x: 1 } } } }, { id: 1, o: { p: { team: null } } }],
+      [
+        { id: 0, o: { p: { team: { x: 1 } } } },
+        { id: 1, o: { p: { team: null } } },
+      ],
     ];
     for (const original of cases) {
       assert.deepEqual(decodeTabular(encodeTabular(original)), original);
@@ -151,8 +158,7 @@ describe("tabular codec — prototype-pollution safety", () => {
 
   it("does not pollute or throw when decoding hostile GCF with a >__proto__> path column", async () => {
     const hostile =
-      "```gcf-generic\nGCF profile=generic\n" +
-      '## [1]{id,"a>__proto__>polluted"}\n@0 0|1\n```';
+      "```gcf-generic\nGCF profile=generic\n" + '## [1]{id,"a>__proto__>polluted"}\n@0 0|1\n```';
     decodeTabular(hostile);
     assert.equal(({} as Record<string, unknown>).polluted, undefined);
   });
@@ -176,7 +182,7 @@ describe("headroomEngine.apply — compression", () => {
     const rows = makeRows(20);
     const body = makeBody(rows);
 
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true, "should be flagged as compressed");
 
     const origLen = JSON.stringify(body).length;
@@ -192,7 +198,7 @@ describe("headroomEngine.apply — compression", () => {
     const rows = makeRows(20);
     const body = makeBody(rows);
 
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true);
 
     // The compressed body messages content contains the tabular block. We restore using decodeTabular.
@@ -209,7 +215,7 @@ describe("headroomEngine.apply — compression", () => {
     const rows = makeRows(20);
     const body = makeBody(rows);
 
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true);
     assert.ok(result.stats !== null, "stats should not be null");
     assert.ok(
@@ -223,7 +229,7 @@ describe("headroomEngine.apply — compression", () => {
     const rows = makeRows(n);
     const body = makeBody(rows);
 
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true);
 
     const bodyStr = JSON.stringify(result.body);
@@ -235,7 +241,7 @@ describe("headroomEngine.apply — compression", () => {
     const rows = makeRows(20);
     const body = makeBody(rows, { asJsonFence: true });
 
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true);
     const origLen = JSON.stringify(body).length;
     const compLen = JSON.stringify(result.body).length;
@@ -257,7 +263,7 @@ describe("headroomEngine.apply — conservative guards (no regression)", () => {
       ...Array.from({ length: 10 }, (_, i) => ({ key: i, label: `l${i}`, extra: true })),
     ];
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     // GCF encodes heterogeneous arrays with union of all keys
     assert.equal(result.compressed, true, "heterogeneous array should be compressed by GCF");
   });
@@ -265,7 +271,7 @@ describe("headroomEngine.apply — conservative guards (no regression)", () => {
   it("does NOT compress a tiny array below minRows (< default 8)", async () => {
     const rows = makeRows(5);
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, false, "tiny array should NOT be compressed");
     assert.deepEqual(result.body, body);
   });
@@ -279,7 +285,7 @@ describe("headroomEngine.apply — conservative guards (no regression)", () => {
         { role: "user", content: "hello" },
       ],
     };
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     // The system message should be untouched regardless of outcome
     const resultMsgs = result.body["messages"] as Array<Record<string, unknown>>;
     const systemMsg = resultMsgs[0];
@@ -292,7 +298,7 @@ describe("headroomEngine.apply — conservative guards (no regression)", () => {
       model: "test-model",
       messages: [{ role: "user", content }],
     };
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, false, "plain object JSON should NOT be compressed");
     assert.deepEqual(result.body, body);
   });
@@ -301,7 +307,7 @@ describe("headroomEngine.apply — conservative guards (no regression)", () => {
     // Very short rows with single-char values — tabular overhead won't save space
     const rows: Record<string, unknown>[] = Array.from({ length: 8 }, (_, i) => ({ a: i }));
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     // This might or might not compress depending on actual sizes; key requirement is
     // compressed:false when tabular is NOT smaller, and body unchanged in that case.
     if (!result.compressed) {
@@ -340,7 +346,7 @@ describe("engine registry", () => {
   it("compress delegates to apply", async () => {
     const rows = makeRows(20);
     const body = makeBody(rows);
-    const r1 = headroomEngine.apply(body);
+    const r1 = await headroomEngine.apply(body);
     const r2 = headroomEngine.compress(body);
     assert.equal(r1.compressed, r2.compressed);
   });
@@ -364,7 +370,7 @@ describe("headroomEngine — losslessness on mixed-type columns (regression)", (
       name: `row-${i + 1}`,
     }));
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     const restored = await reconstruct(result.body);
     assert.deepEqual(restored, body, "nullable column must round-trip without data loss");
   });
@@ -375,7 +381,7 @@ describe("headroomEngine — losslessness on mixed-type columns (regression)", (
       mixed: i % 2 === 0 ? i : `str-${i}`,
     }));
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     const restored = await reconstruct(result.body);
     assert.deepEqual(restored, body, "mixed-type column must round-trip without data loss");
   });
@@ -399,7 +405,7 @@ describe("GCF encoding — advanced capabilities", () => {
       })),
     ];
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true, "heterogeneous array should be compressed");
     const restored = await reconstruct(result.body);
     assert.deepEqual(restored, body, "heterogeneous array must round-trip losslessly");
@@ -412,7 +418,7 @@ describe("GCF encoding — advanced capabilities", () => {
       metadata: { category: `cat-${i % 3}`, priority: i % 5 },
     }));
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true, "nested objects should be compressed");
     const restored = await reconstruct(result.body);
     assert.deepEqual(restored, body, "nested objects must round-trip losslessly");
@@ -427,7 +433,7 @@ describe("GCF encoding — advanced capabilities", () => {
       scores: [i * 10, i * 20, i * 30],
     }));
     const body = makeBody(rows);
-    const result = headroomEngine.apply(body);
+    const result = await headroomEngine.apply(body);
     assert.equal(result.compressed, true, "nested arrays should be compressed");
     const restored = await reconstruct(result.body);
     assert.deepEqual(restored, body, "nested arrays must round-trip losslessly");

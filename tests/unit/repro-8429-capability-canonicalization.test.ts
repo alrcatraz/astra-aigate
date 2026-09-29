@@ -13,35 +13,52 @@ const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
 
 function buildCapability(overrides: Record<string, unknown> = {}) {
   return {
-    tool_call: null, reasoning: null, attachment: null, structured_output: null,
-    temperature: null, modalities_input: "[]", modalities_output: "[]",
-    knowledge_cutoff: null, release_date: null, last_updated: null, status: null,
-    family: null, open_weights: null, limit_context: null, limit_input: null,
-    limit_output: null, interleaved_field: null, ...overrides,
+    tool_call: null,
+    reasoning: null,
+    attachment: null,
+    structured_output: null,
+    temperature: null,
+    modalities_input: "[]",
+    modalities_output: "[]",
+    knowledge_cutoff: null,
+    release_date: null,
+    last_updated: null,
+    status: null,
+    family: null,
+    open_weights: null,
+    limit_context: null,
+    limit_input: null,
+    limit_output: null,
+    interleaved_field: null,
+    ...overrides,
   };
 }
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => { resetStorage(); });
-test.after(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await resetStorage();
+});
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#8429: synced model_capabilities row written under models.dev mapping is unreachable via the canonical 'codex' provider id", () => {
-  modelsDevSync.saveModelsDevCapabilities({
+test("#8429: synced model_capabilities row written under models.dev mapping is unreachable via the canonical 'codex' provider id", async () => {
+  await modelsDevSync.saveModelsDevCapabilities({
     openai: { "gpt-6-codex-preview": buildCapability({ tool_call: false }) },
     cx: { "gpt-6-codex-preview": buildCapability({ tool_call: false }) },
   });
-  const viaAlias = modelsDevSync.getSyncedCapability("cx", "gpt-6-codex-preview");
+  const viaAlias = await modelsDevSync.getSyncedCapability("cx", "gpt-6-codex-preview");
   assert.equal(viaAlias?.tool_call, false, "row must exist under the alias 'cx'");
 
-  const resolved = modelCapabilities.getResolvedModelCapabilities({
+  const resolved = await modelCapabilities.getResolvedModelCapabilities({
     provider: "codex",
     model: "gpt-6-codex-preview",
   });
@@ -53,15 +70,15 @@ test("#8429: synced model_capabilities row written under models.dev mapping is u
   );
 });
 
-test("#8429: synced model_capabilities row is unreachable via the canonical 'claude' provider id (same class, alias 'cc')", () => {
-  modelsDevSync.saveModelsDevCapabilities({
+test("#8429: synced model_capabilities row is unreachable via the canonical 'claude' provider id (same class, alias 'cc')", async () => {
+  await modelsDevSync.saveModelsDevCapabilities({
     anthropic: { "claude-preview-9-9": buildCapability({ tool_call: false }) },
     cc: { "claude-preview-9-9": buildCapability({ tool_call: false }) },
   });
-  const viaAlias = modelsDevSync.getSyncedCapability("cc", "claude-preview-9-9");
+  const viaAlias = await modelsDevSync.getSyncedCapability("cc", "claude-preview-9-9");
   assert.equal(viaAlias?.tool_call, false, "row must exist under the alias 'cc'");
 
-  const resolved = modelCapabilities.getResolvedModelCapabilities({
+  const resolved = await modelCapabilities.getResolvedModelCapabilities({
     provider: "claude",
     model: "claude-preview-9-9",
   });

@@ -30,11 +30,13 @@ async function resetStorage() {
   process.env.INITIAL_PASSWORD = "bootstrap-password";
   process.env.JWT_SECRET = "cloud-write-auth-jwt";
   process.env.API_KEY_SECRET = "cloud-write-auth-api-key-secret";
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   localDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   await localDb.updateSettings({ requireLogin: true, password: "" });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function createKey(scopes: string[] = []): Promise<ApiKeyRecord> {
@@ -133,7 +135,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   localDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });

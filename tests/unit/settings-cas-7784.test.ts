@@ -20,14 +20,16 @@ const core = await import("../../src/lib/db/core.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const settingsRoute = await import("../../src/app/api/settings/route.ts");
 
-beforeEach(() => {
-  core.resetDbInstance();
+beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-after(() => {
-  core.resetDbInstance();
+after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -149,7 +151,10 @@ describe("#7784 settings optimistic concurrency", () => {
       () => settingsDb.updateSettings({ debugMode: false }, { expectedRevision: revision }),
       (err: unknown) => {
         assert.ok(err instanceof settingsDb.SettingsRevisionConflictError);
-        assert.equal((err as settingsDb.SettingsRevisionConflictError).currentRevision, revision + 1);
+        assert.equal(
+          (err as settingsDb.SettingsRevisionConflictError).currentRevision,
+          revision + 1
+        );
         return true;
       }
     );

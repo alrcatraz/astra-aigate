@@ -18,10 +18,12 @@ const schemas = await import("../../src/shared/validation/schemas/reasoningRouti
 
 async function resetStorage() {
   apiKeysDb.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   rulesDb.invalidateReasoningRoutingRuleCache();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function ruleInput(

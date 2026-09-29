@@ -31,9 +31,11 @@ const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
 const providerModelsRoute = await import("../../src/app/api/provider-models/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -41,7 +43,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -88,7 +90,7 @@ test("PUT with contextWindowOverride persists a manual override that wins over t
 
   // getModelContextLimit is what combo.ts's context-window filter reads — the
   // manual override must win over the (wrong) 1M value on the custom-model row.
-  const limit = modelCapabilities.getModelContextLimit(
+  const limit = await modelCapabilities.getModelContextLimit(
     "openai-compatible-demo",
     "misreported-model"
   );
@@ -103,7 +105,11 @@ test("GET surfaces contextWindowOverride on the custom model row", async () => {
     new Request("http://localhost/api/provider-models?provider=openai-compatible-demo")
   );
   const body = (await getRes.json()) as {
-    models: Array<{ id?: string; contextWindowOverride?: number; contextWindowOverrideSource?: string }>;
+    models: Array<{
+      id?: string;
+      contextWindowOverride?: number;
+      contextWindowOverrideSource?: string;
+    }>;
   };
 
   const row = body.models.find((m) => m.id === "m1");
@@ -131,7 +137,7 @@ test("PUT with contextWindowOverride: null clears a previously set override", as
 
 test("default behavior unchanged: no override means getModelContextLimit falls back to the catalog", async () => {
   await modelsDb.addCustomModel("openai-compatible-demo", "m3", "M3");
-  const limit = modelCapabilities.getModelContextLimit("openai-compatible-demo", "m3");
+  const limit = await modelCapabilities.getModelContextLimit("openai-compatible-demo", "m3");
   // No override, no catalog entry for this unknown custom model → null (not dropped
   // by the combo prefilter, which treats unknown context as "include to be safe").
   assert.equal(limit, null);

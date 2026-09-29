@@ -23,18 +23,20 @@ const core = await import("../../src/lib/db/core.ts");
 const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
 const builtinCatalog = await import("../../open-sse/services/autoCombo/builtinCatalog.ts");
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -113,7 +115,11 @@ test("#4189 every auto/* entry exposes token limits + baseline capabilities", as
       `${entry.id} must expose a numeric context_length`
     );
     assert.ok((entry.context_length ?? 0) > 0, `${entry.id} context_length must be positive`);
-    assert.equal(typeof entry.max_input_tokens, "number", `${entry.id} must expose max_input_tokens`);
+    assert.equal(
+      typeof entry.max_input_tokens,
+      "number",
+      `${entry.id} must expose max_input_tokens`
+    );
     assert.equal(
       typeof entry.max_output_tokens,
       "number",

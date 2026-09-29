@@ -11,15 +11,15 @@ import {
 } from "@/lib/localDb";
 
 describe("deleteBatch", () => {
-  it("should delete a single batch and its associated files", () => {
-    const inputFile = createFile({
+  it("should delete a single batch and its associated files", async () => {
+    const inputFile = await createFile({
       bytes: 10,
       filename: "single-delete-input.jsonl",
       purpose: "batch",
       content: Buffer.from("{}"),
     });
 
-    const batch = createBatch({
+    const batch = await createBatch({
       endpoint: "/v1/chat/completions",
       completionWindow: "24h",
       inputFileId: inputFile.id,
@@ -29,39 +29,39 @@ describe("deleteBatch", () => {
     assert.ok(getBatch(batch.id));
     assert.ok(getFile(inputFile.id));
 
-    const result = deleteBatch(batch.id);
+    const result = await deleteBatch(batch.id);
     assert.strictEqual(result, true);
 
     assert.strictEqual(getBatch(batch.id), null);
     assert.strictEqual(getFile(inputFile.id), null);
   });
 
-  it("should return false for a non-existent batch id", () => {
-    const result = deleteBatch("batch_nonexistent");
+  it("should return false for a non-existent batch id", async () => {
+    const result = await deleteBatch("batch_nonexistent");
     assert.strictEqual(result, false);
   });
 
-  it("should delete a batch with all three file references", () => {
-    const inputFile = createFile({
+  it("should delete a batch with all three file references", async () => {
+    const inputFile = await createFile({
       bytes: 10,
       filename: "delete-all-input.jsonl",
       purpose: "batch",
       content: Buffer.from("input"),
     });
-    const outputFile = createFile({
+    const outputFile = await createFile({
       bytes: 20,
       filename: "delete-all-output.jsonl",
       purpose: "batch",
       content: Buffer.from("output"),
     });
-    const errorFile = createFile({
+    const errorFile = await createFile({
       bytes: 30,
       filename: "delete-all-error.jsonl",
       purpose: "batch",
       content: Buffer.from("error"),
     });
 
-    const batch = createBatch({
+    const batch = await createBatch({
       endpoint: "/v1/chat/completions",
       completionWindow: "24h",
       inputFileId: inputFile.id,
@@ -74,7 +74,7 @@ describe("deleteBatch", () => {
     assert.ok(getFile(outputFile.id));
     assert.ok(getFile(errorFile.id));
 
-    const result = deleteBatch(batch.id);
+    const result = await deleteBatch(batch.id);
     assert.strictEqual(result, true);
 
     assert.strictEqual(getBatch(batch.id), null);
@@ -83,14 +83,14 @@ describe("deleteBatch", () => {
     assert.strictEqual(getFile(errorFile.id), null);
   });
 
-  it("should delete a batch whose files were already deleted", () => {
-    const f = createFile({
+  it("should delete a batch whose files were already deleted", async () => {
+    const f = await createFile({
       bytes: 10,
       filename: "already-deleted-input.jsonl",
       purpose: "batch",
       content: Buffer.from("x"),
     });
-    const batch = createBatch({
+    const batch = await createBatch({
       endpoint: "/v1/chat/completions",
       completionWindow: "24h",
       inputFileId: f.id,
@@ -98,17 +98,17 @@ describe("deleteBatch", () => {
     });
 
     // Delete the file first
-    deleteFile(f.id);
+    await deleteFile(f.id);
 
     assert.strictEqual(getFile(f.id), null);
     assert.ok(getBatch(batch.id));
 
-    const result = deleteBatch(batch.id);
+    const result = await deleteBatch(batch.id);
     assert.strictEqual(result, true);
     assert.strictEqual(getBatch(batch.id), null);
   });
 
-  it("should delete a batch regardless of status", () => {
+  it("should delete a batch regardless of status", async () => {
     for (const status of [
       "validating",
       "in_progress",
@@ -118,13 +118,13 @@ describe("deleteBatch", () => {
       "cancelled",
       "expired",
     ] as const) {
-      const f = createFile({
+      const f = await createFile({
         bytes: 10,
         filename: `delete-status-${status}.jsonl`,
         purpose: "batch",
         content: Buffer.from("x"),
       });
-      const b = createBatch({
+      const b = await createBatch({
         endpoint: "/v1/chat/completions",
         completionWindow: "24h",
         inputFileId: f.id,
@@ -143,13 +143,13 @@ describe("deleteBatch", () => {
 });
 
 describe("deleteCompletedBatches", () => {
-  it("should delete all completed batches and their associated files", () => {
+  it("should delete all completed batches and their associated files", async () => {
     // Create 3 completed batches with their own files
     const batchIds: string[] = [];
     const fileIds: string[] = [];
 
     for (let i = 0; i < 3; i++) {
-      const inputFile = createFile({
+      const inputFile = await createFile({
         bytes: 10,
         filename: `bulk-input-${i}.jsonl`,
         purpose: "batch",
@@ -157,7 +157,7 @@ describe("deleteCompletedBatches", () => {
       });
       fileIds.push(inputFile.id);
 
-      const batch = createBatch({
+      const batch = await createBatch({
         endpoint: "/v1/chat/completions",
         completionWindow: "24h",
         inputFileId: inputFile.id,
@@ -167,13 +167,13 @@ describe("deleteCompletedBatches", () => {
     }
 
     // Create a non-completed batch that should survive
-    const liveInput = createFile({
+    const liveInput = await createFile({
       bytes: 10,
       filename: "live-input.jsonl",
       purpose: "batch",
       content: Buffer.from("{}"),
     });
-    const liveBatch = createBatch({
+    const liveBatch = await createBatch({
       endpoint: "/v1/chat/completions",
       completionWindow: "24h",
       inputFileId: liveInput.id,
@@ -187,7 +187,7 @@ describe("deleteCompletedBatches", () => {
     assert.ok(getFile(liveInput.id));
 
     // Delete all completed (may include pre-existing ones from other tests)
-    const result = deleteCompletedBatches();
+    const result = await deleteCompletedBatches();
     assert.ok(result.deletedBatches >= 3, `expected >=3, got ${result.deletedBatches}`);
     assert.ok(result.deletedFiles >= 3, `expected >=3, got ${result.deletedFiles}`);
 
@@ -200,27 +200,27 @@ describe("deleteCompletedBatches", () => {
     assert.ok(getFile(liveInput.id), "non-completed batch's file should survive");
   });
 
-  it("should return zero counts when no completed batches exist", () => {
-    const result = deleteCompletedBatches();
+  it("should return zero counts when no completed batches exist", async () => {
+    const result = await deleteCompletedBatches();
     assert.strictEqual(result.deletedBatches, 0);
     assert.strictEqual(result.deletedFiles, 0);
   });
 
-  it("should handle shared file IDs across multiple completed batches", () => {
-    const sharedFile = createFile({
+  it("should handle shared file IDs across multiple completed batches", async () => {
+    const sharedFile = await createFile({
       bytes: 10,
       filename: "shared-input.jsonl",
       purpose: "batch",
       content: Buffer.from("shared"),
     });
 
-    const batchA = createBatch({
+    const batchA = await createBatch({
       endpoint: "/v1/chat/completions",
       completionWindow: "24h",
       inputFileId: sharedFile.id,
       status: "completed",
     });
-    const batchB = createBatch({
+    const batchB = await createBatch({
       endpoint: "/v1/chat/completions",
       completionWindow: "24h",
       inputFileId: sharedFile.id,
@@ -231,7 +231,7 @@ describe("deleteCompletedBatches", () => {
     assert.ok(getBatch(batchB.id));
     assert.ok(getFile(sharedFile.id));
 
-    const result = deleteCompletedBatches();
+    const result = await deleteCompletedBatches();
     assert.ok(result.deletedBatches >= 2);
     assert.ok(result.deletedFiles >= 1, "shared file should be counted once");
 

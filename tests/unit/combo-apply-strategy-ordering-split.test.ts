@@ -11,9 +11,9 @@ import { resetDbInstance } from "@/lib/db/core.ts";
 // (lkgp, reset-*, quota-share) are covered end-to-end by the 47 consumer tests
 // (router-strategies / combo-strategy-fallbacks / rr-session-stickiness).
 
-after(() => {
+after(async () => {
   // some branches (lkgp/quota-share) may touch the DB singleton; release handles.
-  resetDbInstance();
+  await resetDbInstanceDrained();
 });
 
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} } as never;

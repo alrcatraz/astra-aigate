@@ -256,11 +256,11 @@ COPY --from=builder /app/node_modules/playwright ./node_modules/playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright
 RUN zypper --non-interactive --gpg-auto-import-keys refresh \
   && zypper --non-interactive install -y --no-recommends \
-       fonts-liberation libasound2 libatk-bridge-2_0-0 libatk-1_0-0 \
-       libatspi2-0_0 libcairo2 libcups2 libdbus-1-3 libdrm2 libegl1 libgbm1 \
-       libglib-2_0-0 libgtk-3-0 libnspr4 libnss3 libpango-1_0-0 libx11-6 \
-       libx11-xcb1 libxcb1 libxcomposite1 libxdamage1 libxext6 libxfixes3 \
-       libxrandr2 libxshmfence1 \
+       liberation-fonts libasound2 libatk-bridge-2_0-0 libatk-1_0-0 \
+       libatspi0 libcairo2 libcups2 libdbus-1-3 libdrm2 Mesa-libEGL1 libgbm1 \
+       libglib-2_0-0 libgtk-3-0 mozilla-nspr mozilla-nss libpango-1_0-0 libX11-6 \
+       libX11-xcb1 libxcb1 libXcomposite1 libXdamage1 libXext6 libXfixes3 \
+       libXrandr2 libxshmfence1 \
   && zypper clean -a \
   && node node_modules/playwright/cli.js install chromium \
   && chown -R node:node /home/node/.cache

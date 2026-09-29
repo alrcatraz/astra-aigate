@@ -11,7 +11,7 @@ const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -29,6 +29,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -36,7 +38,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -418,11 +420,12 @@ test("getProviderConnections supports authType filter and column projection", as
   assert.equal(activeOAuth.length, 1);
 
   // Column projection: only requested columns returned
-  const projected = await providersDb.getProviderConnections({ authType: "oauth" }, undefined, undefined, [
-    "id",
-    "provider",
-    "name",
-  ]);
+  const projected = await providersDb.getProviderConnections(
+    { authType: "oauth" },
+    undefined,
+    undefined,
+    ["id", "provider", "name"]
+  );
   assert.equal(projected.length, 1);
   const keys = Object.keys(projected[0]);
   // id, provider, name each appear in camelCase
@@ -456,7 +459,11 @@ test("getProviderConnections rejects column names outside the real provider_conn
   // A mix of valid + invalid columns must still reject (fail-closed, not a
   // silent partial projection).
   await assert.rejects(
-    () => providersDb.getProviderConnections({}, undefined, undefined, ["id", "provider; DROP TABLE provider_connections; --"]),
+    () =>
+      providersDb.getProviderConnections({}, undefined, undefined, [
+        "id",
+        "provider; DROP TABLE provider_connections; --",
+      ]),
     /invalid column/i
   );
 
@@ -472,10 +479,12 @@ test("getProviderConnections rejects column names outside the real provider_conn
     isActive: true,
     group: "team-a",
   });
-  const withGroup = await providersDb.getProviderConnections({ authType: "oauth" }, undefined, undefined, [
-    "id",
-    "group",
-  ]);
+  const withGroup = await providersDb.getProviderConnections(
+    { authType: "oauth" },
+    undefined,
+    undefined,
+    ["id", "group"]
+  );
   assert.equal(withGroup.length, 1);
   assert.equal(withGroup[0].group, "team-a");
 });

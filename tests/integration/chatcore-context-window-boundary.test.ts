@@ -56,7 +56,7 @@ test("chatCore integration: over-window request is rejected before dispatch when
     ],
   };
   assert.ok(
-    estimateTokens(JSON.stringify(body.messages)) > getTokenLimit(provider, model),
+    estimateTokens(JSON.stringify(body.messages)) > (await getTokenLimit(provider, model)),
     "Test body should exceed the full context window"
   );
 

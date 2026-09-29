@@ -38,9 +38,9 @@ function setTextarea(testid: string, text: string) {
     window.HTMLTextAreaElement.prototype,
     "value"
   )!.set!;
-  act(() => {
+  act(async () => {
     setter.call(el, text);
-    el!.dispatchEvent(new Event("input", { bubbles: true }));
+    await el!.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -78,7 +78,9 @@ describe("ResponseValidationEditor (4985)", () => {
     );
     const rows = container.querySelectorAll('[data-testid="rv-predicate-row"]');
     expect(rows.length).toBe(1);
-    const pathInput = container.querySelector<HTMLInputElement>('[data-testid="rv-predicate-path"]');
+    const pathInput = container.querySelector<HTMLInputElement>(
+      '[data-testid="rv-predicate-path"]'
+    );
     expect(pathInput?.value).toBe("choices[0].message.content");
   });
 });

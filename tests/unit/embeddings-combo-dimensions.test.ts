@@ -22,10 +22,11 @@ import { join } from "node:path";
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "omniroute-embed-dim-"));
 
 const { createCombo, getComboByName } = await import("../../src/lib/db/combos.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
-test.after(() => {
-  resetDbInstance();
+test.after(async () => {
+  await resetDbInstanceDrained();
 });
 
 // ─── Test 1: dimensions stored and retrieved from combo ───────────────────────

@@ -18,9 +18,11 @@ const statusRoute = await import("../../src/app/api/a2a/status/route.ts");
 const a2aRoute = await import("../../src/app/a2a/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function makeJsonRpcRequest(body: unknown): NextRequest {
@@ -36,8 +38,8 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 
   if (ORIGINAL_DATA_DIR === undefined) {

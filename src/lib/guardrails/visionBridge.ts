@@ -68,7 +68,7 @@ async function getComboVisionBridgeDecision(model: string): Promise<ComboVisionB
         hasModelStep = true;
         const targetModel = s.model;
         if (typeof targetModel === "string") {
-          const caps = getResolvedModelCapabilities(targetModel);
+          const caps = await getResolvedModelCapabilities(targetModel);
           if (caps.supportsVision !== true) {
             return "process";
           }
@@ -149,7 +149,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
       forceVisionBridge = isVisionBridgeForcedModel(model);
 
       // 4. Check if model supports vision
-      const capabilities = getResolvedModelCapabilities(model);
+      const capabilities = await getResolvedModelCapabilities(model);
       comboVisionBridgeDecision = forceVisionBridge
         ? "process"
         : this.deps.checkModelHasComboMapping

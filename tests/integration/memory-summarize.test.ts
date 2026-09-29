@@ -12,9 +12,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  makeManagementSessionRequest,
-} from "../helpers/managementSession.ts";
+import { makeManagementSessionRequest } from "../helpers/managementSession.ts";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-summarize-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -24,17 +22,17 @@ const core = await import("../../src/lib/db/core.ts");
 const localDb = await import("../../src/lib/localDb.ts");
 const memoryStore = await import("../../src/lib/memory/store.ts");
 
-const summarizeRoute = await import(
-  "../../src/app/api/memory/summarize/route.ts"
-);
+const summarizeRoute = await import("../../src/app/api/memory/summarize/route.ts");
 const { POST } = summarizeRoute;
 
 // ── Helpers ──
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function makeAuthPostRequest(body: unknown) {
@@ -61,7 +59,7 @@ async function seedOldMemory(daysAgo: number, apiKeyId = "api-key-1") {
   db.prepare("UPDATE memories SET created_at = ?, updated_at = ? WHERE id = ?").run(
     oldTs,
     oldTs,
-    mem.id,
+    mem.id
   );
   return mem;
 }

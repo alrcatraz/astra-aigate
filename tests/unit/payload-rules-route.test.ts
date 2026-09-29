@@ -18,11 +18,13 @@ const route = await import("../../src/app/api/settings/payload-rules/route.ts");
 const payloadRulesService = await import("../../open-sse/services/payloadRules.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   payloadRulesService.resetPayloadRulesConfigForTests();
   delete process.env.INITIAL_PASSWORD;
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableManagementAuth() {

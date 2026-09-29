@@ -12,8 +12,8 @@ const dbCore = await import("../../src/lib/db/core.ts");
 const { handleComboChat } = await import("../../open-sse/services/combo.ts");
 const combosDb = await import("../../src/lib/db/combos.ts");
 
-after(() => {
-  dbCore.resetDbInstance();
+after(async () => {
+  await dbCore.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_DATA_DIR === undefined) {
     delete process.env.DATA_DIR;

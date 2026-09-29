@@ -44,10 +44,12 @@ export function setupSettingsFixture(slug: string): SettingsFixture {
     async resetStorage() {
       const core = await import("../../../src/lib/db/core.ts");
       const runtime = await import("../../../src/lib/config/runtimeSettings.ts");
-      core.resetDbInstance();
+      await core.resetDbInstanceDrained();
       runtime.resetRuntimeSettingsStateForTests();
       fs.rmSync(testDataDir, { recursive: true, force: true });
       fs.mkdirSync(testDataDir, { recursive: true });
+      core.getDbInstance();
+      await core.awaitDbMigrations();
     },
     cleanup() {
       fs.rmSync(testDataDir, { recursive: true, force: true });

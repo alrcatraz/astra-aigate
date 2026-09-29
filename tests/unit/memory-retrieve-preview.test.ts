@@ -25,15 +25,17 @@ process.env.VECTOR_STORE_DISABLE_VEC = "true";
 
 const core = await import("../../src/lib/db/core.ts");
 
-function cleanup() {
-  core.resetDbInstance();
+async function cleanup() {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => cleanup());
+test.afterEach(async () => await cleanup());
 test.after(() => {
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
@@ -126,8 +128,7 @@ test("retrievePreview: semantic strategy with no vec store → fallbackReason is
 
   // No embedding source configured → fallback
   assert.ok(
-    bundle.resolution.fallbackReason !== null ||
-      bundle.resolution.strategyUsed !== "semantic",
+    bundle.resolution.fallbackReason !== null || bundle.resolution.strategyUsed !== "semantic",
     "semantic preview with no vec store should indicate fallback"
   );
   assert.ok(Array.isArray(bundle.items), "items must be array even in fallback");

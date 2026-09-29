@@ -12,9 +12,11 @@ const handoffDb = await import("../../src/lib/db/contextHandoffs.ts");
 const contextHandoff = await import("../../open-sse/services/contextHandoff.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function waitFor(fn, timeoutMs = 1500) {
@@ -32,7 +34,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -330,8 +332,8 @@ test("maybeGenerateHandoff respects explicit empty handoffProviders and skips ge
   assert.equal(handoffDb.getHandoff("sess-disabled", "relay-combo"), null);
 });
 
-test("context handoff DB module upserts and deletes active handoffs", () => {
-  handoffDb.upsertHandoff({
+test("context handoff DB module upserts and deletes active handoffs", async () => {
+  await handoffDb.upsertHandoff({
     sessionId: "sess-db",
     comboName: "relay-combo",
     fromAccount: "conn-a",
@@ -345,7 +347,7 @@ test("context handoff DB module upserts and deletes active handoffs", () => {
     generatedAt: "2099-04-08T10:00:00.000Z",
     expiresAt: "2099-01-01T00:00:00.000Z",
   });
-  handoffDb.upsertHandoff({
+  await handoffDb.upsertHandoff({
     sessionId: "sess-db",
     comboName: "relay-combo",
     fromAccount: "conn-b",
@@ -360,12 +362,12 @@ test("context handoff DB module upserts and deletes active handoffs", () => {
     expiresAt: "2099-01-01T00:00:00.000Z",
   });
 
-  const saved = handoffDb.getHandoff("sess-db", "relay-combo");
+  const saved = await handoffDb.getHandoff("sess-db", "relay-combo");
   assert.equal(saved.fromAccount, "conn-b");
   assert.equal(saved.summary, "Updated summary");
   assert.equal(handoffDb.hasActiveHandoff("sess-db", "relay-combo"), true);
 
-  handoffDb.deleteHandoff("sess-db", "relay-combo");
+  await handoffDb.deleteHandoff("sess-db", "relay-combo");
   assert.equal(handoffDb.getHandoff("sess-db", "relay-combo"), null);
 });
 

@@ -17,9 +17,17 @@ const detailedLogs = await import("../../src/lib/db/detailedLogs.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  // Drained variant: waits for the fire-and-forget migration runner before
+  // closing, so the next open never races a closed connection.
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  // Open + fully drain the fresh DB (schema backfill + deferred migrations)
+  // BEFORE the first test statement runs. getDbInstance() is sync and returns
+  // while runMigrations is still in flight; without this await every early
+  // write races a half-migrated call_logs table.
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function restorePipelineEnv() {
@@ -82,9 +90,9 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
+test.after(async () => {
   restorePipelineEnv();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -147,7 +155,7 @@ test("saveCallLog stores only summary metadata in SQLite and writes detailed art
   assert.equal(columns.includes("response_body"), false);
   assert.equal(columns.includes("error"), false);
 
-  const summaryRow = db
+  const summaryRow = await db
     .prepare(
       `
       SELECT detail_state, artifact_relpath, cache_source, has_request_body, has_response_body, has_pipeline_details
@@ -231,7 +239,7 @@ test("rotateCallLogs removes expired rows and orphaned artifacts but keeps fresh
     requestBody: { ok: true },
   });
 
-  const freshRow = core
+  const freshRow = await core
     .getDbInstance()
     .prepare("SELECT artifact_relpath FROM call_logs WHERE id = ?")
     .get("fresh-log");
@@ -249,7 +257,11 @@ test("rotateCallLogs removes expired rows and orphaned artifacts but keeps fresh
   assert.equal(fs.existsSync(oldAbsPath), true);
   assert.equal(fs.existsSync(freshAbsPath), true);
 
-  callLogs.rotateCallLogs();
+  // rotateCallLogs is async (bounded paged deletes over the async adapter);
+  // asserting without awaiting it races the deletion against the next test's
+  // beforeEach reset — the drained close kills the in-flight rotation and the
+  // expired row survives into the fresh DB. Await it. (#8716 family)
+  await callLogs.rotateCallLogs();
 
   const db = core.getDbInstance();
   assert.equal(
@@ -268,7 +280,7 @@ test("rotateCallLogs removes expired rows and orphaned artifacts but keeps fresh
   const orphanFile = path.join(orphanDir, "orphan.json");
   fs.mkdirSync(orphanDir, { recursive: true });
   fs.writeFileSync(orphanFile, "{}");
-  callLogs.cleanupOrphanCallLogFiles();
+  await callLogs.cleanupOrphanCallLogFiles();
   assert.equal(fs.existsSync(orphanFile), false);
 
   process.env.CALL_LOG_RETENTION_DAYS = "3650";
@@ -404,7 +416,7 @@ test("getCallLogById falls back to legacy inline rows and request_detail_logs", 
     JSON.stringify({ message: "legacy-error" })
   );
 
-  detailedLogs.saveRequestDetailLog({
+  await detailedLogs.saveRequestDetailLog({
     call_log_id: "legacy-read",
     client_request: { body: { from: "detail-client" } },
     translated_request: { body: { from: "detail-provider-request" } },
@@ -452,7 +464,7 @@ test("getCallLogById marks missing artifacts explicitly and clears stale DB poin
   assert.equal(detail?.requestBody, null);
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare("SELECT artifact_relpath, detail_state FROM call_logs WHERE id = ?")
     .get("missing-artifact");
   assert.equal((row as any).artifact_relpath, null);
@@ -477,7 +489,7 @@ test("saveCallLog keeps large payloads out of SQLite while preserving explicit d
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT detail_state, has_request_body, artifact_relpath, error_summary, request_summary
@@ -525,7 +537,7 @@ test("saveCallLog truncates oversized call log artifacts for storage", async () 
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -568,7 +580,7 @@ test("saveCallLog omits oversized non-stream pipeline payloads to enforce artifa
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -612,7 +624,7 @@ test("saveCallLog honors CALL_LOG_PIPELINE_MAX_SIZE_KB for pipeline artifacts", 
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -654,7 +666,7 @@ test("saveCallLog falls back to a compact sentinel when the configured cap is ve
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -691,7 +703,7 @@ test("CALL_LOG_PIPELINE_MAX_SIZE_KB does not cap artifacts without pipeline deta
   });
 
   const db = core.getDbInstance();
-  const row = db
+  const row = await db
     .prepare(
       `
       SELECT artifact_relpath, artifact_size_bytes, detail_state
@@ -708,6 +720,11 @@ test("CALL_LOG_PIPELINE_MAX_SIZE_KB does not cap artifacts without pipeline deta
 });
 
 test("saveCallLog logs and returns when sqlite persistence throws unexpectedly", async () => {
+  // Drain the deferred migration runner FIRST: it starts one macrotask after
+  // open and reads through this same connection. Patching prepare() while it
+  // is in flight makes the runner fail on a half-migrated schema (migration
+  // 116 never lands) and poisons every later test with a closed connection.
+  await core.awaitDbMigrations();
   const db = core.getDbInstance();
   const originalPrepare = db.prepare;
   const originalConsoleError = console.error;

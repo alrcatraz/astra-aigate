@@ -180,7 +180,7 @@ export async function enrichModelForVscode(
     model: model.root || model.id || model.name || null,
   });
   const family = getVscodeImportFamily(model, canonicalMetadata?.metadata.family || null);
-  const resolvedCapabilities = getResolvedModelCapabilities(model.id || model.name || "");
+  const resolvedCapabilities = await getResolvedModelCapabilities(model.id || model.name || "");
   const reasoningEffortValues =
     resolvedCapabilities.reasoning === true
       ? getReasoningEffortValues(model as VscodeCatalogModel)

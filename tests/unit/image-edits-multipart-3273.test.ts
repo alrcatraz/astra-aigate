@@ -16,7 +16,8 @@ import { fetch as undiciFetch } from "undici";
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omni-img-3273-"));
 
 const { handleOpenAIImageEdit } = await import("../../open-sse/handlers/imageGeneration.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
 test("#3273 /v1/images/edits forwards model as real multipart (undici-patched fetch)", async () => {
   const captured = { contentType: "", body: "" };
@@ -40,7 +41,10 @@ test("#3273 /v1/images/edits forwards model as real multipart (undici-patched fe
     await handleOpenAIImageEdit({
       model: "gpt-image-2",
       provider: "customopenai",
-      credentials: { apiKey: "sk-test", providerSpecificData: { baseUrl: `http://127.0.0.1:${port}` } },
+      credentials: {
+        apiKey: "sk-test",
+        providerSpecificData: { baseUrl: `http://127.0.0.1:${port}` },
+      },
       prompt: "make it blue",
       imageBytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
       imageMime: "image/png",
@@ -61,9 +65,9 @@ test("#3273 /v1/images/edits forwards model as real multipart (undici-patched fe
   assert.ok(captured.body.includes('name="image"'), "image part must be present");
 });
 
-test.after(() => {
+test.after(async () => {
   try {
-    resetDbInstance();
+    await resetDbInstanceDrained();
   } catch {
     /* ignore */
   }

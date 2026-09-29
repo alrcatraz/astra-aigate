@@ -37,22 +37,24 @@ function makeResolution(sig: string, dim: number): EmbeddingResolution {
   };
 }
 
-function cleanup() {
+async function cleanup() {
   mock.restoreAll();
   _resetVectorStoreSingleton();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => {
-  cleanup();
+test.afterEach(async () => {
+  await cleanup();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
@@ -87,7 +89,7 @@ test("ensureReady: first call creates vec_memories with correct dim", async (t) 
   assert.equal(rows.cnt, 0, "vec_memories should exist (empty after creation)");
 
   // Verify meta was updated.
-  const meta = getMemoryVecMeta();
+  const meta = await getMemoryVecMeta();
   assert.equal(meta.embeddingSignature, "openai:text-embedding-3-small:1536");
   assert.equal(meta.activeDim, 1536);
   assert.equal(meta.vecLoaded, true);
@@ -102,13 +104,13 @@ test("ensureReady: second call with same signature is idempotent", async (t) => 
   await store.ensureReady(res);
 
   // Read meta after first call.
-  const meta1 = getMemoryVecMeta();
+  const meta1 = await getMemoryVecMeta();
 
   // Second call — should be no-op.
   const result = await store.ensureReady(res);
 
   assert.equal(result.ready, true);
-  const meta2 = getMemoryVecMeta();
+  const meta2 = await getMemoryVecMeta();
 
   // Meta should not have changed (lastResetAt remains the same).
   assert.equal(meta1.embeddingSignature, meta2.embeddingSignature);
@@ -126,7 +128,7 @@ test("ensureReady: signature change triggers reset + marks memories needs_reinde
   for (let i = 0; i < 3; i++) {
     db.prepare(
       `INSERT INTO memories (id, api_key_id, type, key, content, created_at)
-       VALUES (?, 'key1', 'factual', ?, ?, datetime('now'))`,
+       VALUES (?, 'key1', 'factual', ?, ?, datetime('now'))`
     ).run(`mem-${i}`, `key-${i}`, `content-${i}`);
   }
 
@@ -145,7 +147,7 @@ test("ensureReady: signature change triggers reset + marks memories needs_reinde
   assert.equal(resetResult.ready, true, "should be ready after signature change");
 
   // Verify new signature is stored.
-  const metaAfter = getMemoryVecMeta();
+  const metaAfter = await getMemoryVecMeta();
   assert.equal(metaAfter.embeddingSignature, "openai:text-embedding-3-small:1536");
   assert.equal(metaAfter.activeDim, 1536);
   assert.ok(metaAfter.lastResetAt !== null, "lastResetAt should be set after reset");
@@ -154,7 +156,11 @@ test("ensureReady: signature change triggers reset + marks memories needs_reinde
   const needsRows = db
     .prepare("SELECT COUNT(*) AS cnt FROM memories WHERE needs_reindex = 1")
     .get() as { cnt: number };
-  assert.equal(needsRows.cnt, 3, "all memories should be marked needs_reindex=1 after signature change");
+  assert.equal(
+    needsRows.cnt,
+    3,
+    "all memories should be marked needs_reindex=1 after signature change"
+  );
 });
 
 test("ensureReady: returns {ready: false} when dimensions are null (no probe done yet)", async (t) => {
@@ -176,7 +182,7 @@ test("ensureReady: returns {ready: false} when dimensions are null (no probe don
   // Either ready (if signature already matches a loaded table) or not ready.
   assert.ok(
     typeof result.ready === "boolean",
-    "ensureReady must return {ready: boolean, reason: string}",
+    "ensureReady must return {ready: boolean, reason: string}"
   );
   assert.ok(typeof result.reason === "string");
 });

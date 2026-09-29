@@ -255,8 +255,8 @@ describe("ccr security: [HIGH] ccrEngine.apply scopes the stored block to the pr
   const bigBlock = makeText("a large block that CCR would normally compress ", 5000);
   const makeBody = () => ({ messages: [{ role: "user", content: bigBlock }] });
 
-  it("apply with a principalId stores the block retrievable ONLY by that principal", () => {
-    const result = ccrEngine.apply(makeBody(), {
+  it("apply with a principalId stores the block retrievable ONLY by that principal", async () => {
+    const result = await ccrEngine.apply(makeBody(), {
       principalId: "principalA",
       stepConfig: { minChars: 100 },
     });

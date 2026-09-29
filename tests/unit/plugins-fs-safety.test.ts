@@ -34,10 +34,7 @@ const managerSource = readFileSync(
   pathResolve(process.cwd(), "src/lib/plugins/manager.ts"),
   "utf-8"
 );
-const loaderSource = readFileSync(
-  pathResolve(process.cwd(), "src/lib/plugins/loader.ts"),
-  "utf-8"
-);
+const loaderSource = readFileSync(pathResolve(process.cwd(), "src/lib/plugins/loader.ts"), "utf-8");
 
 // ── Fixture helpers ───────────────────────────────────────────────────────────
 
@@ -74,7 +71,8 @@ function writePluginWithMain(opts: {
   );
 
   // Write the main file only for safe relative paths
-  const shouldWrite = opts.writeMainFile !== false && !opts.main.startsWith("..") && !path.isAbsolute(opts.main);
+  const shouldWrite =
+    opts.writeMainFile !== false && !opts.main.startsWith("..") && !path.isAbsolute(opts.main);
   if (shouldWrite) {
     const mainAbs = path.join(sourceDir, opts.main);
     fs.mkdirSync(path.dirname(mainAbs), { recursive: true });
@@ -134,17 +132,19 @@ function cleanSourceDirs() {
   activeDirs.length = 0;
 }
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   hooks.resetHooks();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   cleanSourceDirs();
   cleanInstalledPluginDirs();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   cleanSourceDirs();
   cleanInstalledPluginDirs();
   try {
@@ -306,7 +306,8 @@ test("source: assertWithinPluginDir is called before rm in uninstall", () => {
   // Get the slice from uninstall through the next method
   const afterUninstall = managerSource.slice(uninstallIdx);
   const nextMethodIdx = afterUninstall.indexOf("\n  async ", 10);
-  const uninstallBody = nextMethodIdx !== -1 ? afterUninstall.slice(0, nextMethodIdx) : afterUninstall;
+  const uninstallBody =
+    nextMethodIdx !== -1 ? afterUninstall.slice(0, nextMethodIdx) : afterUninstall;
 
   const guardIdx = uninstallBody.indexOf("assertWithinPluginDir");
   const rmIdx = uninstallBody.indexOf("await rm(");
@@ -342,7 +343,9 @@ test("source: assertWithinPluginDir throws for path outside pluginDir", () => {
   // resolve("/tmp/evil") is not fine when root is "/plugins".
   // Since we can't easily import the unexported helper, verify it uses resolve + sep.
   assert.ok(
-    managerSource.includes('resolve(pluginRoot)') || managerSource.includes('resolve(this_pluginDir)') || managerSource.includes('resolve('),
+    managerSource.includes("resolve(pluginRoot)") ||
+      managerSource.includes("resolve(this_pluginDir)") ||
+      managerSource.includes("resolve("),
     "assertWithinPluginDir must call resolve()"
   );
   assert.ok(

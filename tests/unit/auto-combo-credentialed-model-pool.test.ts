@@ -24,9 +24,11 @@ type LogicalCandidate = {
 };
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 function antigravityCandidates(combo: VirtualComboResult): LogicalCandidate[] {
@@ -143,7 +145,7 @@ test("connection model exclusions narrow only that model's account allowlist", a
 
 test("hiding the first registry model does not drop the credentialed provider", async () => {
   await seedConnections();
-  modelsDb.setModelIsHidden("antigravity", "claude-sonnet-4-6", true);
+  await modelsDb.setModelIsHidden("antigravity", "claude-sonnet-4-6", true);
 
   const combo = await virtualFactory.createVirtualAutoCombo(undefined);
   const modelStrings = antigravityCandidates(combo).map((candidate) => candidate.model);

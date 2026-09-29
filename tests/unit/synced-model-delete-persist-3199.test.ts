@@ -32,14 +32,17 @@ const {
   getSyncedAvailableModels,
   mergeModelCompatOverride,
 } = await import("../../src/lib/localDb.ts");
-const { resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
-before(() => {
-  resetDbInstance();
+before(async () => {
+  await resetDbInstanceDrained();
+  getDbInstance();
+  await awaitDbMigrations();
 });
 
-after(() => {
-  resetDbInstance();
+after(async () => {
+  await resetDbInstanceDrained();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -60,7 +63,7 @@ test("a hidden (deleted) synced model is not re-added on re-import", async () =>
   // for back-compat) instead of bare `isHidden`, so an eye/visibility-hidden
   // model — which sets `isHidden` only — is preserved across a re-sync while a
   // genuinely-deleted one stays dropped. The sync filter keys on `isDeleted`.
-  mergeModelCompatOverride(provider, "model-del", { isDeleted: true, isHidden: true });
+  await mergeModelCompatOverride(provider, "model-del", { isDeleted: true, isHidden: true });
 
   // Auto-fetch re-imports the SAME upstream list (still advertising model-del).
   await replaceSyncedAvailableModelsForConnection(provider, connectionId, [

@@ -90,9 +90,29 @@ function toDiscoveredWindows(
 export async function runContextWindowReconcile(): Promise<ReconcileResult> {
   const byProvider = await getAllSyncedAvailableModels();
   const discovered = toDiscoveredWindows(byProvider);
+
+  // `reconcileContextWindows` is a PURE, synchronous function (its deps are
+  // injected so unit tests can pass fakes). Capability resolution is async, so
+  // pre-resolve every discovered (provider, modelId) catalog window up-front
+  // into a Map and let the sync `getCatalogWindow` dep read from it — awaiting
+  // inside the callback would hand the reconciler a Promise instead of a number.
+  const catalogWindows = new Map<string, number | null>();
+  await Promise.all(
+    discovered.map(async ({ provider, modelId }) => {
+      if (!provider || !modelId) return;
+      const key = `${provider}/${modelId}`;
+      if (catalogWindows.has(key)) return;
+      try {
+        const resolved = await getResolvedModelCapabilities({ provider, model: modelId });
+        catalogWindows.set(key, resolved.contextWindow);
+      } catch {
+        catalogWindows.set(key, null);
+      }
+    })
+  );
+
   return reconcileContextWindows(discovered, {
-    getCatalogWindow: (provider, modelId) =>
-      getResolvedModelCapabilities({ provider, model: modelId }).contextWindow,
+    getCatalogWindow: (provider, modelId) => catalogWindows.get(`${provider}/${modelId}`) ?? null,
     getExistingSource: (provider, modelId) =>
       getModelContextOverrideRecord(provider, modelId)?.source ?? null,
     writeAuto: (provider, modelId, window) => {

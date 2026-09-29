@@ -19,7 +19,7 @@ const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
@@ -28,6 +28,8 @@ async function resetStorage() {
   // between test cases, a test running within the TTL window of a previous one gets
   // served the previous test's stale serialized catalog instead of a fresh build.
   v1ModelsCatalog.__resetCatalogBuilderRunsForTest();
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function seedConnection(provider: string, overrides: Record<string, unknown> = {}) {
@@ -71,7 +73,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -197,7 +199,7 @@ test("v1 models catalog omits display names when the feature flag is disabled", 
     assert.equal("name" in model, false);
     assert.equal(model.root, "claude_sonnet_4");
   } finally {
-    featureFlagsDb.removeFeatureFlagOverride("MODEL_CATALOG_INCLUDE_NAMES");
+    await featureFlagsDb.removeFeatureFlagOverride("MODEL_CATALOG_INCLUDE_NAMES");
   }
 });
 
@@ -264,7 +266,7 @@ test("v1 models catalog includes combos and custom models while excluding hidden
     accessToken: "kiro-access",
   });
 
-  modelsDb.mergeModelCompatOverride("openai", "gpt-4o-mini", { isHidden: true });
+  await modelsDb.mergeModelCompatOverride("openai", "gpt-4o-mini", { isHidden: true });
   await modelsDb.addCustomModel("kiro", "custom-kiro", "Custom Kiro");
   await combosDb.createCombo({
     name: "team-router",
@@ -334,7 +336,7 @@ test("v1 models catalog keeps only visible combos when no providers are active",
 
 test("v1 models catalog derives combo metadata from known targets conservatively", async () => {
   try {
-    modelsDevSync.saveModelsDevCapabilities({
+    await modelsDevSync.saveModelsDevCapabilities({
       openai: {
         "combo-alpha": capability({
           tool_call: true,
@@ -395,13 +397,13 @@ test("v1 models catalog derives combo metadata from known targets conservatively
     assert.equal("top_provider" in combo, false);
     assert.equal("supported_parameters" in combo, false);
   } finally {
-    modelsDevSync.saveModelsDevCapabilities({});
+    await modelsDevSync.saveModelsDevCapabilities({});
   }
 });
 
 test("v1 models catalog lets explicit combo context override derived context", async () => {
   try {
-    modelsDevSync.saveModelsDevCapabilities({
+    await modelsDevSync.saveModelsDevCapabilities({
       openai: {
         "context-alpha": capability({
           modalities_input: JSON.stringify(["text"]),
@@ -440,7 +442,7 @@ test("v1 models catalog lets explicit combo context override derived context", a
     assert.equal(listed.max_input_tokens, 700);
     assert.equal(listed.max_output_tokens, 90);
   } finally {
-    modelsDevSync.saveModelsDevCapabilities({});
+    await modelsDevSync.saveModelsDevCapabilities({});
   }
 });
 
@@ -469,7 +471,7 @@ test("v1 models catalog keeps unknown combo targets visible without guessed meta
 
 test("v1 models catalog aggregates nested combos and keeps hidden child combos unlisted", async () => {
   try {
-    modelsDevSync.saveModelsDevCapabilities({
+    await modelsDevSync.saveModelsDevCapabilities({
       openai: {
         "nested-alpha": capability({
           modalities_input: JSON.stringify(["text"]),
@@ -517,13 +519,13 @@ test("v1 models catalog aggregates nested combos and keeps hidden child combos u
       false
     );
   } finally {
-    modelsDevSync.saveModelsDevCapabilities({});
+    await modelsDevSync.saveModelsDevCapabilities({});
   }
 });
 
 test("v1 models catalog resolves provider aliases without corrupting slashful model ids", async () => {
   try {
-    modelsDevSync.saveModelsDevCapabilities({
+    await modelsDevSync.saveModelsDevCapabilities({
       claude: {
         "alias-model": capability({
           modalities_input: JSON.stringify(["text"]),
@@ -565,7 +567,7 @@ test("v1 models catalog resolves provider aliases without corrupting slashful mo
     assert.equal(combo.max_input_tokens, 1500);
     assert.equal(combo.max_output_tokens, 150);
   } finally {
-    modelsDevSync.saveModelsDevCapabilities({});
+    await modelsDevSync.saveModelsDevCapabilities({});
   }
 });
 
@@ -776,7 +778,7 @@ test("v1 models catalog includes synced Gemini models and duplicates audio model
       },
     ]
   );
-  modelsDb.mergeModelCompatOverride("gemini", "gemini-hidden", { isHidden: true });
+  await modelsDb.mergeModelCompatOverride("gemini", "gemini-hidden", { isHidden: true });
 
   const response = await v1ModelsCatalog.getUnifiedModelsResponse(
     new Request("http://localhost/api/v1/models")
@@ -937,7 +939,7 @@ test("v1 models catalog advertises GLM-5.2 provider aliases with hosted context 
   ]);
 
   try {
-    modelsDevSync.saveModelsDevCapabilities({
+    await modelsDevSync.saveModelsDevCapabilities({
       huggingface: {
         "zai-org/GLM-5.2": capability({ limit_context: 128000, limit_input: 128000 }),
       },
@@ -968,7 +970,7 @@ test("v1 models catalog advertises GLM-5.2 provider aliases with hosted context 
       assert.notEqual(model.context_length, 128000, id);
     }
   } finally {
-    modelsDevSync.saveModelsDevCapabilities({});
+    await modelsDevSync.saveModelsDevCapabilities({});
   }
 });
 
@@ -1217,7 +1219,7 @@ test("v1 models catalog uses synced models.dev limits instead of provider defaul
   await seedConnection("openai", { name: "openai-models-dev" });
 
   try {
-    modelsDevSync.saveModelsDevCapabilities({
+    await modelsDevSync.saveModelsDevCapabilities({
       openai: {
         "gpt-5.5": {
           tool_call: true,
@@ -1253,7 +1255,7 @@ test("v1 models catalog uses synced models.dev limits instead of provider defaul
     assert.equal(model.max_input_tokens, 1050000);
     assert.equal(model.max_output_tokens, 128000);
   } finally {
-    modelsDevSync.saveModelsDevCapabilities({});
+    await modelsDevSync.saveModelsDevCapabilities({});
   }
 });
 
@@ -1290,7 +1292,7 @@ test("v1 models catalog lets provider-specific synced limits beat global static 
   });
 
   try {
-    modelsDevSync.saveModelsDevCapabilities({
+    await modelsDevSync.saveModelsDevCapabilities({
       github: {
         "gpt-5.5": {
           tool_call: true,
@@ -1326,7 +1328,7 @@ test("v1 models catalog lets provider-specific synced limits beat global static 
     assert.equal(model.max_input_tokens, 272000);
     assert.equal(model.max_output_tokens, 128000);
   } finally {
-    modelsDevSync.saveModelsDevCapabilities({});
+    await modelsDevSync.saveModelsDevCapabilities({});
   }
 });
 
@@ -1424,7 +1426,7 @@ test("v1 models catalog adds managed fallback models for Claude-compatible provi
       modelsPath: "/v1/models",
     },
   });
-  modelsDb.mergeModelCompatOverride("anthropic-compatible-cc-demo", "claude-sonnet-4-6", {
+  await modelsDb.mergeModelCompatOverride("anthropic-compatible-cc-demo", "claude-sonnet-4-6", {
     isHidden: true,
   });
 

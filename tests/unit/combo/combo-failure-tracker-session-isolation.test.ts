@@ -30,18 +30,23 @@ const core = await import("../../../src/lib/db/core.ts");
 const handoffDb = await import("../../../src/lib/db/contextHandoffs.ts");
 const failureTracker = await import("../../../open-sse/services/combo/failureTracker.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("recordComboFailure clears only the failing session's pin, leaving other sessions on the same combo untouched", () => {
+test("recordComboFailure clears only the failing session's pin, leaving other sessions on the same combo untouched", async () => {
   failureTracker.__resetComboFailureTrackerForTests();
   const comboName = "combo-session-isolation-probe";
 
   // Seed pins for two different sessions sharing the SAME combo.
-  handoffDb.recordSessionModelUsage("sessA-probe", comboName, "openai/gpt-4o", "openai");
-  handoffDb.recordSessionModelUsage("sessB-probe", comboName, "anthropic/claude", "anthropic");
+  await handoffDb.recordSessionModelUsage("sessA-probe", comboName, "openai/gpt-4o", "openai");
+  await handoffDb.recordSessionModelUsage(
+    "sessB-probe",
+    comboName,
+    "anthropic/claude",
+    "anthropic"
+  );
 
   // Sanity: both pins exist before any failure is recorded.
   assert.equal(handoffDb.getLastSessionModel("sessA-probe", comboName), "openai/gpt-4o");
@@ -69,13 +74,18 @@ test("recordComboFailure clears only the failing session's pin, leaving other se
   );
 });
 
-test("recordComboFailure does not disturb an unrelated combo's pin for the SAME failing session", () => {
+test("recordComboFailure does not disturb an unrelated combo's pin for the SAME failing session", async () => {
   failureTracker.__resetComboFailureTrackerForTests();
   const failingCombo = "combo-session-isolation-failing";
   const otherCombo = "combo-session-isolation-other";
 
-  handoffDb.recordSessionModelUsage("sessC-probe", failingCombo, "openai/gpt-4o", "openai");
-  handoffDb.recordSessionModelUsage("sessC-probe", otherCombo, "anthropic/claude", "anthropic");
+  await handoffDb.recordSessionModelUsage("sessC-probe", failingCombo, "openai/gpt-4o", "openai");
+  await handoffDb.recordSessionModelUsage(
+    "sessC-probe",
+    otherCombo,
+    "anthropic/claude",
+    "anthropic"
+  );
 
   for (let i = 0; i < failureTracker.COMBO_FAILURE_THRESHOLD; i++) {
     failureTracker.recordComboFailure("sessC-probe", failingCombo);

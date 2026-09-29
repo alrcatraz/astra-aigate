@@ -32,13 +32,15 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsRoute = await import("../../src/app/api/providers/[id]/models/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -66,11 +68,7 @@ test("#4249 Vercel AI Gateway import fetches the live /v1/models catalog", async
       fetched = true;
       return Response.json({
         object: "list",
-        data: [
-          { id: "xai/grok-4" },
-          { id: "openai/gpt-5.1" },
-          { id: "anthropic/claude-opus-4.5" },
-        ],
+        data: [{ id: "xai/grok-4" }, { id: "openai/gpt-5.1" }, { id: "anthropic/claude-opus-4.5" }],
       });
     }
     // Bogus probe variants (…/v1/v1/models, …/chat/completions/models) → 404

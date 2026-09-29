@@ -48,8 +48,8 @@ test("#2300 projectComboStep returns null for unknown kinds + malformed steps", 
   assert.equal(projectComboStep({ not_a_kind: true }), null);
 });
 
-test("#2300 projectCombo preserves name/strategy/description, projects models", () => {
-  const out = projectCombo({
+test("#2300 projectCombo preserves name/strategy/description, projects models", async () => {
+  const out = await projectCombo({
     id: "internal_id",
     name: "my-combo",
     strategy: "priority",
@@ -81,19 +81,19 @@ test("#2300 projectCombo preserves name/strategy/description, projects models", 
   assert.ok(!serialized.includes("sortOrder"), "sortOrder must not leak");
 });
 
-test("#2300 projectCombo defaults strategy to 'priority' when missing", () => {
-  const out = projectCombo({ name: "default-strategy", models: [] });
+test("#2300 projectCombo defaults strategy to 'priority' when missing", async () => {
+  const out = await projectCombo({ name: "default-strategy", models: [] });
   assert.equal(out?.strategy, "priority");
 });
 
-test("#2300 projectCombo returns null for empty name", () => {
-  assert.equal(projectCombo({ name: "", models: [] }), null);
-  assert.equal(projectCombo({ name: "   ", models: [] }), null);
-  assert.equal(projectCombo({ models: [] }), null);
+test("#2300 projectCombo returns null for empty name", async () => {
+  assert.equal(await projectCombo({ name: "", models: [] }), null);
+  assert.equal(await projectCombo({ name: "   ", models: [] }), null);
+  assert.equal(await projectCombo({ models: [] }), null);
 });
 
-test("#2300 projectCombo filters out malformed step entries silently", () => {
-  const out = projectCombo({
+test("#2300 projectCombo filters out malformed step entries silently", async () => {
+  const out = await projectCombo({
     name: "noisy",
     strategy: "auto",
     models: [
@@ -108,7 +108,7 @@ test("#2300 projectCombo filters out malformed step entries silently", () => {
   assert.equal(out?.models[0].model, "openai/gpt-5");
 });
 
-test("#2300 projectCombo omits description when empty", () => {
-  const out = projectCombo({ name: "no-desc", strategy: "priority", models: [] });
+test("#2300 projectCombo omits description when empty", async () => {
+  const out = await projectCombo({ name: "no-desc", strategy: "priority", models: [] });
   assert.equal("description" in (out ?? {}), false);
 });

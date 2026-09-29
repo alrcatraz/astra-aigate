@@ -131,7 +131,7 @@ describe("CompressionSettingsTab — compression controls consolidation (T11)", 
     );
     await act(async () => {
       select!.value = "never";
-      select!.dispatchEvent(new Event("change", { bubbles: true }));
+      await select!.dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     const putCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(

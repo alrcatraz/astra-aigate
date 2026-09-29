@@ -27,14 +27,14 @@ const { getUsageForProvider } = usageModule;
 
 const originalFetch = globalThis.fetch;
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("Antigravity fetchAvailableModels(used=0) → localUsageHistory when usage_history has rows", async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   // resetTime an hour out → the 5h local-usage window is [now-4h, now+1h).
   const resetTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -83,10 +83,11 @@ test("Antigravity fetchAvailableModels(used=0) → localUsageHistory when usage_
   assert.ok(quota, "should have the gemini-3-flash-agent quota");
   assert.equal(quota.quotaSource, "localUsageHistory", "stale full bucket replaced by local usage");
   assert.equal(quota.used, 3, "3000 seeded tokens → 3 units used");
+  await core.awaitDbMigrations();
 });
 
 test("Antigravity stays fetchAvailableModels when usage_history has no matching rows", async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   const resetTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
@@ -118,4 +119,6 @@ test("Antigravity stays fetchAvailableModels when usage_history has no matching 
   assert.ok(quota, "should have the quota");
   assert.equal(quota.quotaSource, "fetchAvailableModels", "no local rows → keep the catalog view");
   assert.equal(quota.used, 0, "full bucket stays at 0 used");
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });

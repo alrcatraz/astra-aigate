@@ -63,8 +63,8 @@ function jsonRequest(url: string, body: unknown, method = "POST"): Request {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 
   if (ORIGINAL_DATA_DIR === undefined) delete process.env.DATA_DIR;

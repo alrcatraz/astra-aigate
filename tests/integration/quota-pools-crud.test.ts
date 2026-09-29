@@ -36,19 +36,21 @@ async function enableManagementAuth() {
   await localDb.updateSettings({ requireLogin: true, password: "" });
 }
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
-  resetDb();
-  compliance.initAuditLog();
+  await resetDb();
+  await compliance.initAuditLog();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -91,7 +93,7 @@ test("POST /api/quota/pools with auth + valid body → 201 + pool returned", asy
   });
   const res = await poolsRoute.POST(req);
   assert.equal(res.status, 201);
-  const body = await res.json() as { pool: { id: string; name: string; connectionId: string } };
+  const body = (await res.json()) as { pool: { id: string; name: string; connectionId: string } };
   assert.ok(body.pool.id, "Pool should have an id");
   assert.equal(body.pool.name, "Test Pool Alpha");
   assert.equal(body.pool.connectionId, "conn-test-1");
@@ -105,11 +107,14 @@ test("POST /api/quota/pools → audit event logged", async () => {
   await poolsRoute.POST(req);
 
   // Verify audit event was recorded
-  const logs = compliance.getAuditLog({ action: "quota.pool.created", limit: 10 });
+  const logs = await compliance.getAuditLog({ action: "quota.pool.created", limit: 10 });
   const events = Array.isArray(logs) ? logs : [];
   assert.ok(events.length >= 1, "Should have at least one quota.pool.created audit event");
   const evt = events.find(
-    (e) => typeof e === "object" && e !== null && (e as Record<string, unknown>).action === "quota.pool.created"
+    (e) =>
+      typeof e === "object" &&
+      e !== null &&
+      (e as Record<string, unknown>).action === "quota.pool.created"
   );
   assert.ok(evt, "quota.pool.created audit event must be present");
 });
@@ -207,7 +212,7 @@ test("PATCH /api/quota/pools/[id] → 200 updated + audit event", async () => {
   assert.equal(body.pool.name, "Updated Name");
 
   // Audit event
-  const logs = compliance.getAuditLog({ action: "quota.pool.updated", limit: 10 });
+  const logs = await compliance.getAuditLog({ action: "quota.pool.updated", limit: 10 });
   const events = Array.isArray(logs) ? logs : [];
   const evt = events.find(
     (e) =>
@@ -255,7 +260,7 @@ test("DELETE /api/quota/pools/[id] → 204 + audit event; subsequent GET → 404
   assert.equal(deleteRes.status, 204);
 
   // Audit event
-  const logs = compliance.getAuditLog({ action: "quota.pool.deleted", limit: 10 });
+  const logs = await compliance.getAuditLog({ action: "quota.pool.deleted", limit: 10 });
   const events = Array.isArray(logs) ? logs : [];
   const evt = events.find(
     (e) =>
@@ -267,9 +272,7 @@ test("DELETE /api/quota/pools/[id] → 204 + audit event; subsequent GET → 404
   assert.ok(evt, "quota.pool.deleted audit event must be present");
 
   // Subsequent GET → 404
-  const getReq = await makeManagementSessionRequest(
-    `http://localhost/api/quota/pools/${poolId}`
-  );
+  const getReq = await makeManagementSessionRequest(`http://localhost/api/quota/pools/${poolId}`);
   const getRes = await poolIdRoute.GET(getReq, { params: Promise.resolve({ id: poolId }) });
   assert.equal(getRes.status, 404);
 });

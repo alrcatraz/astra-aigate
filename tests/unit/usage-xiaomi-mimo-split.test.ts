@@ -37,8 +37,8 @@ describe("xiaomi-mimo leaf self-tracked quota", () => {
     insertUsage("conn-leaf", "xiaomi-mimo", 1_000_000, 500_000, new Date().toISOString());
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     try {
       fs.rmSync(TMP, { recursive: true, force: true });
     } catch {

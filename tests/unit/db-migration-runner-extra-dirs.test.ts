@@ -89,14 +89,14 @@ interface RunResult {
 }
 
 /** Run the migrations against a fresh in-memory DB with the given extra-dir spec. */
-function runWithExtras(extraSpec: string | null): RunResult {
+async function runWithExtras(extraSpec: string | null): RunResult {
   const prev = process.env.OMNIROUTE_EXTRA_MIGRATIONS_DIRS;
   if (extraSpec === null) delete process.env.OMNIROUTE_EXTRA_MIGRATIONS_DIRS;
   else process.env.OMNIROUTE_EXTRA_MIGRATIONS_DIRS = extraSpec;
 
   const db = new Database(":memory:");
   try {
-    const count = runMigrations(db as never, { isNewDb: true });
+    const count = await runMigrations(db as never, { isNewDb: true });
     const rows = db
       .prepare("SELECT version, name FROM _omniroute_migrations ORDER BY rowid")
       .all() as Array<{ version: string; name: string }>;
@@ -270,8 +270,8 @@ test("rodar duas vezes não reaplica as migrations do diretório extra", async (
   process.env.OMNIROUTE_EXTRA_MIGRATIONS_DIRS = `ee=${eeDir}`;
   const db = new Database(":memory:");
   try {
-    const first = runMigrations(db as never, { isNewDb: true });
-    const second = runMigrations(db as never);
+    const first = await runMigrations(db as never, { isNewDb: true });
+    const second = await runMigrations(db as never);
     assert.equal(first, 3, "primeira execução aplica core 001/002 + ee-001");
     assert.equal(second, 0, "segunda execução não tem nada pendente");
   } finally {

@@ -43,7 +43,7 @@ function getFsErrorCode(error: unknown): string | undefined {
 async function resetStorage() {
   apiKeysDb.resetApiKeyState();
   costRules.resetCostData();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -62,6 +62,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 async function loadPolicy(label) {
@@ -117,7 +119,7 @@ test.beforeEach(async () => {
 test.after(async () => {
   apiKeysDb.resetApiKeyState();
   costRules.resetCostData();
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

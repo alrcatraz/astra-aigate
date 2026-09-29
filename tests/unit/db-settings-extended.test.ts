@@ -21,7 +21,7 @@ function cleanupGlobalDb() {
 
 async function resetStorage() {
   cleanupGlobalDb();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -34,6 +34,7 @@ async function resetStorage() {
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 await resetStorage();

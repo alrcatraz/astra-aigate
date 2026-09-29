@@ -38,12 +38,13 @@ const {
   cleanupCompressionRunTelemetry,
 } = await import("../../src/lib/db/cleanup.ts");
 
-const { getDbInstance, resetDbInstance } = await import("../../src/lib/db/core.ts");
+const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } =
+  await import("../../src/lib/db/core.ts");
 
 // Repo test rule: DB-touching tests must close the handle in test.after(),
 // or the native test runner can hang indefinitely on a dangling connection.
-test.after(() => {
-  resetDbInstance();
+test.after(async () => {
+  await resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -27,19 +27,21 @@ const core = await import("../../src/lib/db/core.ts");
 const backup = await import("../../src/lib/db/backup.ts");
 const databaseSettings = await import("../../src/lib/db/databaseSettings.ts");
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
   core.getDbInstance();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -64,22 +66,22 @@ test("no persisted value at all → auto backups are NOT disabled (backups allow
   assert.equal(backup.isAutoBackupDisabledBySetting(), false);
 });
 
-test("autoBackupEnabled=false → auto backups are disabled (gate trips)", () => {
-  databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: false } });
+test("autoBackupEnabled=false → auto backups are disabled (gate trips)", async () => {
+  await databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: false } });
   assert.equal(backup.isAutoBackupDisabledBySetting(), true);
 });
 
-test("autoBackupEnabled=true → auto backups are NOT disabled", () => {
-  databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: true } });
+test("autoBackupEnabled=true → auto backups are NOT disabled", async () => {
+  await databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: true } });
   assert.equal(backup.isAutoBackupDisabledBySetting(), false);
 });
 
-test("persisted value survives a getUserDatabaseSettings round-trip", () => {
-  databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: false } });
+test("persisted value survives a getUserDatabaseSettings round-trip", async () => {
+  await databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: false } });
   assert.equal(databaseSettings.getUserDatabaseSettings().backup.autoBackupEnabled, false);
   assert.equal(backup.isAutoBackupDisabledBySetting(), true);
 
-  databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: true } });
+  await databaseSettings.updateDatabaseSettings({ backup: { autoBackupEnabled: true } });
   assert.equal(databaseSettings.getUserDatabaseSettings().backup.autoBackupEnabled, true);
   assert.equal(backup.isAutoBackupDisabledBySetting(), false);
 });

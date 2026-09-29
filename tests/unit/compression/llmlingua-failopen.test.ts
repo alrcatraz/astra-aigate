@@ -60,11 +60,11 @@ describe("llmlingua engine", () => {
   });
 
   // ── 5. sync apply is a pass-through ────────────────────────────────────────
-  it("sync apply() is a pass-through — compressed:false, body unchanged", () => {
+  it("sync apply() is a pass-through — compressed:false, body unchanged", async () => {
     const body = makeBody([
       { role: "user", content: "Hello world, this is a long prose message." },
     ]);
-    const result = llmlinguaEngine.apply(body);
+    const result = await llmlinguaEngine.apply(body);
     assert.equal(result.compressed, false);
     assert.equal(result.stats, null);
     assert.deepEqual(result.body, body);
@@ -294,11 +294,11 @@ describe("llmlingua engine — minTokens floor + config schema (Task 3/4)", () =
   });
 
   // ── 5. schema shape ──────────────────────────────────────────────────────────
-  it("getConfigSchema exposes model select + minTokens/compressionRate/modelPath fields", () => {
+  it("getConfigSchema exposes model select + minTokens/compressionRate/modelPath fields", async () => {
     const schema = llmlinguaEngine.getConfigSchema();
     const byKey = new Map(schema.map((f) => [f.key, f]));
 
-    const modelField = byKey.get("model");
+    const modelField = await byKey.get("model");
     assert.ok(modelField, "schema must include a 'model' field");
     assert.equal(modelField!.type, "select", "model field must be a select");
     const optionValues = (modelField!.options ?? []).map((o) => o.value);

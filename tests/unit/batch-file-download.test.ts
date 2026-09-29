@@ -22,9 +22,11 @@ const localDb = await import("../../src/lib/localDb.ts");
 const fileContentRoute = await import("../../src/app/api/files/[id]/content/route.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -163,7 +165,7 @@ test("GET /api/files/{id}/content — deleted file returns 404", async () => {
   const file = createTestFile({ filename: "deleted.jsonl", content });
 
   // Soft-delete the file
-  localDb.deleteFile(file.id);
+  await localDb.deleteFile(file.id);
 
   const res = await fileContentRoute.GET(
     await makeManagementSessionRequest(`http://localhost/api/files/${file.id}/content`),
@@ -178,7 +180,7 @@ test("GET /api/files/{id}/content — deleted file returns 404", async () => {
 test("GET /api/files/{id}/content — file with null content returns 404", async () => {
   // createFile with content=null simulates a file record with no stored bytes
   // (e.g., an expired file where content was cleared)
-  const file = localDb.createFile({
+  const file = await localDb.createFile({
     bytes: 0,
     filename: "no-content.jsonl",
     purpose: "batch",

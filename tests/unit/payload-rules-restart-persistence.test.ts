@@ -24,9 +24,9 @@ const core = await import("../../src/lib/db/core.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const payloadRulesService = await import("../../open-sse/services/payloadRules.ts");
 
-test.after(() => {
+test.after(async () => {
   payloadRulesService.resetPayloadRulesConfigForTests();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

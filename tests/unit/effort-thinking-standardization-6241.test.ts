@@ -9,23 +9,20 @@ import path from "node:path";
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-effort-6241-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
-const {
-  CANONICAL_EFFORT_VALUES,
-  normalizeEffort,
-  effortRequestSchema,
-  normalizeReasoningRequest,
-} = await import("../../src/shared/reasoning/effortStandardization.ts");
-const { providerChatCompletionSchema } = await import(
-  "../../src/shared/validation/schemas/apiV1.ts"
-);
+const { CANONICAL_EFFORT_VALUES, normalizeEffort, effortRequestSchema, normalizeReasoningRequest } =
+  await import("../../src/shared/reasoning/effortStandardization.ts");
+const { providerChatCompletionSchema } =
+  await import("../../src/shared/validation/schemas/apiV1.ts");
 const core = await import("../../src/lib/db/core.ts");
 const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 const registry = await import("../../src/lib/modelMetadataRegistry.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -143,8 +140,8 @@ test("returns the same reference untouched when no canonical fields are set", ()
 
 // ── /models capability exposure ────────────────────────────────────────
 
-test("enrichCatalogModelEntry exposes supportsThinking + effort_tiers for a thinking model", () => {
-  modelsDevSync.saveModelsDevCapabilities({
+test("enrichCatalogModelEntry exposes supportsThinking + effort_tiers for a thinking model", async () => {
+  await modelsDevSync.saveModelsDevCapabilities({
     openai: {
       "gpt-5": {
         tool_call: true,

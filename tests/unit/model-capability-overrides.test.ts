@@ -11,24 +11,27 @@ const coreDb = await import("../../src/lib/db/core.ts");
 const caps = await import("../../src/lib/modelCapabilities.ts");
 const overrides = await import("../../src/lib/db/modelCapabilityOverrides.ts");
 
-beforeEach(() => {
-  coreDb.resetDbInstance();
+beforeEach(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
   fs.mkdirSync(moduleDataDir, { recursive: true });
   coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(moduleDataDir, { recursive: true, force: true });
 });
 
 describe("model capability overrides", () => {
-  it("stores, lists, removes, and applies a provider/model max_token override", () => {
-    const withoutOverride = caps.getResolvedModelCapabilities({
-      provider: "openai",
-      model: "gpt-4o",
-    }).maxOutputTokens;
+  it("stores, lists, removes, and applies a provider/model max_token override", async () => {
+    const withoutOverride = (
+      await caps.getResolvedModelCapabilities({
+        provider: "openai",
+        model: "gpt-4o",
+      })
+    ).maxOutputTokens;
     const distinct = (withoutOverride ?? 0) + 12345;
 
     assert.equal(
@@ -45,30 +48,33 @@ describe("model capability overrides", () => {
     );
 
     assert.equal(
-      caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" }).maxOutputTokens,
+      (await caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" }))
+        .maxOutputTokens,
       distinct
     );
     assert.notEqual(
-      caps.getResolvedModelCapabilities({ provider: "anthropic", model: "gpt-4o" }).maxOutputTokens,
+      (await caps.getResolvedModelCapabilities({ provider: "anthropic", model: "gpt-4o" }))
+        .maxOutputTokens,
       distinct,
       "override must be scoped by provider/model, not bare model id"
     );
 
     assert.equal(overrides.removeModelCapabilityOverride("openai/gpt-4o", "max_token"), true);
     assert.equal(
-      caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" }).maxOutputTokens,
+      (await caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" }))
+        .maxOutputTokens,
       withoutOverride
     );
   });
 
-  it("applies overrides stored under provider-scoped model aliases", () => {
+  it("applies overrides stored under provider-scoped model aliases", async () => {
     assert.equal(
       overrides.setModelCapabilityOverride("github/claude-opus-4.5", "max_token", 77777),
       true
     );
 
     assert.equal(
-      caps.getResolvedModelCapabilities({ provider: "github", model: "claude-opus-4.5" })
+      (await caps.getResolvedModelCapabilities({ provider: "github", model: "claude-opus-4.5" }))
         .maxOutputTokens,
       77777
     );

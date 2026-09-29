@@ -43,9 +43,11 @@ async function resetStorage() {
     detectionPatterns: getDefaultDetectionPatterns(),
   });
   invalidateCacheControlSettingsCache();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function waitFor(check: () => Promise<boolean> | boolean, timeoutMs = 3000) {

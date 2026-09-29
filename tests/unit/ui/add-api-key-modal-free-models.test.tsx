@@ -35,9 +35,9 @@ function render(props: Record<string, unknown>) {
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(() => {
+  act(async () => {
     setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -88,15 +88,15 @@ describe("AddApiKeyModal — import only free models", () => {
     setInputValue(apiKeyInput, "sk-or-test-key");
 
     const toggle = el.querySelector<HTMLButtonElement>(FREE_TOGGLE)!;
-    act(() => {
-      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => onSave.mock.calls.length > 0);
@@ -124,8 +124,8 @@ describe("AddApiKeyModal — quota scraping fields", () => {
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => onSave.mock.calls.length > 0);
@@ -148,8 +148,8 @@ describe("AddApiKeyModal — quota scraping fields", () => {
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
-    act(() => {
-      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => onSave.mock.calls.length > 0);

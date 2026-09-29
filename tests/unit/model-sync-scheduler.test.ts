@@ -13,7 +13,7 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const initCloudSync = await import("../../src/lib/initCloudSync.ts");
 
 async function resetStorage() {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -31,6 +31,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 }
 
 function installTimerStubs() {
@@ -106,7 +108,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

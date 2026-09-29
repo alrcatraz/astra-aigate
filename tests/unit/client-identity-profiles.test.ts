@@ -23,7 +23,7 @@ const { DefaultExecutor } = await import("../../open-sse/executors/default.ts");
 const core = await import("../../src/lib/db/core.ts");
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

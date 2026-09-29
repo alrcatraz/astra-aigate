@@ -13,10 +13,10 @@ function setup() {
   process.env.DATA_DIR = tempDir;
 }
 
-function cleanup() {
+async function cleanup() {
   try {
     const { resetDbInstance } = require("../../src/lib/db/core.ts");
-    resetDbInstance();
+    await resetDbInstanceDrained();
   } catch {
     // ignore if import fails
   }
@@ -30,6 +30,8 @@ function cleanup() {
   } catch {
     // ignore cleanup errors
   }
+  getDbInstance();
+  await awaitDbMigrations();
 }
 
 test("getDbInstance returns a valid database handle", async () => {
@@ -44,7 +46,7 @@ test("getDbInstance returns a valid database handle", async () => {
     assert.equal(typeof db.pragma, "function", "db.pragma should be a function");
     assert.equal(db.open !== false, true, "db should be open");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 
@@ -80,12 +82,12 @@ test("getDbInstance creates tables from SCHEMA_SQL (proves initialization succee
     // The preservedCriticalState sentinel is captureSucceeded: true on fresh DB
     // (no existing file = no corruption path = initialized with default sentinel).
     // Verify this indirectly: the DB is fully functional and migrations ran.
-    const migrationCount = db
-      .prepare("SELECT COUNT(*) as c FROM _omniroute_migrations")
-      .get() as { c: number };
+    const migrationCount = db.prepare("SELECT COUNT(*) as c FROM _omniroute_migrations").get() as {
+      c: number;
+    };
     assert.ok(migrationCount.c >= 1, "at least one migration should be recorded");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 
@@ -121,12 +123,12 @@ test("getDbInstance supports basic CRUD operations after startup", async () => {
 
     // Delete
     db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run("test_ns", "test_key");
-    const deleted = db
+    const deleted = await db
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get("test_ns", "test_key");
     assert.equal(deleted, undefined, "row should be deleted");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 
@@ -138,7 +140,7 @@ test("getDbInstance returns same singleton on repeated calls", async () => {
     const db2 = getDbInstance();
     assert.equal(db1, db2, "should return the same singleton instance");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 

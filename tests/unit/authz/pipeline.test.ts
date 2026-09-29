@@ -27,8 +27,8 @@ const ORIGINAL_NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 const ORIGINAL_OMNIROUTE_TRUST_PROXY = process.env.OMNIROUTE_TRUST_PROXY;
 const ORIGINAL_OMNIROUTE_PEER_STAMP_TOKEN = process.env.OMNIROUTE_PEER_STAMP_TOKEN;
 
-function resetEnvironment() {
-  core.resetDbInstance();
+async function resetEnvironment() {
+  await core.resetDbInstanceDrained();
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
@@ -42,6 +42,8 @@ function resetEnvironment() {
   delete process.env.OMNIROUTE_TRUST_PROXY;
   delete process.env.OMNIROUTE_PEER_STAMP_TOKEN;
   globalThis.__omnirouteShutdown = { init: false, shuttingDown: false, activeRequests: 0 };
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function forceAuthRequired() {
@@ -61,12 +63,12 @@ function request(url: string, init?: RequestInit): NextRequest {
   return new NextRequest(url, init);
 }
 
-test.beforeEach(() => {
-  resetEnvironment();
+test.beforeEach(async () => {
+  await resetEnvironment();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_JWT === undefined) delete process.env.JWT_SECRET;
   else process.env.JWT_SECRET = ORIGINAL_JWT;

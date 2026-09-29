@@ -23,8 +23,8 @@ before(async () => {
   await coreDb.ensureDbInitialized();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   fs.rmSync(testDataDir, { recursive: true, force: true });
 });
 
@@ -174,7 +174,7 @@ test("preserves verbosity when the resolved target is actually GPT-5", async () 
 });
 
 test("applies provider parameter filters at the universal target boundary", async () => {
-  setParamFilterConfig("opencode-go", {
+  await setParamFilterConfig("opencode-go", {
     block: ["source_only_control"],
     allow: [],
     autoLearn: false,
@@ -193,7 +193,7 @@ test("applies provider parameter filters at the universal target boundary", asyn
     });
     assert.equal(out.source_only_control, undefined);
   } finally {
-    deleteParamFilterConfig("opencode-go");
+    await deleteParamFilterConfig("opencode-go");
   }
 });
 

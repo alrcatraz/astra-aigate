@@ -71,8 +71,7 @@ const CODEX_RESPONSES_HOST = "chatgpt.com/backend-api/codex/responses";
 
 // Summary JSON that parseHandoffJSON will successfully parse.
 const CODEX_SUMMARY_JSON = JSON.stringify({
-  summary:
-    "User is implementing a TypeScript context-relay codex quota-handoff test using TDD.",
+  summary: "User is implementing a TypeScript context-relay codex quota-handoff test using TDD.",
   keyDecisions: ["codex provider selected", "quota threshold at 90%"],
   taskProgress: "writing deterministic integration test for codex handoff",
   activeEntities: ["combo.ts", "codexQuotaFetcher.ts", "contextHandoff.ts"],
@@ -259,9 +258,7 @@ test("context-relay codex quota handoff: fires and expiresAt matches session-win
     name: CODEX_COMBO_NAME,
     strategy: "context-relay",
     config: { maxRetries: 0, retryDelayMs: 0, stickyRoundRobinLimit: 1 },
-    models: [
-      { id: "rc-codex-1", kind: "model", providerId: "codex", model: "gpt-5.3-codex" },
-    ],
+    models: [{ id: "rc-codex-1", kind: "model", providerId: "codex", model: "gpt-5.3-codex" }],
   });
 
   // 4. Compute quota reset times (future timestamps).
@@ -331,9 +328,7 @@ test("context-relay codex quota handoff: does NOT fire when provider is openai (
     name: CODEX_COMBO_NAME,
     strategy: "context-relay",
     config: { maxRetries: 0, retryDelayMs: 0, stickyRoundRobinLimit: 1 },
-    models: [
-      { id: "rc-openai-ctrl", kind: "model", providerId: "openai", model: "gpt-4o-mini" },
-    ],
+    models: [{ id: "rc-openai-ctrl", kind: "model", providerId: "openai", model: "gpt-4o-mini" }],
   });
 
   const seenUrls: string[] = [];
@@ -358,7 +353,7 @@ test("context-relay codex quota handoff: does NOT fire when provider is openai (
   // No codex quota handoff record in DB.
   // (The universal handoff also does not fire because no prior model is seeded,
   // so getLastSessionModel returns null → no model switch detected.)
-  const handoff = getHandoff(SESSION_ID, CODEX_COMBO_NAME);
+  const handoff = await getHandoff(SESSION_ID, CODEX_COMBO_NAME);
   assert.equal(
     handoff,
     null,

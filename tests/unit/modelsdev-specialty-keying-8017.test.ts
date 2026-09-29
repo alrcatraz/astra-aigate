@@ -8,7 +8,7 @@ import {
 } from "../../src/lib/modelsDevSync.ts";
 
 describe("models.dev specialty key resolution (#8017)", () => {
-  before(() => {
+  before(async () => {
     // Store specialty rows the way production models.dev currently does:
     // under provider=vercel with qualified openai/* model ids.
     const capabilities: CapabilitiesByProvider = {
@@ -77,34 +77,34 @@ describe("models.dev specialty key resolution (#8017)", () => {
         },
       },
     };
-    saveModelsDevCapabilities(capabilities);
+    await saveModelsDevCapabilities(capabilities);
   });
 
-  after(() => {
+  after(async () => {
     try {
-      clearModelsDevCapabilities();
+      await clearModelsDevCapabilities();
     } catch {
       // ignore cleanup failures in unit isolation
     }
   });
 
-  it("resolves openai/whisper-1 against vercel/openai/whisper-1", () => {
-    const md = getResolvedModelCapabilities({ provider: "openai", model: "whisper-1" });
+  it("resolves openai/whisper-1 against vercel/openai/whisper-1", async () => {
+    const md = await getResolvedModelCapabilities({ provider: "openai", model: "whisper-1" });
     assert.deepEqual(md.modalitiesInput, ["audio"]);
     assert.deepEqual(md.modalitiesOutput, ["text"]);
     assert.equal(md.toolCalling, false);
     assert.equal(md.reasoning, false);
   });
 
-  it("resolves openai/tts-1 against vercel/openai/tts-1", () => {
-    const md = getResolvedModelCapabilities({ provider: "openai", model: "tts-1" });
+  it("resolves openai/tts-1 against vercel/openai/tts-1", async () => {
+    const md = await getResolvedModelCapabilities({ provider: "openai", model: "tts-1" });
     assert.deepEqual(md.modalitiesInput, ["text"]);
     assert.deepEqual(md.modalitiesOutput, ["audio"]);
     assert.equal(md.toolCalling, false);
   });
 
-  it("still resolves direct openai/gpt-4o keys", () => {
-    const md = getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" });
+  it("still resolves direct openai/gpt-4o keys", async () => {
+    const md = await getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" });
     assert.equal(md.toolCalling, true);
     assert.equal(md.contextWindow, 128000);
     assert.deepEqual(md.modalitiesInput, ["text", "image", "pdf"]);

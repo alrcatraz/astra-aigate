@@ -15,10 +15,12 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const managementPassword = await import("../../src/lib/auth/managementPassword.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   delete process.env.INITIAL_PASSWORD;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function runResetPasswordCli(password: string) {
@@ -58,8 +60,8 @@ test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   if (ORIGINAL_INITIAL_PASSWORD === undefined) {
     delete process.env.INITIAL_PASSWORD;
@@ -118,7 +120,7 @@ test("ensurePersistentManagementPasswordHash migrates legacy plaintext settings 
 
 test("reset-password CLI updates storage.sqlite key_value settings", async (t) => {
   core.getDbInstance();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   const result = await runResetPasswordCli("replacement-secret");
   if (
@@ -130,7 +132,7 @@ test("reset-password CLI updates storage.sqlite key_value settings", async (t) =
   }
   assert.equal(result.code, 0, result.stderr || result.stdout);
 
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   const settings = await settingsDb.getSettings();
 
   assert.equal(managementPassword.isBcryptHash(settings.password), true);
@@ -143,4 +145,5 @@ test("reset-password CLI updates storage.sqlite key_value settings", async (t) =
   );
   assert.equal(settings.requireLogin, true);
   assert.equal(settings.setupComplete, true);
+  await core.awaitDbMigrations();
 });

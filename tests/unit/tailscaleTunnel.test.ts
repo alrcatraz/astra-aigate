@@ -81,15 +81,17 @@ test.beforeEach(async () => {
   const fakeBinaryPath = await createFakeTailscaleBinary();
   resetTailscaleTestEnv(fakeBinaryPath);
   mitmManager.clearCachedPassword();
-  dbCore.resetDbInstance();
+  await dbCore.resetDbInstanceDrained();
   await fs.rm(TEST_DATA_DIR, { recursive: true, force: true });
   await fs.mkdir(TEST_DATA_DIR, { recursive: true });
   const recreatedBinaryPath = await createFakeTailscaleBinary();
   resetTailscaleTestEnv(recreatedBinaryPath);
+  dbCore.getDbInstance();
+  await dbCore.awaitDbMigrations();
 });
 
 test.after(async () => {
-  dbCore.resetDbInstance();
+  await dbCore.resetDbInstanceDrained();
   mitmManager.clearCachedPassword();
   if (originalEnv.tailscaleBin === undefined) delete process.env.TAILSCALE_BIN;
   else process.env.TAILSCALE_BIN = originalEnv.tailscaleBin;

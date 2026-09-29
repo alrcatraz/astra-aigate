@@ -423,11 +423,11 @@ async function sortModelsByContextSize(models: string[]): Promise<string[]> {
   return resolved.map((e) => e.modelStr);
 }
 
-export function getModelContextLimitForModelString(modelStr: string) {
+export async function getModelContextLimitForModelString(modelStr: string) {
   const parsed = parseModel(modelStr);
   const provider = parsed.provider || parsed.providerAlias || "unknown";
   const model = parsed.model || modelStr;
-  return getModelContextLimit(provider, model);
+  return await getModelContextLimit(provider, model);
 }
 
 export type RequestCompatibilityRequirements = {

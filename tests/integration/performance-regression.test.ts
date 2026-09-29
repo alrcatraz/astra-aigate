@@ -225,7 +225,7 @@ describe("Performance: memory API route handler (1000 records)", () => {
     const db = core.getDbInstance();
     db.prepare("DELETE FROM memories WHERE api_key_id = ?").run(TEST_API_KEY_ID);
     // Final cleanup: reset DB instance and remove temp dir
-    core.resetDbInstance();
+    await core.resetDbInstanceDrained();
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   });
 

@@ -14,22 +14,24 @@ process.env.PROXY_LOGS_TABLE_MAX_ROWS = "5";
 const core = await import("../../src/lib/db/core.ts");
 const compliance = await import("../../src/lib/compliance/index.ts");
 
-function resetStorage() {
-  core.resetDbInstance();
+async function resetStorage() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetStorage();
+test.beforeEach(async () => {
+  await resetStorage();
 });
 
-test.after(() => {
-  resetStorage();
+test.after(async () => {
+  await resetStorage();
 });
 
 test("cleanupExpiredLogs uses separate APP and CALL retention windows", async () => {
-  compliance.initAuditLog();
+  await compliance.initAuditLog();
   const db = core.getDbInstance();
 
   const oldCallTs = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
@@ -143,11 +145,11 @@ test("cleanupExpiredLogs honors the dashboard usageHistory retention when env is
   delete process.env.CALL_LOG_RETENTION_DAYS;
   delete process.env.APP_LOG_RETENTION_DAYS;
   try {
-    compliance.initAuditLog();
+    await compliance.initAuditLog();
     const db = core.getDbInstance();
 
     const { updateDatabaseSettings } = await import("../../src/lib/db/databaseSettings.ts");
-    updateDatabaseSettings({ retention: { usageHistory: 90, callLogs: 90 } } as any);
+    await updateDatabaseSettings({ retention: { usageHistory: 90, callLogs: 90 } } as any);
 
     const oldTs = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     db.prepare(
@@ -158,7 +160,11 @@ test("cleanupExpiredLogs honors the dashboard usageHistory retention when env is
 
     // 30 days < the configured 90-day dashboard retention → must be kept.
     // With the old env-default (7d) behavior this row would be deleted.
-    assert.equal(result.deletedUsage, 0, "30-day usage_history must survive a 90-day dashboard retention");
+    assert.equal(
+      result.deletedUsage,
+      0,
+      "30-day usage_history must survive a 90-day dashboard retention"
+    );
     assert.equal((db.prepare("SELECT COUNT(*) AS cnt FROM usage_history").get() as any).cnt, 1);
   } finally {
     if (savedCall !== undefined) process.env.CALL_LOG_RETENTION_DAYS = savedCall;
@@ -169,7 +175,7 @@ test("cleanupExpiredLogs honors the dashboard usageHistory retention when env is
 });
 
 test("cleanupExpiredLogs enforces row count limits", async () => {
-  compliance.initAuditLog();
+  await compliance.initAuditLog();
   const db = core.getDbInstance();
 
   const now = new Date().toISOString();

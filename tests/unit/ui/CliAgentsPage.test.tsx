@@ -48,9 +48,8 @@ vi.mock("@/app/(dashboard)/dashboard/cli-code/components/CliStatusBadge", () => 
 
 // ── Static imports after mocks ────────────────────────────────────────────────
 
-const { default: CliAgentsPageClient } = await import(
-  "@/app/(dashboard)/dashboard/cli-agents/CliAgentsPageClient"
-);
+const { default: CliAgentsPageClient } =
+  await import("@/app/(dashboard)/dashboard/cli-agents/CliAgentsPageClient");
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -168,16 +167,14 @@ describe("CliAgentsPageClient", () => {
         "value"
       )?.set;
       nativeSetter?.call(input, "hermes");
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise((r) => setTimeout(r, 50));
     });
 
     const visibleCards = countAgentCards(container);
     expect(visibleCards).toBe(1);
 
-    const remainingHrefs = Array.from(
-      container.querySelectorAll<HTMLAnchorElement>("a[href]")
-    )
+    const remainingHrefs = Array.from(container.querySelectorAll<HTMLAnchorElement>("a[href]"))
       .filter((a) => a.getAttribute("href")?.startsWith("/dashboard/cli-agents/"))
       .map((a) => a.getAttribute("href") ?? "");
 
@@ -203,7 +200,7 @@ describe("CliAgentsPageClient", () => {
         "value"
       )?.set;
       nativeSetter?.call(select, "not_installed");
-      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await select.dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise((r) => setTimeout(r, 50));
     });
 
@@ -224,7 +221,7 @@ describe("CliAgentsPageClient", () => {
         "value"
       )?.set;
       nativeSetter?.call(input, "zzznothingmatchesxyz");
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise((r) => setTimeout(r, 50));
     });
 
@@ -258,7 +255,7 @@ describe("CliAgentsPageClient", () => {
     expect(refreshBtn).not.toBeNull();
 
     await act(async () => {
-      refreshBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await refreshBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await new Promise((r) => setTimeout(r, 100));
     });
 

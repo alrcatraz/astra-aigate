@@ -22,8 +22,8 @@ process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "cloud-agent-creds-te
 const core = await import("../../src/lib/db/core.ts");
 const creds = await import("../../src/lib/cloudAgent/credentials.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

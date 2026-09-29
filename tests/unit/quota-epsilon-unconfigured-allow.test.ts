@@ -36,8 +36,8 @@ const { SqliteQuotaStore } = await import("../../src/lib/quota/sqliteQuotaStore.
 const { enforceQuotaShare } = await import("../../src/lib/quota/enforce.ts");
 const core = await import("../../src/lib/db/core.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     try {
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
@@ -60,7 +60,7 @@ test("EPSILON (unconfigured) plan does not block after the first request", async
   const connId = (conn as Record<string, unknown>).id as string;
   assert.ok(connId, "connection should have an id");
 
-  const pool = quotaPools.createPool({
+  const pool = await quotaPools.createPool({
     connectionId: connId,
     name: "EpsilonPool",
     allocations: [{ apiKeyId: KEY, weight: 100, policy: "hard" }],

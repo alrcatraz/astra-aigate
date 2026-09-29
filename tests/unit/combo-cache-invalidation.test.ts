@@ -30,7 +30,7 @@ const combosDb = await import("../../src/lib/db/combos.ts");
 const readCache = await import("../../src/lib/db/readCache.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -48,6 +48,8 @@ async function resetStorage() {
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -55,7 +57,7 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -134,18 +136,10 @@ test("deleteCombo and reorderCombos also invalidate the cache", async () => {
   let ts = Date.now();
   let version = readCache.getCombosCacheVersion();
   await combosDb.reorderCombos([(b as any).id, (a as any).id]);
-  assert.equal(
-    cacheStillValid(ts, version),
-    false,
-    "reorderCombos must invalidate the cache"
-  );
+  assert.equal(cacheStillValid(ts, version), false, "reorderCombos must invalidate the cache");
 
   ts = Date.now();
   version = readCache.getCombosCacheVersion();
   await combosDb.deleteCombo((a as any).id);
-  assert.equal(
-    cacheStillValid(ts, version),
-    false,
-    "deleteCombo must invalidate the cache"
-  );
+  assert.equal(cacheStillValid(ts, version), false, "deleteCombo must invalidate the cache");
 });

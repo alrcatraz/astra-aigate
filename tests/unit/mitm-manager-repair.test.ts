@@ -14,16 +14,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-mitm-repair-")
-);
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-mitm-repair-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const manager = await import("../../src/mitm/manager.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -40,6 +38,8 @@ async function resetStorage() {
     }
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -47,17 +47,14 @@ test.beforeEach(async () => {
 });
 
 test.after(async () => {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
 test("buildRepairPlan enumerates DNS hosts and the CA + proxy teardown steps", () => {
   const plan = manager.buildRepairPlan();
   assert.ok(Array.isArray(plan.dnsHostsToRemove), "plan.dnsHostsToRemove must be an array");
-  assert.ok(
-    plan.dnsHostsToRemove.length > 0,
-    "must remove at least the agent target hosts"
-  );
+  assert.ok(plan.dnsHostsToRemove.length > 0, "must remove at least the agent target hosts");
   assert.equal(plan.removeCert, true, "repair must include CA removal");
   assert.equal(plan.revertSystemProxy, true, "repair must attempt system-proxy revert");
 });

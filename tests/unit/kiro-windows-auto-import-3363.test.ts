@@ -30,10 +30,10 @@ const ORIGINAL_FETCH = globalThis.fetch;
 
 let tmpHome: string;
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-kiro-3363-"));
   // Reset DB instance so each test gets a clean settings DB (no requireLogin).
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   // Override HOME so homedir() returns a temp dir where no kiro-cli DB exists.
@@ -44,6 +44,8 @@ test.beforeEach(() => {
   process.env.USERPROFILE = tmpHome;
   // Ensure APPDATA is unset by default; individual tests that need it set it.
   delete process.env.APPDATA;
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test.afterEach(() => {
@@ -62,8 +64,8 @@ test.afterEach(() => {
   if (tmpHome) fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
@@ -102,9 +104,7 @@ test("triedPaths does NOT include any Windows path when process.env.APPDATA is n
   const paths = body.triedPaths as string[];
 
   // No path should reference "kiro/storage.db" (the Windows IDE storage path).
-  const hasWindowsPath = paths.some(
-    (p) => p.includes("storage.db") && p.includes("kiro")
-  );
+  const hasWindowsPath = paths.some((p) => p.includes("storage.db") && p.includes("kiro"));
   assert.equal(
     hasWindowsPath,
     false,
@@ -151,10 +151,7 @@ test("GET extracts refresh_token from a Windows storage.db with ItemTable schema
     expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
     region: "us-east-1",
   });
-  db.prepare("INSERT INTO ItemTable (key, value) VALUES (?, ?)").run(
-    "kiro:auth:token",
-    tokenValue
-  );
+  db.prepare("INSERT INTO ItemTable (key, value) VALUES (?, ?)").run("kiro:auth:token", tokenValue);
   db.close();
 
   // Point APPDATA at tmpHome so tryKiroCliSqlite() resolves
@@ -188,11 +185,7 @@ test("GET extracts refresh_token from a Windows storage.db with ItemTable schema
 
   const { status, body } = await callGet();
 
-  assert.equal(
-    status,
-    200,
-    `expected HTTP 200, got ${status}: ${JSON.stringify(body)}`
-  );
+  assert.equal(status, 200, `expected HTTP 200, got ${status}: ${JSON.stringify(body)}`);
   assert.equal(
     body.found,
     true,

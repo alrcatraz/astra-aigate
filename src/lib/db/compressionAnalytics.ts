@@ -1,4 +1,4 @@
-import { getAsyncDb } from "./core";
+import { getAsyncDb, getDbInstance } from "./core";
 
 export interface CompressionAnalyticsRow {
   id?: number;
@@ -109,16 +109,25 @@ const COMPRESSION_ANALYTICS_COLUMNS = [
   ["skip_reason", "TEXT"],
 ] as const;
 
-async function ensureCompressionAnalyticsColumns(): Promise<void> {
+function ensureCompressionAnalyticsColumns(): void {
   const db = getAsyncDb();
   if (columnsEnsuredForDb === db) return;
-  const rows = (await db.prepare("PRAGMA table_info(compression_analytics)").all()) as Array<{
+  // Synchronous on purpose: the sync writers below (insertCompressionAnalyticsRow,
+  // updateUsageReceipt…) call this right before preparing statements that reference
+  // these columns. An async wrapper deferred every ALTER to a microtask, so the
+  // first INSERT hit "no column named rtk_raw_output_pointer" (#8716 family).
+  // The SQLite adapter's PRAGMA read resolves inline via .get(); PG reaches here
+  // only after its own migrations created the table+columns.
+  // Operate on the RAW synchronous handle — the async adapter's prepare().all()
+  // returns a Promise, which is not iterable synchronously.
+  const raw = getDbInstance();
+  const rows = raw.prepare("PRAGMA table_info(compression_analytics)").all() as unknown as Array<{
     name: string;
   }>;
   const existing = new Set(rows.map((row) => row.name));
   for (const [name, type] of COMPRESSION_ANALYTICS_COLUMNS) {
     if (!existing.has(name)) {
-      await db.exec(`ALTER TABLE compression_analytics ADD COLUMN ${name} ${type}`);
+      raw.exec(`ALTER TABLE compression_analytics ADD COLUMN ${name} ${type}`);
     }
   }
   // Only mark as ensured after ALL ALTERs succeeded — otherwise a failed
@@ -374,7 +383,7 @@ export async function getCompressionAnalyticsSummary(
   since?: string
 ): Promise<CompressionAnalyticsSummary> {
   const db = getAsyncDb();
-  await ensureCompressionAnalyticsColumns();
+  ensureCompressionAnalyticsColumns();
 
   let cutoff: string | null = null;
   if (since === "24h") {

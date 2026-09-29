@@ -58,8 +58,8 @@ test("guardrail registry runs pre-call hooks in priority order", async () => {
   }
 
   const registry = new GuardrailRegistry();
-  registry.register(new AppendGuardrail("later", 30, "later"));
-  registry.register(new AppendGuardrail("earlier", 10, "earlier"));
+  await registry.register(new AppendGuardrail("later", 30, "later"));
+  await registry.register(new AppendGuardrail("earlier", 10, "earlier"));
 
   const result = await registry.runPreCallHooks({ markers: [] });
 
@@ -75,7 +75,7 @@ test("guardrail registry respects disabledGuardrails from context", async () => 
     },
     async () => {
       const registry = new GuardrailRegistry();
-      registry.register(new PromptInjectionGuardrail());
+      await registry.register(new PromptInjectionGuardrail());
 
       const result = await registry.runPreCallHooks(
         {
@@ -206,7 +206,7 @@ test("pii masker respects feature flag overrides (DB and env)", async () => {
         const preBody = preCall?.modifiedPayload as ChatLikePayload;
         assert.match(String(preBody.messages?.[0]?.content), /\[EMAIL_REDACTED\]/);
       } finally {
-        removeFeatureFlagOverride("PII_REDACTION_ENABLED");
+        await removeFeatureFlagOverride("PII_REDACTION_ENABLED");
       }
     }
   );
@@ -242,7 +242,7 @@ test("guardrail registry fails open when a guardrail throws", async () => {
 
   const warnings: Array<Record<string, unknown>> = [];
   const registry = new GuardrailRegistry();
-  registry.register(new ExplodingGuardrail());
+  await registry.register(new ExplodingGuardrail());
 
   const result = await registry.runPreCallHooks(
     { safe: true },

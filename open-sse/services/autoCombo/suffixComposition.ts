@@ -100,17 +100,22 @@ interface PoolCandidate {
  * Build a candidate filter from category + tier. Returns `null` when no filtering is
  * needed (coding/chat with no model-tier constraint), so the caller can skip the pass.
  * Category and tier checks are AND-combined.
+ *
+ * The predicate is ASYNC: capability resolution (`getResolvedModelCapabilities`) hits
+ * the DB/registry, so callers must `await candidateFilter(candidate)` — a synchronous
+ * consumer would receive a Promise (always truthy), silently admitting every candidate
+ * to a `auto/vision:free`-style narrow.
  */
 export function buildAutoCandidateFilter(
   category?: AutoCategory,
   tier?: AutoTier
-): ((candidate: PoolCandidate) => boolean) | null {
-  const checks: Array<(c: PoolCandidate) => boolean> = [];
+): ((candidate: PoolCandidate) => Promise<boolean>) | null {
+  const checks: Array<(c: PoolCandidate) => Promise<boolean>> = [];
 
   if (category === "vision" || category === "multimodal") {
-    checks.push((c) => {
+    checks.push(async (c) => {
       try {
-        const caps = getResolvedModelCapabilities({ provider: c.provider, model: c.model });
+        const caps = await getResolvedModelCapabilities({ provider: c.provider, model: c.model });
         return caps.supportsVision === true || isVisionModelId(c.model);
       } catch {
         return isVisionModelId(c.model);
@@ -118,9 +123,9 @@ export function buildAutoCandidateFilter(
     });
   }
   if (category === "reasoning") {
-    checks.push((c) => {
+    checks.push(async (c) => {
       try {
-        const caps = getResolvedModelCapabilities({ provider: c.provider, model: c.model });
+        const caps = await getResolvedModelCapabilities({ provider: c.provider, model: c.model });
         return caps.reasoning === true || caps.supportsThinking === true;
       } catch {
         return false;
@@ -128,14 +133,19 @@ export function buildAutoCandidateFilter(
     });
   }
   if (tier === "free") {
-    checks.push((c) => safeClassifyTier(c) === "free");
+    checks.push(async (c) => safeClassifyTier(c) === "free");
   }
   if (tier === "pro") {
-    checks.push((c) => safeClassifyTier(c) === "premium");
+    checks.push(async (c) => safeClassifyTier(c) === "premium");
   }
 
   if (checks.length === 0) return null;
-  return (candidate: PoolCandidate) => checks.every((fn) => fn(candidate));
+  return async (candidate: PoolCandidate) => {
+    for (const fn of checks) {
+      if (!(await fn(candidate))) return false;
+    }
+    return true;
+  };
 }
 
 function safeClassifyTier(c: PoolCandidate): string {

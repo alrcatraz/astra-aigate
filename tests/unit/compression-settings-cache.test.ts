@@ -13,10 +13,10 @@ function setup() {
   process.env.DATA_DIR = tempDir;
 }
 
-function cleanup() {
+async function cleanup() {
   try {
     const { resetDbInstance } = require("../../src/lib/db/core.ts");
-    resetDbInstance();
+    await resetDbInstanceDrained();
   } catch {}
   if (originalDataDir !== undefined) {
     process.env.DATA_DIR = originalDataDir;
@@ -26,6 +26,8 @@ function cleanup() {
   try {
     fs.rmSync(tempDir, { recursive: true, force: true });
   } catch {}
+  getDbInstance();
+  await awaitDbMigrations();
 }
 
 test("getCompressionSettings returns consistent results from TTL cache", async () => {
@@ -39,7 +41,7 @@ test("getCompressionSettings returns consistent results from TTL cache", async (
     const second = await getCompressionSettings();
     assert.deepEqual(first, second, "second call should return same object from cache");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 
@@ -51,7 +53,7 @@ test("getCompressionSettings cache hit returns same object reference within TTL"
     const second = await getCompressionSettings();
     assert.deepEqual(first, second, "cache hit should return equivalent object");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 
@@ -67,7 +69,7 @@ test("getCompressionSettings cache survives across multiple rapid calls (WeakRef
     assert.deepEqual(first, second, "second call should return equivalent config");
     assert.deepEqual(second, third, "third call should return equivalent config");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 
@@ -81,14 +83,29 @@ test("getCompressionSettings returned config has expected shape", async () => {
     assert.ok(typeof config.defaultMode === "string", "defaultMode should be string");
     assert.ok(typeof config.autoTriggerTokens === "number", "autoTriggerTokens should be number");
     assert.ok(typeof config.cacheMinutes === "number", "cacheMinutes should be number");
-    assert.ok(typeof config.preserveSystemPrompt === "boolean", "preserveSystemPrompt should be boolean");
-    assert.ok(config.cavemanConfig && typeof config.cavemanConfig === "object", "cavemanConfig should be object");
-    assert.ok(config.rtkConfig && typeof config.rtkConfig === "object", "rtkConfig should be object");
-    assert.ok(config.languageConfig && typeof config.languageConfig === "object", "languageConfig should be object");
-    assert.ok(config.aggressive && typeof config.aggressive === "object", "aggressive should be object");
+    assert.ok(
+      typeof config.preserveSystemPrompt === "boolean",
+      "preserveSystemPrompt should be boolean"
+    );
+    assert.ok(
+      config.cavemanConfig && typeof config.cavemanConfig === "object",
+      "cavemanConfig should be object"
+    );
+    assert.ok(
+      config.rtkConfig && typeof config.rtkConfig === "object",
+      "rtkConfig should be object"
+    );
+    assert.ok(
+      config.languageConfig && typeof config.languageConfig === "object",
+      "languageConfig should be object"
+    );
+    assert.ok(
+      config.aggressive && typeof config.aggressive === "object",
+      "aggressive should be object"
+    );
     assert.ok(config.ultra && typeof config.ultra === "object", "ultra should be object");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });
 
@@ -107,6 +124,6 @@ test("getCompressionSettings TTL expires after 5 seconds", async () => {
     assert.deepEqual(first, afterExpiry, "config content should be equivalent after TTL expiry");
     assert.notEqual(first, afterExpiry, "should be a new object reference after TTL expiry");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });

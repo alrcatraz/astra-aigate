@@ -44,7 +44,7 @@ class EmptyResultGuardrail extends BaseGuardrail {
 
 test("a preCall returning nothing passes the payload through untouched", async () => {
   const registry = new GuardrailRegistry();
-  registry.register(new SilentGuardrail());
+  await registry.register(new SilentGuardrail());
 
   const payload = { messages: [{ role: "user", content: "hello" }] };
   const result = await registry.runPreCallHooks(payload, {});
@@ -63,7 +63,7 @@ test("a preCall returning nothing passes the payload through untouched", async (
 
 test("a postCall returning nothing passes the response through untouched", async () => {
   const registry = new GuardrailRegistry();
-  registry.register(new SilentGuardrail());
+  await registry.register(new SilentGuardrail());
 
   const response = { choices: [{ message: { content: "hi" } }] };
   const result = await registry.runPostCallHooks(response, {});
@@ -82,11 +82,11 @@ test("returning an empty object behaves identically to returning nothing", async
   const payload = { messages: [{ role: "user", content: "hello" }] };
 
   const silent = new GuardrailRegistry();
-  silent.register(new SilentGuardrail("g"));
+  await silent.register(new SilentGuardrail("g"));
   const silentResult = await silent.runPreCallHooks(payload, {});
 
   const empty = new GuardrailRegistry();
-  empty.register(new EmptyResultGuardrail("g"));
+  await empty.register(new EmptyResultGuardrail("g"));
   const emptyResult = await empty.runPreCallHooks(payload, {});
 
   assert.deepEqual(
@@ -109,8 +109,8 @@ test("a silent guardrail does not stop later guardrails from modifying", async (
   }
 
   const registry = new GuardrailRegistry();
-  registry.register(new SilentGuardrail());
-  registry.register(new AppendGuardrail());
+  await registry.register(new SilentGuardrail());
+  await registry.register(new AppendGuardrail());
 
   const result = await registry.runPreCallHooks({ messages: [] }, {});
 

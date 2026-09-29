@@ -36,9 +36,14 @@ const originalFetch = globalThis.fetch;
 const originalSiblingEnv = process.env[SIBLING_LIMIT_ENV];
 
 async function resetStorage() {
-  core.resetDbInstance();
+  // Drained variant + migration barrier: the sync close used to yank the
+  // connection out from under the deferred migration runner (combos stayed
+  // half-migrated → "no column named context_cache_protection").
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.before(async () => {
@@ -51,10 +56,7 @@ test.before(async () => {
 
   await combosDb.createCombo({
     name: COMBO_NAME,
-    models: [
-      `${MAIN_PROVIDER}/${MAIN_MODEL}`,
-      `${SIBLING_PROVIDER}/${SIBLING_MODEL}`,
-    ],
+    models: [`${MAIN_PROVIDER}/${MAIN_MODEL}`, `${SIBLING_PROVIDER}/${SIBLING_MODEL}`],
   });
 
   // Defensive: nothing in the expected (fixed) code path should ever reach
@@ -69,14 +71,14 @@ test.before(async () => {
     });
 });
 
-test.after(() => {
+test.after(async () => {
   globalThis.fetch = originalFetch;
   if (originalSiblingEnv === undefined) {
     delete process.env[SIBLING_LIMIT_ENV];
   } else {
     process.env[SIBLING_LIMIT_ENV] = originalSiblingEnv;
   }
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

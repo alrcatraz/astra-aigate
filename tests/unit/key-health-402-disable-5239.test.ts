@@ -22,15 +22,12 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-5239-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
-const { recordKeyHealthStatus } = await import(
-  "../../open-sse/handlers/chatCore/keyHealth.ts"
-);
-const { getValidApiKey, getAllKeyHealth, resetKeyStatus } = await import(
-  "../../open-sse/services/apiKeyRotator.ts"
-);
+const { recordKeyHealthStatus } = await import("../../open-sse/handlers/chatCore/keyHealth.ts");
+const { getValidApiKey, getAllKeyHealth, resetKeyStatus } =
+  await import("../../open-sse/services/apiKeyRotator.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 

@@ -22,19 +22,25 @@ const bypassRoute = await import("../../src/app/api/tools/agent-bridge/bypass/ro
 
 const DEFAULT_PATTERNS = [".bank.", ".gov.", "okta.com", "auth0.com"];
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => {
-  resetDb();
-  seedDefaultBypassPatterns(DEFAULT_PATTERNS);
+test.beforeEach(async () => {
+  await resetDb();
+  await seedDefaultBypassPatterns(DEFAULT_PATTERNS);
 });
 
 test.after(() => {
-  try { fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true }); } catch { /* noop */ }
+  try {
+    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  } catch {
+    /* noop */
+  }
 });
 
 // ── POST patterns ──────────────────────────────────────────────────────────
@@ -48,7 +54,10 @@ test("POST /bypass: stores user patterns", async () => {
     })
   );
   assert.equal(res.status, 200);
-  const body = await res.json() as { ok: boolean; patterns: Array<{ pattern: string; source: string }> };
+  const body = (await res.json()) as {
+    ok: boolean;
+    patterns: Array<{ pattern: string; source: string }>;
+  };
   assert.equal(body.ok, true);
   assert.ok(Array.isArray(body.patterns));
   const userPatterns = body.patterns.filter((p) => p.source === "user");
@@ -64,7 +73,7 @@ test("POST /bypass: invalid body returns 400", async () => {
     })
   );
   assert.equal(res.status, 400);
-  const body = await res.json() as Record<string, unknown>;
+  const body = (await res.json()) as Record<string, unknown>;
   const errMsg = (body.error as Record<string, unknown>)?.message as string;
   assert.ok(!errMsg.includes("at /"), "stack trace leaked in 400 error");
 });
@@ -83,7 +92,7 @@ test("GET /bypass: shows default + user patterns", async () => {
 
   const res = await bypassRoute.GET();
   assert.equal(res.status, 200);
-  const body = await res.json() as { patterns: Array<{ pattern: string; source: string }> };
+  const body = (await res.json()) as { patterns: Array<{ pattern: string; source: string }> };
   assert.ok(Array.isArray(body.patterns));
 
   const sources = new Set(body.patterns.map((p) => p.source));
@@ -119,7 +128,10 @@ test("DELETE /bypass?pattern=X: removes a user pattern", async () => {
     })
   );
   assert.equal(deleteRes.status, 200);
-  const deleteBody = await deleteRes.json() as { ok: boolean; patterns: Array<{ pattern: string; source: string }> };
+  const deleteBody = (await deleteRes.json()) as {
+    ok: boolean;
+    patterns: Array<{ pattern: string; source: string }>;
+  };
   assert.equal(deleteBody.ok, true);
 
   // Verify it's gone
@@ -142,19 +154,18 @@ test("DELETE /bypass: missing pattern param returns 400", async () => {
     })
   );
   assert.equal(res.status, 400);
-  const body = await res.json() as Record<string, unknown>;
+  const body = (await res.json()) as Record<string, unknown>;
   const errMsg = (body.error as Record<string, unknown>)?.message as string;
   assert.ok(!errMsg.includes("at /"), "stack trace leaked in DELETE 400");
 });
 
 test("DELETE /bypass?pattern=X: no-op when pattern not in user list", async () => {
   const res = await bypassRoute.DELETE(
-    new Request(
-      "http://localhost/api/tools/agent-bridge/bypass?pattern=not-in-list.com",
-      { method: "DELETE" }
-    )
+    new Request("http://localhost/api/tools/agent-bridge/bypass?pattern=not-in-list.com", {
+      method: "DELETE",
+    })
   );
   assert.equal(res.status, 200);
-  const body = await res.json() as { ok: boolean };
+  const body = (await res.json()) as { ok: boolean };
   assert.equal(body.ok, true);
 });

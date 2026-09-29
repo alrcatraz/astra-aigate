@@ -63,10 +63,10 @@ describe("ccr engine", () => {
     assert.ok(typeof engine.stackPriority === "number");
   });
 
-  it("replaces a large block with a CCR marker", () => {
+  it("replaces a large block with a CCR marker", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: LARGE_TEXT }]);
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     assert.equal(result.compressed, true, "should report compressed=true");
 
@@ -89,10 +89,10 @@ describe("ccr engine", () => {
     assert.ok(compressedLen < originalLen, "compressed body must be shorter than original");
   });
 
-  it("stores and retrieves the verbatim block by hash", () => {
+  it("stores and retrieves the verbatim block by hash", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: LARGE_TEXT }]);
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     const messages = result.body.messages as Array<{ role: string; content: string }>;
     const content = messages[0].content;
@@ -108,10 +108,10 @@ describe("ccr engine", () => {
     assert.equal(retrieved, LARGE_TEXT, "retrieved block must equal the original verbatim text");
   });
 
-  it("does NOT compress small blocks (below minChars threshold)", () => {
+  it("does NOT compress small blocks (below minChars threshold)", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: SMALL_TEXT }]);
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     assert.equal(result.compressed, false, "small text should NOT be compressed");
 
@@ -119,10 +119,10 @@ describe("ccr engine", () => {
     assert.equal(messages[0].content, SMALL_TEXT, "small text must remain unchanged");
   });
 
-  it("does NOT compress system messages", () => {
+  it("does NOT compress system messages", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "system", content: SYSTEM_TEXT + " ".repeat(700) }]);
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     assert.equal(result.compressed, false, "system messages must NOT be compressed");
 
@@ -133,7 +133,7 @@ describe("ccr engine", () => {
     );
   });
 
-  it("does NOT compress if output would not be shorter", () => {
+  it("does NOT compress if output would not be shorter", async () => {
     resetCcrStore();
     // A text that's just barely at the threshold but the marker is longer than the text
     const shortishText = "X".repeat(601); // just above 600 but marker is ~50 chars
@@ -142,15 +142,15 @@ describe("ccr engine", () => {
     // So 601 chars → 48 char marker = savings, so this WILL compress
     // To test "not shorter", we'd need a tiny text — but that's already handled by minChars.
     // This test just confirms a borderline-large block compresses fine.
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
     // Since 601 > 600 (default min), it should compress
     assert.equal(result.compressed, true, "text above minChars should compress");
   });
 
-  it("feedback: shouldSkipCompression returns true after enough retrievals", () => {
+  it("feedback: shouldSkipCompression returns true after enough retrievals", async () => {
     resetCcrStore();
     const body = makeBody([{ role: "user", content: LARGE_TEXT }]);
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
 
     const messages = result.body.messages as Array<{ role: string; content: string }>;
     const content = messages[0].content;
@@ -180,7 +180,7 @@ describe("ccr engine", () => {
     assert.equal(result, null, "unknown hash must return null");
   });
 
-  it("handles multipart content (type:text parts)", () => {
+  it("handles multipart content (type:text parts)", async () => {
     resetCcrStore();
     const body = {
       model: "gpt-4",
@@ -195,7 +195,7 @@ describe("ccr engine", () => {
       ],
     };
 
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
     assert.equal(result.compressed, true, "multipart message with large text-part should compress");
 
     const messages = result.body.messages as Array<{
@@ -214,11 +214,11 @@ describe("ccr engine", () => {
 });
 
 describe("ccr MCP retrieve handler (pure function)", () => {
-  it("handleCcrRetrieve returns content for known hash", () => {
+  it("handleCcrRetrieve returns content for known hash", async () => {
     resetCcrStore();
 
     const body = makeBody([{ role: "user", content: LARGE_TEXT }]);
-    const result = ccrEngine.apply(body as Record<string, unknown>);
+    const result = await ccrEngine.apply(body as Record<string, unknown>);
     const messages = result.body.messages as Array<{ role: string; content: string }>;
     const match = messages[0].content.match(/\[CCR retrieve hash=([0-9a-f]{24}) chars=\d+\]/);
     assert.ok(match, "marker must be present");

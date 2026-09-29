@@ -373,11 +373,30 @@ async function buildUnifiedModelsResponseCore(
       if (!canonical) return null;
 
       const source = canonical.metadata.source;
-      if (!source.providerRegistry && !source.staticSpec && !source.syncedCapability) return null;
+      // Custom OpenAI-compatible connections (e.g. aggregator nodes) have no
+      // provider-registry or static-spec entry, and models.dev has no channel
+      // for them either — yet the operator may have declared their real limits
+      // via /api/provider-models (customModels rows). Consult that store before
+      // discarding the member: a row with numeric inputTokenLimit or an explicit
+      // supportsVision flag IS trustworthy metadata and must flow into the combo
+      // intersection just like registry/spec/synced data does (#combo-catalog).
+      let customRow: CustomModelEntry | null = null;
+      if (!source.providerRegistry && !source.staticSpec && !source.syncedCapability) {
+        const rawRows = (await getAllCustomModels())[targetModel.providerId];
+        const rows: CustomModelEntry[] = Array.isArray(rawRows) ? rawRows : [];
+        customRow =
+          rows.find(
+            (row) =>
+              !!row &&
+              typeof row === "object" &&
+              (row.id === targetModel.modelId || row.name === targetModel.modelId)
+          ) ?? null;
+        if (!customRow) return null;
+      }
 
       const providerId = canonical.provider || targetModel.providerId;
       const modelId = canonical.model || targetModel.modelId;
-      const synced = getSyncedCapability(providerId, modelId);
+      const synced = await getSyncedCapability(providerId, modelId);
       const spec = getModelSpec(modelId);
       const registryModel = getRegistryModel(providerId, modelId);
       const syncedInputModalities = parseJsonStringArray(synced?.modalities_input);
@@ -392,11 +411,15 @@ async function buildUnifiedModelsResponseCore(
       const specContext = isPositiveFiniteNumber(spec?.contextWindow)
         ? spec.contextWindow
         : undefined;
+      const customContext = isPositiveFiniteNumber(customRow?.inputTokenLimit)
+        ? customRow.inputTokenLimit
+        : undefined;
       const contextLength =
         syncedContext ??
         registryContext ??
         specContext ??
-        (getTokenLimit(providerId, modelId) || undefined);
+        customContext ??
+        ((await getTokenLimit(providerId, modelId)) || undefined);
       const registryInputLimit = isPositiveFiniteNumber(registryModel?.maxInputTokens)
         ? registryModel.maxInputTokens
         : undefined;
@@ -406,9 +429,13 @@ async function buildUnifiedModelsResponseCore(
       const maxInputTokens = registryInputLimit ?? syncedInputLimit ?? contextLength;
       const maxOutputTokens = isPositiveFiniteNumber(synced?.limit_output)
         ? synced.limit_output
-        : isPositiveFiniteNumber(spec?.maxOutputTokens)
-          ? spec.maxOutputTokens
-          : undefined;
+        : isPositiveFiniteNumber(registryModel?.maxOutputTokens)
+          ? registryModel.maxOutputTokens
+          : isPositiveFiniteNumber(spec?.maxOutputTokens)
+            ? spec.maxOutputTokens
+            : isPositiveFiniteNumber(customRow?.outputTokenLimit)
+              ? customRow.outputTokenLimit
+              : undefined;
 
       const syncedVision =
         typeof synced?.attachment === "boolean"
@@ -425,7 +452,7 @@ async function buildUnifiedModelsResponseCore(
           : undefined;
       const specVision =
         typeof spec?.supportsVision === "boolean" ? spec.supportsVision : undefined;
-      const knownVision = syncedVision ?? registryVision ?? specVision;
+      const knownVision = syncedVision ?? registryVision ?? specVision ?? customRow?.supportsVision;
 
       const inputModalities =
         syncedInputModalities.length > 0
@@ -445,6 +472,9 @@ async function buildUnifiedModelsResponseCore(
       capabilities.reasoning = canonical.capabilities.reasoning;
       if (typeof canonical.capabilities.vision === "boolean") {
         capabilities.vision = canonical.capabilities.vision;
+      } else if (typeof knownVision === "boolean") {
+        // Operator-declared customModels vision flag (no synced/registry truth).
+        capabilities.vision = knownVision;
       }
       if (typeof canonical.capabilities.attachment === "boolean") {
         capabilities.attachment = canonical.capabilities.attachment;
@@ -850,7 +880,9 @@ async function buildUnifiedModelsResponseCore(
             ...(modelType ? { type: modelType } : {}),
             ...(apiFormat !== "chat-completions" ? { api_format: apiFormat } : {}),
             ...(modelType === "audio" ? { subtype: "transcription" } : {}),
-            ...(sm.inputTokenLimit ? { context_length: sm.inputTokenLimit } : {}),
+            ...(typeof sm.inputTokenLimit === "number" && sm.inputTokenLimit > 0
+              ? { context_length: sm.inputTokenLimit }
+              : {}),
             ...(typeof sm.outputTokenLimit === "number"
               ? { max_output_tokens: sm.outputTokenLimit }
               : {}),
@@ -893,7 +925,9 @@ async function buildUnifiedModelsResponseCore(
               parent: null,
               type: "audio",
               subtype: "speech",
-              ...(sm.inputTokenLimit ? { context_length: sm.inputTokenLimit } : {}),
+              ...(typeof sm.inputTokenLimit === "number" && sm.inputTokenLimit > 0
+                ? { context_length: sm.inputTokenLimit }
+                : {}),
               ...(typeof sm.outputTokenLimit === "number"
                 ? { max_output_tokens: sm.outputTokenLimit }
                 : {}),
@@ -1464,7 +1498,7 @@ async function buildUnifiedModelsResponseCore(
       aliasToProviderId,
     });
 
-    const getDefaultContextFallback = (model: any): number | undefined => {
+    const getDefaultContextFallback = async (model: any): Promise<number | undefined> => {
       if (typeof model.context_length === "number") return undefined;
       if (model.owned_by === "combo") return undefined;
       if (model.type && model.type !== "chat") return undefined;
@@ -1478,7 +1512,7 @@ async function buildUnifiedModelsResponseCore(
 
       const modelId =
         model.root || (typeof model.id === "string" ? model.id.split("/").pop() : undefined);
-      return modelId ? getTokenLimit(canonicalId, modelId) : getTokenLimit(canonicalId);
+      return modelId ? await getTokenLimit(canonicalId, modelId) : await getTokenLimit(canonicalId);
     };
 
     return await finalizeCatalogResponse(request, finalModels, getDefaultContextFallback, {

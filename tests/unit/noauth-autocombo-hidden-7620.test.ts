@@ -24,9 +24,11 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const virtualFactory = await import("../../open-sse/services/autoCombo/virtualFactory.ts");
 
 async function resetStorage() {
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 test.beforeEach(async () => {
@@ -44,9 +46,9 @@ test.after(async () => {
 });
 
 test("#7620: a no-auth model hidden via the eye icon (isHidden:true) must be ABSENT from the auto-combo candidate pool", async () => {
-  modelsDb.setModelIsHidden("opencode", "mimo-v2.5-free", true);
+  await modelsDb.setModelIsHidden("opencode", "mimo-v2.5-free", true);
 
-  const hiddenMap = modelsDb.getHiddenModelsByProvider();
+  const hiddenMap = await modelsDb.getHiddenModelsByProvider();
   assert.equal(
     hiddenMap.get("opencode")?.has("mimo-v2.5-free"),
     true,

@@ -18,13 +18,15 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 const core = await import("../../src/lib/db/core.ts");
 const serverRoute = await import("../../src/app/api/tools/agent-bridge/server/route.ts");
 
-function resetDb() {
-  core.resetDbInstance();
+async function resetDb() {
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.beforeEach(() => resetDb());
+test.beforeEach(async () => await resetDb());
 test.after(() => {
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

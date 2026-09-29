@@ -82,8 +82,8 @@ before(async () => {
   await coreDb.ensureDbInitialized();
 });
 
-after(() => {
-  coreDb.resetDbInstance();
+after(async () => {
+  await coreDb.resetDbInstanceDrained();
   try {
     fs.rmSync(testDataDir, { recursive: true, force: true });
   } catch {
@@ -135,7 +135,9 @@ test("inserts the analytics row when calculateCost throws", async () => {
 });
 
 test("never rejects even on a bad write (fail-open)", async () => {
-  coreDb.resetDbInstance();
+  await coreDb.resetDbInstanceDrained();
   await assert.doesNotReject(writeCompressionAnalytics(baseOpts("ca-req-4")));
   await coreDb.ensureDbInitialized();
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 });

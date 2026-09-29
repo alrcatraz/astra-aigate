@@ -11,8 +11,8 @@ const core = await import("../../src/lib/db/core.ts");
 
 const { createSSEStream } = await import("../../open-sse/utils/stream.ts");
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }

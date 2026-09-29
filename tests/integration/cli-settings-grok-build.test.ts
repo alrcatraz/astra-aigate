@@ -26,15 +26,16 @@ const core = await import("../../src/lib/db/core.ts");
 const localDb = await import("../../src/lib/localDb.ts");
 
 // Import route handlers
-const { GET, POST, DELETE } = await import(
-  "../../src/app/api/cli-tools/grok-build-settings/route.ts"
-);
+const { GET, POST, DELETE } =
+  await import("../../src/app/api/cli-tools/grok-build-settings/route.ts");
 
 async function resetStorage() {
   delete process.env.INITIAL_PASSWORD;
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
 async function enableAuth() {
@@ -175,7 +176,7 @@ test("grok-build-settings DELETE: removes our section, preserves the rest, resto
       "[models]",
       'default = "omniroute"',
       "",
-      "# omniroute-prev-default = \"grok-build\"",
+      '# omniroute-prev-default = "grok-build"',
       "[model.omniroute]",
       'model = "grok-4.5"',
       'base_url = "http://localhost:20128/v1"',

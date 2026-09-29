@@ -32,7 +32,12 @@ function render(props: Record<string, unknown>) {
   const root = createRoot(el);
   act(() => {
     root.render(
-      <AddApiKeyModal isOpen onSave={async () => undefined} onClose={() => {}} {...(props as any)} />
+      <AddApiKeyModal
+        isOpen
+        onSave={async () => undefined}
+        onClose={() => {}}
+        {...(props as any)}
+      />
     );
   });
   containers.push({ root, el });
@@ -41,9 +46,9 @@ function render(props: Record<string, unknown>) {
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(() => {
+  act(async () => {
     setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -68,7 +73,10 @@ beforeEach(() => {
           json: () => Promise.resolve({ valid: false, error: TLS_EACCES_ERROR }),
         } as Response);
       }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ valid: true }) } as Response);
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ valid: true }),
+      } as Response);
     })
   );
 });
@@ -92,12 +100,11 @@ describe("AddApiKeyModal — surfaces the detailed validation error (#5088)", ()
     // The validate ("check") button is the first button that follows the
     // credential input in DOM order (it sits right next to it).
     const checkBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) =>
-        (apiKeyInput.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+      (b) => (apiKeyInput.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
     )!;
     expect(checkBtn).toBeTruthy();
-    act(() => {
-      checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(async () => {
+      await checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // The full reason must reach the DOM — a bare "invalid" badge is not enough.

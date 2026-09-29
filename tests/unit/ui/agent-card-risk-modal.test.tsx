@@ -104,9 +104,8 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
   });
 
   it("first DNS activation opens risk modal (does NOT call onDnsToggle yet)", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const onDnsToggle = vi.fn().mockResolvedValue(undefined);
     const container = makeContainer();
@@ -128,7 +127,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     // Expand card
     const header = container.querySelector("button[aria-expanded]");
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Click DNS toggle (Start DNS)
@@ -138,7 +137,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     expect(dnsBtn).not.toBeNull();
 
     await act(async () => {
-      dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Risk modal should be open (dialog element present)
@@ -149,9 +148,8 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
   }, 30000);
 
   it("accepting risk modal closes modal and calls onDnsToggle with true", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const onDnsToggle = vi.fn().mockResolvedValue(undefined);
     const container = makeContainer();
@@ -173,7 +171,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     // Expand card
     const header = container.querySelector("button[aria-expanded]");
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Click DNS toggle to open modal
@@ -181,7 +179,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
       b.textContent?.includes("startDns")
     );
     await act(async () => {
-      dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Modal should be open
@@ -194,7 +192,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     expect(acceptBtn).not.toBeNull();
 
     await act(async () => {
-      acceptBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await acceptBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Modal should be closed
@@ -209,9 +207,8 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
   }, 30000);
 
   it("accepting risk writes localStorage exactly once (RiskNoticeModal is sole writer)", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
 
@@ -235,7 +232,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     // Expand card
     const header = container.querySelector("button[aria-expanded]");
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Click DNS toggle to open modal
@@ -243,7 +240,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
       b.textContent?.includes("startDns")
     );
     await act(async () => {
-      dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Accept modal
@@ -251,7 +248,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
       b.textContent?.includes("understand")
     );
     await act(async () => {
-      acceptBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await acceptBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const riskKey = "omniroute-agentbridge-risk-dismissed-copilot";
@@ -271,9 +268,8 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
       // ignore
     }
 
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const onDnsToggle = vi.fn().mockResolvedValue(undefined);
     const container = makeContainer();
@@ -295,7 +291,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     // Expand card
     const header = container.querySelector("button[aria-expanded]");
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Click DNS toggle
@@ -303,7 +299,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
       b.textContent?.includes("startDns")
     );
     await act(async () => {
-      dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Risk modal should NOT appear
@@ -314,9 +310,8 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
   }, 30000);
 
   it("cancelling risk modal keeps modal closed and does NOT call onDnsToggle", async () => {
-    const { AgentCard } = await import(
-      "../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard"
-    );
+    const { AgentCard } =
+      await import("../../../src/app/(dashboard)/dashboard/tools/agent-bridge/components/AgentCard");
 
     const onDnsToggle = vi.fn().mockResolvedValue(undefined);
     const container = makeContainer();
@@ -338,7 +333,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     // Expand card
     const header = container.querySelector("button[aria-expanded]");
     await act(async () => {
-      header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await header?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Click DNS toggle to open modal
@@ -346,7 +341,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
       b.textContent?.includes("startDns")
     );
     await act(async () => {
-      dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await dnsBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Modal should be open
@@ -359,7 +354,7 @@ describe("AgentCard RiskNoticeModal", { timeout: 30000 }, () => {
     expect(cancelBtn).not.toBeNull();
 
     await act(async () => {
-      cancelBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await cancelBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // Modal should be closed

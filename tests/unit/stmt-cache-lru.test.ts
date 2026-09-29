@@ -13,10 +13,10 @@ function setup() {
   process.env.DATA_DIR = tempDir;
 }
 
-function cleanup() {
+async function cleanup() {
   try {
     const { resetDbInstance } = require("../../src/lib/db/core.ts");
-    resetDbInstance();
+    await resetDbInstanceDrained();
   } catch {}
   if (originalDataDir !== undefined) {
     process.env.DATA_DIR = originalDataDir;
@@ -26,6 +26,8 @@ function cleanup() {
   try {
     fs.rmSync(tempDir, { recursive: true, force: true });
   } catch {}
+  getDbInstance();
+  await awaitDbMigrations();
 }
 
 test("statement cache handles 200+ unique SELECTs without errors (LRU eviction)", async () => {
@@ -50,11 +52,11 @@ test("statement cache handles 200+ unique SELECTs without errors (LRU eviction)"
     }
 
     // Verify the DB is still functional after eviction churn
-    const finalRow = db
-      .prepare("SELECT COUNT(*) AS cnt FROM stmt_cache_test")
-      .get() as { cnt: number };
+    const finalRow = db.prepare("SELECT COUNT(*) AS cnt FROM stmt_cache_test").get() as {
+      cnt: number;
+    };
     assert.equal(finalRow.cnt, 1, "table should still have 1 row after cache churn");
   } finally {
-    cleanup();
+    await cleanup();
   }
 });

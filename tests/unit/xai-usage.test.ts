@@ -21,12 +21,9 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "omni-xai-usage-"));
 process.env.DATA_DIR = TMP;
 
 const core = await import("../../src/lib/db/core.ts");
-const { getMonthlyProviderTokensForConnection } = await import(
-  "../../src/lib/usage/usageStats.ts"
-);
-const { __testing, USAGE_FETCHER_PROVIDERS, getUsageForProvider } = await import(
-  "../../open-sse/services/usage.ts"
-);
+const { getMonthlyProviderTokensForConnection } = await import("../../src/lib/usage/usageStats.ts");
+const { __testing, USAGE_FETCHER_PROVIDERS, getUsageForProvider } =
+  await import("../../open-sse/services/usage.ts");
 const { getXaiUsage } = __testing;
 
 function insertUsage(
@@ -62,8 +59,8 @@ describe("xAI self-tracked usage", () => {
     insertUsage("conn-x", "minimax", 8_000_000, 0, inWindow);
   });
 
-  after(() => {
-    core.resetDbInstance();
+  after(async () => {
+    await core.resetDbInstanceDrained();
     try {
       fs.rmSync(TMP, { recursive: true, force: true });
     } catch {

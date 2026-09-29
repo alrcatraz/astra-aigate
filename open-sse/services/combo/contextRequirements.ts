@@ -15,10 +15,11 @@ export interface ContextRequirements {
 
 /**
  * Get context window size for a target model.
- * Returns null if unknown.
+ * Returns null if unknown. Async: getModelContextLimit reads the synced
+ * capability DB / registry (a sync call would compare a Promise against 0).
  */
-function getTargetContextWindow(target: ResolvedComboTarget): number | null {
-  const limit = getModelContextLimit(target.provider, target.modelStr);
+async function getTargetContextWindow(target: ResolvedComboTarget): Promise<number | null> {
+  const limit = await getModelContextLimit(target.provider, target.modelStr);
   return typeof limit === "number" && limit > 0 ? limit : null;
 }
 
@@ -44,11 +45,11 @@ function getTargetContextWindow(target: ResolvedComboTarget): number | null {
  * @param log - Combo logger for debug output
  * @returns Filtered and sorted targets array
  */
-export function applyContextRequirements(
+export async function applyContextRequirements(
   targets: ResolvedComboTarget[],
   requirements: ContextRequirements | undefined,
   log: ComboLogger
-): ResolvedComboTarget[] {
+): Promise<ResolvedComboTarget[]> {
   if (!requirements || targets.length === 0) return targets;
 
   const { minContextWindow, preferLargeContext, contextFilterMode = "lenient" } = requirements;
@@ -62,10 +63,12 @@ export function applyContextRequirements(
   if (minContextWindow && minContextWindow > 0) {
     const beforeFilterCount = filtered.length;
 
-    const classified = filtered.map((target) => ({
-      target,
-      contextWindow: getTargetContextWindow(target),
-    }));
+    const classified = await Promise.all(
+      filtered.map(async (target) => ({
+        target,
+        contextWindow: await getTargetContextWindow(target),
+      }))
+    );
 
     filtered = classified
       .filter(({ contextWindow }) => {
@@ -110,18 +113,20 @@ export function applyContextRequirements(
 
   // Apply preferLargeContext sorting
   if (preferLargeContext && filtered.length > 1) {
-    filtered = [...filtered].sort((a, b) => {
-      const aContext = getTargetContextWindow(a) ?? 0;
-      const bContext = getTargetContextWindow(b) ?? 0;
-      return bContext - aContext; // Descending order
-    });
+    const contextByTarget = new Map<ResolvedComboTarget, number>();
+    for (const target of filtered) {
+      contextByTarget.set(target, (await getTargetContextWindow(target)) ?? 0);
+    }
+    filtered = [...filtered].sort(
+      (a, b) => (contextByTarget.get(b) ?? 0) - (contextByTarget.get(a) ?? 0) // Descending order
+    );
 
     log.debug?.(
       "COMBO",
       `Context requirements: sorted by context size (descending): ${filtered
         .map((t) => {
-          const ctx = getTargetContextWindow(t);
-          return `${t.modelStr}(${ctx === null ? "unknown" : ctx})`;
+          const ctx = contextByTarget.get(t) ?? 0;
+          return `${t.modelStr}(${ctx === 0 ? "unknown" : ctx})`;
         })
         .join(", ")}`
     );

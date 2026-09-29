@@ -27,21 +27,23 @@ const core = await import("../../src/lib/db/core.ts");
 const vsModule = await import("../../src/lib/memory/vectorStore.ts");
 const { getVectorStore, _resetVectorStoreSingleton } = vsModule;
 
-function cleanup() {
+async function cleanup() {
   _resetVectorStoreSingleton();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 }
 
-test.afterEach(() => {
-  cleanup();
+test.afterEach(async () => {
+  await cleanup();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
@@ -83,7 +85,7 @@ test("getVectorStore() returns null or a VectorStore instance (never throws)", (
   assert.equal(threw, false, "getVectorStore() must never throw — must return null on failure");
   assert.ok(
     result === null || (typeof result === "object" && result !== null),
-    `getVectorStore() must return object or null, got ${typeof result}`,
+    `getVectorStore() must return object or null, got ${typeof result}`
   );
 });
 
@@ -109,7 +111,7 @@ test("getVectorStore() result has all required VectorStore methods when not null
   for (const method of requiredMethods) {
     assert.ok(
       typeof (store as Record<string, unknown>)[method] === "function",
-      `VectorStore must have method ${method}`,
+      `VectorStore must have method ${method}`
     );
   }
 });

@@ -65,7 +65,12 @@ vi.mock("@/lib/batches/csvToJsonl", () => ({
 }));
 
 vi.mock("@/lib/batches/retryFailed", () => ({
-  buildRetryPlan: vi.fn(() => ({ retriableLines: 0, newJsonl: "", failedCustomIds: [], skippedLines: 0 })),
+  buildRetryPlan: vi.fn(() => ({
+    retriableLines: 0,
+    newJsonl: "",
+    failedCustomIds: [],
+    skippedLines: 0,
+  })),
 }));
 
 // ── Shared stack patterns ─────────────────────────────────────────────────────
@@ -75,12 +80,12 @@ vi.mock("@/lib/batches/retryFailed", () => ({
  * into the UI. These must NOT match any user-visible text after an error.
  */
 const STACK_PATTERNS = [
-  /\/home\//,       // absolute paths to user home dir
-  /at \//,          // stack frame lines "at /path/to/file.ts:42"
-  /route\.ts/,      // source file names
-  /\tat /,          // node-style "  at Function..."
-  /Error:\s*\n/,    // raw Error constructor prefix
-  /\.ts:\d+/,       // typescript file + line number
+  /\/home\//, // absolute paths to user home dir
+  /at \//, // stack frame lines "at /path/to/file.ts:42"
+  /route\.ts/, // source file names
+  /\tat /, // node-style "  at Function..."
+  /Error:\s*\n/, // raw Error constructor prefix
+  /\.ts:\d+/, // typescript file + line number
 ] as const;
 
 function assertSanitized(text: string | null | undefined, context: string) {
@@ -111,15 +116,12 @@ async function waitFor(fn: () => boolean, ms = 3000): Promise<void> {
 
 // ── Import components after mocks ─────────────────────────────────────────────
 
-const { default: NewBatchWizard } = await import(
-  "../../../../src/app/(dashboard)/dashboard/batch/components/NewBatchWizard"
-);
-const { default: UploadFileModal } = await import(
-  "../../../../src/app/(dashboard)/dashboard/batch/components/UploadFileModal"
-);
-const { useBatchActions } = await import(
-  "../../../../src/app/(dashboard)/dashboard/batch/components/useBatchActions"
-);
+const { default: NewBatchWizard } =
+  await import("../../../../src/app/(dashboard)/dashboard/batch/components/NewBatchWizard");
+const { default: UploadFileModal } =
+  await import("../../../../src/app/(dashboard)/dashboard/batch/components/UploadFileModal");
+const { useBatchActions } =
+  await import("../../../../src/app/(dashboard)/dashboard/batch/components/useBatchActions");
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -144,11 +146,7 @@ describe("NewBatchWizard — error sanitization", () => {
     const root = createRoot(el);
     act(() => {
       root.render(
-        <NewBatchWizard
-          onClose={onClose}
-          onCreated={onCreated}
-          availableProviders={PROVIDERS}
-        />
+        <NewBatchWizard onClose={onClose} onCreated={onCreated} availableProviders={PROVIDERS} />
       );
     });
     containers.push({ root, el });
@@ -157,57 +155,71 @@ describe("NewBatchWizard — error sanitization", () => {
     const selects = el.querySelectorAll("select");
     await act(async () => {
       (selects[0] as HTMLSelectElement).value = "openai";
-      selects[0].dispatchEvent(new Event("change", { bubbles: true }));
+      await selects[0].dispatchEvent(new Event("change", { bubbles: true }));
     });
     const selectsAfter = el.querySelectorAll("select");
     await act(async () => {
       (selectsAfter[2] as HTMLSelectElement).value = "gpt-4o-mini";
-      selectsAfter[2].dispatchEvent(new Event("change", { bubbles: true }));
+      await selectsAfter[2].dispatchEvent(new Event("change", { bubbles: true }));
     });
-    const nextBtns = () => Array.from(el.querySelectorAll("button")).filter((b) => b.textContent === "wizardNext");
-    await act(async () => { nextBtns()[0]?.click(); });
+    const nextBtns = () =>
+      Array.from(el.querySelectorAll("button")).filter((b) => b.textContent === "wizardNext");
+    await act(async () => {
+      nextBtns()[0]?.click();
+    });
 
     // Step 2: inject file
     const fileInput = el.querySelector("input[type='file']") as HTMLInputElement;
     const file = new File([JSONL_LINE], "batch.jsonl", { type: "application/jsonl" });
     await act(async () => {
       Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
-      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await fileInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await new Promise((r) => setTimeout(r, 100));
 
     await waitFor(() => !((nextBtns()[0] as HTMLButtonElement)?.disabled ?? true));
 
-    await act(async () => { nextBtns()[0]?.click(); });
+    await act(async () => {
+      nextBtns()[0]?.click();
+    });
 
     // Wait step 3 validation ok
     await waitFor(() => el.textContent!.includes("wizardValidationOk"));
     await waitFor(() => !((nextBtns()[0] as HTMLButtonElement)?.disabled ?? true));
 
-    await act(async () => { nextBtns()[0]?.click(); });
-    await waitFor(() => el.textContent!.includes("wizardCreate"), { valueOf: () => 5000 } as unknown as number);
+    await act(async () => {
+      nextBtns()[0]?.click();
+    });
+    await waitFor(() => el.textContent!.includes("wizardCreate"), {
+      valueOf: () => 5000,
+    } as unknown as number);
 
     return el;
   }
 
   it("S1: file upload 500 with stack in body → alert shows i18n key only", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({
-        error: {
-          message:
-            "TypeError at /home/user/server/files/route.ts:42:12\n  at handler (/home/user/route.ts:99:5)",
-        },
-      }),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: {
+            message:
+              "TypeError at /home/user/server/files/route.ts:42:12\n  at handler (/home/user/route.ts:99:5)",
+          },
+        }),
+      })
+    );
 
     const el = await mountAndNavigateToStep4();
 
     const createBtn = Array.from(el.querySelectorAll("button")).find((b) =>
       b.textContent?.includes("wizardCreate")
     );
-    await act(async () => { createBtn?.click(); });
+    await act(async () => {
+      createBtn?.click();
+    });
 
     await waitFor(() => el.querySelector("[role='alert']") !== null);
 
@@ -219,7 +231,8 @@ describe("NewBatchWizard — error sanitization", () => {
   it("S2: batch create 500 → alert is i18n key, no path exposed", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn()
+      vi
+        .fn()
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ id: "file-test" }),
@@ -236,7 +249,9 @@ describe("NewBatchWizard — error sanitization", () => {
     const createBtn = Array.from(el.querySelectorAll("button")).find((b) =>
       b.textContent?.includes("wizardCreate")
     );
-    await act(async () => { createBtn?.click(); });
+    await act(async () => {
+      createBtn?.click();
+    });
 
     await waitFor(() => el.querySelector("[role='alert']") !== null);
 
@@ -246,16 +261,23 @@ describe("NewBatchWizard — error sanitization", () => {
   });
 
   it("S3: fetch throws network error with path → alert is i18n key, no path", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(
-      new Error("ECONNREFUSED at /home/user/network.ts:200 — stack:\n  at connect")
-    ));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValue(
+          new Error("ECONNREFUSED at /home/user/network.ts:200 — stack:\n  at connect")
+        )
+    );
 
     const el = await mountAndNavigateToStep4();
 
     const createBtn = Array.from(el.querySelectorAll("button")).find((b) =>
       b.textContent?.includes("wizardCreate")
     );
-    await act(async () => { createBtn?.click(); });
+    await act(async () => {
+      createBtn?.click();
+    });
 
     await waitFor(() => el.querySelector("[role='alert']") !== null);
 
@@ -285,28 +307,33 @@ describe("UploadFileModal — error sanitization", () => {
     const input = el.querySelector("input[type='file']") as HTMLInputElement;
     await act(async () => {
       Object.defineProperty(input, "files", { value: [file], configurable: true });
-      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await input.dispatchEvent(new Event("change", { bubbles: true }));
     });
   }
 
   it("S4: upload 500 with path in response → alert shows safe key only", async () => {
     const el = mountModal();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({
-        error: {
-          message: "ENOMEM at /home/runner/build/src/api/v1/files/route.ts:42:7",
-        },
-      }),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: {
+            message: "ENOMEM at /home/runner/build/src/api/v1/files/route.ts:42:7",
+          },
+        }),
+      })
+    );
 
     await selectFile(el, makeFile("test.jsonl", 100));
 
     const uploadBtn = Array.from(el.querySelectorAll("button")).find((b) =>
       b.textContent?.includes("uploadModalUpload")
     )!;
-    await act(async () => { uploadBtn.click(); });
+    await act(async () => {
+      uploadBtn.click();
+    });
 
     const alert = el.querySelector("[role='alert']")!;
     expect(alert).not.toBeNull();
@@ -316,16 +343,23 @@ describe("UploadFileModal — error sanitization", () => {
 
   it("S5: fetch throws with path in error.message → alert shows safe key only", async () => {
     const el = mountModal();
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(
-      new Error("Network timeout at /home/user/uploader.ts:77\n  at upload (handler.ts:12)")
-    ));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockRejectedValue(
+          new Error("Network timeout at /home/user/uploader.ts:77\n  at upload (handler.ts:12)")
+        )
+    );
 
     await selectFile(el, makeFile("test.jsonl", 50));
 
     const uploadBtn = Array.from(el.querySelectorAll("button")).find((b) =>
       b.textContent?.includes("uploadModalUpload")
     )!;
-    await act(async () => { uploadBtn.click(); });
+    await act(async () => {
+      uploadBtn.click();
+    });
 
     const alert = el.querySelector("[role='alert']");
     if (alert) {
@@ -352,7 +386,13 @@ describe("useBatchActions — error sanitization", () => {
     const el = makeDiv();
     const root = createRoot(el);
     act(() => {
-      root.render(<Wrapper sub={(r) => { latestResult = r; }} />);
+      root.render(
+        <Wrapper
+          sub={(r) => {
+            latestResult = r;
+          }}
+        />
+      );
     });
     containers.push({ root, el });
 
@@ -360,12 +400,15 @@ describe("useBatchActions — error sanitization", () => {
   }
 
   it("S6: cancel with error containing path → error is i18n key only", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(
-      new Error("Connect failed at /home/user/proxy/src/route.ts:12:5")
-    ));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("Connect failed at /home/user/proxy/src/route.ts:12:5"))
+    );
 
     const hook = renderHook();
-    await act(async () => { await hook.get().cancel("batch-test"); });
+    await act(async () => {
+      await hook.get().cancel("batch-test");
+    });
 
     const err = hook.get().error ?? "";
     assertSanitized(err, "useBatchActions cancel error");
@@ -383,7 +426,8 @@ describe("useBatchActions — error sanitization", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn()
+      vi
+        .fn()
         .mockResolvedValueOnce({ ok: true, text: async () => '{"custom_id":"r1"}\n' })
         .mockResolvedValueOnce({ ok: true, text: async () => '{"custom_id":"r1","error":{}}\n' })
         .mockRejectedValueOnce(new Error("Upload failed at /home/user/files.ts:99:3\n  at upload"))
@@ -405,14 +449,19 @@ describe("useBatchActions — error sanitization", () => {
   });
 
   it("S8: cancel with HTTP 500 → error is i18n key, not status code or body", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({ error: { message: "DB error at /home/user/db.ts:42" } }),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { message: "DB error at /home/user/db.ts:42" } }),
+      })
+    );
 
     const hook = renderHook();
-    await act(async () => { await hook.get().cancel("batch-500-test"); });
+    await act(async () => {
+      await hook.get().cancel("batch-500-test");
+    });
 
     const err = hook.get().error ?? "";
     assertSanitized(err, "useBatchActions cancel 500 error");

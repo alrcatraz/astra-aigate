@@ -29,22 +29,28 @@ function writePlugin(dir: string, name: string, source: string, integrity?: stri
 const activeDirs: string[] = [];
 function cleanupDirs() {
   for (const d of activeDirs) {
-    try { fs.rmSync(d, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(d, { recursive: true, force: true });
+    } catch {}
   }
   activeDirs.length = 0;
 }
 
-test.beforeEach(() => {
-  core.resetDbInstance();
+test.beforeEach(async () => {
+  await core.resetDbInstanceDrained();
   hooks.resetHooks();
   cleanupDirs();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
-test.after(() => {
-  core.resetDbInstance();
+test.after(async () => {
+  await core.resetDbInstanceDrained();
   cleanupDirs();
-  try { fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true }); } catch {}
+  try {
+    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  } catch {}
 });
 
 test("computeIntegrity returns correct format", async () => {

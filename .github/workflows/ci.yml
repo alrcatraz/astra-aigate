@@ -1069,7 +1069,6 @@ jobs:
       - docs-sync-strict
       - i18n-ui-coverage
       - i18n-glossary-zhcn
-      - i18n
       - pr-test-policy
       - build
       - package-artifact

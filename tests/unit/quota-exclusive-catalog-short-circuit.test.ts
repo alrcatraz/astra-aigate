@@ -64,7 +64,7 @@ function installFetchCounter(): void {
 test.after(async () => {
   globalThis.fetch = originalFetch;
   apiKeysDb.resetApiKeyState();
-  core.resetDbInstance();
+  await core.resetDbInstanceDrained();
   try {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   } catch {
@@ -84,14 +84,14 @@ await test("chave quota-exclusive não constrói o catálogo completo", async (t
   });
 
   // Pool de cota sobre uma conexão glm (lista estável no registry estático).
-  const group = groupsDb.createGroup("Curto");
+  const group = await groupsDb.createGroup("Curto");
   const conn = await providersDb.createProviderConnection({
     provider: "glm",
     authType: "apikey",
     name: "shortcircuit-glm",
     apiKey: "sk-glm-shortcircuit",
   });
-  const pool = poolsDb.createPool({
+  const pool = await poolsDb.createPool({
     connectionId: (conn as Record<string, unknown>).id as string,
     name: "Curto",
     groupId: group.id,

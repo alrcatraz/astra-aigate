@@ -39,9 +39,9 @@ test("codex native responses passthrough strips client-only params (#3317)", asy
   assert.ok(Array.isArray(result.input), "input array preserved");
 });
 
-test.after(() => {
+test.after(async () => {
   try {
-    core.resetDbInstance?.();
+    await core.resetDbInstanceDrained?.();
   } catch {
     /* ignore */
   }

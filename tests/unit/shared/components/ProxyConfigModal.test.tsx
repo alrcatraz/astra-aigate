@@ -140,8 +140,8 @@ async function setInputValue(input: HTMLInputElement, value: string) {
   await act(async () => {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
     setter?.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await input.dispatchEvent(new Event("input", { bubbles: true }));
+    await input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await flushEffects();
 }
@@ -432,7 +432,10 @@ describe("ProxyConfigModal test connection (saved proxy)", () => {
       }
       if (url.startsWith("/api/settings/proxies/assignments?") && url.includes("scope=provider")) {
         return {
-          body: { items: [{ proxyId: "socks5-1", scope: "provider", scopeId: "claude" }], total: 1 },
+          body: {
+            items: [{ proxyId: "socks5-1", scope: "provider", scopeId: "claude" }],
+            total: 1,
+          },
         };
       }
       if (method === "POST" && url === "/api/settings/proxy/test") {
