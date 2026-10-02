@@ -42,8 +42,16 @@ RUN useradd -m -u 1000 -U node
 # but the container scanner flags the stale copies under
 # /usr/local/lib/node_modules/npm/node_modules. npm is not invoked at runtime in
 # the runner stages, so this is hygiene, not an exploitable runtime path.
-RUN npm install -g npm@latest \
-  && npm cache clean --force
+# PINNED (was npm@latest): the package manager itself is part of the
+# declarative-reproducibility contract — an unpinned manager means neither its
+# own version nor the environment it lays down is reproducible. 12.2.0 is the
+# latest-as-of 2026-10-02 snapshot; bump deliberately (with NPM versions in
+# .github/actions/node-dist/action.yml's case block kept out of scope — that
+# one tracks the tarball's BUNDLED npm, this refreshes the image's global npm).
+ARG NPM_VERSION=12.2.0
+RUN npm install -g "npm@${NPM_VERSION}" \
+  && npm cache clean --force \
+  && npm --version | grep -qx "${NPM_VERSION}"
 
 # ── Builder ────────────────────────────────────────────────────────────────
 FROM base AS builder

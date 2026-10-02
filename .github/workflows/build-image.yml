@@ -2,8 +2,12 @@
 #
 # Triggers:
 #   - push tag v*        → ghcr.io/alrcatraz/astra-aigate:vX.Y.Z + :latest
-#   - push development   → ghcr.io/alrcatraz/astra-aigate:development
 #   - workflow_dispatch  → manual build (optional `target` input)
+#
+# Images are built from RELEASE TAGS ONLY. A branch push never publishes: an
+# image is the deployable artefact, so it must correspond to a versioned,
+# reviewed state on `main` — not to whatever an integration branch happens to
+# hold. Tag the release on `main`, then the tag drive the build.
 #
 # The image builds on the openSUSE Leap 16.0 base (see Dockerfile). The webpack
 # build step needs ~8 GB of V8 heap, which is why AIGATE_BUILD_MEMORY_MB=8192
@@ -20,7 +24,6 @@ name: Build Image
 
 on:
   push:
-    branches: [development]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -28,6 +31,10 @@ on:
         description: "Docker target (default: runner-cli, i.e. the final stage)"
         required: false
         default: "runner-cli"
+      version:
+        description: "Version tag for a manual build (default: derived from the checked-out commit)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -43,9 +50,10 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # GHCR publishing is GitHub-Actions-only by design (2026-09-25): the
-    # internal mirror's runner cannot authenticate to ghcr.io (its workflow
-    # JWT is forge-local). Internal consumers pull images from GHCR/releases.
+    # GHCR publishing is GitHub-Actions-only by design (2026-09-25): a
+    # non-GitHub runner cannot authenticate to ghcr.io (its workflow JWT is
+    # scoped to its own platform). Consumers outside GitHub pull images from
+    # GHCR/releases.
     if: github.server_url == 'https://github.com'
     timeout-minutes: 60
     steps:
@@ -57,17 +65,60 @@ jobs:
       - name: Resolve image tags
         id: tags
         run: |
+          set -eu
+          # Only release tags publish. A tag push carries vX.Y.Z; a manual
+          # dispatch may name a version explicitly, or reuse the tag pointing
+          # at the checked-out commit. Anything else is a hard error — never
+          # publish an image under a branch name.
           REF_NAME="${{ github.ref_name }}"
-          if [[ "$REF_NAME" == v* ]]; then
-            # Tag push → versioned tag + latest
-            echo "tags=${IMAGE_NAME}:${REF_NAME},${IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+          INPUT_VERSION="${{ inputs.version }}"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            VERSION="$INPUT_VERSION"
+          elif [[ "$REF_NAME" == v* ]]; then
+            VERSION="$REF_NAME"
           else
-            # Branch push → branch name as tag (development)
-            echo "tags=${IMAGE_NAME}:${REF_NAME}" >> "$GITHUB_OUTPUT"
+            VERSION=$(git describe --tags --exact-match 2>/dev/null || true)
           fi
+          if [[ "$VERSION" != v* ]]; then
+            echo "::error::No version tag resolved (ref='$REF_NAME'). Publishing requires a v* tag: tag the commit on main, or pass the 'version' input on a manual dispatch."
+            exit 1
+          fi
+          echo "tags=${IMAGE_NAME}:${VERSION},${IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+          echo "publishing ${IMAGE_NAME}:${VERSION} and :latest"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+
+      # Evidence chain for the base image (2026-10-02 decision: the leap:16.0
+      # tag floats ON PURPOSE — it is how openSUSE delivers security patches
+      # into the image, and freezing a snapshot tag would freeze the CVE set
+      # with it). Reproducibility here means RECORDING what each build
+      # actually ran on: the registry manifest digest for the tag, captured
+      # over a HEAD request (no layer pulls) right before the build. If a
+      # later run behaves differently, this line says which base it had.
+      - name: Record base image digest (floating leap:16.0 evidence)
+        shell: bash
+        run: |
+          set -eu
+          BASE_IMAGE=$(grep -m1 '^FROM ' Dockerfile | awk '{print $2}')
+          echo "base image reference: $BASE_IMAGE"
+          REPO=$(echo "$BASE_IMAGE" | sed -E 's#^[^/]+/##; s#:.*$##; s#@.*$##')
+          REF=$(echo "$BASE_IMAGE" | sed -E 's#^.*:##; s#@.*$##')
+          # Anonymous HEAD works on this registry (proved locally 2026-10-02:
+          # 200 + Docker-Content-Digest, no /v2/token needed — that endpoint
+          # 400s here anyway). -f makes any HTTP error fail the step loudly.
+          DIGEST=$(curl -fsSI \
+            -H 'Accept: application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+            "https://registry.opensuse.org/v2/$REPO/manifests/$REF" \
+            | tr -d '\r' | awk 'tolower($1)=="docker-content-digest:"{print $2; exit}')
+          if [ -n "$DIGEST" ]; then
+            echo "base digest at build time: ${BASE_IMAGE%@*}@$DIGEST"
+            echo "- base image: \`${BASE_IMAGE%@*}@$DIGEST\` (resolved ${GITHUB_RUN_ID})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "WARN: registry did not return a manifest digest — evidence line missing" >&2
+            echo "- base image: \`$BASE_IMAGE\` — digest lookup FAILED (${GITHUB_RUN_ID})" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
