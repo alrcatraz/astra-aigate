@@ -33,10 +33,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      # Same runtime as the image (was setup-node "24" — a version the image
+      # never shipped; the server under DAST must be built by the same node
+      # the production image runs).
+      - uses: ./.github/actions/node-dist
+      - name: npm registry cache (tarballs)
+        uses: actions/cache@v4
         with:
-          node-version: "24"
-          cache: npm
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
       - run: npm ci
       - name: Build CLI bundle
         env:
