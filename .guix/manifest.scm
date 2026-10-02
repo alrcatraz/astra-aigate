@@ -59,7 +59,7 @@
   ;; certificate verification — `git fetch origin` in pr-test-policy died
   ;; with exit 128 on the PR's first real run. nss-certs installs the
   ;; Mozilla roots into the profile; git and curl pick them up.
-       (@ (gnu packages certs) nss-certs)
+       (@ (gnu packages nss) nss-certs)
   ;; Core userland the shell stages of CI jobs assume.
        (@ (gnu packages bash) bash)
        (@ (gnu packages base) coreutils)
