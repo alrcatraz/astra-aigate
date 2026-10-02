@@ -1,0 +1,234 @@
+name: guix toolchain
+
+# Prepare the declarative toolchain for the steps that follow: the pinned
+# official NODE DIST (image parity — embedded as the first step), the Guix
+# binary, the REPOSITORY channel pin (.guix/channels.scm), the cached channel
+# checkout, and a wrapper script for the consumers:
+#
+#   - run: $GUIX_SHELL node …      # node from the image-identical dist,
+#                                   # support tools from the Guix profile
+#
+# Runtime/support split (2026-10-02): the manifest deliberately carries NO
+# node — CI runs the exact tarball the production image unpacks (see
+# .github/actions/node-dist), so PATH inside the wrapper falls through to the
+# dist and every consumer sees node 26.7.0 with the profile's git/rg/jq/python
+# behind it. Embedding node-dist here keeps it a single-point opt-in: a job
+# that activates this action gets both layers, and no job has to remember a
+# second `uses:` line (audit finds zero copies to drift).
+#
+# Why a composite action instead of pasting these steps per job: the channel
+# pin, the flag shape and the substitute assembly are each the product of a
+# measured failure (see guix/ci/guix-to-work.md), and a drift between two
+# copies of them reintroduces exactly the silent misconfiguration those notes
+# paid for. One definition, many consumers.
+#
+# The pin is a file in the repository, NOT the installer's `channels` output.
+# The output describes whatever nightly tarball is "latest" today — consuming
+# it as the pin would let the environment drift daily, miss the checkout
+# cache daily, and prove nothing about tomorrow's runs. (.guix/channels.scm
+# documents the bump policy and procedure.)
+#
+# Ordering contract for consumers: the checkout cache is RESTORED here but
+# saved by a trailing step in each consuming job (an action cannot save what
+# the job only populates after the action returns). Jobs that skip the save
+# step still work — they just pay a cold clone every run. Keep the pair:
+#
+#   - uses: ./.github/actions/guix-toolchain
+#     with: { cache-url: ${{ secrets.GUIX_CACHE_URL }} }
+#   …
+#   - if: always()
+#     uses: actions/cache/save@v4
+#     with:
+#       path: ~/.cache/guix
+#       key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
+#
+# Cost honesty: first run after a bump pays installer download + incremental
+# git fetch + store re-download (~5-13 min); a warm run should land near
+# 2-4 minutes (installer tarball + substitutes for store drift only).
+
+description: >-
+  Install the pinned node dist (image parity) and Guix, verify the repo pin,
+  cache the checkout, export $GUIX_SHELL
+author: alrcatraz
+branding:
+  icon: box
+  color: purple
+
+inputs:
+  manifest:
+    description: Manifest file the wrapper resolves (relative to the workspace)
+    required: false
+    default: .guix/manifest.scm
+  cache-url:
+    description: >-
+      The project substitute cache URL, passed in by the CALLER from a secret
+      (write `with: cache-url` using the secrets context on the calling side).
+      A composite action cannot read `secrets` itself — that context does not
+      exist inside action.yml (the runner rejects it at manifest load:
+      "Unrecognized named-value: 'secrets'"), so the indirection must live on
+      the calling side. Empty means no private cache: the list degrades to the
+      public mirrors, so a missing secret never fails a job.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # First: the image-identical node runtime. It is guix-agnostic (works on
+    # a bare runner), fails fast before the expensive installer runs, and
+    # exports NODE_DIST_* plus a PATH whose head holds the dist's bin — the
+    # wrapper below inherits it, so `$GUIX_SHELL node` resolves to the dist
+    # once the manifest stops carrying node.
+    - name: node dist (image-identical runtime)
+      uses: ./.github/actions/node-dist
+
+    # The installer ships a Guix binary snapshot (nightly tarball) plus the
+    # daemon/store plumbing. Its own `channels` input and pull behaviour are
+    # NOT used: the binary is only a bootstrap — everything that resolves
+    # packages runs through `guix time-machine -C <repo pin>`, so the pinned
+    # channel identity is authoritative regardless of which nightly binary
+    # landed in the image this week.
+    - name: Install Guix
+      uses: PromyLOPh/guix-install-action@v1.6
+      with:
+        pullAfterInstall: "false"
+
+    - name: Verify the repository channel pin
+      id: pin
+      shell: bash
+      env:
+        CHANNELS_FILE: ${{ github.workspace }}/.guix/channels.scm
+      run: |
+        set -eu
+        # Fail loudly HERE rather than as an opaque Scheme error three steps
+        # later. A pin without an `introduction` cannot be authenticated; a
+        # pin whose commit is not a full 40-hex SHA resolves unpredictably.
+        test -f "$CHANNELS_FILE" || { echo "FATAL: $CHANNELS_FILE missing — the toolchain pin must live in the repo"; exit 1; }
+        grep -qE '\(commit[[:space:]]*"[0-9a-f]{40}"\)' "$CHANNELS_FILE" || { echo "FATAL: channel pin carries no 40-hex commit"; exit 1; }
+        grep -q 'introduction'  "$CHANNELS_FILE" || { echo "FATAL: channel pin is not authenticated"; exit 1; }
+
+        # The checkout cache key is derived from the pin file's own content:
+        # edit the pin and the key moves with it — no second place to update,
+        # and a stale key can never serve a checkout for a different pin than
+        # the one being resolved.
+        pin_hash=$(sha256sum "$CHANNELS_FILE" | cut -c1-16)
+        echo "cachekey=guix-checkouts-v1-$pin_hash" >> "$GITHUB_OUTPUT"
+        {
+          printf 'GUIX_CHECKOUT_CACHE_KEY<<EOF\n%s\nEOF\n' "guix-checkouts-v1-$pin_hash"
+          printf 'GUIX_CHANNELS_FILE<<EOF\n%s\nEOF\n' "$CHANNELS_FILE"
+        } >> "$GITHUB_ENV"
+        echo "channel pin: $CHANNELS_FILE (cache key …$pin_hash)"
+
+    # The channel checkout under ~/.cache/guix is owned by the runner user
+    # (measured, run 36863496262: runner:runner, 571M) — unlike /gnu/store,
+    # which is root-owned and whose absolute-path restore fails outright (the
+    # install action's own tests say so; actions/cache #133 et al.). Caching
+    # the checkout removes the 8-minute clone: the dominant cold-start cost.
+    # `restore-keys` deliberately includes the bare version prefix: after a
+    # bump, the old checkout is restored and Guix fetches the new commit
+    # incrementally into it, instead of re-cloning the full history.
+    - name: Restore channel checkout cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.cache/guix
+        key: ${{ steps.pin.outputs.cachekey }}
+        restore-keys: |
+          ${{ steps.pin.outputs.cachekey }}
+          guix-checkouts-v1-
+
+    - name: Assemble the Guix wrapper
+      shell: bash
+      env:
+        MANIFEST: ${{ inputs.manifest }}
+        CACHE_URL: ${{ inputs.cache-url }}
+        CHANNELS_FILE: ${{ github.workspace }}/.guix/channels.scm
+      run: |
+        set -eu
+
+        # Substitute order matters: Guix queries in sequence and stops at the
+        # first hit. The private cache leads because it carries what the public
+        # mirrors lack (this project's own channels), and the public servers
+        # stay as the fallback. It is a SECRET, not a literal and not a
+        # configuration variable: the URL names infrastructure, a variable's
+        # value is neither write-only nor masked in public run logs, and this
+        # step prints the assembled command for verification.
+        #
+        # Reachability note: a home-served cache is typically IPv6-only, while
+        # GitHub-hosted runners have no IPv6 egress — see
+        # guix/ci/guix-to-work.md before expecting a private URL to work here.
+        PUBLIC_URLS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
+        if [ -n "${CACHE_URL:-}" ]; then
+          SUBS="$CACHE_URL $PUBLIC_URLS"
+          echo "substitute sources: private cache first, then public mirrors"
+        else
+          SUBS="$PUBLIC_URLS"
+          echo "NOTE: no cache secret configured — substituting from public mirrors only."
+        fi
+
+        # `--substitute-urls` carries a WHITESPACE-separated list, so the
+        # value must arrive at Guix as ONE argv element. Consumers expand the
+        # wrapper UNQUOTED (`$GUIX_SHELL node …`), and shell word-splitting
+        # does not re-interpret quotes that live inside an expanded value —
+        # a quote embedded in a pre-assembled word string is a literal
+        # character, gets split off, and Guix sees `--substitute-urls=<first>`
+        # plus the remaining URLs as extra arguments:
+        #
+        #   guix time-machine: error: https://ci.guix.gnu.org': extraneous argument
+        #                                       ^ trailing quote, from $SUBS
+        #
+        # (same failure as Guix bug #29814, which reports this exact message).
+        # Fixed by writing a SCRIPT: inside it the quotes are real syntax, so
+        # the list stays one argv element no matter how the caller expands
+        # $GUIX_SHELL. The script is a single word, so unquoted expansion
+        # cannot break it either.
+        #
+        # The script resolves the manifest relative to $GITHUB_WORKSPACE and
+        # the channel file by absolute path, so consumers may run it from any
+        # working directory.
+        SCRIPT="$GITHUB_ACTION_PATH/guix-shell.sh"
+        MANIFEST_ABS="$GITHUB_WORKSPACE/$MANIFEST"
+        mkdir -p "$GITHUB_ACTION_PATH"
+        cat > "$SCRIPT" <<WRAP_EOF
+        #!/usr/bin/env bash
+        # Generated by the guix-toolchain action — do not edit.
+        # Single entry point: Guix invoked with the pinned channel and the
+        # assembled substitute list, forwarding all caller arguments.
+        exec guix time-machine \\
+          -C '$CHANNELS_FILE' \\
+          --substitute-urls='$SUBS' \\
+          -- shell \\
+            -m '$MANIFEST_ABS' \\
+            --substitute-urls='$SUBS' \\
+            -- "\$@"
+        WRAP_EOF
+        chmod +x "$SCRIPT"
+
+        # The MANIFEST/CACHE_URL/CHANNELS_FILE references above are written by
+        # THIS shell (the heredoc is unquoted), so they expand here. Verify
+        # that: a surviving `$SUBS` or `$CHANNELS_FILE` means the heredoc
+        # quoting went wrong and every later step would fail at Guix parse.
+        # Search for the token WITHOUT a backslash — an unexpanded reference
+        # arrives as `$SUBS`, and grepping for `\$SUBS` would never match it
+        # (a probe that cannot fail is no probe at all).
+        for probe in '$SUBS' '$CHANNELS_FILE' '$MANIFEST'; do
+          if grep -qF -- "$probe" "$SCRIPT"; then
+            echo "FATAL: unexpanded $probe survived into the wrapper script"
+            exit 1
+          fi
+        done
+        # `"$@"` is the one intentional reference; prove it survived.
+        grep -qF -- '"$@"' "$SCRIPT" || { echo "FATAL: caller args not forwarded"; exit 1; }
+        bash -n "$SCRIPT" || { echo "FATAL: wrapper script is not valid bash"; exit 1; }
+
+        # Multi-word values need the heredoc form; `NAME=value` is split on
+        # spaces when the next step receives it. GUIX_SHELL is a single path
+        # (no spaces on runners), GUIX_SUBSTITUTE_URLS keeps the list for
+        # diagnostics and for jobs that assemble their own invocation.
+        {
+          printf 'GUIX_SHELL<<EOF\n%s\nEOF\n' "$SCRIPT"
+          printf 'GUIX_SUBSTITUTE_URLS<<EOF\n%s\nEOF\n' "$SUBS"
+        } >> "$GITHUB_ENV"
+
+        echo "wrapper: $SCRIPT"
+        echo "  manifest: $MANIFEST_ABS"
+        echo "  substitute sources: $(echo "$SUBS" | wc -w)"
