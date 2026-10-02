@@ -1,0 +1,179 @@
+name: node dist (pinned, byte-identical with the image)
+
+# Why this exists next to the Guix toolchain: the production image ships the
+# OFFICIAL nodejs.org tarball (Dockerfile ARG NODE_VERSION). CI must run the
+# SAME runtime — and a Guix-BUILT node of the same version number would NOT
+# be the same bytes (different glibc/OpenSSL linkage), so parity can only
+# mean "same distribution". The channel at our pin carries no 26.7.0 (probe
+# run 36945680396: node@26.7.0 → package not found; 26.7.0 absent from the
+# pinned node.scm), and grafting the tarball into the store is a patchelf
+# project, not a pin.
+#
+# Determinism, three layers (the image layer only checks the versions; this
+# action adds the byte checks — CI becomes stricter than the Dockerfile):
+#   1. per-release: the tarball's SHA-256 must match the hex digest recorded
+#      in this file (from nodejs.org's SHASUMS256.txt for the release,
+#      verified 2026-10-02; the nix-base32 equivalent —
+#      1vkpcb0m41g8as9j7x10bdj9c21vzzfkgcwadaf8hk5yv16s4alq — was computed
+#      with a converter validated against nix.dev's official `nix hash
+#      convert` example for sha256("abc")).
+#   2. every run: the same digest must equal the one nodejs.org publishes in
+#      SHASUMS256.txt for that release — two independent statements agree.
+#   3. npm: the global npm is refreshed to the Dockerfile's pinned
+#      ARG NPM_VERSION (the manager is part of the reproducibility
+#      contract — same reasoning as pinning uv), so `npm ci` behaves the
+#      same in CI and in the image builder.
+#
+# Bump ceremony: edit the Dockerfile ARG NODE_VERSION (+ its digest case
+# below) and ARG NPM_VERSION in the same commit — guix-smoke asserts both,
+# so a one-sided edit goes red immediately.
+#
+# CONTRACT: jobs that run the app runtime (npm ci, tests, build) must use
+# $NODE_DIST_RUN / $NODE_DIST_NPM (or the PATH this action prepends);
+# support tools (git, ripgrep, jq, python) keep resolving through
+# $GUIX_SHELL exactly as before. PATH order: node dist first.
+
+description: >-
+  Download and checksum-verify the pinned official node distribution, then
+  export its bin directory (NODE_DIST_BIN / PATH / RUN / NPM) so runtimes
+  agree with the image while support tools stay declarative.
+author: alrcatraz
+branding:
+  icon: box
+  color: purple
+
+inputs: {}
+
+outputs:
+  node-dist-bin:
+    description: Directory containing node and npm (absolute path)
+    value: ${{ steps.node-dist.outputs.bin }}
+  node-version:
+    description: Version actually installed (verified twice)
+    value: ${{ steps.node-dist.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch and verify the pinned node distribution
+      id: node-dist
+      shell: bash
+      env:
+        DEST_ROOT: ${{ github.workspace }}/.node-dist
+      run: |
+        set -euo pipefail
+
+        # ── Single source of truth: the version the IMAGE ships ───────────
+        # Read straight from the Dockerfile so CI and CD cannot drift by
+        # editing one file and forgetting the other.
+        NODE_VERSION=$(sed -n 's/^ARG NODE_VERSION=\(.*\)$/\1/p' "$GITHUB_WORKSPACE/Dockerfile" | head -1)
+        test -n "$NODE_VERSION" || { echo "FATAL: Dockerfile carries no 'ARG NODE_VERSION=<v>' line"; exit 1; }
+        echo "node version from the Dockerfile: $NODE_VERSION"
+
+        # ── FETCH NODE VERSION (bump in lockstep with the Dockerfile) ─────
+        # HEX = nodejs.org SHASUMS256.txt for the linux-x64 tarball of that
+        # release (both verified 2026-10-02; the nix-base32 equivalents are
+        # kept in the Layer-1 comment for store-side tooling).
+        case "$NODE_VERSION" in
+          26.7.0)
+            EXPECTED_HEX=982aa24dd8be4c889c6a8ab337ddff3b0896645b20f4239356e80552c16277ee
+            ;;
+          *)
+            echo "FATAL: no in-file digest for node v$NODE_VERSION — add it during the bump"
+            echo "       (EXPECTED_HEX = the linux-x64 tarball line in the release's"
+            echo "        https://nodejs.org/dist/v<version>/SHASUMS256.txt)"
+            exit 1
+            ;;
+        esac
+
+        TARBALL="node-v${NODE_VERSION}-linux-x64.tar.xz"
+        DIST_URL="https://nodejs.org/dist/v${NODE_VERSION}"
+        mkdir -p "$DEST_ROOT"
+
+        if [ -x "$DEST_ROOT/node-v${NODE_VERSION}-linux-x64/bin/node" ]; then
+          echo "reusing already-extracted node (same job, before guix bootstrap)"
+        else
+          # Layer 1: byte-pin against the digest recorded in this file —
+          # hex straight from SHASUMS256.txt, verified with coreutils only
+          # (no guix dependency: this action may run BEFORE the toolchain
+          # action; the nix-base32 form is kept as a comment for store-side
+          # tooling: 1vkpcb0m41g8as9j7x10bdj9c21vzzfkgcwadaf8hk5yv16s4alq).
+          curl -fsSL "$DIST_URL/$TARBALL" -o "/tmp/$TARBALL"
+          echo "$EXPECTED_HEX  /tmp/$TARBALL" | sha256sum --check --quiet \
+            || { echo "FATAL: tarball bytes != in-file digest $EXPECTED_HEX"; exit 1; }
+          echo "in-file digest OK"
+          # Layer 2: independent statement from nodejs.org's SHASUMS256.txt
+          # for this release — the two must agree.
+          curl -fsSL "$DIST_URL/SHASUMS256.txt" -o /tmp/SHASUMS256.txt
+          REMOTE_HEX=$(awk -v f="$TARBALL" '$2 == f {print $1}' /tmp/SHASUMS256.txt)
+          test -n "$REMOTE_HEX" || { echo "FATAL: $TARBALL not listed in SHASUMS256.txt"; exit 1; }
+          [ "$REMOTE_HEX" = "$EXPECTED_HEX" ] \
+            || { echo "FATAL: nodejs.org SHASUMS ($REMOTE_HEX) != in-file digest"; exit 1; }
+          tar -xJf "/tmp/$TARBALL" -C "$DEST_ROOT"
+          rm -f "/tmp/$TARBALL" /tmp/SHASUMS256.txt
+        fi
+
+        BIN_DIR="$DEST_ROOT/node-v${NODE_VERSION}-linux-x64/bin"
+        test -x "$BIN_DIR/node" || { echo "FATAL: bin/node missing after unpack"; exit 1; }
+        test -x "$BIN_DIR/npm"  || { echo "FATAL: bin/npm missing after unpack"; exit 1; }
+
+        # The dist's bin must lead PATH FROM HERE ON — before any npm
+        # invocation below. npm derives its global prefix from
+        # process.execPath (the node `env` finds on PATH), NOT from npm's
+        # own location: without this export the self-refresh below installs
+        # into the HOST node's tree, the dist keeps its bundled npm, and the
+        # final assertion fails (reproduced locally 2026-10-02: prefix
+        # without PATH fix = the outside node's dir; with fix = the dist).
+        export PATH="$BIN_DIR:$PATH"
+
+        # Prove it runs (glibc compatibility with the runner image).
+        "$BIN_DIR/node" --version
+        "$BIN_DIR/npm" --version
+
+        # ── npm parity with the image ────────────────────────────────────
+        # The Dockerfile refreshes the global npm to a PINNED version
+        # (ARG NPM_VERSION — same single-source pattern as NODE_VERSION);
+        # this mirrors that step so `npm ci` behaves identically in CI and
+        # in the image builder. Bundled-vs-pinned is compared explicitly so
+        # a future bump of either side is visible in the log.
+        NPM_VERSION=$(sed -n 's/^ARG NPM_VERSION=\(.*\)$/\1/p' "$GITHUB_WORKSPACE/Dockerfile" | head -1)
+        test -n "$NPM_VERSION" || { echo "FATAL: Dockerfile carries no 'ARG NPM_VERSION=<v>' line"; exit 1; }
+        NPM_ACTUAL=$("$BIN_DIR/npm" --version)
+        if [ "$NPM_ACTUAL" != "$NPM_VERSION" ]; then
+          echo "bundled npm $NPM_ACTUAL != image pin $NPM_VERSION — refreshing into the dist"
+          "$BIN_DIR/npm" install -g --no-audit --no-fund "npm@${NPM_VERSION}"
+          "$BIN_DIR/npm" cache clean --force
+        fi
+        NPM_FINAL=$("$BIN_DIR/npm" --version)
+        [ "$NPM_FINAL" = "$NPM_VERSION" ] \
+          || { echo "FATAL: npm is $NPM_FINAL after refresh, want $NPM_VERSION"; exit 1; }
+        echo "npm aligned: $NPM_FINAL (image ARG NPM_VERSION=$NPM_VERSION)"
+
+        {
+          echo "bin=$BIN_DIR"
+          echo "version=$NODE_VERSION"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Export environment
+      shell: bash
+      env:
+        NODE_BIN: ${{ steps.node-dist.outputs.bin }}
+        NODE_VER: ${{ steps.node-dist.outputs.version }}
+      run: |
+        set -euo pipefail
+        # NODE_BIN IS the bin directory already (…/node-vX/bin) — the earlier
+        # version of this step appended another /bin, silently pointing
+        # NODE_DIST_RUN/NPM and the PATH head at a nonexistent bin/bin (PATH
+        # skips missing dirs without error, so $GUIX_SHELL npm fell through
+        # to the RUNNER's node while the identity assertions — using the
+        # explicit NODE_DIST_BIN — stayed green. Assertions must cover the
+        # derived vars too, not just the base one.)
+        test -x "$NODE_BIN/node" || { echo "FATAL: NODE_BIN has no node: $NODE_BIN"; exit 1; }
+        test -x "$NODE_BIN/npm"  || { echo "FATAL: NODE_BIN has no npm: $NODE_BIN"; exit 1; }
+        {
+          printf 'NODE_DIST_BIN<<EOF\n%s\nEOF\n' "$NODE_BIN"
+          printf 'NODE_DIST_RUN<<EOF\n%s/node\nEOF\n' "$NODE_BIN"
+          printf 'NODE_DIST_NPM<<EOF\n%s/npm\nEOF\n' "$NODE_BIN"
+          printf 'PATH=%s:%s\n' "$NODE_BIN" "$PATH"
+        } >> "$GITHUB_ENV"
+        echo "node dist: v$NODE_VER ($NODE_BIN)"
