@@ -1,11 +1,27 @@
 name: npm ci with retry
-description: Run npm ci with retries for transient registry/network failures.
+description: >-
+  Run npm ci with retries for transient registry/network failures. Runs
+  under the DECLARATIVE toolchain when the job activated guix-toolchain
+  earlier (the action exports GUIX_SHELL); on jobs that have not migrated
+  yet it falls back to whatever node/npm the runner provides. Callers do
+  not opt in per-step — activating the toolchain is the opt-in.
 runs:
   using: composite
   steps:
     - shell: bash
       run: |
         set -euo pipefail
+
+        # GUIX_SHELL is set exclusively by the guix-toolchain action; its
+        # wrapper is a script file, so "$GUIX_SHELL" (quoted) forwards the
+        # argv as-is — the unquoted-expansion pitfall is ledger lesson 9.
+        npm_cmd() {
+          if [ -n "${GUIX_SHELL:-}" ]; then
+            "$GUIX_SHELL" npm ci
+          else
+            npm ci
+          fi
+        }
 
         max_attempts=3
         delay_seconds=20
@@ -15,13 +31,18 @@ runs:
             echo "npm ci attempt $attempt/$max_attempts after transient failure"
           fi
 
-          if npm ci; then
+          if npm_cmd; then
             exit 0
-          fi
-
-          exit_code=$?
-          if [ "$attempt" -eq "$max_attempts" ]; then
-            exit "$exit_code"
+          else
+            # Capture inside else: after `if ...; fi` the status is the IF
+            # statement's (0), which used to make the final attempt exit 0
+            # and mask the failure (verified: `if f; then :; fi; echo $?`
+            # prints 0 when f fails). Real npm code is only visible here.
+            exit_code=$?
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "npm ci failed after $max_attempts attempts (exit $exit_code)"
+              exit "$exit_code"
+            fi
           fi
 
           sleep "$delay_seconds"
