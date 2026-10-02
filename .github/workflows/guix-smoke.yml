@@ -167,7 +167,7 @@ jobs:
       # no-op for the service.
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -208,7 +208,7 @@ jobs:
       # Pair half of the shared action's restore (see smoke job).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
