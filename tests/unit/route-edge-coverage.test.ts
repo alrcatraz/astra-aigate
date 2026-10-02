@@ -191,7 +191,7 @@ test("api keys route covers auth, create, masking, pagination fallback and cloud
     assert.equal(createdBody.noLog, true);
     assert.match(createdBody.key, /^sk-/);
     assert.equal(stored?.noLog, true);
-    assert.equal(compliance.isNoLog(createdBody.id), true);
+    assert.equal(await compliance.isNoLog(createdBody.id), true);
 
     assert.equal(paged.status, 200);
     assert.equal(pagedBody.total, 4);

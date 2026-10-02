@@ -226,13 +226,13 @@ export async function saveModelsDevPricing(data: PricingByProvider): Promise<voi
   const insert = await db.prepare(
     "INSERT INTO key_value (namespace, key, value) VALUES ('models_dev_pricing', ?, ?)"
   );
-  const tx = db.transaction(() => {
-    del.run();
+  const tx = db.transaction(async () => {
+    await del.run();
     for (const [provider, models] of Object.entries(data)) {
-      insert.run(provider, JSON.stringify(models));
+      await insert.run(provider, JSON.stringify(models));
     }
   });
-  tx();
+  await tx();
   backupDbFile("pre-write");
   invalidateDbCache("pricing");
 }
@@ -433,11 +433,11 @@ export async function saveModelsDevCapabilities(data: CapabilitiesByProvider): P
   `);
 
   const now = new Date().toISOString();
-  const tx = db.transaction(() => {
-    del.run();
+  const tx = db.transaction(async () => {
+    await del.run();
     for (const [provider, models] of Object.entries(data)) {
       for (const [modelId, cap] of Object.entries(models)) {
-        insert.run(
+        await insert.run(
           provider,
           modelId,
           cap.tool_call === null ? null : cap.tool_call ? 1 : 0,
@@ -462,7 +462,7 @@ export async function saveModelsDevCapabilities(data: CapabilitiesByProvider): P
       }
     }
   });
-  tx();
+  await tx();
   backupDbFile("pre-write");
   cachedCapabilities = data;
   cachedCapabilitiesLoadedAll = true;
@@ -522,10 +522,10 @@ export async function syncModelsDev(opts?: {
       }
 
       if (!dryRun) {
-        saveModelsDevPricing(pricing);
+        await saveModelsDevPricing(pricing);
         if (syncCapabilities) {
           ensureCapabilitiesTable();
-          saveModelsDevCapabilities(capabilities);
+          await saveModelsDevCapabilities(capabilities);
         }
         lastSyncTime = new Date().toISOString();
         lastSyncModelCount = modelCount;

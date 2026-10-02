@@ -80,7 +80,7 @@ test("API key no_log persists and updates compliance state", async () => {
 
   const initial = await apiKeysDb.getApiKeyById(created.id);
   assert.equal(initial?.noLog, false);
-  assert.equal(compliance.isNoLog(created.id), false);
+  assert.equal(await compliance.isNoLog(created.id), false);
 
   const updated = await apiKeysDb.updateApiKeyPermissions(created.id, { noLog: true });
   assert.equal(updated, true);
@@ -90,11 +90,11 @@ test("API key no_log persists and updates compliance state", async () => {
 
   const metadata = await apiKeysDb.getApiKeyMetadata(created.key);
   assert.equal(metadata?.noLog, true);
-  assert.equal(compliance.isNoLog(created.id), true);
+  assert.equal(await compliance.isNoLog(created.id), true);
 
   const reverted = await apiKeysDb.updateApiKeyPermissions(created.id, { noLog: false });
   assert.equal(reverted, true);
-  assert.equal(compliance.isNoLog(created.id), false);
+  assert.equal(await compliance.isNoLog(created.id), false);
 });
 
 test("call logs omit payloads when key no_log is enabled and redact PII otherwise", async () => {
