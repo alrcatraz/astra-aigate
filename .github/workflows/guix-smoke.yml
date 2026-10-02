@@ -1,0 +1,214 @@
+name: guix smoke (pilot)
+
+# step-2 pilot probe — NOT part of the merge gate. This workflow exists to
+# collect first-hand experience running a Guix toolchain inside GitHub-hosted
+# ubuntu-latest (per guix/ci/guix-to-work.md), and it now doubles as the test
+# for the shared `.github/actions/guix-toolchain` action that real jobs
+# consume: install, channel pin and substitute assembly are all measured
+# failure sites, so a regression must surface here first. It runs only on
+# manual dispatch or pushes that touch the guix files, so it can never block
+# normal PRs.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".guix/**"
+      - "guix/ci/**"
+      - ".github/actions/guix-toolchain/**"
+      - ".github/actions/node-dist/**"
+      - ".github/workflows/guix-smoke.yml"
+      - "Dockerfile"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Guix toolchain smoke
+    runs-on: ubuntu-latest
+    # The cold resolve dominates (~13 min observed). A hard ceiling keeps a
+    # hung channel/substitute leg from occupying a runner slot indefinitely.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # node parity with the image, BEFORE the toolchain (the action is
+      # guix-agnostic and runs on a bare runner on purpose): same official
+      # tarball the Dockerfile unpacks, double-checked against the in-file
+      # digest and nodejs.org's SHASUMS256.txt.
+      - name: node dist (the shared action under test)
+        id: node-dist
+        uses: ./.github/actions/node-dist
+
+      - name: Guix toolchain (the shared action under test)
+        uses: ./.github/actions/guix-toolchain
+        with:
+          cache-url: ${{ secrets.GUIX_CACHE_URL }}
+
+      # The substituter leg, probed here rather than inside the action: it is
+      # evidence this job reports, not machinery the consumers need. The first
+      # request shape (`nix-cache-info`, StoreDir: /gnu/store) is what decides
+      # whether the endpoint can serve this host at all. A 404 on a made-up
+      # hash is EXPECTED while the cache holds no narinfos — it proves
+      # reachability, not that anything is cached.
+      - name: Probe substitute sources (diagnostic)
+        run: |
+          # Report counts and public legs, never the private URL text.
+          echo "substitute sources configured: $(echo "$GUIX_SUBSTITUTE_URLS" | wc -w)"
+          echo "$GUIX_SUBSTITUTE_URLS" | tr ' ' '\n' | sed 's#^\(https\?://\)[^/]*#  \1<host>#'
+
+      - name: Manifest resolves
+        run: |
+          $GUIX_SHELL true
+          echo "manifest resolved OK"
+
+      # Cache-placement diagnostic — AFTER a real channel expansion, so the
+      # checkout exists to inspect. `guix time-machine` expands a channel into
+      # a git checkout; WHO owns it decides whether actions/cache (which runs
+      # as the unprivileged runner user and cannot restore root-owned absolute
+      # paths — see the install action's own note "Cannot use a cache for
+      # /gnu/store, since restore fails") can cache the 8-minute channel clone.
+      # Ownership/size only — no guix-functionality test, so a miss costs no
+      # extra resolve cycle.
+      - name: Where does the channel checkout land (cache-target probe)
+        run: |
+          echo "runner user: $(id -un) (uid=$(id -u))  HOME=$HOME"
+          for c in "$HOME/.cache/guix" /root/.cache/guix /var/guix /gnu/store; do
+            echo "--- $c ---"
+            if [ -e "$c" ]; then
+              ls -ld "$c" 2>&1 | awk '{print "  owner:", $3}'
+              du -sh "$c" 2>/dev/null | awk '{print "  size:", $1}'
+            else
+              echo "  (does not exist)"
+            fi
+          done
+          echo "=== git checkouts under the user cache (the clone to reuse) ==="
+          find "$HOME/.cache/guix" -maxdepth 3 -type d 2>/dev/null | head -10
+          echo "=== largest subdirs (what actually costs the 8 minutes) ==="
+          du -sh "$HOME/.cache/guix"/* 2>/dev/null | sort -rh | head -5
+
+      - name: Toolchain binaries resolve (profile tools + runtime split)
+        run: |
+          $GUIX_SHELL sh -c '
+            set -eu
+            # Support tools must come from the Guix profile.
+            for bin in git rg jq; do
+              printf "%-8s %s %s\n" "$bin" "$(command -v $bin)" \
+                "$($bin --version 2>/dev/null | head -1)"
+            done
+            # Runtime must come from the node dist (no node in the profile).
+            echo "node    $(command -v node) $(node --version)"
+            echo "npm     $(command -v npm)  $(npm --version)"
+            node -e "console.log(\"eval ok\", process.version)"
+          '
+
+      # Source attribution WITH assertions — the 35a8c856-era bug (exported
+      # PATH head pointing at a nonexistent bin/bin) passed silently because
+      # PATH skips missing dirs and the step only PRINTED. Now: both outside
+      # and inside the shell, node/npm must resolve to exactly the dist.
+      - name: PATH provenance (node dist vs Guix profile vs runner)
+        run: |
+          echo "outside shell:"
+          OUT_NODE=$(command -v node); OUT_NPM=$(command -v npm)
+          echo "  node -> $OUT_NODE $(node --version)"
+          echo "  npm  -> $OUT_NPM $(npm --version)"
+          echo "  git  -> $(command -v git || echo none) $(git --version 2>/dev/null | awk '{print $3}')"
+          IN_NODE=$($GUIX_SHELL sh -c 'command -v node')
+          IN_NPM=$($GUIX_SHELL sh -c 'command -v npm')
+          IN_GIT=$($GUIX_SHELL sh -c 'command -v git')
+          echo "inside  shell:"
+          echo "  node -> $IN_NODE $($GUIX_SHELL sh -c 'node --version')"
+          echo "  npm  -> $IN_NPM $($GUIX_SHELL sh -c 'npm --version')"
+          echo "  git  -> $IN_GIT"
+          [ "$OUT_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: outside node is not the dist"; exit 1; }
+          [ "$IN_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: in-shell node fell through to the runner"; exit 1; }
+          [ "$IN_NPM" = "$NODE_DIST_BIN/npm" ] || { echo "FAIL: in-shell npm is not the dist"; exit 1; }
+          case "$IN_GIT" in /gnu/store/*) ;; *) echo "FAIL: in-shell git is not from the Guix profile"; exit 1;; esac
+          echo "OK: runtime = dist, support tools = profile, both outside and inside the shell"
+
+      # Triple-source node identity — the CI<->image parity claim in one
+      # step: the Dockerfile ARG (what the image builds), the dist the
+      # node-dist action unpacked (what CI runs), and the channel's own
+      # node-lts (what the pinned Guix offers — informational: it has no
+      # 26.x, probe run 36945680396, which is why the runtime comes from
+      # the dist). The first two must match exactly; npm must match the
+      # image's ARG NPM_VERSION.
+      - name: node/npm identity (image ARG vs node dist vs channel)
+        run: |
+          ARG_V=$(sed -n 's/^ARG NODE_VERSION=\(.*\)$/\1/p' Dockerfile | head -1)
+          ARG_NPM=$(sed -n 's/^ARG NPM_VERSION=\(.*\)$/\1/p' Dockerfile | head -1)
+          DIST_V=$("$NODE_DIST_BIN/node" --version | sed 's/^v//')
+          DIST_NPM=$("$NODE_DIST_BIN/npm" --version)
+          # Channel offering read from the pinned checkout SOURCE (the
+          # `package --show=node-lts` CLI form fails: it resolves the name
+          # FIELD, which need not equal the Scheme variable; and every
+          # time-machine CLI call rebuilds guix itself — minutes for an
+          # informational line).
+          NSCM=$(find "$HOME/.cache/guix/checkouts" -type f -path '*/gnu/packages/node.scm' 2>/dev/null | head -1)
+          CHAN_V="n/a"
+          if [ -n "$NSCM" ]; then
+            CHAN_V=$(grep -oE '\(version "[0-9][^"]*"' "$NSCM" | sed 's/(version "//;s/"//' | sort -uV | tail -1)
+          fi
+          echo "image ARG NODE_VERSION : v$ARG_V"
+          echo "image ARG NPM_VERSION  : $ARG_NPM"
+          echo "node-dist (CI runtime) : v$DIST_V / npm $DIST_NPM  ($NODE_DIST_BIN)"
+          echo "channel latest node    : v${CHAN_V} (informational — no 26.x at this pin)"
+          [ "$ARG_V" = "$DIST_V" ] || { echo "FAIL: image/CI node version drift"; exit 1; }
+          [ "$ARG_NPM" = "$DIST_NPM" ] || { echo "FAIL: image/CI npm version drift"; exit 1; }
+          echo "OK: CI node+npm byte-match the versions the image ships"
+
+      # Save half of the checkout cache pair (the action restores; only the
+      # job can save, because the checkout materialises during the steps in
+      # between). `if: always()` so a failing diagnostic still banks the
+      # expensive clone. Re-hits are near-free: same key → the save is a
+      # no-op for the service.
+      - name: Save channel checkout cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/guix
+          key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
+
+  # Condition gate for migrating build/test to the declarative toolchain:
+  # npm ci + the native bindings the unit tests load, executed by the
+  # PINNED node through the shared action. Advisory (continue-on-error):
+  # a red here is DATA for the migration decision, never a merge gate.
+  # Critical/non-critical split lives in scripts/guix-native-probe.mjs,
+  # which mirrors src/lib/memory/vectorStore.ts's sqlite-vec load exactly.
+  native:
+    name: native module probe (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Guix toolchain (shared action)
+        uses: ./.github/actions/guix-toolchain
+        with:
+          cache-url: ${{ secrets.GUIX_CACHE_URL }}
+
+      # Runtime = the same node dist the image ships (guix node-lts stays
+      # the channel's for support tools; the dist steps establish which
+      # node/npm execute these two commands).
+      - name: npm ci under the pinned node dist
+        env:
+          # Browsers belong to the E2E job (runner image), not this probe.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: $NODE_DIST_NPM ci --no-audit --no-fund
+
+      - name: Probe native bindings
+        run: $NODE_DIST_RUN scripts/guix-native-probe.mjs
+
+      # Pair half of the shared action's restore (see smoke job).
+      - name: Save channel checkout cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/guix
+          key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}

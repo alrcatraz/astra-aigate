@@ -1,0 +1,159 @@
+name: guix bump anchor (advisory)
+
+# The early-warning half of the channel-pin policy (.guix/channels.scm).
+#
+# Purely EVENT-DRIVEN — no schedule anywhere (the owner's constraint:
+# bumps must not depend on an external agent, fleet cron, or any scheduler
+# outside the runner's own OS, so scheduled tasks are deliberately avoided):
+#   - push to a branch touching .guix/**,
+#   - pull_request touching .guix/**   <- a bump PR gets the anchor and
+#     the drift leg as free context for its review,
+#   - workflow_dispatch.
+#
+# What it reports at that moment:
+#   - latest upstream release tags vs the repo pin (release = reminder,
+#     never gate),
+#   - the channel's node catalogue under the pin (node parity with
+#     production is an explicit bump event),
+#   - the nightly drift probe: SAME manifest under the LATEST nightly
+#     identity, so upstream renames surface here before they would
+#     block a bump.
+#
+# Deliberately NOT using the shared action: the action enforces the repo
+# pin and the pin-keyed cache, which is precisely what a drift probe must
+# bypass for the nightly leg. What it shares with CI is the manifest and
+# the real substitute order. Keep both shapes in sync manually when the
+# wrapper flags change — this call is written inline with real quotes
+# (safe here: bash parses the command once, directly; the quote pitfall
+# exists only for commands stored in variables and expanded unquoted —
+# ledger lesson 9).
+#
+# The job must never gate anything: continue-on-error, and a failure is a
+# report, not a red merge.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".guix/**"
+  pull_request:
+    paths:
+      - ".guix/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guix-bump-anchor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  anchor:
+    name: Release anchor + drift probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Advisory by design — see header. The conclusion that matters is the
+    # job's own pass/fail, not the workflow's red/green badge.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Release tags vs the repo pin
+        run: |
+          set -eu
+          pinned=$(grep -oE '\(commit "[0-9a-f]{40}"\)' .guix/channels.scm | grep -oE '[0-9a-f]{40}')
+          # Tags straight from the git host the pin resolves from — no API,
+          # no auth, no third-party mirror.
+          tags=$(git ls-remote --tags https://git.guix.gnu.org/guix.git 'v*' 2>/dev/null \
+                 | awk -F/ '{print $NF}' | grep -E '^v[0-9]' | grep -v '\^{}' | sort -V | tail -3 || true)
+          echo "repo pin: ${pinned:0:8}"
+          echo "latest upstream tags: $(echo "$tags" | tr '\n' ' ')"
+          {
+            echo "## Guix bump candidates ($(date -u +%F))"
+            echo "- repo pin: \`${pinned:0:8}\`"
+            echo "- latest release tags: $(echo "$tags" | tr '\n' ' ')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # NOTE: the node-catalogue probe belongs AFTER Install Guix — it calls
+      # `guix time-machine`, and until this run the call sat BEFORE the
+      # installer (a `2>/dev/null | awk | sed` pipeline masked the
+      # command-not-found, so the step died later on an empty checkout
+      # instead of at the real cause).
+
+      - name: Install Guix (latest nightly identity)
+        id: guix
+        uses: PromyLOPh/guix-install-action@v1.6
+        with:
+          pullAfterInstall: "false"
+
+      - name: Node catalogue under the repo pin
+        run: |
+          set -eu
+          # Catalogue read straight from the PINNED SOURCE FILE — no guix
+          # invocation (the old `package --show=node-lts` form failed with
+          # "package not found": the CLI resolves NAME-field strings, and a
+          # version-variant variable's name field is not necessarily its
+          # variable name; time-machine also rebuilds guix itself for every
+          # CLI query — 11 minutes for an informational line). The manifest
+          # carries NO node by design (runtime = the image-identical node
+          # dist), so this is bump-decision info, not what CI executes.
+          ARG_V=$(sed -n 's/^ARG NODE_VERSION=\(.*\)$/\1/p' Dockerfile | head -1)
+          ARG_NPM=$(sed -n 's/^ARG NPM_VERSION=\(.*\)$/\1/p' Dockerfile | head -1)
+          echo "runtime pin (Dockerfile): node v$ARG_V / npm $ARG_NPM — the version CI actually runs"
+          checkout=$(find "$HOME/.cache/guix/checkouts" -type f -path '*/gnu/packages/node.scm' 2>/dev/null | head -1)
+          {
+            echo "- node catalogue in the pinned channel source:"
+            if [ -n "$checkout" ]; then
+              grep -oE '\(define-public node[a-zA-Z0-9-]*' "$checkout" | sed 's/^(define-public //;s/^/  - /' | sort -u
+              grep -oE '\(version "[0-9][^"]*"' "$checkout" | sed 's/^(version //;s/^/    /' | sort -u | head -6
+            else
+              echo "  (node.scm not found under the checkout cache)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "catalogue from: ${checkout:-<none>}"
+
+      - name: Write the nightly channel file
+        shell: bash
+        run: |
+          set -eu
+          F="$RUNNER_TEMP/channels-drift.scm"
+          cat > "$F" <<EOF
+          ${{ steps.guix.outputs.channels }}
+          EOF
+          grep -qE '\(commit "[0-9a-f]{40}"\)' "$F" || { echo "FATAL: nightly identity carries no 40-hex commit"; exit 1; }
+          grep -q 'introduction' "$F" || { echo "FATAL: nightly identity is unauthenticated"; exit 1; }
+          commit=$(grep -oE '\(commit "[0-9a-f]{40}"\)' "$F" | grep -oE '[0-9a-f]{40}')
+          echo "nightly commit: ${commit:0:8}"
+          # Visible in the run summary for the bump decision.
+          echo "DRIFT-NIGHTLY-COMMIT: ${commit:0:8}" >> "$GITHUB_STEP_SUMMARY"
+          echo "channels-file=$F" >> "$GITHUB_OUTPUT"
+        id: chan
+
+      - name: Resolve the repository manifest under the nightly identity
+        shell: bash
+        run: |
+          set -eu
+          SUBS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
+          guix time-machine -C "${{ steps.chan.outputs.channels-file }}" \
+            --substitute-urls="$SUBS" \
+            -- shell -m .guix/manifest.scm --substitute-urls="$SUBS" -- \
+            sh -c '
+              set -eu
+              # No node here by design: the runtime comes from the Dockerfile
+              # ARG pinned by node-dist (the manifest is support tools only).
+              git --version
+              rg --version | head -1
+              jq --version
+              python3 --version
+            '
+          echo "drift smoke OK — manifest still resolves against the latest nightly"
+
+      - name: Report comparison with the repo pin
+        if: always()
+        shell: bash
+        run: |
+          pinned=$(grep -oE '\(commit "[0-9a-f]{40}"\)' .guix/channels.scm | grep -oE '[0-9a-f]{40}')
+          echo "repo pin: ${pinned:0:8}  (nightly shown in the step above)"
+          echo "REPO-PIN-COMMIT: ${pinned:0:8}" >> "$GITHUB_STEP_SUMMARY"
