@@ -1,5 +1,5 @@
 import { normalizeComboStep } from "@/lib/combos/steps";
-import { tableExists } from "./core";
+import { tableExists } from "./tableExists";
 
 import type { SqliteAdapter } from "./adapters/types";
 type SqliteDatabase = SqliteAdapter;

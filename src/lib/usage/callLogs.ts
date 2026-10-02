@@ -278,7 +278,7 @@ function resolveReasoningObservation(
 
 async function hasTable(tableName: string): Promise<boolean> {
   // PG-aware shared existence check (bare sqlite_master does not exist in PG).
-  return tableExists(tableName);
+  return tableExists(tableName, getAsyncDb());
 }
 
 function readLegacyLogFromDisk(entry: {

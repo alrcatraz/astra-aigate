@@ -40,7 +40,7 @@ async function requestDetailLogsTableExists(): Promise<boolean> {
     return requestDetailLogsTableExistsCache;
   }
 
-  requestDetailLogsTableExistsCache = await tableExists("request_detail_logs");
+  requestDetailLogsTableExistsCache = await tableExists("request_detail_logs", getAsyncDb());
   return requestDetailLogsTableExistsCache;
 }
 
