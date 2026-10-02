@@ -54,6 +54,12 @@
        (@ (gnu packages version-control) git)
        (@ (gnu packages rust-apps) ripgrep)
        (@ (gnu packages web) jq)
+  ;; CA bundle: a Guix-provided git links NO system cert store (git reports
+  ;; `CAfile: none`), so ANY https operation inside the shell fails
+  ;; certificate verification — `git fetch origin` in pr-test-policy died
+  ;; with exit 128 on the PR's first real run. nss-certs installs the
+  ;; Mozilla roots into the profile; git and curl pick them up.
+       (@ (gnu packages certs) nss-certs)
   ;; Core userland the shell stages of CI jobs assume.
        (@ (gnu packages bash) bash)
        (@ (gnu packages base) coreutils)
