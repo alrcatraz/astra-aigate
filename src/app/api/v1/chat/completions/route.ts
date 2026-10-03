@@ -22,6 +22,8 @@ import {
   readCompressionRequestHeader,
   withCompressionHeaderEcho,
 } from "@/shared/utils/compressionHeaderEcho";
+import { chatCompletionBodySchema } from "@/shared/validation/schemas/chatCompletion";
+import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
 
 let initPromise = null;
 
@@ -103,6 +105,26 @@ export async function POST(request) {
     try {
       parsedBody = await request.json().catch(() => null);
       if (parsedBody) {
+        // Type gate (t06): assert JSON-object shape + model/discriminator types before any
+        // downstream handler sees it. Deliberately looser than handleChat's semantic guards
+        // (messages/model/temperature) — those stay authoritative for behaviour; this only
+        // turns malformed types into an immediate 400 instead of drifting to the provider layer.
+        const validation = validateBody(chatCompletionBodySchema, parsedBody);
+        if (isValidationFailure(validation)) {
+          admission.lease?.release();
+          return new Response(
+            JSON.stringify({
+              error: {
+                message: validation.error.message,
+                type: "invalid_request_error",
+                code: "invalid_body",
+                details: validation.error.details,
+              },
+            }),
+            { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+          );
+        }
+
         const structuralAdmission = admitChatStructure(parsedBody, admission.lease);
         if (structuralAdmission.admit === false) {
           admission.lease?.release();

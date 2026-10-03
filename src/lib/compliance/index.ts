@@ -242,8 +242,13 @@ type AuditLogQuery = {
 function toNormalizedTimestamp(value: string): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  const date = parsed.toISOString();
-  return `${date.slice(0, 10)} ${date.slice(11, 13)}:${date.slice(14, 16)}:${date.slice(17, 19)}`;
+  // Return the full ISO-8601 form. `logAuditEvent` persists `createdAt` via
+  // `new Date().toISOString()` (or the caller's ISO string), so the stored
+  // `audit_log.timestamp` is ISO ("…T…:…Z") — a space-separated "YYYY-MM-DD
+  // HH:MM:SS" normalisation would compare greater-than/less-than WRONG against
+  // it (the `T`/`Z` bytes sort after the space), silently dropping rows in the
+  // `to`/`from` window.
+  return parsed.toISOString();
 }
 
 function buildAuditLogQuery(filter: AuditLogFilter = {}): AuditLogQuery {

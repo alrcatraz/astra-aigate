@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const session = createSession({ name: parsed.data.name });
+    const session = await createSession({ name: parsed.data.name });
     return Response.json(session, { status: 201 });
   } catch (err) {
     const msg = sanitizeErrorMessage(err);

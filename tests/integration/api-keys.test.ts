@@ -130,7 +130,7 @@ test("POST /api/keys creates a key, preserves special characters, and persists n
   assert.equal(body.noLog, true);
   assert.match(body.key, /^sk-[a-z0-9-]+/i);
   assert.equal(stored?.noLog, true);
-  assert.equal(compliance.isNoLog(body.id), true);
+  assert.equal(await compliance.isNoLog(body.id), true);
 });
 
 test("POST /api/keys validates missing and oversized names", async () => {

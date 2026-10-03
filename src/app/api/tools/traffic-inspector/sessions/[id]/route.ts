@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: Params): Promise<Respon
         headers: { "content-type": "application/json" },
       });
     }
-    const requests = await getSessionRequests(id).map((r) => {
+    const requests = (await getSessionRequests(id)).map((r) => {
       try {
         return JSON.parse(r.payload) as unknown;
       } catch {
@@ -79,7 +79,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<Respo
 
   try {
     if (parsed.data.action === "stop") {
-      stopSession(id);
+      await stopSession(id);
     } else if (parsed.data.action === "rename") {
       if (!parsed.data.name) {
         return new Response(
@@ -87,7 +87,7 @@ export async function PATCH(request: Request, { params }: Params): Promise<Respo
           { status: 400, headers: { "content-type": "application/json" } }
         );
       }
-      renameSession(id, parsed.data.name);
+      await renameSession(id, parsed.data.name);
     }
     return Response.json(await getSession(id));
   } catch (err) {
@@ -111,7 +111,7 @@ export async function DELETE(_request: Request, { params }: Params): Promise<Res
   }
 
   try {
-    deleteSession(id);
+    await deleteSession(id);
     return new Response(null, { status: 204 });
   } catch (err) {
     const msg = sanitizeErrorMessage(err);

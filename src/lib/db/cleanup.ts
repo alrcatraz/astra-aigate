@@ -22,8 +22,8 @@ interface CleanupResult {
   errors: number;
 }
 
-function getRetentionSettings() {
-  return getUserDatabaseSettings().retention;
+async function getRetentionSettings() {
+  return (await getUserDatabaseSettings()).retention;
 }
 
 /**
@@ -440,7 +440,7 @@ export async function purgeCallLogs(): Promise<CleanupResult> {
   const result: CleanupResult = { deleted: 0, deletedArtifacts: 0, errors: 0 };
 
   try {
-    const runResult = db.prepare("DELETE FROM call_logs").run();
+    const runResult = await db.prepare("DELETE FROM call_logs").run();
     result.deleted = runResult.changes;
 
     console.log(`[Cleanup] Purged ${result.deleted} call_logs`);

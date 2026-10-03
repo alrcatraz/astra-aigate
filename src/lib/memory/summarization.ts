@@ -146,14 +146,14 @@ export async function summarizeMemoriesOlderThan(
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
   const rows: MemoryRow[] = apiKeyId
-    ? (db
+    ? ((await db
         .prepare(
           "SELECT * FROM memories WHERE api_key_id = ? AND created_at < ? ORDER BY created_at ASC"
         )
-        .all(apiKeyId, cutoff) as MemoryRow[])
-    : (db
+        .all(apiKeyId, cutoff)) as MemoryRow[])
+    : ((await db
         .prepare("SELECT * FROM memories WHERE created_at < ? ORDER BY created_at ASC")
-        .all(cutoff) as MemoryRow[]);
+        .all(cutoff)) as MemoryRow[]);
 
   const candidates = rows.map(rowToMemory);
   const totalTokens = candidates.reduce((sum, m) => sum + estimateTokens(m.content), 0);

@@ -94,7 +94,7 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   "bin/aliasResolverHook.mjs",
   "bin/mcp-server.mjs",
   "bin/nodeRuntimeSupport.mjs",
-  "bin/omniroute.mjs",
+  "bin/astra-aigate.mjs",
   "bin/reset-password.mjs",
   // Operator incident-recovery / cold-start shell tooling (rollback, snapshot,
   // restore, cold-start bench) shipped in bin/ for self-hosters — not imported by
@@ -113,7 +113,7 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   "open-sse/mcp-server/runtimeHeartbeat.ts",
   "open-sse/mcp-server/scopeEnforcement.ts",
   "open-sse/mcp-server/server.ts",
-  // Runtime polyfill eagerly imported by bin/omniroute.mjs (Node <22 compat);
+  // Runtime polyfill eagerly imported by bin/astra-aigate.mjs (Node <22 compat);
   // shipped via package.json "files", so it must be allowed in the tarball.
   "open-sse/utils/setupPolyfill.ts",
   "package.json",
@@ -171,7 +171,7 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "dist/head-response-guard.cjs",
   "dist/webdav-handler.mjs",
   "bin/cli/program.mjs",
-  // Direct imports of bin/omniroute.mjs — bin/cli/ is only an allowlist PREFIX, so a
+  // Direct imports of bin/astra-aigate.mjs — bin/cli/ is only an allowlist PREFIX, so a
   // file vanishing from the tarball never fails the unexpected-paths check; only these
   // required entries make its absence loud (#7065 class; derived + enforced by
   // tests/unit/pack-artifact-entrypoint-closures.test.ts).
@@ -181,8 +181,8 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "bin/cli/utils/versionFastPath.mjs",
   "bin/mcp-server.mjs",
   "bin/nodeRuntimeSupport.mjs",
-  "bin/omniroute.mjs",
-  // #7808: aliasResolver + its hook file. bin/omniroute.mjs imports
+  "bin/astra-aigate.mjs",
+  // #7808: aliasResolver + its hook file. bin/astra-aigate.mjs imports
   // bin/aliasResolver.mjs at startup, which in turn registers
   // bin/aliasResolverHook.mjs as the ESM loader. Both must ship in the tarball
   // or the CLI fails to boot — list them REQUIRED so a regression is loud.

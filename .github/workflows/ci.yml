@@ -886,6 +886,12 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - uses: ./.github/actions/npm-ci-retry
+      # The npm `bun` package is a postinstall stub under our Guix-pinned
+      # install (its binary fetch never ran). Supply the pinned official bun
+      # (same pattern as node-dist) and neutralise the stub so the real
+      # bun:sqlite adapter test executes against a working bun host.
+      - name: bun dist (pinned)
+        uses: ./.github/actions/bun-dist
       - run: $GUIX_SHELL npm run test:bun:db
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache

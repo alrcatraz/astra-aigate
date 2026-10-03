@@ -121,7 +121,7 @@ test("compliance audit log supports structured filters, totals and secret redact
     to: "2026-04-14T12:00:00.000Z",
   });
 
-  assert.equal(compliance.countAuditLog({ actor: "admin" }), 2);
+  assert.equal(await compliance.countAuditLog({ actor: "admin" }), 2);
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].action, "provider.validation.ssrf_blocked");
   assert.deepEqual(filtered[0].metadata, {
@@ -129,7 +129,9 @@ test("compliance audit log supports structured filters, totals and secret redact
     baseUrl: "http://127.0.0.1:11434/v1",
   });
 
-  const updatedEntry = compliance.getAuditLog({ action: "provider.credentials.updated" })[0];
+  const updatedEntry = (
+    await compliance.getAuditLog({ action: "provider.credentials.updated" })
+  )[0];
   assert.deepEqual(updatedEntry.details, {
     apiKey: "[redacted]",
     nested: {
@@ -140,7 +142,7 @@ test("compliance audit log supports structured filters, totals and secret redact
   assert.deepEqual(updatedEntry.metadata, updatedEntry.details);
 });
 
-test("compliance noLog helpers cover missing ids, in-memory overrides and persisted DB values", () => {
+test("compliance noLog helpers cover missing ids, in-memory overrides and persisted DB values", async () => {
   const db = core.getDbInstance();
   const now = new Date().toISOString();
 
@@ -148,14 +150,14 @@ test("compliance noLog helpers cover missing ids, in-memory overrides and persis
     "INSERT INTO api_keys (id, name, key, machine_id, allowed_models, no_log, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
   ).run("persisted-no-log", "Persisted", "sk-persisted", null, "[]", 1, now);
 
-  assert.equal(compliance.isNoLog(""), false);
-  assert.equal(compliance.isNoLog("persisted-no-log"), true);
+  assert.equal(await compliance.isNoLog(""), false);
+  assert.equal(await compliance.isNoLog("persisted-no-log"), true);
 
   compliance.setNoLog("manual-no-log", true);
-  assert.equal(compliance.isNoLog("manual-no-log"), true);
+  assert.equal(await compliance.isNoLog("manual-no-log"), true);
 
   compliance.setNoLog("manual-no-log", false);
-  assert.equal(compliance.isNoLog("manual-no-log"), false);
+  assert.equal(await compliance.isNoLog("manual-no-log"), false);
   assert.deepEqual(compliance.getRetentionDays(), { app: 10, call: 5 });
 });
 

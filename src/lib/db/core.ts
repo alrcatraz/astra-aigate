@@ -26,7 +26,11 @@ import os from "node:os";
 import fs from "fs";
 import { resolveWritableDataDir, getLegacyDotDataDir } from "../dataPaths";
 import { runMigrations } from "./migrationRunner";
-import { runDbHealthCheck, type DbHealthCheckResult } from "./healthCheck";
+// Type-only import: erased at runtime, so `core.ts` -> `healthCheck.ts` is a
+// compile-time-only edge and no longer half of a runtime import cycle.
+// `runDbHealthCheck` itself is imported lazily (dynamic `import()`) at its two
+// call sites below (the codebase-wide convention for this handler).
+import type { DbHealthCheckResult } from "./healthCheck";
 import { resetAllDbModuleState } from "./stateReset";
 import { parseStoredPayload } from "../logPayloads";
 import { DEFAULT_DATABASE_SETTINGS, type DatabaseSettings } from "@/types/databaseSettings";
@@ -1098,6 +1102,7 @@ function startDbHealthCheckScheduler(db: SqliteDatabase) {
   dbHealthCheckTimer = setInterval(async () => {
     try {
       if (!db.open) return;
+      const { runDbHealthCheck } = await import("./healthCheck");
       await runDbHealthCheck(db, {
         autoRepair: true,
         skipIntegrityCheck: process.env.OMNIROUTE_SKIP_DB_HEALTHCHECK === "1",
@@ -1116,6 +1121,7 @@ export async function runManagedDbHealthCheck(options?: {
   autoRepair?: boolean;
 }): Promise<DbHealthCheckResult> {
   const db = getDbInstance();
+  const { runDbHealthCheck } = await import("./healthCheck");
   return await runDbHealthCheck(db, {
     autoRepair: options?.autoRepair === true,
     expectedSchemaVersion: "1",
@@ -1136,31 +1142,12 @@ export function getDbDriver(): DbDriver {
 }
 
 /**
- * PG-aware table existence check (single source of truth). SQLite uses
- * `sqlite_master`; PostgreSQL uses `information_schema.tables`. Returns false
- * on any read error so PG-mode code degrades to the "missing table" path
- * (empty/fallback) instead of crashing on `relation does not exist`.
+ * PG-aware table existence check (single source of truth) now lives in the
+ * dependency-free leaf `./tableExists` (adapter + driver injected by the
+ * caller), so `core.ts` <-> `healthCheck.ts` no longer form an import cycle.
+ * Re-exported here because existing call sites import it from `core`.
  */
-export async function tableExists(tableName: string, db?: DatabaseAdapter): Promise<boolean> {
-  const adapter = db ?? getAsyncDb();
-  const driver = getDbDriver();
-  try {
-    if (driver === "postgres") {
-      const row = (await adapter
-        .prepare(
-          "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?"
-        )
-        .get(tableName)) as { table_name?: string } | undefined;
-      return row?.table_name === tableName;
-    }
-    const row = (await adapter
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get(tableName)) as { name?: string } | undefined;
-    return row?.name === tableName;
-  } catch {
-    return false;
-  }
-}
+export { tableExists } from "./tableExists";
 
 /**
  * Wrap the synchronous SQLite handle in the async DatabaseAdapter interface so
@@ -1267,6 +1254,15 @@ async function flushDeferredStartupWork(): Promise<void> {
  * `awaitDbColumnBackfills()`. Reassigned on every DB open.
  */
 let columnBackfillsPromise: Promise<void> = Promise.resolve();
+
+/**
+ * Stored optimization settings (cache_size) applied on every open. Async over
+ * the sync connection — `getDbInstance()` is synchronous and cannot await it,
+ * so the promise is tracked here and consumers (tests that reopen the DB and
+ * assert the pragma immediately) join it via `awaitDbOptimizationSettings()`.
+ * Reassigned on every DB open.
+ */
+let optimizationSettingsPromise: Promise<void> = Promise.resolve();
 
 /**
  * Post-migration startup maintenance (legacy call-log offload). Kicked off by
@@ -1745,7 +1741,11 @@ export function getDbInstance(): SqliteDatabase {
   // async work can interleave on this connection.
   ensureUsageHistoryAccountIndex(db);
 
-  applyStoredDatabaseOptimizationSettings(db);
+  optimizationSettingsPromise = applyStoredDatabaseOptimizationSettings(db)
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      console.warn("[DB] Stored optimization settings apply failed:", error);
+    });
 
   // Apply mmap_size from stored settings (migration 046), fallback to 256MiB
   try {
@@ -1815,14 +1815,15 @@ export function getDbInstance(): SqliteDatabase {
     // statements against a half-migrated schema.
     trackDeferredStartupWork(
       awaitDbMigrations()
-        .then(() =>
-          runDbHealthCheck(db, {
+        .then(async () => {
+          const { runDbHealthCheck } = await import("./healthCheck");
+          return runDbHealthCheck(db, {
             autoRepair: true,
             expectedSchemaVersion: "1",
             skipIntegrityCheck,
             createBackupBeforeRepair: () => createHealthCheckBackup(db),
-          })
-        )
+          });
+        })
         .catch((error: unknown) => {
           console.warn("[DB] Startup health-check failed:", error);
         })
@@ -1933,6 +1934,17 @@ export async function awaitDbColumnBackfills(): Promise<void> {
 }
 
 /**
+ * Wait for the stored optimization settings (cache_size) of the CURRENT
+ * database instance to be applied. `getDbInstance()` applies the default
+ * cache_size synchronously and then kicks the stored-value override off
+ * asynchronously; tests that reopen the DB and assert the pragma must await
+ * this first. Resolves immediately when no apply is in flight.
+ */
+export async function awaitDbOptimizationSettings(): Promise<void> {
+  await optimizationSettingsPromise;
+}
+
+/**
  * Await post-migration startup maintenance (currently: the legacy call-log
  * offload). Must run AFTER `awaitDbMigrations()` — VACUUM cannot start inside
  * an open migration transaction on the same connection. Idempotent: the first
@@ -1976,6 +1988,7 @@ export async function closeDbInstanceDrained(options?: {
   asyncDb = null;
   migrationsPromise = null;
   columnBackfillsPromise = Promise.resolve();
+  optimizationSettingsPromise = Promise.resolve();
   startupTasksPromise = null;
   return closed;
 }

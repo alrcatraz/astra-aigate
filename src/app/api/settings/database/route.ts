@@ -32,7 +32,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    updateDatabaseSettings(validation.data);
+    await updateDatabaseSettings(validation.data);
 
     // Return merged settings (GET response pattern)
     return NextResponse.json(await getDatabaseSettings());

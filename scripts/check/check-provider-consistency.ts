@@ -14,7 +14,13 @@ import { assertNoStale } from "./lib/allowlist.mjs";
 
 // Entradas registry-only conhecidas (meia-registro pré-existente). Cada uma com
 // justificativa. Remover daqui ao registrar o provider em providers.ts.
-export const KNOWN_REGISTRY_ONLY: Record<string, string> = {};
+export const KNOWN_REGISTRY_ONLY: Record<string, string> = {
+  // Engine id shared by the three DMXAPI sites (dmxapi-cn/-com/-ssvip) and the
+  // image registry (imageRegistry.ts). Users select a site variant, never the
+  // bare id — no code routes by "dmxapi", so it has no canonical entry by design.
+  dmxapi:
+    "shared engine id for dmxapi-cn/-com/-ssvip sites + image registry; users pick a site variant",
+};
 
 /** Ids do REGISTRY que não são providers canônicos e não estão na allowlist. */
 export function findOrphanRegistryIds(
