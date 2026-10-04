@@ -847,3 +847,10 @@ export * from "./db/interceptionRules"; // Per-model web-search/web-fetch interc
 export * from "./db/relayProbeStats"; // Relay probe latency/health stats (#6909)
 export * from "./db/ccDiscoveryAliases"; // Claude Code discovery-alias gate (flag + per-provider/model overrides)
 export * from "./db/ccDiscoveryMetrics"; // Claude Code discovery-alias usage counters (alias requests + discovery hits)
+export * from "./db/schemaSql"; // Schema DDL/backfill column tables (core.ts)
+export * from "./db/migrationDiscovery"; // Migrations-dir resolution
+export * from "./db/legacyCallLogOffload"; // Legacy error parsing + call-log offload
+export * from "./db/syncedModelNormalize"; // synced-available-model normalisation
+export * from "./db/providerConnectionColumns"; // provider connection column sets
+export * from "./db/optimizationSettingsTracker"; // deferred optimization-settings writes
+export * from "./db/tableExists"; // cross-driver table existence probe
