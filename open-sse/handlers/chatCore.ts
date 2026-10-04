@@ -367,7 +367,7 @@ import {
 // 200MB that sat below the app's own ~260MB baseline and rejected every request.
 
 import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
-
+export { isTokenExpiringSoon } from "./chatCore/tokenExpiry.ts";
 /**
  * Core chat handler - shared between SSE and Worker
  * Returns { success, response, status, error } for caller to handle fallback
@@ -5016,10 +5016,4 @@ export async function handleChatCore({
       headers: responseHeaders,
     }),
   };
-}
-
-export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
-  if (!expiresAt) return false;
-  const expiresAtMs = new Date(expiresAt).getTime();
-  return expiresAtMs - Date.now() < bufferMs;
 }
