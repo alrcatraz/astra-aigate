@@ -4,19 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card, Button, Badge, ConfirmModal } from "@/shared/components";
 import { useLocale, useTranslations } from "next-intl";
 import DatabaseBackupRetentionCard from "./DatabaseBackupRetentionCard";
-
-// Whitelist mirrored from src/lib/db/cleanup.ts::RESET_USAGE_HISTORY_PERIODS.
-const RESET_USAGE_PERIOD_VALUES = [
-  "5m",
-  "1h",
-  "3h",
-  "6h",
-  "12h",
-  "1d",
-  "7d",
-  "30d",
-  "all",
-] as const;
+import { RESET_USAGE_PERIOD_VALUES } from "./resetUsagePeriods";
 
 export default function SystemStorageTab() {
   const [backups, setBackups] = useState([]);
