@@ -1,11 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { setupTestDataDir } from "../_setup/testDataDir.ts";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-chat-pipeline-"));
-process.env.DATA_DIR = TEST_DATA_DIR;
+const TEST_DATA_DIR = setupTestDataDir("omniroute-chat-pipeline-");
 process.env.REQUIRE_API_KEY = "false";
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "test-chat-pipeline-secret";
 

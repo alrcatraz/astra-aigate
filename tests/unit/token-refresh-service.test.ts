@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { bodyToString, jsonResponse, textResponse, withMockedFetch } from "../_setup/fetchMock.ts";
 
 const tokenRefresh = await import("../../open-sse/services/tokenRefresh.ts");
 const { PROVIDERS, OAUTH_ENDPOINTS } = await import("../../open-sse/config/constants.ts");
@@ -44,7 +45,6 @@ type MockLogger = {
   error: (...args: [unknown?, unknown?, unknown?]) => void;
 };
 
-type TestFetch = typeof fetch;
 type FastSetTimeout = typeof globalThis.setTimeout & {
   __promisify__?: typeof globalThis.setTimeout.__promisify__;
 };
@@ -63,36 +63,6 @@ function createLog(): MockLogger {
     warn: (...args) => push("warn", args),
     error: (...args) => push("error", args),
   };
-}
-
-function jsonResponse(body: any, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-function textResponse(text: any, status = 400) {
-  return new Response(text, {
-    status,
-    headers: { "content-type": "text/plain" },
-  });
-}
-
-function bodyToString(body: BodyInit | null | undefined) {
-  if (typeof body === "string") return body;
-  if (body instanceof URLSearchParams) return body.toString();
-  return String(body ?? "");
-}
-
-async function withMockedFetch<TResult>(fetchImpl: TestFetch, fn: () => Promise<TResult>) {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = fetchImpl;
-  try {
-    return await fn();
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
 }
 
 async function withMockedNow<TResult>(now: number, fn: () => Promise<TResult>) {

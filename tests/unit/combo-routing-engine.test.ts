@@ -1,12 +1,10 @@
 import test from "node:test";
+import { setupTestDataDir } from "../_setup/testDataDir.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-combo-routing-"));
 const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
-process.env.DATA_DIR = TEST_DATA_DIR;
+const TEST_DATA_DIR = setupTestDataDir("omniroute-combo-routing-");
 
 const {
   getComboFromData,

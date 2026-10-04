@@ -1,12 +1,10 @@
 // @ts-nocheck
 import test from "node:test";
+import { setupTestDataDir } from "../_setup/testDataDir.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-chatcore-translation-"));
-process.env.DATA_DIR = TEST_DATA_DIR;
+const TEST_DATA_DIR = setupTestDataDir("omniroute-chatcore-translation-");
 
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");

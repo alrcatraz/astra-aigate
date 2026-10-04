@@ -2214,7 +2214,7 @@
   },
   "tests/unit/token-refresh-service.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 17
+      "count": 15
     }
   },
   "tests/unit/tool-request-sanitization.test.ts": {
