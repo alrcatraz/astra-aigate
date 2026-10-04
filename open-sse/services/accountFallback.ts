@@ -1913,4 +1913,9 @@ export function getAccountHealth(
   return Math.max(0, score);
 }
 
-export { CONTEXT_OVERFLOW_PATTERNS } from "./accountFallbackSignals.ts";
+export {
+  ACCOUNT_DEACTIVATED_SIGNALS,
+  CREDITS_EXHAUSTED_SIGNALS,
+  OAUTH_INVALID_TOKEN_SIGNALS,
+  CONTEXT_OVERFLOW_PATTERNS,
+} from "./accountFallbackSignals.ts";
