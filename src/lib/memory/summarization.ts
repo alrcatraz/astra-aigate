@@ -20,9 +20,12 @@ export async function summarizeMemories(
     : "WHERE api_key_id = ?";
   const params = sessionId ? [apiKeyId, sessionId] : [apiKeyId];
 
-  const memories = db
+  // getAsyncDb() yields the async adapter (both drivers), so the statement
+  // result is a promise — the missing await made `memories` a Promise and
+  // every downstream iteration/`.length` read fail with "not iterable".
+  const memories = (await db
     .prepare(`SELECT * FROM memories ${whereClause} ORDER BY created_at DESC`)
-    .all(...params) as MemoryRow[];
+    .all(...params)) as MemoryRow[];
 
   if (memories.length === 0) {
     return { originalCount: 0, summarizedCount: 0, tokensSaved: 0 };
