@@ -83,3 +83,13 @@ export async function withMcpHttpAuthContext<T>(
     callback
   );
 }
+
+// ── MCP scope enforcement config (moved from server.ts) ────────────────────
+
+export const MCP_ENFORCE_SCOPES = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES === "true";
+export const MCP_ALLOWED_SCOPES = new Set(
+  (process.env.OMNIROUTE_MCP_SCOPES || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+);

@@ -1,0 +1,841 @@
+/**
+ * Image registry data: the provider registration table and the alias entries
+ * that resolve an older model id to the canonical catalogue id. Extracted
+ * from imageRegistry.ts so the host file keeps only composition logic.
+ */
+
+import { LMARENA_DIRECT_IMAGE_MODELS } from "./providers/registry/lmarena/directModels.ts";
+import { SEGMIND_IMAGE_PROVIDER } from "./providers/registry/segmind/imageModels.ts";
+import { KIE_IMAGE_MODELS } from "./providers/registry/kie/imageModels.ts";
+import { FREEPIK_IMAGE_PROVIDER } from "./providers/registry/freepik/index.ts";
+import { STABILITY_AI_IMAGE_MODELS } from "./providers/registry/stability-ai/imageModels.ts";
+import { GEMINI_IMAGEN_PROVIDER } from "./providers/registry/gemini/imageModels.ts";
+import { SILICONFLOW_IMAGE_MODELS } from "./providers/registry/siliconflow/imageModels.ts";
+import { SILICONFLOW_CN_IMAGE_MODELS } from "./providers/registry/siliconflow-cn/imageModels.ts";
+import { ZAI_IMAGE_MODELS } from "./providers/registry/zai/imageModels.ts";
+import { DMXAPI_IMAGE_MODELS } from "./providers/registry/dmxapi/imageModels.ts";
+import type { ImageModelAliasEntry, ImageProviderConfig } from "./imageRegistryTypes.ts";
+
+export const IMAGE_MODEL_ALIASES: Record<string, ImageModelAliasEntry> = {
+  "gemini-3.1-flash-image-preview": {
+    provider: "antigravity",
+    model: "gemini-3.1-flash-image",
+    name: "Gemini 3.1 Flash Image",
+    listInCatalog: false,
+  },
+  "flux-kontext": {
+    provider: "black-forest-labs",
+    model: "flux-kontext-pro",
+    name: "FLUX Kontext Pro",
+    listInCatalog: true,
+    inputModalities: ["text", "image"],
+  },
+  "flux-kontext-max": {
+    provider: "black-forest-labs",
+    model: "flux-kontext-max",
+    name: "FLUX Kontext Max",
+    listInCatalog: true,
+    inputModalities: ["text", "image"],
+  },
+  "flux-2-max": {
+    provider: "black-forest-labs",
+    model: "flux-2-max",
+    name: "FLUX.2 Max",
+    listInCatalog: true,
+    inputModalities: ["text", "image"],
+  },
+  "flux-2-pro": {
+    provider: "black-forest-labs",
+    model: "flux-2-pro",
+    name: "FLUX.2 Pro",
+    listInCatalog: true,
+    inputModalities: ["text", "image"],
+  },
+  "flux-2-flex": {
+    provider: "black-forest-labs",
+    model: "flux-2-flex",
+    name: "FLUX.2 Flex",
+    listInCatalog: true,
+    inputModalities: ["text", "image"],
+  },
+  "flux-2-dev": {
+    provider: "together",
+    model: "black-forest-labs/FLUX.2-dev",
+    name: "FLUX.2 Dev",
+    listInCatalog: true,
+    inputModalities: ["text", "image"],
+  },
+  kontext: {
+    provider: "black-forest-labs",
+    model: "flux-kontext-pro",
+    name: "FLUX Kontext Pro",
+    listInCatalog: false,
+    inputModalities: ["text", "image"],
+  },
+  "pollinations/kontext": {
+    provider: "black-forest-labs",
+    model: "flux-kontext-pro",
+    name: "FLUX Kontext Pro",
+    listInCatalog: false,
+    inputModalities: ["text", "image"],
+  },
+};
+
+export function resolveImageModelAlias(modelStr) {
+  const alias = IMAGE_MODEL_ALIASES[modelStr];
+  return alias ? { provider: alias.provider, model: alias.model } : null;
+}
+
+export function findImageModelConfig(providerId, modelId) {
+  const provider = IMAGE_PROVIDERS[providerId];
+  if (!provider) return null;
+  return provider.models.find((model) => model.id === modelId) || null;
+}
+
+// Kept out of getImageModelEntry() (which sits at the complexity-ratchet cap) — an
+// alias can override imageRequired directly, else it falls back to its target
+// model's own flag. Consumers coerce the result with Boolean(), so no `?? false`.
+export function resolveAliasImageRequired(alias, modelConfig) {
+  return alias.imageRequired ?? modelConfig?.imageRequired;
+}
+
+export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
+  "qwen-cloud-token-plan": {
+    id: "qwen-cloud-token-plan",
+    alias: "qct",
+    baseUrl:
+      "https://token-plan.ap-southeast-1.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "qwen-token-plan-image",
+    models: [
+      {
+        id: "wan2.7-image",
+        name: "Wan 2.7 Image",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "wan2.7-image-pro",
+        name: "Wan 2.7 Image Pro",
+        inputModalities: ["text", "image"],
+      },
+    ],
+    // Both models share 1K/2K support. The Pro model also accepts explicit 4K
+    // dimensions, which callers can still pass through the permissive request schema.
+    supportedSizes: ["1024x1024", "2048x2048"],
+  },
+
+  openai: {
+    id: "openai",
+    baseUrl: "https://api.openai.com/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai", // native OpenAI format
+    models: [
+      { id: "gpt-image-2", name: "GPT Image 2" },
+      { id: "gpt-image-1.5", name: "GPT Image 1.5" },
+      { id: "gpt-image-1-mini", name: "GPT Image 1 Mini" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  // SiliconFlow — OpenAI-compatible image endpoint (verified 2026-07-31).
+  // `image_size` is an ASPECT RATIO ("1:1"), not pixels; the OpenAI handler
+  // passes `size` through verbatim so clients must send ratios here.
+  // NOTE: this is the INTERNATIONAL site (api.siliconflow.com, USD). The
+  // mainland-China RMB site has a DIFFERENT catalogue (no FLUX, extra
+  // Z-Image/ERNIE/Kolors) — see the `siliconflow-cn` provider below.
+  siliconflow: {
+    id: "siliconflow",
+    baseUrl: "https://api.siliconflow.com/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: SILICONFLOW_IMAGE_MODELS,
+    supportedSizes: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+  },
+
+  // SiliconFlow CN — mainland-China RMB site (api.siliconflow.cn).
+  // Different catalogue from the international site: no FLUX models; adds
+  // Z-Image, ERNIE-Image-Turbo, Qwen-Image-Edit-2509, Kolors. Use this
+  // provider when the configured key was issued on the .cn site.
+  "siliconflow-cn": {
+    id: "siliconflow-cn",
+    baseUrl: "https://api.siliconflow.cn/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: SILICONFLOW_CN_IMAGE_MODELS,
+    supportedSizes: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+  },
+
+  // Z.ai (Zhipu international) — OpenAI-compatible images endpoint.
+  // NOTE: /v1/models does NOT list these; this registry is their only catalog.
+  zai: {
+    id: "zai",
+    baseUrl: "https://api.z.ai/api/paas/v4/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: ZAI_IMAGE_MODELS,
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  // DMXAPI (www.dmxapi.cn) — RMB-priced Chinese aggregator, OpenAI-compatible.
+  dmxapi: {
+    id: "dmxapi",
+    baseUrl: "https://www.dmxapi.cn/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: DMXAPI_IMAGE_MODELS,
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  // Codex exposes image generation only as a Responses-API hosted tool under
+  // ChatGPT OAuth. Incoming GPT-Image-style `/v1/images/generations` requests are
+  // translated to /responses calls with `tools: [{ type: "image_generation" }]`
+  // by handleCodexImageGeneration.
+  codex: {
+    id: "codex",
+    alias: "cx",
+    baseUrl: "https://chatgpt.com/backend-api/codex/responses",
+    authType: "oauth",
+    authHeader: "bearer",
+    format: "codex-responses",
+    models: [
+      { id: "gpt-5.6-sol", name: "GPT 5.6 Sol (Codex Image)" },
+      { id: "gpt-5.6-terra", name: "GPT 5.6 Terra (Codex Image)" },
+      { id: "gpt-5.6-luna", name: "GPT 5.6 Luna (Codex Image)" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1536", "1536x1024"],
+  },
+
+  "chatgpt-web": {
+    id: "chatgpt-web",
+    alias: "cgpt-web",
+    baseUrl: "https://chatgpt.com/backend-api/f/conversation",
+    authType: "apikey",
+    authHeader: "cookie",
+    format: "chatgpt-web",
+    models: [{ id: "gpt-5.5", name: "GPT-5.5 Instant (ChatGPT Web Image)" }],
+    supportedSizes: ["1024x1024", "1024x1536", "1536x1024"],
+  },
+
+  "microsoft-designer-web": {
+    id: "microsoft-designer-web",
+    alias: "msdesigner",
+    baseUrl:
+      "https://designerapp.officeapps.live.com/designerapp/DallE.ashx?action=GetDallEImagesCogSci",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "designer-web",
+    models: [{ id: "dall-e-3", name: "DALL-E 3 (Microsoft Designer Web)" }],
+    supportedSizes: ["1024x1024", "1792x1024", "1024x1792"],
+  },
+
+  xai: {
+    id: "xai",
+    baseUrl: "https://api.x.ai/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [
+      { id: "grok-imagine-image-quality", name: "Grok Imagine Image Quality" },
+      { id: "grok-imagine-image", name: "Grok Imagine Image" },
+    ],
+    supportedSizes: ["1024x1024", "2048x2048"],
+  },
+
+  "vercel-ai-gateway": {
+    id: "vercel-ai-gateway",
+    alias: "vag",
+    baseUrl: "https://ai-gateway.vercel.sh/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [
+      { id: "gpt-image-1", name: "GPT Image 1" },
+      { id: "black-forest-labs/flux-1.1-pro", name: "FLUX 1.1 Pro" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  together: {
+    id: "together",
+    baseUrl: "https://api.together.xyz/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [
+      {
+        id: "black-forest-labs/FLUX.2-max",
+        name: "FLUX.2 Max",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "black-forest-labs/FLUX.2-pro",
+        name: "FLUX.2 Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "black-forest-labs/FLUX.2-flex",
+        name: "FLUX.2 Flex",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "black-forest-labs/FLUX.2-dev",
+        name: "FLUX.2 Dev",
+        inputModalities: ["text", "image"],
+      },
+      { id: "openai/gpt-image-1.5", name: "GPT Image 1.5", inputModalities: ["text", "image"] },
+      { id: "Wan-AI/Wan2.6-image", name: "Wan 2.6 Image", inputModalities: ["text", "image"] },
+      {
+        id: "Qwen/Qwen-Image-2.0-Pro",
+        name: "Qwen Image 2.0 Pro",
+        inputModalities: ["text", "image"],
+      },
+      { id: "Qwen/Qwen-Image-2.0", name: "Qwen Image 2.0", inputModalities: ["text", "image"] },
+      { id: "google/flash-image-3.1", name: "NanoBanana 2", inputModalities: ["text", "image"] },
+      {
+        id: "google/gemini-3-pro-image",
+        name: "NanoBanana Pro",
+        inputModalities: ["text", "image"],
+      },
+    ],
+    supportedSizes: ["1024x1024", "512x512"],
+  },
+
+  fireworks: {
+    id: "fireworks",
+    baseUrl: "https://api.fireworks.ai/inference/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [
+      { id: "accounts/fireworks/flux-kontext-max", name: "FLUX Kontext Max" },
+      { id: "accounts/fireworks/flux-kontext-pro", name: "FLUX Kontext Pro" },
+      { id: "accounts/fireworks/flux-1-schnell-fp8", name: "FLUX.1 schnell" },
+      { id: "accounts/fireworks/models/flux-1-dev-fp8", name: "FLUX 1 Dev FP8" },
+      { id: "accounts/fireworks/models/stable-diffusion-xl-1024-v1-0", name: "SDXL 1024 v1.0" },
+    ],
+    supportedSizes: ["1024x1024", "512x512"],
+  },
+
+  antigravity: {
+    id: "antigravity",
+    baseUrl: "https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent",
+    authType: "oauth",
+    authHeader: "bearer",
+    format: "gemini-image", // Special format: uses Gemini generateContent API
+    models: [{ id: "gemini-3.1-flash-image", name: "Gemini 3.1 Flash Image" }],
+    supportedSizes: ["1024x1024"],
+  },
+
+  // Google AI Studio Imagen family — dedicated :predict endpoint, not generateContent.
+  // See providers/registry/gemini/imageModels.ts for the full rationale.
+  gemini: GEMINI_IMAGEN_PROVIDER,
+
+  //Curruntly no models serving
+  nebius: {
+    id: "nebius",
+    baseUrl: "https://api.tokenfactory.nebius.com/v1/images/generations",
+    fallbackUrl: "https://api.studio.nebius.com/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [{ id: "black-forest-labs/flux-schnell", name: "No Model yet" }],
+    supportedSizes: ["1024x1024"],
+  },
+
+  hyperbolic: {
+    id: "hyperbolic",
+    baseUrl: "https://api.hyperbolic.xyz/v1/image/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "hyperbolic", // custom: uses model_name, returns base64 images
+    models: [{ id: "SDXL1.0-base", name: "No Model yet" }],
+    supportedSizes: ["1024x1024"],
+  },
+  //Curruntly no models serving
+
+  nanobanana: {
+    id: "nanobanana",
+    baseUrl: "https://api.nanobananaapi.ai/api/v1/nanobanana/generate",
+    proUrl: "https://api.nanobananaapi.ai/api/v1/nanobanana/generate-pro",
+    statusUrl: "https://api.nanobananaapi.ai/api/v1/nanobanana/record-info",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "nanobanana", // custom format (async: submit task, then poll)
+    models: [
+      { id: "nanobanana-flash", name: "NanoBanana Flash (Gemini 2.5 Flash)" },
+      { id: "nanobanana-pro", name: "NanoBanana Pro (Gemini 3 Pro)" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1280", "1024x1536", "1536x1024", "1280x1024"],
+  },
+
+  kie: {
+    id: "kie",
+    baseUrl: "https://api.kie.ai",
+    statusUrl: "https://api.kie.ai/api/v1/jobs/recordInfo",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "kie-image",
+    models: KIE_IMAGE_MODELS,
+    supportedSizes: ["1:1", "16:9", "9:16", "4:3", "3:4"],
+  },
+
+  haiper: {
+    id: "haiper",
+    baseUrl: "https://api.haiper.ai/v1/jobs/gen2/text2image",
+    statusUrl: "https://api.haiper.ai/v1/jobs",
+    authType: "apikey",
+    authHeader: "HAIPER_KEY",
+    format: "haiper-image",
+    models: [{ id: "gen2", name: "Gen 2 Image" }],
+    supportedSizes: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+  },
+  // #2482: MiniMax already has entries in musicRegistry/audioRegistry/videoRegistry,
+  // but was missing an image provider entirely, so MiniMax image-model requests
+  // fell through the format dispatch below to a 400/unmatched-format response.
+  minimax: {
+    id: "minimax",
+    baseUrl: "https://api.minimax.io/v1/image_generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "minimax-image",
+    models: [
+      { id: "image-01", name: "MiniMax Image-01" },
+      { id: "image-01-live", name: "MiniMax Image-01 Live" },
+    ],
+    supportedSizes: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "1024x1024"],
+  },
+  leonardo: {
+    id: "leonardo",
+    baseUrl: "https://cloud.leonardo.ai/api/rest/v1/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "leonardo-image",
+    models: [
+      { id: "phoenix", name: "Phoenix" },
+      { id: "sdxl", name: "SDXL" },
+    ],
+    supportedSizes: ["1024x1024", "1024x576", "576x1024"],
+  },
+  ideogram: {
+    id: "ideogram",
+    baseUrl: "https://api.ideogram.ai/generate",
+    authType: "apikey",
+    authHeader: "Api-Key",
+    format: "ideogram-image",
+    models: [
+      { id: "V_3", name: "Ideogram V3" },
+      { id: "V_2A", name: "Ideogram V2A" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+  freepik: FREEPIK_IMAGE_PROVIDER,
+  sdwebui: {
+    id: "sdwebui",
+    baseUrl: "http://localhost:7860/sdapi/v1/txt2img",
+    authType: "none",
+    authHeader: "none",
+    format: "sdwebui",
+    models: [
+      { id: "stable-diffusion-v1-5", name: "Stable Diffusion v1.5" },
+      { id: "sdxl-base-1.0", name: "SDXL Base 1.0" },
+    ],
+    supportedSizes: ["512x512", "768x768", "1024x1024"],
+  },
+
+  comfyui: {
+    id: "comfyui",
+    baseUrl: "http://localhost:8188",
+    authType: "none",
+    authHeader: "none",
+    format: "comfyui",
+    models: [
+      { id: "flux-dev", name: "FLUX Dev" },
+      { id: "sdxl", name: "SDXL" },
+    ],
+    supportedSizes: ["512x512", "768x768", "1024x1024"],
+  },
+
+  openrouter: {
+    id: "openrouter",
+    baseUrl: "https://openrouter.ai/api/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [
+      { id: "openai/gpt-5.4-image-2", name: "GPT Image 2 (via OpenRouter)" },
+      { id: "openai/gpt-5-image-mini", name: "GPT Image 1 Mini (via OpenRouter)" },
+      { id: "google/gemini-3.1-flash-image-preview", name: "Nano Banana 2 (via OpenRouter)" },
+      { id: "google/gemini-3-pro-image-preview", name: "Nano Banana Pro (via OpenRouter)" },
+      { id: "black-forest-labs/flux.2-max", name: "FLUX.2 Max (via OpenRouter)" },
+      { id: "black-forest-labs/flux.2-pro", name: "FLUX.2 Pro (via OpenRouter)" },
+      { id: "black-forest-labs/flux.2-flex", name: "FLUX.2 Flex (via OpenRouter)" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  pollinations: {
+    id: "pollinations",
+    alias: "pol",
+    baseUrl: "https://gen.pollinations.ai/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [
+      { id: "klein", name: "FLUX.2 Klein 4B" },
+      { id: "flux", name: "Flux Schnell" },
+      { id: "zimage", name: "Z-Image Turbo" },
+      { id: "qwen-image", name: "Qwen Image Plus" },
+      { id: "wan-image", name: "Wan 2.7 Image" },
+      { id: "gpt-image-2", name: "GPT Image 2" },
+      { id: "gptimage-large", name: "GPT Image 1.5" },
+      { id: "gptimage", name: "GPT Image 1 Mini" },
+    ],
+    supportedSizes: ["1024x1024", "512x512"],
+  },
+
+  "fal-ai": {
+    id: "fal-ai",
+    baseUrl: "https://fal.run",
+    authType: "apikey",
+    authHeader: "key",
+    format: "fal-ai",
+    models: [
+      { id: "fal-ai/flux-2-max", name: "FLUX.2 Max" },
+      { id: "fal-ai/flux-2-pro", name: "FLUX.2 Pro" },
+      { id: "fal-ai/flux-2-flex", name: "FLUX.2 Flex" },
+      { id: "bria/text-to-image/3.2", name: "Bria 3.2" },
+      { id: "fal-ai/bytedance/seedream/v4.5/text-to-image", name: "SeeDream V4.5" },
+      { id: "fal-ai/bytedance/dreamina/v3.1/text-to-image", name: "Dreamina V3.1" },
+      { id: "fal-ai/ideogram/v3", name: "Ideogram V3" },
+      { id: "fal-ai/nano-banana-pro", name: "Nano Banana Pro" },
+      { id: "fal-ai/nano-banana-2", name: "Nano Banana 2" },
+      { id: "fal-ai/recraft/v4/pro/text-to-image", name: "Recraft V4 Pro via Fal" },
+      { id: "fal-ai/recraft/v4/text-to-image", name: "Recraft V4 via Fal" },
+      { id: "fal-ai/stable-diffusion-v35-medium", name: "Stable Diffusion v3.5 Medium" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1280", "1280x1024"],
+  },
+
+  "stability-ai": {
+    id: "stability-ai",
+    baseUrl: "https://api.stability.ai",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "stability-ai",
+    models: STABILITY_AI_IMAGE_MODELS,
+    supportedSizes: ["1024x1024", "1024x1280", "1280x1024"],
+  },
+
+  "black-forest-labs": {
+    id: "black-forest-labs",
+    baseUrl: "https://api.bfl.ai",
+    authType: "apikey",
+    authHeader: "x-key",
+    format: "black-forest-labs",
+    models: [
+      { id: "flux-2-max", name: "FLUX.2 Max" },
+      { id: "flux-2-pro", name: "FLUX.2 Pro" },
+      { id: "flux-2-flex", name: "FLUX.2 Flex" },
+      { id: "flux-pro-1.1-ultra", name: "flux-pro-1.1-ultra" },
+      { id: "flux-pro-1.1", name: "flux-pro-1.1" },
+      { id: "flux-2-klein-9b", name: "flux 2 Klein 9B" },
+      { id: "flux-2-klein-4b", name: "flux 2 Klein 4B" },
+      { id: "flux-kontext-max", name: "flux-kontext-max", inputModalities: ["text", "image"] },
+      { id: "flux-kontext-pro", name: "flux-kontext-pro", inputModalities: ["text", "image"] },
+      { id: "flux-dev", name: "flux-dev" },
+      { id: "flux-pro", name: "flux-pro" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1280", "1280x1024"],
+  },
+
+  recraft: {
+    id: "recraft",
+    baseUrl: "https://external.api.recraft.ai",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "recraft",
+    models: [
+      { id: "recraftv4_pro", name: "Recraft V4 Pro" },
+      { id: "recraftv4", name: "Recraft V4" },
+      { id: "recraftv3", name: "Recraft V3" },
+      { id: "recraftv2", name: "Recraft V2" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1280", "1280x1024"],
+  },
+
+  topaz: {
+    id: "topaz",
+    baseUrl: "https://api.topazlabs.com",
+    authType: "apikey",
+    authHeader: "x-api-key",
+    format: "topaz",
+    models: [{ id: "topaz-enhance", name: "topaz-enhance", inputModalities: ["image"] }],
+    supportedSizes: ["1024x1024"],
+  },
+
+  // Segmind (#6656): 200+ models, `POST /v1/{model}`, x-api-key, raw image bytes.
+  segmind: SEGMIND_IMAGE_PROVIDER,
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [
+      { id: "qwen-image", name: "Qwen Image", inputModalities: ["text", "image"] },
+      { id: "z-image-turbo", name: "Z Image Turbo" },
+      { id: "chroma", name: "Chroma" },
+      { id: "hidream", name: "Hidream I1 Full" },
+    ],
+    supportedSizes: ["1024x1024", "1024x1280", "1280x1024"],
+  },
+
+  // NVIDIA NIM image generation (FLUX models). Distinct from the NVIDIA *chat* entry
+  // (open-sse/config/providers/registry/nvidia/index.ts, host integrate.api.nvidia.com,
+  // OpenAI-compatible) — image generation lives on ai.api.nvidia.com/v1/genai/<model>
+  // with a native NIM body per model, so it gets a dedicated `nvidia-nim` format/handler
+  // (handleNvidiaNimImageGeneration) rather than reusing the OpenAI image path.
+  // Ported from upstream 9router#1195.
+  nvidia: {
+    id: "nvidia",
+    baseUrl: "https://ai.api.nvidia.com/v1/genai",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "nvidia-nim",
+    models: [
+      {
+        id: "black-forest-labs/flux.1-dev",
+        name: "FLUX.1 Dev",
+        inputModalities: ["text", "image"],
+      },
+      { id: "black-forest-labs/flux.1-schnell", name: "FLUX.1 Schnell" },
+      {
+        id: "black-forest-labs/flux.1-kontext-dev",
+        name: "FLUX.1 Kontext Dev (Edit)",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "black-forest-labs/flux.2-klein-4b",
+        name: "FLUX.2 Klein 4B",
+        inputModalities: ["text", "image"],
+      },
+    ],
+    supportedSizes: ["1024x1024", "768x1344", "512x512"],
+  },
+
+  // SenseNova (商汤日日新) Text-to-Image on the free Token Plan. OpenAI-compatible
+  // `/v1/images/generations`, so the generic OpenAI image handler routes it — same
+  // SenseNova api-key/connection as the chat provider. (9router#2233)
+  sensenova: {
+    id: "sensenova",
+    baseUrl: "https://api.sensenova.cn/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [{ id: "sensenova-u1-fast", name: "SenseNova U1 Fast" }],
+    supportedSizes: ["1024x1024"],
+  },
+
+  // HuggingFace Hub Inference API text-to-image task. Returns raw image bytes
+  // (not JSON), so it uses a dedicated "huggingface-image" format handled by
+  // handleHuggingFaceImageGeneration. Same base URL convention as the HF
+  // STT/TTS entries in audioRegistry.ts. Model list is deliberately small —
+  // the dashboard's "suggested models" chip row (GET
+  // /api/v1/providers/suggested-models) surfaces additional HF Hub models
+  // beyond this seed list.
+  huggingface: {
+    id: "huggingface",
+    // HF retired api-inference.huggingface.co; text-to-image now routes through
+    // router.huggingface.co with the hf-inference provider pinned in the path.
+    baseUrl: "https://router.huggingface.co/hf-inference/models",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "huggingface-image",
+    models: [
+      { id: "black-forest-labs/FLUX.1-dev", name: "FLUX.1 Dev (HF)" },
+      { id: "black-forest-labs/FLUX.1-schnell", name: "FLUX.1 Schnell (HF)" },
+      { id: "stabilityai/stable-diffusion-xl-base-1.0", name: "Stable Diffusion XL (HF)" },
+    ],
+    supportedSizes: ["1024x1024"],
+  },
+
+  // Arena (formerly LMArena) Direct-chat Image category (static scrape 2026-07-09).
+  // Not listed in the chat registry — image catalog only. Generation path still
+  // uses cookie session auth via the lmarena provider connection (stable wire id).
+  lmarena: {
+    id: "lmarena",
+    alias: "lma",
+    baseUrl: "https://arena.ai/nextjs-api/stream/create-evaluation",
+    authType: "apikey",
+    authHeader: "cookie",
+    format: "openai",
+    models: LMARENA_DIRECT_IMAGE_MODELS,
+    supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
+  },
+
+  // Adobe Firefly (unofficial) — IMS access_token (clio-playground-web) or browser
+  // Cookie from firefly.adobe.com. Async 3P image generate + poll.
+  // Model list = static fallback from models/discovery capture; live discovery
+  // refreshes via resolveAdobeFireflyCatalog when credentials work.
+  "adobe-firefly": {
+    id: "adobe-firefly",
+    alias: "firefly",
+    baseUrl: "https://firefly-3p.ff.adobe.io/v2/3p-images/generate-async",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "adobe-firefly-image",
+    models: [
+      {
+        id: "nano-banana-pro",
+        name: "Firefly Gemini 3.0 (Nano Banana Pro)",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "nano-banana",
+        name: "Firefly Gemini 2.5 (Nano Banana)",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "nano-banana-2",
+        name: "Firefly Gemini 3.1 (Nano Banana 2)",
+        inputModalities: ["text", "image"],
+      },
+      { id: "gpt-image-2", name: "Firefly GPT Image 2", inputModalities: ["text", "image"] },
+      { id: "gpt-image", name: "Firefly GPT Image 2", inputModalities: ["text", "image"] },
+      { id: "gpt-image-1.5", name: "Firefly GPT Image 1.5", inputModalities: ["text", "image"] },
+      { id: "flux-2", name: "Firefly Flux 2", inputModalities: ["text", "image"] },
+      { id: "flux-pro", name: "Firefly Flux 1.1 Pro", inputModalities: ["text", "image"] },
+      { id: "flux-ultra", name: "Firefly Flux 1.1 Ultra", inputModalities: ["text", "image"] },
+      { id: "seedream-4", name: "Firefly Seedream 4.0", inputModalities: ["text", "image"] },
+      {
+        id: "seedream-5-lite",
+        name: "Firefly Seedream 5.0 Lite",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "runway-gen4-image",
+        name: "Firefly Runway Gen-4 Image",
+        inputModalities: ["text", "image"],
+      },
+    ],
+    supportedSizes: ["1:1", "16:9", "9:16", "4:3", "3:4", "1024x1024", "1792x1024", "1024x1792"],
+  },
+
+  // Keep Bailian Coding Plan after existing duplicate model owners so adding
+  // explicit `bailian-coding-plan/` and `bcp/` routes does not change
+  // historical bare-model routing.
+  "bailian-coding-plan": {
+    id: "bailian-coding-plan",
+    alias: "bcp",
+    baseUrl:
+      "https://coding-intl.dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "bailian-coding-plan-image",
+    models: [
+      {
+        id: "wan2.7-image",
+        name: "Wan 2.7 Image",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "wan2.7-image-pro",
+        name: "Wan 2.7 Image Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0",
+        name: "Qwen Image 2.0",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-pro",
+        name: "Qwen Image 2.0 Pro",
+        inputModalities: ["text", "image"],
+      },
+    ],
+    supportedSizes: ["1024x1024", "2048x2048"],
+  },
+
+  // Keep Alibaba after existing duplicate model owners so adding explicit
+  // `alibaba/` and `ali/` routes does not change historical bare-model routing.
+  alibaba: {
+    id: "alibaba",
+    alias: "ali",
+    baseUrl:
+      "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "alibaba-image",
+    models: [
+      {
+        id: "qwen-image-3.0-pro",
+        name: "Qwen Image 3.0 Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-pro-2026-06-22",
+        name: "Qwen Image 2.0 Pro (2026-06-22)",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0",
+        name: "Qwen Image 2.0",
+        inputModalities: ["text", "image"],
+      },
+      { id: "z-image-turbo", name: "Z-Image Turbo" },
+      { id: "wan2.6-t2i", name: "Wan 2.6 T2I" },
+    ],
+    supportedSizes: ["1024x1024", "1280x1280", "2048x2048"],
+  },
+
+  // Keep regular Qwen Cloud isolated from Alibaba, Bailian Coding Plan, and
+  // Qwen Cloud Token Plan. Explicit `qwen-cloud/` or `qwc/` routes use only
+  // the regular Qwen Cloud connection and its regional DashScope endpoint.
+  "qwen-cloud": {
+    id: "qwen-cloud",
+    alias: "qwc",
+    baseUrl:
+      "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "qwen-cloud-image",
+    models: [
+      {
+        id: "wan2.7-image-pro",
+        name: "Wan 2.7 Image Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "wan2.7-image",
+        name: "Wan 2.7 Image",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-3.0-pro",
+        name: "Qwen Image 3.0 Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-pro-2026-06-22",
+        name: "Qwen Image 2.0 Pro (2026-06-22)",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-2026-03-03",
+        name: "Qwen Image 2.0 (2026-03-03)",
+        inputModalities: ["text", "image"],
+      },
+      { id: "z-image-turbo", name: "Z-Image Turbo" },
+    ],
+    // 1K/2K are shared by the whole catalog. Wan 2.7 Image Pro callers can
+    // still pass supported 4K dimensions through the permissive request schema.
+    supportedSizes: ["1024x1024", "2048x2048"],
+  },
+};
