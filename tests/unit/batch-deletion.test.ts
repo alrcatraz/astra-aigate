@@ -9,9 +9,17 @@ import {
   getFile,
   deleteFile,
 } from "@/lib/localDb";
+import { getDbInstance, awaitDbMigrations } from "@/lib/db/core";
 
 describe("deleteBatch", () => {
   it("should delete a single batch and its associated files", async () => {
+    // getDbInstance() opens the connection and kicks the versioned migration
+    // runner off without awaiting it; the files/batches tables only exist once
+    // the runner settles. Every test below writes through those tables, so open
+    // the DB and join the migration barrier first — the shared convention in
+    // tests/integration/*.
+    getDbInstance();
+    await awaitDbMigrations();
     const inputFile = await createFile({
       bytes: 10,
       filename: "single-delete-input.jsonl",
@@ -26,14 +34,14 @@ describe("deleteBatch", () => {
       status: "completed",
     });
 
-    assert.ok(getBatch(batch.id));
-    assert.ok(getFile(inputFile.id));
+    assert.ok(await getBatch(batch.id));
+    assert.ok(await getFile(inputFile.id));
 
     const result = await deleteBatch(batch.id);
     assert.strictEqual(result, true);
 
-    assert.strictEqual(getBatch(batch.id), null);
-    assert.strictEqual(getFile(inputFile.id), null);
+    assert.strictEqual(await getBatch(batch.id), null);
+    assert.strictEqual(await getFile(inputFile.id), null);
   });
 
   it("should return false for a non-existent batch id", async () => {
@@ -70,17 +78,17 @@ describe("deleteBatch", () => {
       status: "completed",
     });
 
-    assert.ok(getFile(inputFile.id));
-    assert.ok(getFile(outputFile.id));
-    assert.ok(getFile(errorFile.id));
+    assert.ok(await getFile(inputFile.id));
+    assert.ok(await getFile(outputFile.id));
+    assert.ok(await getFile(errorFile.id));
 
     const result = await deleteBatch(batch.id);
     assert.strictEqual(result, true);
 
-    assert.strictEqual(getBatch(batch.id), null);
-    assert.strictEqual(getFile(inputFile.id), null);
-    assert.strictEqual(getFile(outputFile.id), null);
-    assert.strictEqual(getFile(errorFile.id), null);
+    assert.strictEqual(await getBatch(batch.id), null);
+    assert.strictEqual(await getFile(inputFile.id), null);
+    assert.strictEqual(await getFile(outputFile.id), null);
+    assert.strictEqual(await getFile(errorFile.id), null);
   });
 
   it("should delete a batch whose files were already deleted", async () => {
@@ -100,12 +108,12 @@ describe("deleteBatch", () => {
     // Delete the file first
     await deleteFile(f.id);
 
-    assert.strictEqual(getFile(f.id), null);
-    assert.ok(getBatch(batch.id));
+    assert.strictEqual(await getFile(f.id), null);
+    assert.ok(await getBatch(batch.id));
 
     const result = await deleteBatch(batch.id);
     assert.strictEqual(result, true);
-    assert.strictEqual(getBatch(batch.id), null);
+    assert.strictEqual(await getBatch(batch.id), null);
   });
 
   it("should delete a batch regardless of status", async () => {
@@ -130,14 +138,18 @@ describe("deleteBatch", () => {
         inputFileId: f.id,
         status,
       });
-      assert.ok(getBatch(b.id), `batch with status '${status}' should exist`);
+      assert.ok(await getBatch(b.id), `batch with status '${status}' should exist`);
       assert.strictEqual(
-        deleteBatch(b.id),
+        await deleteBatch(b.id),
         true,
         `deleteBatch for status '${status}' should succeed`
       );
-      assert.strictEqual(getBatch(b.id), null, `batch with status '${status}' should be gone`);
-      assert.strictEqual(getFile(f.id), null, `file for status '${status}' should be gone`);
+      assert.strictEqual(
+        await getBatch(b.id),
+        null,
+        `batch with status '${status}' should be gone`
+      );
+      assert.strictEqual(await getFile(f.id), null, `file for status '${status}' should be gone`);
     }
   });
 });
@@ -181,10 +193,14 @@ describe("deleteCompletedBatches", () => {
     });
 
     // Verify everything exists
-    for (const id of batchIds) assert.ok(getBatch(id), `batch ${id} should exist`);
-    for (const id of fileIds) assert.ok(getFile(id), `file ${id} should exist`);
-    assert.ok(getBatch(liveBatch.id));
-    assert.ok(getFile(liveInput.id));
+    for (const id of batchIds) {
+      assert.ok(await getBatch(id), `batch ${id} should exist`);
+    }
+    for (const id of fileIds) {
+      assert.ok(await getFile(id), `file ${id} should exist`);
+    }
+    assert.ok(await getBatch(liveBatch.id));
+    assert.ok(await getFile(liveInput.id));
 
     // Delete all completed (may include pre-existing ones from other tests)
     const result = await deleteCompletedBatches();
@@ -192,12 +208,16 @@ describe("deleteCompletedBatches", () => {
     assert.ok(result.deletedFiles >= 3, `expected >=3, got ${result.deletedFiles}`);
 
     // Verify completed batches and their files are gone
-    for (const id of batchIds) assert.strictEqual(getBatch(id), null);
-    for (const id of fileIds) assert.strictEqual(getFile(id), null);
+    for (const id of batchIds) {
+      assert.strictEqual(await getBatch(id), null);
+    }
+    for (const id of fileIds) {
+      assert.strictEqual(await getFile(id), null);
+    }
 
     // Verify non-completed batch and its file survive
-    assert.ok(getBatch(liveBatch.id), "non-completed batch should survive");
-    assert.ok(getFile(liveInput.id), "non-completed batch's file should survive");
+    assert.ok(await getBatch(liveBatch.id), "non-completed batch should survive");
+    assert.ok(await getFile(liveInput.id), "non-completed batch's file should survive");
   });
 
   it("should return zero counts when no completed batches exist", async () => {
@@ -227,16 +247,16 @@ describe("deleteCompletedBatches", () => {
       status: "completed",
     });
 
-    assert.ok(getBatch(batchA.id));
-    assert.ok(getBatch(batchB.id));
-    assert.ok(getFile(sharedFile.id));
+    assert.ok(await getBatch(batchA.id));
+    assert.ok(await getBatch(batchB.id));
+    assert.ok(await getFile(sharedFile.id));
 
     const result = await deleteCompletedBatches();
     assert.ok(result.deletedBatches >= 2);
     assert.ok(result.deletedFiles >= 1, "shared file should be counted once");
 
-    assert.strictEqual(getBatch(batchA.id), null);
-    assert.strictEqual(getBatch(batchB.id), null);
-    assert.strictEqual(getFile(sharedFile.id), null);
+    assert.strictEqual(await getBatch(batchA.id), null);
+    assert.strictEqual(await getBatch(batchB.id), null);
+    assert.strictEqual(await getFile(sharedFile.id), null);
   });
 });
