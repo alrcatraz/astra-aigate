@@ -167,14 +167,15 @@ const REAL_023_FIX_MEMORY_FTS_UUID_SQL = fs.readFileSync(
 );
 
 test("migration infrastructure avoids cwd-based repo tracing fallbacks", () => {
-  const runnerSource = fs.readFileSync(path.resolve("src/lib/db/migrationRunner.ts"), "utf8");
+  const discoverySource = fs.readFileSync(path.resolve("src/lib/db/migrationDiscovery.ts"), "utf8");
   const dataPathsSource = fs.readFileSync(path.resolve("src/lib/dataPaths.ts"), "utf8");
 
   // dataPaths must never use process.cwd() — it resolves via import.meta.url
   assert.doesNotMatch(dataPathsSource, /process\.cwd\(\)/);
-  // migrationRunner uses import.meta.url as the primary strategy (process.cwd is
-  // only a last-resort fallback for Windows/CI-built bundles with leaked paths)
-  assert.match(runnerSource, /fileURLToPath\(import\.meta\.url\)/);
+  // Migrations-dir resolution now lives in migrationDiscovery.ts and uses
+  // import.meta.url as the primary strategy (process.cwd stays a last-resort
+  // fallback for Windows/CI-built bundles with leaked paths).
+  assert.match(discoverySource, /fileURLToPath\(import\.meta\.url\)/);
 });
 
 test("runMigrations applies pending files sequentially in version order", serial, async () => {
