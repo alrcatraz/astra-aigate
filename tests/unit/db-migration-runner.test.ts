@@ -172,9 +172,8 @@ test("migration infrastructure avoids cwd-based repo tracing fallbacks", () => {
 
   // dataPaths must never use process.cwd() — it resolves via import.meta.url
   assert.doesNotMatch(dataPathsSource, /process\.cwd\(\)/);
-  // Migrations-dir resolution now lives in migrationDiscovery.ts and uses
-  // import.meta.url as the primary strategy (process.cwd stays a last-resort
-  // fallback for Windows/CI-built bundles with leaked paths).
+  // dir resolution lives in migrationDiscovery.ts (import.meta.url primary,
+  // process.cwd only as last-resort fallback for Windows/CI bundles)
   assert.match(discoverySource, /fileURLToPath\(import\.meta\.url\)/);
 });
 

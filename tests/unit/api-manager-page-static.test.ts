@@ -20,15 +20,36 @@ const selfServiceScopeMessageKeys = [
   "sharedAccountQuotaVisibilityDesc",
 ];
 
+const apiManagerDir = path.join(repoRoot, "src/app/(dashboard)/dashboard/api-manager");
+const keyPolicyPath = path.join(apiManagerDir, "components/KeyPolicyAccessSection.tsx");
+const permissionsModalPath = path.join(apiManagerDir, "components/PermissionsModal.tsx");
+const modalSharedPath = path.join(apiManagerDir, "apiManagerShared.ts");
+const modalFormPath = path.join(apiManagerDir, "components/usePermissionsModalForm.ts");
+
 function readApiManagerPage() {
   return fs.readFileSync(pagePath, "utf8");
 }
 
+function readKeyPolicySection() {
+  return fs.readFileSync(keyPolicyPath, "utf8");
+}
+
+/** The permissions modal was split across several files; concatenate the
+ *  family so source-level assertions keep covering all of it. */
+function readPermissionsModalSources() {
+  return [
+    readApiManagerPage(),
+    fs.readFileSync(permissionsModalPath, "utf8"),
+    fs.readFileSync(modalSharedPath, "utf8"),
+    fs.readFileSync(modalFormPath, "utf8"),
+  ].join("\n");
+}
+
 test("permissions modal uses i18n for management access description", () => {
-  const source = readApiManagerPage();
+  const source = readKeyPolicySection();
   const managementBlock = source.slice(
-    source.indexOf("{/* Management Access */}", source.indexOf("const PermissionsModal")),
-    source.indexOf("{/* Self-service Visibility */}", source.indexOf("const PermissionsModal"))
+    source.indexOf("{/* Management Access */}"),
+    source.indexOf("{/* Self-service Visibility */}")
   );
 
   assert.match(managementBlock, /\{t\("managementAccessDesc"\)\}/);
@@ -36,10 +57,10 @@ test("permissions modal uses i18n for management access description", () => {
 });
 
 test("permissions modal converts API key expiration ISO timestamps to local datetime input values", () => {
-  const source = readApiManagerPage();
+  const source = readKeyPolicySection();
   const expirationBlock = source.slice(
-    source.indexOf("{/* Expiration Date */}", source.indexOf("const PermissionsModal")),
-    source.indexOf("{/* Management Access */}", source.indexOf("const PermissionsModal"))
+    source.indexOf("{/* Expiration Date */}"),
+    source.indexOf("{/* Management Access */}")
   );
 
   assert.match(expirationBlock, /value=\{toLocalDateTimeInputValue\(expiresAt\)\}/);
@@ -51,10 +72,12 @@ test("permissions modal converts API key expiration ISO timestamps to local date
 });
 
 test("permissions modal switch buttons declare button type", () => {
-  const source = readApiManagerPage();
-  const modalStart = source.indexOf("const PermissionsModal");
-  const visibilityStart = source.indexOf("{/* Self-service Visibility */}", modalStart);
-  const visibilityEnd = source.indexOf("{/* Selected Models Summary", visibilityStart);
+  const source = readKeyPolicySection();
+  const visibilityStart = source.indexOf("{/* Self-service Visibility */}");
+  // The window originally ended at "Selected Models Summary", which now lives
+  // in the parent modal; the extracted policy section ends exactly where the
+  // original window ended.
+  const visibilityEnd = source.length;
   const selfServiceBlock = source.slice(visibilityStart, visibilityEnd);
   const switchButtonCount = (selfServiceBlock.match(/role="switch"/g) ?? []).length;
   const typedSwitchButtonCount = (
@@ -86,7 +109,7 @@ test("permissions modal switch buttons declare button type", () => {
 });
 
 test("permissions modal exposes Claude Code default wildcard model", () => {
-  const source = readApiManagerPage();
+  const source = readPermissionsModalSources();
 
   assert.match(source, /const CLAUDE_CODE_DEFAULT_MODEL_ID = "cc\/\*";/);
   assert.match(source, /const CLAUDE_CODE_DEFAULT_MODEL_NAME = "Claude Code default";/);
@@ -100,7 +123,7 @@ test("permissions modal exposes Claude Code default wildcard model", () => {
 });
 
 test("permissions modal expands Claude Code default families in selected models summary", () => {
-  const source = readApiManagerPage();
+  const source = readPermissionsModalSources();
 
   assert.match(source, /const CLAUDE_CODE_DEFAULT_FAMILIES = \[/);
   assert.match(source, /id: "other",\s+label: "other"/);
@@ -131,7 +154,10 @@ test("API-key model fallback preserves combo pseudo-models", () => {
   const source = readApiManagerPage();
   const fallbackBlock = source.slice(
     source.indexOf("const [fallbackRes, combosRes] = await Promise.all"),
-    source.indexOf("} catch (error)", source.indexOf("const [fallbackRes, combosRes] = await Promise.all"))
+    source.indexOf(
+      "} catch (error)",
+      source.indexOf("const [fallbackRes, combosRes] = await Promise.all")
+    )
   );
 
   assert.match(fallbackBlock, /fetch\("\/api\/models\?all=true"\)/);
