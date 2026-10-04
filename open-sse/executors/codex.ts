@@ -118,42 +118,17 @@ function codexWebSocketUnavailableResponse(): Response {
 // Ref: sub2api PR #1129 (feat(openai): split codex spark rate limiting from codex)
 export { getCodexModelScope, getCodexRateLimitKey, type CodexQuotaScope };
 
-// Ordered list of effort levels from lowest to highest
-const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max", "ultra"] as const;
-type EffortLevel = (typeof EFFORT_ORDER)[number];
-const STANDARD_EFFORT_SUFFIXES = ["none", "low", "medium", "high", "xhigh"] as const;
-const GPT_5_6_MAX_ALIAS_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
-const GPT_5_6_ULTRA_ALIAS_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra"]);
-const CODEX_FAST_WIRE_VALUE = "priority";
-const CODEX_RESPONSES_WS_URL = "wss://chatgpt.com/backend-api/codex/responses";
-const CODEX_RESPONSES_LITE_HEADER = "x-openai-internal-codex-responses-lite";
-const CODEX_RESPONSES_LITE_WS_METADATA_KEY =
-  "ws_request_header_x_openai_internal_codex_responses_lite";
-
-// The official Codex client marks Responses Lite over an HTTP header or, for WebSocket
-// requests, mirrors the same signal into client_metadata. Lite rejects parallel tool calls.
-function isEnabledResponsesLiteFlag(value: unknown): boolean {
-  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
-}
-
-function isCodexResponsesLiteRequest(
-  bodyInput: unknown,
-  clientHeaders?: Record<string, string> | null
-): boolean {
-  const hasLiteHeader = Object.entries(clientHeaders ?? {}).some(
-    ([key, value]) =>
-      key.toLowerCase() === CODEX_RESPONSES_LITE_HEADER && isEnabledResponsesLiteFlag(value)
-  );
-  if (hasLiteHeader) return true;
-
-  if (!bodyInput || typeof bodyInput !== "object" || Array.isArray(bodyInput)) return false;
-  const metadata = (bodyInput as Record<string, unknown>).client_metadata;
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return false;
-
-  return isEnabledResponsesLiteFlag(
-    (metadata as Record<string, unknown>)[CODEX_RESPONSES_LITE_WS_METADATA_KEY]
-  );
-}
+import {
+  EFFORT_ORDER,
+  STANDARD_EFFORT_SUFFIXES,
+  GPT_5_6_MAX_ALIAS_MODELS,
+  GPT_5_6_ULTRA_ALIAS_MODELS,
+  CODEX_FAST_WIRE_VALUE,
+  CODEX_RESPONSES_WS_URL,
+  type EffortLevel,
+} from "./codexConstants.ts";
+import { isCodexResponsesLiteRequest } from "./codexResponsesLite.ts";
+export { EFFORT_ORDER, CODEX_RESPONSES_WS_URL } from "./codexConstants.ts";
 
 // GPT-5.6 ultra-tier (sol/terra at "ultra") and luna at "max" coordinate delegation to
 // sub-agents via parallel tool calls (see the effort-clamp comment near clampEffort()).
