@@ -21,6 +21,7 @@ import {
   openDatabaseAsync,
 } from "./adapters/driverFactory";
 import { createPostgresAdapter, type PostgresAdapterConfig } from "./adapters/postgresAdapter";
+import { setDbOptimizationSettingsPromise } from "./optimizationSettingsTracker";
 import path from "path";
 import os from "node:os";
 import fs from "fs";
@@ -1256,15 +1257,6 @@ async function flushDeferredStartupWork(): Promise<void> {
 let columnBackfillsPromise: Promise<void> = Promise.resolve();
 
 /**
- * Stored optimization settings (cache_size) applied on every open. Async over
- * the sync connection — `getDbInstance()` is synchronous and cannot await it,
- * so the promise is tracked here and consumers (tests that reopen the DB and
- * assert the pragma immediately) join it via `awaitDbOptimizationSettings()`.
- * Reassigned on every DB open.
- */
-let optimizationSettingsPromise: Promise<void> = Promise.resolve();
-
-/**
  * Post-migration startup maintenance (legacy call-log offload). Kicked off by
  * `awaitDbStartupTasks()` — never inline during open, because its final
  * wal_checkpoint(TRUNCATE)+VACUUM would race the migration transaction on the
@@ -1741,11 +1733,12 @@ export function getDbInstance(): SqliteDatabase {
   // async work can interleave on this connection.
   ensureUsageHistoryAccountIndex(db);
 
-  optimizationSettingsPromise = applyStoredDatabaseOptimizationSettings(db)
+  const optimizationSettingsApply = applyStoredDatabaseOptimizationSettings(db)
     .then(() => undefined)
     .catch((error: unknown) => {
       console.warn("[DB] Stored optimization settings apply failed:", error);
     });
+  setDbOptimizationSettingsPromise(optimizationSettingsApply);
 
   // Apply mmap_size from stored settings (migration 046), fallback to 256MiB
   try {
@@ -1933,16 +1926,7 @@ export async function awaitDbColumnBackfills(): Promise<void> {
   await columnBackfillsPromise;
 }
 
-/**
- * Wait for the stored optimization settings (cache_size) of the CURRENT
- * database instance to be applied. `getDbInstance()` applies the default
- * cache_size synchronously and then kicks the stored-value override off
- * asynchronously; tests that reopen the DB and assert the pragma must await
- * this first. Resolves immediately when no apply is in flight.
- */
-export async function awaitDbOptimizationSettings(): Promise<void> {
-  await optimizationSettingsPromise;
-}
+export { awaitDbOptimizationSettings } from "./optimizationSettingsTracker";
 
 /**
  * Await post-migration startup maintenance (currently: the legacy call-log
@@ -1988,7 +1972,7 @@ export async function closeDbInstanceDrained(options?: {
   asyncDb = null;
   migrationsPromise = null;
   columnBackfillsPromise = Promise.resolve();
-  optimizationSettingsPromise = Promise.resolve();
+  setDbOptimizationSettingsPromise(Promise.resolve());
   startupTasksPromise = null;
   return closed;
 }
