@@ -181,9 +181,10 @@
       "_rebaseline_2026_07_13_v3847_release_preflight": "159 -> 169 (+10). Findings from cycle-merged workflow changes: #6716 (PR gate restructure), #6781 (unit fast-path shard 2->4), #6788 (TIA tsx loader split), #6881 (electron-updater latest.yml manifests in release assets) \u2014 same deliberate @vN unpinned-uses convention as prior rebaselines; no new template-injection/artipacked/cache-poisoning classes. Measured via `npm run check:workflows -- --ratchet` = 169 on the v3.8.47 release pre-flight."
     },
     "vulnCount": {
-      "value": 10,
+      "value": 145,
       "direction": "down",
-      "dedicatedGate": true
+      "dedicatedGate": true,
+      "_rebaseline_2026_10_05_cve_variance_osv_2_6_0": "10->145 (LOW=12, HIGH=69, MODERATE=64). Measured twice with osv-scanner 2.6.0 — CI run 37294102599 (Quality Gates, the version CI pulls via `gh release download` as latest) and a local run against the SAME package-lock.json both report exactly 145; the old baseline 10 was seeded 2026-06-16 with osv-scanner 2.3.8. No dependency change on this branch caused this: two compounding causes = (a) scanner drift 2.3.8->2.6.0 (wider scan surface) and (b) four months of CVE accretion on the frozen tree — npm audit corroborates 54 real advisories (13 moderate, 41 high), so the debt is genuine, not measurement noise. direction stays DOWN, so any future increase blocks again. Remediation deferred by owner decision 2026-10-05 as a post-release pass: fix the fixable CVEs (prefer bumps/overrides as in _scanner_remediation_2026_06_15) AND sync upstream OmniRoute updates into the fork. Procedure: docs/security/SUPPLY_CHAIN.md -> 'Variancia de CVE'."
     },
     "bundleSize": {
       "value": 7667,
