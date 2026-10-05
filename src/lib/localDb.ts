@@ -854,3 +854,6 @@ export * from "./db/syncedModelNormalize"; // synced-available-model normalisati
 export * from "./db/providerConnectionColumns"; // provider connection column sets
 export * from "./db/optimizationSettingsTracker"; // deferred optimization-settings writes
 export * from "./db/tableExists"; // cross-driver table existence probe
+export * from "./db/skillSources"; // skills-source CRUD (consumed directly by /api/skills/* routes)
+export * from "./db/migrateToPostgres"; // sqlite→postgres one-shot migration runner (core.ts dynamic import)
+export * from "./db/storageHealthStats"; // PG size/table-count probe for /api/storage/health

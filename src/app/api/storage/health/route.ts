@@ -8,6 +8,7 @@ import {
   getCallLogsTableMaxRows,
   getProxyLogsTableMaxRows,
 } from "@/lib/logEnv";
+import { getPgStorageStats } from "@/lib/db/storageHealthStats";
 import { getDbBackupMaxFiles, getDbBackupRetentionDays } from "@/lib/db/backup";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
@@ -28,14 +29,7 @@ export async function GET() {
       const pg = getAsyncDb();
       try {
         const dbName = process.env.DATABASE_URL?.match(/\/\/([^/]+)\/([^?]+)/)?.[2] ?? "aigate";
-        const stats = (await pg
-          .prepare(
-            "SELECT pg_database_size(current_database()) AS size, " +
-              "(SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public') AS tables"
-          )
-          .get()) as { size: string | number; tables: string | number } | undefined;
-        const sizeBytes = Number(stats?.size ?? 0);
-        const tableCount = Number(stats?.tables ?? 0);
+        const { sizeBytes, tableCount } = await getPgStorageStats(pg);
         return NextResponse.json({
           driver: "postgres",
           dbPath: `postgres://${dbName} (${tableCount} tables)`,
