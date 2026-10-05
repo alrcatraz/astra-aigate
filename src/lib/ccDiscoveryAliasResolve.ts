@@ -49,8 +49,8 @@ export interface CcDiscoveryResolveDeps {
   /** Combo row by name (or null). Only called for `claude/combo/<name>` ids. */
   getCombo(name: string): Promise<{ models?: unknown[] } | null>;
   gateGlobal(): boolean;
-  gateProvider(providerId: string): CcAliasSetting;
-  gateModel(providerId: string, modelId: string): CcAliasSetting;
+  gateProvider(providerId: string): CcAliasSetting | Promise<CcAliasSetting>;
+  gateModel(providerId: string, modelId: string): CcAliasSetting | Promise<CcAliasSetting>;
 }
 
 type CcAliasTarget = {
@@ -84,7 +84,10 @@ function parseCcAliasTarget(rest: string): CcAliasTarget {
 }
 
 /** Resolve the three-level gate (model > provider > global) for a parsed alias target. */
-function resolveGateFor(target: CcAliasTarget, deps: CcDiscoveryResolveDeps): boolean {
+async function resolveGateFor(
+  target: CcAliasTarget,
+  deps: CcDiscoveryResolveDeps
+): Promise<boolean> {
   const gateProviderId = target.isComboAlias
     ? CC_DISCOVERY_COMBO_PROVIDER_KEY
     : target.providerPrefix;
@@ -92,8 +95,8 @@ function resolveGateFor(target: CcAliasTarget, deps: CcDiscoveryResolveDeps): bo
 
   const modelKey = target.isComboAlias ? target.comboName : target.modelPart;
   return resolveCcAliasEnabled({
-    model: deps.gateModel(gateProviderId, modelKey as string),
-    provider: deps.gateProvider(gateProviderId),
+    model: await deps.gateModel(gateProviderId, modelKey as string),
+    provider: await deps.gateProvider(gateProviderId),
     global: deps.gateGlobal(),
   });
 }
@@ -120,7 +123,7 @@ export async function resolveCcDiscoveryAliasStripWith(
   const target = parseCcAliasTarget(rest);
   const combo = target.comboName ? await deps.getCombo(target.comboName) : null;
   const comboExists = combo !== null && Array.isArray(combo?.models) && combo.models.length > 0;
-  const gateEnabled = resolveGateFor(target, deps);
+  const gateEnabled = await resolveGateFor(target, deps);
 
   // NOTE: no DB side effects here — this injectable core stays pure so its unit
   // tests open no SQLite handle. The usage metric is recorded by the production
