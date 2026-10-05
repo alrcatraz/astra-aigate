@@ -26,14 +26,14 @@ test("quoteIdentifier escapes embedded double quotes", () => {
   assert.equal(quoteIdentifier('we"ird'), '"we""ird"');
 });
 
-test("hasTable / hasColumn / getTableColumns introspect a live table", () => {
+test("hasTable / hasColumn / getTableColumns introspect a live table", async () => {
   const db = openMemoryDb();
   try {
     db.exec("CREATE TABLE usage_history (id INTEGER PRIMARY KEY, model TEXT)");
-    assert.equal(hasTable(db, "usage_history"), true);
-    assert.equal(hasTable(db, "does_not_exist"), false);
-    assert.equal(hasColumn(db, "usage_history", "model"), true);
-    assert.equal(hasColumn(db, "usage_history", "nope"), false);
+    assert.equal(await hasTable(db, "usage_history"), true);
+    assert.equal(await hasTable(db, "does_not_exist"), false);
+    assert.equal(await hasColumn(db, "usage_history", "model"), true);
+    assert.equal(await hasColumn(db, "usage_history", "nope"), false);
     assert.deepEqual(getTableColumns(db, "usage_history").sort(), ["id", "model"]);
   } finally {
     db.close?.();
@@ -44,7 +44,7 @@ test("ensureUsageHistoryColumns adds missing columns and is idempotent", async (
   const db = openMemoryDb();
   try {
     db.exec("CREATE TABLE usage_history (id INTEGER PRIMARY KEY, model TEXT)");
-    assert.equal(hasColumn(db, "usage_history", "service_tier"), false);
+    assert.equal(await hasColumn(db, "usage_history", "service_tier"), false);
 
     await ensureUsageHistoryColumns(db);
     for (const col of [
@@ -55,7 +55,7 @@ test("ensureUsageHistoryColumns adds missing columns and is idempotent", async (
       "service_tier",
       "combo_strategy",
     ]) {
-      assert.equal(hasColumn(db, "usage_history", col), true, `expected ${col} after ensure`);
+      assert.equal(await hasColumn(db, "usage_history", col), true, `expected ${col} after ensure`);
     }
 
     // Re-running must not throw (columns already present) — idempotency.
@@ -69,18 +69,20 @@ test("ensureProviderConnectionsColumns repairs quota visibility with a visible d
   const db = openMemoryDb();
   try {
     db.exec("CREATE TABLE provider_connections (id TEXT PRIMARY KEY, provider TEXT NOT NULL)");
-    assert.equal(hasColumn(db, "provider_connections", "quota_visible"), false);
+    assert.equal(await hasColumn(db, "provider_connections", "quota_visible"), false);
 
     await ensureProviderConnectionsColumns(db);
-    assert.equal(hasColumn(db, "provider_connections", "quota_visible"), true);
-    const column = db
-      .prepare("PRAGMA table_info(provider_connections)")
-      .all()
-      .find((entry: { name?: string }) => entry.name === "quota_visible") as
-      { notnull?: number; dflt_value?: string } | undefined;
-    assert.equal(column?.notnull, 1);
-    assert.equal(column?.dflt_value, "1");
-    assert.doesNotThrow(() => ensureProviderConnectionsColumns(db));
+    assert.equal(await hasColumn(db, "provider_connections", "quota_visible"), true);
+    const column = (await db.prepare("PRAGMA table_info(provider_connections)").all()) as Array<{
+      name?: string;
+      notnull?: number;
+      dflt_value?: string;
+    }>;
+    const quotaCol = column.find((entry) => entry.name === "quota_visible");
+    assert.equal(quotaCol?.notnull, 1);
+    assert.equal(quotaCol?.dflt_value, "1");
+    // ensure* helpers are idempotent: a second run must not throw.
+    await ensureProviderConnectionsColumns(db);
   } finally {
     db.close?.();
   }
