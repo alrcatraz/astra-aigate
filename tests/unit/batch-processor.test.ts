@@ -31,13 +31,18 @@ async function reset() {
   mock.restoreAll();
 
   // Close DB connection to release file handles and clear singleton
-  core.closeDbInstance();
+  await core.resetDbInstanceDrained();
 
   // Clean up the temp DB directory
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+
+  // Reopen on the fresh dir and join the migration barrier before the test
+  // body touches any table (async adapter runs migrations in the background).
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 
   delete process.env.OMNIROUTE_API_KEY;
   delete process.env.ROUTER_API_KEY;
@@ -536,9 +541,9 @@ test("processPendingBatches should respect BATCH_MAX_CONCURRENT (default 1)", as
   await batchProcessor.processPendingBatches();
 
   const statuses = [
-    localDb.getBatch(batchA.id)?.status,
-    localDb.getBatch(batchB.id)?.status,
-    localDb.getBatch(batchC.id)?.status,
+    (await localDb.getBatch(batchA.id))?.status,
+    (await localDb.getBatch(batchB.id))?.status,
+    (await localDb.getBatch(batchC.id))?.status,
   ];
 
   const inProgressCount = statuses.filter((s) => s === "in_progress").length;

@@ -11,23 +11,27 @@ import { phaseComboSetup } from "../../../open-sse/services/combo/comboSetup.ts"
 
 const log = { info() {}, warn() {}, error() {}, debug() {} };
 
-test("createComboContext carries inputs and the body BY REFERENCE", () => {
+test("createComboContext carries inputs and the body BY REFERENCE", async () => {
   const body = { model: "auto", messages: [], stream: true };
   const combo = { name: "c1", models: ["a", "b"] };
   const ctx = createComboContext({ body, combo, log });
-  assert.equal(ctx.body, body, "body must be the same reference (not copied) for byte-identical pinning");
+  assert.equal(
+    ctx.body,
+    body,
+    "body must be the same reference (not copied) for byte-identical pinning"
+  );
   assert.equal(ctx.combo, combo);
   assert.equal(ctx.settings, null);
   assert.equal(ctx.relayOptions, null);
   assert.equal(ctx.log, log);
 });
 
-test("phaseComboSetup resolves strategy/config/stream with pinning OFF (pure, no DB)", () => {
+test("phaseComboSetup resolves strategy/config/stream with pinning OFF (pure, no DB)", async () => {
   const body = { model: "auto", messages: [], stream: true };
   const combo = { name: "c1", models: ["a"], strategy: "priority" };
   const ctx = createComboContext({ body, combo, log });
 
-  const setup = phaseComboSetup(ctx);
+  const setup = await phaseComboSetup(ctx);
 
   assert.equal(setup.strategy, "priority");
   assert.equal(setup.pinnedModel, null, "no pin when context_cache_protection is off");
@@ -42,23 +46,23 @@ test("phaseComboSetup resolves strategy/config/stream with pinning OFF (pure, no
   );
 });
 
-test("phaseComboSetup: clientRequestedStream is false when body.stream is not true", () => {
+test("phaseComboSetup: clientRequestedStream is false when body.stream is not true", async () => {
   const ctx = createComboContext({
     body: { model: "auto", messages: [] },
     combo: { name: "c", models: ["a"] },
     log,
   });
-  const setup = phaseComboSetup(ctx);
+  const setup = await phaseComboSetup(ctx);
   assert.equal(setup.clientRequestedStream, false);
 });
 
-test("phaseComboSetup normalizes an unknown strategy to a valid routing strategy", () => {
+test("phaseComboSetup normalizes an unknown strategy to a valid routing strategy", async () => {
   const ctx = createComboContext({
     body: { model: "auto", messages: [] },
     combo: { name: "c", models: ["a"], strategy: "not-a-real-strategy" },
     log,
   });
-  const setup = phaseComboSetup(ctx);
+  const setup = await phaseComboSetup(ctx);
   // normalizeRoutingStrategy falls back to the default for unknown values.
   assert.equal(typeof setup.strategy, "string");
   assert.ok(setup.strategy.length > 0);
