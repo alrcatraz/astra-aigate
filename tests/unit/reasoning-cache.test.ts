@@ -35,7 +35,7 @@ import {
 import { translateRequest } from "../../open-sse/translator/index.ts";
 import { FORMATS } from "../../open-sse/translator/formats.ts";
 import { ensureToolCallIds } from "../../open-sse/translator/helpers/toolCallHelper.ts";
-import { getDbInstance } from "../../src/lib/db/core.ts";
+import { getDbInstance, awaitDbMigrations } from "../../src/lib/db/core.ts";
 import { getReasoningCache, setReasoningCache } from "../../src/lib/db/reasoningCache.ts";
 import { DELETE, GET } from "../../src/app/api/cache/reasoning/route.ts";
 import { createApiKey } from "../../src/lib/db/apiKeys.ts";
@@ -44,6 +44,13 @@ import {
   clearModelsDevCapabilities,
   saveModelsDevCapabilities,
 } from "../../src/lib/modelsDevSync.ts";
+import { getResolvedModelCapabilities } from "../../src/lib/modelCapabilities.ts";
+
+/** Warm the async capability cache: getResolvedModelCapabilitiesSync returns
+ * null until this resolver has populated it. */
+async function warmCapabilities(provider: string, model: string): Promise<void> {
+  await getResolvedModelCapabilities({ provider, model });
+}
 
 function buildCapability(overrides = {}) {
   return {
@@ -68,7 +75,16 @@ function buildCapability(overrides = {}) {
   };
 }
 
+/** cacheReasoning persists fire-and-forget; yield a macrotask so DB
+ * assertions observe the committed write. */
+function flushDbWrite(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 before(async () => {
+  // Join the migration barrier before the first query (tables may not exist yet).
+  getDbInstance();
+  await awaitDbMigrations();
   await updateSettings({ requireLogin: false });
 });
 
@@ -77,16 +93,16 @@ after(async () => {
 });
 
 describe("Reasoning Replay Cache — Service Layer", () => {
-  before(() => {
+  before(async () => {
     // Start each suite with a clean slate
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
   });
 
-  after(() => {
-    clearReasoningCacheAll();
+  after(async () => {
+    await clearReasoningCacheAll();
   });
 
-  it("should store and retrieve reasoning by tool_call_id", () => {
+  it("should store and retrieve reasoning by tool_call_id", async () => {
     cacheReasoning(
       "call_test_1",
       "deepseek",
@@ -95,16 +111,17 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     );
     const result = lookupReasoning("call_test_1");
     assert.equal(result, "The user wants to read the file...");
+    await flushDbWrite();
     assert.equal(getReasoningCache("call_test_1")?.reasoning, "The user wants to read the file...");
   });
 
   it("should fall back to SQLite when memory misses", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await setReasoningCache("call_db_only", "deepseek", "deepseek-reasoner", "DB-only reasoning");
 
     assert.equal(lookupReasoning("call_db_only"), "DB-only reasoning");
 
-    const stats = getReasoningCacheServiceStats();
+    const stats = await getReasoningCacheServiceStats();
     assert.equal(stats.hits, 1);
     assert.equal(stats.memoryEntries, 1);
     assert.equal(stats.dbEntries, 1);
@@ -138,8 +155,8 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning("call_batch_3"), "Batch reasoning content");
   });
 
-  it("should capture assistant reasoning for all tool_call IDs", () => {
-    clearReasoningCacheAll();
+  it("should capture assistant reasoning for all tool_call IDs", async () => {
+    await clearReasoningCacheAll();
 
     const cached = cacheReasoningFromAssistantMessage(
       {
@@ -156,8 +173,8 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning("call_capture_2"), "Captured assistant reasoning");
   });
 
-  it("should keep request message cache keys stable when tool call IDs change", () => {
-    clearReasoningCacheAll();
+  it("should keep request message cache keys stable when tool call IDs change", async () => {
+    await clearReasoningCacheAll();
 
     const requestId = "req_reasoning_stable";
     const messageIndex = 2;
@@ -187,8 +204,8 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning(cacheKey), "Stable cached reasoning");
   });
 
-  it("should capture provider reasoning alias when reasoning_content is absent", () => {
-    clearReasoningCacheAll();
+  it("should capture provider reasoning alias when reasoning_content is absent", async () => {
+    await clearReasoningCacheAll();
 
     const cached = cacheReasoningFromAssistantMessage(
       {
@@ -204,8 +221,8 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning("call_capture_alias"), "Alias reasoning");
   });
 
-  it("should cache assistant reasoning without tool calls by request and message index", () => {
-    clearReasoningCacheAll();
+  it("should cache assistant reasoning without tool calls by request and message index", async () => {
+    await clearReasoningCacheAll();
 
     const cached = cacheReasoningFromAssistantMessage(
       {
@@ -221,8 +238,8 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning("request:req_no_tools:message:3"), "No tool call reasoning");
   });
 
-  it("should skip assistant reasoning without tool calls when stable key context is absent", () => {
-    clearReasoningCacheAll();
+  it("should skip assistant reasoning without tool calls when stable key context is absent", async () => {
+    await clearReasoningCacheAll();
 
     const cached = cacheReasoningFromAssistantMessage(
       {
@@ -237,8 +254,8 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(lookupReasoning("request:req_missing:message:0"), null);
   });
 
-  it("should store arbitrary reasoning cache keys", () => {
-    clearReasoningCacheAll();
+  it("should store arbitrary reasoning cache keys", async () => {
+    await clearReasoningCacheAll();
 
     cacheReasoningByKey(
       "request:req_direct:message:1",
@@ -248,6 +265,7 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     );
 
     assert.equal(lookupReasoning("request:req_direct:message:1"), "Keyed plan");
+    await flushDbWrite();
     assert.equal(getReasoningCache("request:req_direct:message:1")?.reasoning, "Keyed plan");
   });
 
@@ -259,8 +277,8 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(result, "Updated reasoning");
   });
 
-  it("should track hits and misses correctly", () => {
-    clearReasoningCacheAll();
+  it("should track hits and misses correctly", async () => {
+    await clearReasoningCacheAll();
 
     cacheReasoning("call_hit_test", "deepseek", "deepseek-chat", "test reasoning");
 
@@ -268,29 +286,30 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     lookupReasoning("call_hit_test"); // hit
     lookupReasoning("call_miss_test"); // miss
 
-    const stats = getReasoningCacheServiceStats();
+    const stats = await getReasoningCacheServiceStats();
     assert.ok(stats.hits >= 2, `Expected at least 2 hits, got ${stats.hits}`);
     assert.ok(stats.misses >= 1, `Expected at least 1 miss, got ${stats.misses}`);
   });
 
-  it("should track replays", () => {
-    clearReasoningCacheAll();
+  it("should track replays", async () => {
+    await clearReasoningCacheAll();
 
     recordReplay();
     recordReplay();
     recordReplay();
 
-    const stats = getReasoningCacheServiceStats();
+    const stats = await getReasoningCacheServiceStats();
     assert.ok(stats.replays >= 3, `Expected at least 3 replays, got ${stats.replays}`);
   });
 
-  it("should report correct stats structure", () => {
-    clearReasoningCacheAll();
+  it("should report correct stats structure", async () => {
+    await clearReasoningCacheAll();
 
     cacheReasoning("call_stat_1", "deepseek", "deepseek-reasoner", "Reasoning A");
     cacheReasoning("call_stat_2", "kimi", "kimi-k2.5", "Reasoning B from Kimi");
 
-    const stats = getReasoningCacheServiceStats();
+    await flushDbWrite();
+    const stats = await getReasoningCacheServiceStats();
 
     assert.equal(typeof stats.memoryEntries, "number");
     assert.equal(typeof stats.dbEntries, "number");
@@ -308,13 +327,16 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(stats.byProvider.kimi.entries, 1);
   });
 
-  it("should list persisted entries for the dashboard API", () => {
-    clearReasoningCacheAll();
+  it("should list persisted entries for the dashboard API", async () => {
+    await clearReasoningCacheAll();
 
     cacheReasoning("call_entry_1", "deepseek", "deepseek-reasoner", "Entry reasoning A");
     cacheReasoning("call_entry_2", "kimi", "kimi-k2.5", "Entry reasoning B");
 
-    const deepseekEntries = getReasoningCacheServiceEntries({ provider: "deepseek" }) as Array<{
+    await flushDbWrite();
+    const deepseekEntries = (await getReasoningCacheServiceEntries({
+      provider: "deepseek",
+    })) as Array<{
       toolCallId: string;
       expiresAt: string;
     }>;
@@ -324,49 +346,49 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.doesNotThrow(() => new Date(deepseekEntries[0].expiresAt).toISOString());
   });
 
-  it("should clear all entries", () => {
+  it("should clear all entries", async () => {
     cacheReasoning("call_clear_1", "deepseek", "deepseek-chat", "Will be cleared");
     cacheReasoning("call_clear_2", "deepseek", "deepseek-chat", "Also cleared");
 
-    const count = clearReasoningCacheAll();
+    const count = await clearReasoningCacheAll();
     assert.ok(count >= 0);
 
     assert.equal(lookupReasoning("call_clear_1"), null);
     assert.equal(lookupReasoning("call_clear_2"), null);
   });
 
-  it("should delete one entry by tool_call_id", () => {
-    clearReasoningCacheAll();
+  it("should delete one entry by tool_call_id", async () => {
+    await clearReasoningCacheAll();
 
     cacheReasoning("call_delete_1", "deepseek", "deepseek-chat", "Delete me");
     cacheReasoning("call_delete_2", "deepseek", "deepseek-chat", "Keep me");
 
-    assert.equal(deleteReasoningCacheEntry("call_delete_1"), 1);
+    assert.equal(await deleteReasoningCacheEntry("call_delete_1"), 1);
     assert.equal(lookupReasoning("call_delete_1"), null);
     assert.equal(lookupReasoning("call_delete_2"), "Keep me");
   });
 
-  it("should clear entries by provider only", () => {
-    clearReasoningCacheAll();
+  it("should clear entries by provider only", async () => {
+    await clearReasoningCacheAll();
 
     cacheReasoning("call_provider_ds", "deepseek", "deepseek-chat", "DeepSeek reasoning");
     cacheReasoning("call_provider_kimi", "kimi", "kimi-k2.5", "Kimi reasoning");
 
-    assert.equal(clearReasoningCacheAll("deepseek"), 1);
+    assert.equal(await clearReasoningCacheAll("deepseek"), 1);
     assert.equal(lookupReasoning("call_provider_ds"), null);
     assert.equal(lookupReasoning("call_provider_kimi"), "Kimi reasoning");
   });
 
-  it("should cleanup expired reasoning (no-op when nothing expired)", () => {
+  it("should cleanup expired reasoning (no-op when nothing expired)", async () => {
     cacheReasoning("call_cleanup_test", "deepseek", "deepseek-chat", "Not expired yet");
-    const cleaned = cleanupReasoningCache();
+    const cleaned = await cleanupReasoningCache();
     assert.equal(typeof cleaned, "number");
     // Entry should still be available since TTL is 2 hours
     assert.equal(lookupReasoning("call_cleanup_test"), "Not expired yet");
   });
 
   it("should not return expired SQLite entries and cleanup should prune them", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await setReasoningCache(
       "call_expired",
       "deepseek",
@@ -376,12 +398,12 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     );
 
     assert.equal(lookupReasoning("call_expired"), null);
-    assert.equal(cleanupReasoningCache(), 1);
-    assert.equal(getReasoningCacheServiceStats().dbEntries, 0);
+    assert.equal(await cleanupReasoningCache(), 1);
+    assert.equal((await getReasoningCacheServiceStats()).dbEntries, 0);
   });
 
-  it("should read and prune legacy ISO expires_at rows", () => {
-    clearReasoningCacheAll();
+  it("should read and prune legacy ISO expires_at rows", async () => {
+    await clearReasoningCacheAll();
 
     const db = getDbInstance();
     const futureIso = new Date(Date.now() + 60_000).toISOString();
@@ -413,7 +435,7 @@ describe("Reasoning Replay Cache — Service Layer", () => {
 
     assert.equal(lookupReasoning("call_legacy_iso_active"), "Legacy ISO reasoning");
     assert.equal(lookupReasoning("call_legacy_iso_expired"), null);
-    const entries = getReasoningCacheServiceEntries({ provider: "deepseek" }) as Array<{
+    const entries = (await getReasoningCacheServiceEntries({ provider: "deepseek" })) as Array<{
       toolCallId: string;
       expiresAt: string;
     }>;
@@ -421,7 +443,7 @@ describe("Reasoning Replay Cache — Service Layer", () => {
       entries.some((entry) => entry.expiresAt === futureIso),
       true
     );
-    assert.equal(cleanupReasoningCache(), 1);
+    assert.equal(await cleanupReasoningCache(), 1);
   });
 });
 
@@ -540,12 +562,12 @@ describe("Reasoning Replay Cache — Provider Detection", () => {
 
 describe("Reasoning Replay Cache — Translator Replay", () => {
   before(async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
   });
 
   after(async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
   });
 
@@ -574,7 +596,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
   }
 
   it("should inject cached reasoning for DeepSeek instead of empty fallback", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       deepseek: {
@@ -586,6 +608,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
       },
     });
     cacheReasoning("call_translate_ds", "deepseek", "deepseek-reasoner", "DeepSeek cached plan");
+    await warmCapabilities("deepseek", "deepseek-reasoner");
 
     const translated = translateWithToolHistory(
       "deepseek",
@@ -594,11 +617,11 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     );
 
     assert.equal(translated.messages[1].reasoning_content, "DeepSeek cached plan");
-    assert.equal(getReasoningCacheServiceStats().replays, 1);
+    assert.equal((await getReasoningCacheServiceStats()).replays, 1);
   });
 
   it("should preserve client-provided reasoning content", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       deepseek: {
@@ -610,6 +633,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
       },
     });
     cacheReasoning("call_preserve", "deepseek", "deepseek-reasoner", "Cached reasoning");
+    await warmCapabilities("deepseek", "deepseek-reasoner");
 
     const translated = translateRequest(
       FORMATS.OPENAI,
@@ -638,11 +662,11 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     );
 
     assert.equal(translated.messages[1].reasoning_content, "Client reasoning");
-    assert.equal(getReasoningCacheServiceStats().replays, 0);
+    assert.equal((await getReasoningCacheServiceStats()).replays, 0);
   });
 
   it("should inject cached reasoning for Qwen and GLM thinking models", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       qwen: {
@@ -668,22 +692,22 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
 
     assert.equal(qwen.messages[1].reasoning_content, "Qwen cached plan");
     assert.equal(glm.messages[1].reasoning_content, "GLM cached plan");
-    assert.equal(getReasoningCacheServiceStats().replays, 2);
+    assert.equal((await getReasoningCacheServiceStats()).replays, 2);
   });
 
   it("should not inject reasoning_content for generic non-reasoning providers", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     cacheReasoning("call_openai", "openai", "gpt-4o", "Should not replay");
 
     const translated = translateWithToolHistory("openai", "gpt-4o", "call_openai");
 
     assert.equal(translated.messages[1].reasoning_content, undefined);
-    assert.equal(getReasoningCacheServiceStats().replays, 0);
+    assert.equal((await getReasoningCacheServiceStats()).replays, 0);
   });
 
   it("should support the full capture then replay flow", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       deepseek: {
@@ -709,11 +733,11 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
 
     assert.equal(captured, 1);
     assert.equal(translated.messages[1].reasoning_content, "Full flow cached plan");
-    assert.equal(getReasoningCacheServiceStats().replays, 1);
+    assert.equal((await getReasoningCacheServiceStats()).replays, 1);
   });
 
   it("should strip reasoning_content when model has no interleaved replay signal", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
 
     const translated = translateRequest(
@@ -739,7 +763,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
   });
 
   it("should not inject reasoning_content when interleaved field is reasoning_details", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       testprovider: {
@@ -766,7 +790,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     // reasoning_content="" before the cache lookup. The old condition
     // `msg.reasoning_content === undefined` never fired on cache miss, leaving the
     // empty string in place. DeepSeek V4+ rejects "" with a 400.
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       deepseek: {
@@ -821,7 +845,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     // turn has NO tool calls and the client (e.g. Cursor) stripped reasoning_content
     // from history. DeepSeek V4+ still requires reasoning_content on every assistant
     // message in thinking mode, so without a placeholder the upstream returns 400.
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       deepseek: {
@@ -863,7 +887,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
   it("should replay cached reasoning for a plain (non-tool-call) DeepSeek turn when available (#1682)", async () => {
     // When a request_id-keyed cache entry exists for the plain turn, the real
     // reasoning is replayed instead of the placeholder.
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
     await saveModelsDevCapabilities({
       deepseek: {
@@ -906,15 +930,15 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
       "Real cached plain-turn reasoning",
       "plain DeepSeek assistant turn should replay the real cached reasoning when present"
     );
-    assert.equal(getReasoningCacheServiceStats().replays, 1);
+    assert.equal((await getReasoningCacheServiceStats()).replays, 1);
   });
 });
 
 describe("Reasoning Replay Cache — API Route", () => {
   let managementApiKey: string;
 
-  before(() => {
-    clearReasoningCacheAll();
+  before(async () => {
+    await clearReasoningCacheAll();
   });
 
   before(async () => {
@@ -924,8 +948,8 @@ describe("Reasoning Replay Cache — API Route", () => {
     managementApiKey = created.key;
   });
 
-  after(() => {
-    clearReasoningCacheAll();
+  after(async () => {
+    await clearReasoningCacheAll();
   });
 
   function authedRequest(url: string): Request {
@@ -935,8 +959,9 @@ describe("Reasoning Replay Cache — API Route", () => {
   }
 
   it("should return stats and entries from GET", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     cacheReasoning("call_api_get", "deepseek", "deepseek-reasoner", "API visible reasoning");
+    await flushDbWrite();
 
     const response = await GET(
       authedRequest("http://localhost/api/cache/reasoning?provider=deepseek") as never
@@ -950,9 +975,10 @@ describe("Reasoning Replay Cache — API Route", () => {
   });
 
   it("should delete a single entry by toolCallId", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     cacheReasoning("call_api_delete_1", "deepseek", "deepseek-reasoner", "Delete API");
     cacheReasoning("call_api_delete_2", "deepseek", "deepseek-reasoner", "Keep API");
+    await flushDbWrite();
 
     const response = await DELETE(
       authedRequest("http://localhost/api/cache/reasoning?toolCallId=call_api_delete_1") as never
@@ -967,9 +993,10 @@ describe("Reasoning Replay Cache — API Route", () => {
   });
 
   it("should delete entries by provider", async () => {
-    clearReasoningCacheAll();
+    await clearReasoningCacheAll();
     cacheReasoning("call_api_provider_ds", "deepseek", "deepseek-reasoner", "Delete provider");
     cacheReasoning("call_api_provider_kimi", "kimi", "kimi-k2.5", "Keep provider");
+    await flushDbWrite();
 
     const response = await DELETE(
       authedRequest("http://localhost/api/cache/reasoning?provider=deepseek") as never
