@@ -96,6 +96,10 @@ tags:
       HAR export, SSE merge, and conversation normalization.
       All routes are LOCAL_ONLY + SPAWN_CAPABLE (hard rules #15, #17).
       See docs/frameworks/TRAFFIC_INSPECTOR.md.
+  - name: Webhooks
+    description: Outbound webhook endpoints — CRUD, delivery log, and SSRF-safe URL validation.
+  - name: A2A
+    description: Agent-to-agent subsystem — status and task management.
 
 paths:
   # --- Playground + Search Tools (plans 17+18) ---
@@ -5815,6 +5819,108 @@ paths:
       responses:
         "200":
           description: CodeWhale config entry removed.
+
+  # --- Webhooks + A2A status ---
+  /api/webhooks/validate-url:
+    post:
+      tags:
+        - Webhooks
+      summary: Validate a webhook target URL
+      description: |
+        Runs the outbound URL guard over the supplied URL and reports whether
+        it is safe to register as a webhook endpoint. Private-network targets
+        are rejected by the SSRF guard (`blocked_private`).
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        "200":
+          description: Validation verdict
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - valid
+                properties:
+                  valid:
+                    type: boolean
+                  reason:
+                    type: string
+                    enum:
+                      - blocked_private
+                      - invalid_url
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/a2a/status:
+    get:
+      tags:
+        - A2A
+      summary: A2A subsystem status
+      description: |
+        Reports whether the A2A (agent-to-agent) subsystem is enabled, the
+        current task-manager statistics, and a summary of the published agent
+        card when A2A is online.
+      responses:
+        "200":
+          description: Current A2A status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ok
+                      - disabled
+                  online:
+                    type: boolean
+                  enabled:
+                    type: boolean
+                  tasks:
+                    type: object
+                    description: Task-manager statistics snapshot
+                  agent:
+                    type: object
+                    description: Agent-card summary (null when A2A is disabled)
+                    properties:
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      version:
+                        type: string
+                      url:
+                        type: string
+                  capabilities: {}
+                  skills:
+                    type: array
+                    items: {}
+        "500":
+          description: Failed to load A2A status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
 
 components:
   securitySchemes:
