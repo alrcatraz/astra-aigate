@@ -38,7 +38,7 @@ export async function PUT(request: Request, { params }: Params): Promise<Respons
   }
 
   try {
-    setMappings(params.id, parsed.data.mappings);
+    await setMappings(params.id, parsed.data.mappings);
     const mappings = await getMappingsForAgent(params.id);
     return Response.json({ ok: true, mappings });
   } catch (err) {

@@ -1267,9 +1267,11 @@ export async function handleChatCore({
             const { getCompressionComboForRoutingCombo } =
               await import("../../src/lib/db/compressionCombos.ts");
             const assignedCompressionCombo =
-              routingComboIds
-                .map((id) => getCompressionComboForRoutingCombo(id))
-                .find((combo) => combo !== null) ?? null;
+              (
+                await Promise.all(
+                  routingComboIds.map((id) => getCompressionComboForRoutingCombo(id))
+                )
+              ).find((combo) => combo !== null) ?? null;
             if (
               applyCompressionComboConfig(
                 assignedCompressionCombo as RuntimeCompressionCombo | null,
@@ -1290,7 +1292,7 @@ export async function handleChatCore({
       let namedCombos: Record<string, CompressionPipelineStep[]> = {};
       try {
         const { listCompressionCombos } = await import("../../src/lib/db/compressionCombos.ts");
-        namedCombos = buildNamedComboLookup(listCompressionCombos());
+        namedCombos = buildNamedComboLookup(await listCompressionCombos());
       } catch (err) {
         log?.debug?.(
           "COMPRESSION",
@@ -1330,7 +1332,7 @@ export async function handleChatCore({
         try {
           const { getDefaultCompressionCombo } =
             await import("../../src/lib/db/compressionCombos.ts");
-          const defaultCompressionCombo = getDefaultCompressionCombo();
+          const defaultCompressionCombo = await getDefaultCompressionCombo();
           if (
             isStackedCompressionCombo(defaultCompressionCombo as RuntimeCompressionCombo | null) &&
             applyCompressionComboConfig(defaultCompressionCombo as RuntimeCompressionCombo | null)
