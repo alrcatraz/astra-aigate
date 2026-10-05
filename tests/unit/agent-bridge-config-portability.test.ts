@@ -72,7 +72,7 @@ test("AgentBridgeConfigSchema rejects a non-string bypass pattern", () => {
   assert.equal(parsed.success, false);
 });
 
-test("import then export roundtrips bypass + custom hosts + mappings", () => {
+test("import then export roundtrips bypass + custom hosts + mappings", async () => {
   const config = {
     version: 1 as const,
     bypassPatterns: ["*.bank.test", "literal.example.com"],
@@ -81,8 +81,8 @@ test("import then export roundtrips bypass + custom hosts + mappings", () => {
       cursor: [{ source: "gpt-4o", target: "claude-sonnet-4-5" }],
     },
   };
-  portability.importConfig(config);
-  const exported = portability.exportConfig();
+  await portability.importConfig(config);
+  const exported = await portability.exportConfig();
 
   assert.deepEqual(
     [...exported.bypassPatterns].sort(),
