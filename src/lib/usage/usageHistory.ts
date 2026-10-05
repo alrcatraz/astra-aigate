@@ -515,7 +515,7 @@ export async function getUsageDb(sinceIso?: string | null, limit?: number, curso
   if (cursor) {
     // Cursor-based pagination (next page after cursor)
     // Use > cursor to get rows after the last timestamp of previous page (ASC order)
-    rows = sinceIso
+    rows = await (sinceIso
       ? db
           .prepare(
             `SELECT * FROM usage_history WHERE timestamp >= ? AND timestamp > ? ORDER BY timestamp ASC LIMIT ?`
@@ -523,15 +523,17 @@ export async function getUsageDb(sinceIso?: string | null, limit?: number, curso
           .all(sinceIso, cursor, maxRows)
       : db
           .prepare(`SELECT * FROM usage_history WHERE timestamp > ? ORDER BY timestamp ASC LIMIT ?`)
-          .all(cursor, maxRows);
+          .all(cursor, maxRows));
   } else if (sinceIso) {
     // Initial query with date filter
-    rows = db
+    rows = await db
       .prepare(`SELECT * FROM usage_history WHERE timestamp >= ? ORDER BY timestamp ASC LIMIT ?`)
       .all(sinceIso, maxRows);
   } else {
     // No filter - get all (with limit)
-    rows = db.prepare(`SELECT * FROM usage_history ORDER BY timestamp ASC LIMIT ?`).all(maxRows);
+    rows = await db
+      .prepare(`SELECT * FROM usage_history ORDER BY timestamp ASC LIMIT ?`)
+      .all(maxRows);
   }
 
   const history = rows.map((row) => {

@@ -132,12 +132,12 @@ test("removeCustomHost is a no-op for non-existent hosts", async () => {
 test("touchLastSeen updates last_seen_at timestamp", async () => {
   await mod.addCustomHost("api.openai.com");
 
-  const before = mod.listCustomHosts()[0];
+  const before = (await mod.listCustomHosts())[0];
   assert.equal(before.last_seen_at, null);
 
   await mod.touchLastSeen("api.openai.com");
 
-  const after = mod.listCustomHosts()[0];
+  const after = (await mod.listCustomHosts())[0];
   assert.ok(after.last_seen_at !== null);
   assert.ok(Date.parse(after.last_seen_at as string) > 0);
 });
