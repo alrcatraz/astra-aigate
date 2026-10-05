@@ -25,6 +25,13 @@ const { maybeCompressMcpDescription, resetMcpDescriptionCompressionStats } =
   await import("../../../open-sse/mcp-server/descriptionCompressor.ts");
 const { updateCompressionSettings } = await import("../../../src/lib/db/compression.ts");
 
+// Join the migration barrier before the tools touch the schema: without it the
+// first queries race the background migration run and see a partial schema
+// (e.g. missing compression_analytics from 038_compression_analytics).
+const core = await import("../../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 describe("compression MCP tool schemas", () => {
   it("uses canonical read/write compression scopes", () => {
     assert.deepEqual(compressionStatusTool.scopes, ["read:compression"]);

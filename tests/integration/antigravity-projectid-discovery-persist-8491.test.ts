@@ -28,6 +28,12 @@ const { AntigravityExecutor } = await import("../../open-sse/executors/antigravi
 const { clearAntigravityProjectCache } =
   await import("../../open-sse/services/antigravityProjectBootstrap.ts");
 
+// Join the migration barrier before any test touches the schema: without it the
+// first queries race the background migration run and see a partial schema
+// (e.g. missing provider_connections.last_ping_at from 123_quota_auto_ping).
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {
