@@ -45,12 +45,12 @@ test("setParamFilterConfig stores and getParamFilterConfig retrieves a config", 
   assert.equal(retrieved!.autoLearn, true);
 });
 
-test("getParamFilterConfig returns null for unconfigured provider", () => {
-  assert.equal(getParamFilterConfig("nonexistent"), null);
+test("getParamFilterConfig returns null for unconfigured provider", async () => {
+  assert.equal(await getParamFilterConfig("nonexistent"), null);
 });
 
-test("getParamFilterConfig returns null for empty provider", () => {
-  assert.equal(getParamFilterConfig(""), null);
+test("getParamFilterConfig returns null for empty provider", async () => {
+  assert.equal(await getParamFilterConfig(""), null);
 });
 
 test("setParamFilterConfig with model overrides stores correctly", async () => {
@@ -77,9 +77,9 @@ test("setParamFilterConfig with model overrides stores correctly", async () => {
 
 test("deleteParamFilterConfig removes config and getParamFilterConfig returns null", async () => {
   await setParamFilterConfig("ephemeral", { block: ["param1"], allow: [], autoLearn: false });
-  assert.notEqual(getParamFilterConfig("ephemeral"), null);
+  assert.notEqual(await getParamFilterConfig("ephemeral"), null);
   await deleteParamFilterConfig("ephemeral");
-  assert.equal(getParamFilterConfig("ephemeral"), null);
+  assert.equal(await getParamFilterConfig("ephemeral"), null);
 });
 
 test("deleteParamFilterConfig is a no-op for unconfigured provider", async () => {
@@ -138,20 +138,20 @@ test("addParamToBlocklist with model param adds to model-level block list", asyn
 // Global auto-learn flag
 // ---------------------------------------------------------------------------
 
-test("isAutoLearnGloballyEnabled returns false by default", () => {
-  assert.equal(isAutoLearnGloballyEnabled(), false);
+test("isAutoLearnGloballyEnabled returns false by default", async () => {
+  assert.equal(await isAutoLearnGloballyEnabled(), false);
 });
 
 test("setGlobalAutoLearnEnabled(true) enables global auto-learn", async () => {
   await setGlobalAutoLearnEnabled(true);
-  assert.equal(isAutoLearnGloballyEnabled(), true);
+  assert.equal(await isAutoLearnGloballyEnabled(), true);
 });
 
 test("setGlobalAutoLearnEnabled(false) disables global auto-learn", async () => {
   await setGlobalAutoLearnEnabled(true);
-  assert.equal(isAutoLearnGloballyEnabled(), true);
+  assert.equal(await isAutoLearnGloballyEnabled(), true);
   await setGlobalAutoLearnEnabled(false);
-  assert.equal(isAutoLearnGloballyEnabled(), false);
+  assert.equal(await isAutoLearnGloballyEnabled(), false);
 });
 
 test("setGlobalAutoLearnEnabled does not affect per-provider configs", async () => {
@@ -165,7 +165,7 @@ test("setGlobalAutoLearnEnabled does not affect per-provider configs", async () 
   assert.deepEqual(config!.block, ["thinking"]);
   assert.equal(config!.autoLearn, false);
   // Global is independent
-  assert.equal(isAutoLearnGloballyEnabled(), true);
+  assert.equal(await isAutoLearnGloballyEnabled(), true);
 });
 
 // ---------------------------------------------------------------------------
@@ -251,7 +251,7 @@ test("stripUnsupportedParams model-level denylist overrides provider-level allow
   assert.equal((result as Record<string, unknown>).max_tokens, 100);
 });
 
-test("stripUnsupportedParams no-op when no DB config exists (default behavior)", () => {
+test("stripUnsupportedParams no-op when no DB config exists (default behavior)", async () => {
   const body = { model: "deepseek-r1", thinking: "enabled", max_tokens: 100 };
   const result = stripUnsupportedParams("unknown", "deepseek-r1", body);
   assert.equal((result as Record<string, unknown>).thinking, "enabled");

@@ -222,7 +222,7 @@ export async function isAutoLearnGloballyEnabled(): Promise<boolean> {
  */
 export async function setGlobalAutoLearnEnabled(enabled: boolean): Promise<void> {
   const existing = await getParamFilterConfig(GLOBAL_AUTOLEARN_KEY);
-  setParamFilterConfig(GLOBAL_AUTOLEARN_KEY, {
+  await setParamFilterConfig(GLOBAL_AUTOLEARN_KEY, {
     block: existing?.block ?? [],
     allow: existing?.allow ?? [],
     autoLearn: enabled,
@@ -263,5 +263,9 @@ export async function addParamToBlocklist(
     existing.block = [...existing.block, paramName];
   }
 
-  setParamFilterConfig(provider, existing);
+  // The write must complete before this call resolves: callers (and the
+  // tests that round-trip through getParamFilterConfig) read the row straight
+  // after, and the async adapter would otherwise still have the statement in
+  // flight.
+  await setParamFilterConfig(provider, existing);
 }
