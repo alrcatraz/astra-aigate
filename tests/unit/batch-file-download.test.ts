@@ -44,7 +44,7 @@ function makeFileContent(text: string) {
   return Buffer.from(text);
 }
 
-function createTestFile(
+async function createTestFile(
   opts: {
     filename?: string;
     content?: Buffer | null;
@@ -52,7 +52,7 @@ function createTestFile(
   } = {}
 ) {
   const { filename = "test.jsonl", content = makeFileContent("line1\nline2"), mimeType } = opts;
-  return localDb.createFile({
+  return await localDb.createFile({
     bytes: content ? content.length : 0,
     filename,
     purpose: "batch",
@@ -67,7 +67,7 @@ test("GET /api/files/{id}/content — auth not required (default) → file conte
   // By default (no INITIAL_PASSWORD, no password set) auth is skipped,
   // so a plain unauthenticated request should still work.
   const content = makeFileContent("hello batch");
-  const file = createTestFile({ filename: "hello.jsonl", content });
+  const file = await createTestFile({ filename: "hello.jsonl", content });
 
   const res = await fileContentRoute.GET(
     new Request(`http://localhost/api/files/${file.id}/content`),
@@ -81,7 +81,11 @@ test("GET /api/files/{id}/content — auth not required (default) → file conte
 
 test("GET /api/files/{id}/content — with management session → 200 and file content", async () => {
   const content = makeFileContent('{"custom_id":"req-1","response":{"status_code":200}}');
-  const file = createTestFile({ filename: "output.jsonl", content, mimeType: "application/jsonl" });
+  const file = await createTestFile({
+    filename: "output.jsonl",
+    content,
+    mimeType: "application/jsonl",
+  });
 
   const res = await fileContentRoute.GET(
     await makeManagementSessionRequest(`http://localhost/api/files/${file.id}/content`),
@@ -95,7 +99,11 @@ test("GET /api/files/{id}/content — with management session → 200 and file c
 
 test("GET /api/files/{id}/content — with management session → content-type header set", async () => {
   const content = makeFileContent("data");
-  const file = createTestFile({ filename: "data.jsonl", content, mimeType: "application/jsonl" });
+  const file = await createTestFile({
+    filename: "data.jsonl",
+    content,
+    mimeType: "application/jsonl",
+  });
 
   const res = await fileContentRoute.GET(
     await makeManagementSessionRequest(`http://localhost/api/files/${file.id}/content`),
@@ -111,7 +119,7 @@ test("GET /api/files/{id}/content — with management session → content-type h
 
 test("GET /api/files/{id}/content — content-disposition includes filename", async () => {
   const content = makeFileContent("payload");
-  const file = createTestFile({ filename: "my_batch_output.jsonl", content });
+  const file = await createTestFile({ filename: "my_batch_output.jsonl", content });
 
   const res = await fileContentRoute.GET(
     await makeManagementSessionRequest(`http://localhost/api/files/${file.id}/content`),
@@ -132,7 +140,7 @@ test("GET /api/files/{id}/content — content-disposition includes filename", as
 
 test("GET /api/files/{id}/content — fallbacks to octet-stream when no mimeType", async () => {
   const content = makeFileContent("raw");
-  const file = createTestFile({ filename: "raw.bin", content, mimeType: undefined });
+  const file = await createTestFile({ filename: "raw.bin", content, mimeType: undefined });
 
   const res = await fileContentRoute.GET(
     await makeManagementSessionRequest(`http://localhost/api/files/${file.id}/content`),
@@ -162,7 +170,7 @@ test("GET /api/files/{id}/content — unknown file ID returns 404", async () => 
 
 test("GET /api/files/{id}/content — deleted file returns 404", async () => {
   const content = makeFileContent("will be deleted");
-  const file = createTestFile({ filename: "deleted.jsonl", content });
+  const file = await createTestFile({ filename: "deleted.jsonl", content });
 
   // Soft-delete the file
   await localDb.deleteFile(file.id);
@@ -203,7 +211,7 @@ test("GET /api/files/{id}/content — unauthenticated request is rejected when a
   process.env.INITIAL_PASSWORD = "test-password";
 
   const content = makeFileContent("secret");
-  const file = createTestFile({ filename: "secret.jsonl", content });
+  const file = await createTestFile({ filename: "secret.jsonl", content });
 
   try {
     const res = await fileContentRoute.GET(
@@ -221,7 +229,7 @@ test("GET /api/files/{id}/content — management session works when auth is requ
   process.env.INITIAL_PASSWORD = "test-password";
 
   const content = makeFileContent("authed content");
-  const file = createTestFile({ filename: "authed.jsonl", content });
+  const file = await createTestFile({ filename: "authed.jsonl", content });
 
   try {
     const res = await fileContentRoute.GET(

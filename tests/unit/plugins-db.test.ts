@@ -2,7 +2,7 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 const mod = await import("../../src/lib/db/plugins.ts");
-const { getDbInstance } = await import("../../src/lib/db/core.ts");
+const { getDbInstance, awaitDbMigrations } = await import("../../src/lib/db/core.ts");
 
 const makeInput = (overrides = {}) => ({
   id: `plugin-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -15,10 +15,14 @@ const makeInput = (overrides = {}) => ({
 });
 
 describe("plugins DB module", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // The `plugins` table is created by migration 076 (run on getDbInstance);
     // rely on the real migration rather than creating the table inline, so a
     // missing/renumbered migration fails here instead of being masked.
+    // getDbInstance() kicks the migrations off lazily — join the barrier before
+    // the first query or the table may not exist yet.
+    getDbInstance();
+    await awaitDbMigrations();
     const db = getDbInstance();
     db.exec("DELETE FROM plugins");
   });
@@ -48,8 +52,8 @@ describe("plugins DB module", () => {
       assert.ok(installed.every((p) => p.status === "installed"));
     });
 
-    it("returns null for unknown plugin", () => {
-      assert.equal(mod.getPluginByName("nonexistent-xyz"), null);
+    it("returns null for unknown plugin", async () => {
+      assert.equal(await mod.getPluginByName("nonexistent-xyz"), null);
     });
   });
 
@@ -97,12 +101,12 @@ describe("plugins DB module", () => {
     it("removes plugin by name", async () => {
       const input = makeInput({ name: `del-${Date.now()}` });
       await mod.insertPlugin(input);
-      assert.equal(mod.deletePlugin(input.name), true);
-      assert.equal(mod.getPluginByName(input.name), null);
+      assert.equal(await mod.deletePlugin(input.name), true);
+      assert.equal(await mod.getPluginByName(input.name), null);
     });
 
-    it("returns false for unknown plugin", () => {
-      assert.equal(mod.deletePlugin("nonexistent"), false);
+    it("returns false for unknown plugin", async () => {
+      assert.equal(await mod.deletePlugin("nonexistent"), false);
     });
   });
 
@@ -110,11 +114,11 @@ describe("plugins DB module", () => {
     it("returns true for existing plugin", async () => {
       const input = makeInput({ name: `exists-${Date.now()}` });
       await mod.insertPlugin(input);
-      assert.equal(mod.pluginExists(input.name), true);
+      assert.equal(await mod.pluginExists(input.name), true);
     });
 
-    it("returns false for unknown plugin", () => {
-      assert.equal(mod.pluginExists("nonexistent"), false);
+    it("returns false for unknown plugin", async () => {
+      assert.equal(await mod.pluginExists("nonexistent"), false);
     });
   });
 });

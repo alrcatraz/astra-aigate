@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-    const stats = getReasoningCacheServiceStats();
-    const entries = getReasoningCacheServiceEntries({
+    const stats = await getReasoningCacheServiceStats();
+    const entries = await getReasoningCacheServiceEntries({
       limit: Math.min(Math.max(limit, 1), 200),
       offset: Math.max(offset, 0),
       provider,
@@ -61,7 +61,7 @@ export async function DELETE(req: NextRequest) {
     const provider = searchParams.get("provider") || undefined;
 
     if (toolCallId) {
-      const cleared = deleteReasoningCacheEntry(toolCallId);
+      const cleared = await deleteReasoningCacheEntry(toolCallId);
       return NextResponse.json({
         ok: true,
         cleared,
@@ -70,7 +70,7 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    const cleared = clearReasoningCacheAll(provider);
+    const cleared = await clearReasoningCacheAll(provider);
 
     return NextResponse.json({
       ok: true,

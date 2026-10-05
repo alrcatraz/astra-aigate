@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -8,10 +8,18 @@ import {
   cleanupExpiredHandoffs,
   hasActiveHandoff,
 } from "../../src/lib/db/contextHandoffs.ts";
+import { getDbInstance, awaitDbMigrations } from "../../src/lib/db/core.ts";
 
 describe("contextHandoffs", () => {
   const sessionId = `handoff-sess-${Date.now()}`;
   const comboName = "test-combo";
+
+  before(async () => {
+    // getDbInstance() kicks migrations off lazily; join the barrier before the
+    // first query or context_handoffs may not exist yet.
+    getDbInstance();
+    await awaitDbMigrations();
+  });
 
   const payload = {
     sessionId,
@@ -40,8 +48,8 @@ describe("contextHandoffs", () => {
     assert.deepEqual(result!.keyDecisions, ["decision-1", "decision-2"]);
   });
 
-  it("hasActiveHandoff returns true for existing handoff", () => {
-    assert.equal(hasActiveHandoff(sessionId, comboName), true);
+  it("hasActiveHandoff returns true for existing handoff", async () => {
+    assert.equal(await hasActiveHandoff(sessionId, comboName), true);
   });
 
   it("upsertHandoff overwrites existing handoff", async () => {
@@ -54,7 +62,7 @@ describe("contextHandoffs", () => {
     const delSession = `del-handoff-${Date.now()}`;
     await upsertHandoff({ ...payload, sessionId: delSession });
     await deleteHandoff(delSession, comboName);
-    assert.equal(getHandoff(delSession, comboName), null);
+    assert.equal(await getHandoff(delSession, comboName), null);
   });
 
   it("cleanupExpiredHandoffs removes expired entries", async () => {
@@ -65,10 +73,10 @@ describe("contextHandoffs", () => {
       expiresAt: new Date(Date.now() - 1000).toISOString(),
     });
     await cleanupExpiredHandoffs();
-    assert.equal(getHandoff(expiredSession, comboName), null);
+    assert.equal(await getHandoff(expiredSession, comboName), null);
   });
 
-  it("getHandoff returns null for unknown session", () => {
-    assert.equal(getHandoff(`unknown-${Date.now()}`, comboName), null);
+  it("getHandoff returns null for unknown session", async () => {
+    assert.equal(await getHandoff(`unknown-${Date.now()}`, comboName), null);
   });
 });

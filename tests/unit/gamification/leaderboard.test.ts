@@ -1,4 +1,4 @@
-import { describe, it, after } from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import {
   updateScore,
@@ -6,10 +6,17 @@ import {
   getTopN,
   getNeighbors,
 } from "../../../src/lib/gamification/leaderboard";
-import { getDbInstance } from "../../../src/lib/db/core";
+import { getDbInstance, awaitDbMigrations } from "../../../src/lib/db/core";
 
 describe("Leaderboard Engine", () => {
   const testKey = `test-lb-${Date.now()}`;
+
+  before(async () => {
+    // getDbInstance() kicks migrations off lazily; join the barrier before the
+    // first query or the leaderboard table may not exist yet.
+    getDbInstance();
+    await awaitDbMigrations();
+  });
 
   after(() => {
     // Cleanup

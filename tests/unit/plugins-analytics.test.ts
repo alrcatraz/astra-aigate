@@ -5,13 +5,16 @@ import {
   getPluginAnalytics,
   getPluginAnalyticsSummary,
 } from "../../src/lib/db/plugins.ts";
-import { getDbInstance } from "../../src/lib/db/core.ts";
+import { getDbInstance, awaitDbMigrations } from "../../src/lib/db/core.ts";
 
 describe("plugin analytics", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // The plugin_analytics table is created by migration 091 (run on getDbInstance);
     // this test relies on that migration rather than creating the table inline, so a
     // missing/renumbered migration would fail here instead of being masked.
+    // getDbInstance() kicks the run off lazily — join the barrier before querying.
+    getDbInstance();
+    await awaitDbMigrations();
     const db = getDbInstance();
     db.exec("DELETE FROM plugin_analytics");
   });

@@ -57,8 +57,10 @@ export async function updateSkill(id: string, patch: SkillPatch): Promise<number
   setClauses.push("updated_at = datetime('now')");
   params.push(id);
 
-  // updateSkill returns a number but the adapter is async — fire-and-forget
-  // is acceptable here because the result isn't used synchronously upstream.
-  await db.prepare(`UPDATE skills SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
-  return 1; // optimistic: assume 1 row updated
+  // Report the real affected-row count from the async adapter (0 when the id
+  // does not exist) instead of assuming a row was updated.
+  const result = await db
+    .prepare(`UPDATE skills SET ${setClauses.join(", ")} WHERE id = ?`)
+    .run(...params);
+  return result.changes;
 }
