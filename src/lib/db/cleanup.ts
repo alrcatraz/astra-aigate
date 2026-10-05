@@ -724,7 +724,7 @@ export function startCleanupScheduler(): void {
         console.log(`[Cleanup] Startup cleanup freed ${totalDeleted} rows. Running VACUUM...`);
         try {
           const db = await getAsyncDb();
-          db.exec("VACUUM");
+          await db.exec("VACUUM");
           console.log("[Cleanup] VACUUM completed after startup cleanup.");
         } catch (vacErr) {
           console.error("[Cleanup] VACUUM after cleanup failed:", vacErr);
@@ -745,7 +745,7 @@ export function startCleanupScheduler(): void {
         console.log(`[Cleanup] Periodic cleanup freed ${totalDeleted} rows. Running VACUUM...`);
         try {
           const db = await getAsyncDb();
-          db.exec("VACUUM");
+          await db.exec("VACUUM");
           console.log("[Cleanup] VACUUM completed after periodic cleanup.");
         } catch (vacErr) {
           console.error("[Cleanup] VACUUM after cleanup failed:", vacErr);
