@@ -44,12 +44,12 @@ interface Policy {
   };
 }
 
-export function evaluateRequest(request: PolicyRequest): PolicyVerdict {
+export async function evaluateRequest(request: PolicyRequest): Promise<PolicyVerdict> {
   const { model, apiKeyId, clientIp } = request;
 
   // ── 1. Lockout Policy ──────────────────────────────
   if (clientIp) {
-    const lockout = checkLockout(clientIp);
+    const lockout = await checkLockout(clientIp);
     if (lockout.locked) {
       return {
         allowed: false,
@@ -87,16 +87,19 @@ export function evaluateRequest(request: PolicyRequest): PolicyVerdict {
   };
 }
 
-export function evaluateFirstAllowed(models: string[], baseRequest: Omit<PolicyRequest, "model">) {
+export async function evaluateFirstAllowed(
+  models: string[],
+  baseRequest: Omit<PolicyRequest, "model">
+): Promise<{ model: string | null; verdict: PolicyVerdict }> {
   for (const model of models) {
-    const verdict = evaluateRequest({ ...baseRequest, model });
+    const verdict = await evaluateRequest({ ...baseRequest, model });
     if (verdict.allowed) {
       return { model, verdict };
     }
   }
 
   // All models denied — return last denial
-  const lastVerdict = evaluateRequest({ ...baseRequest, model: models[models.length - 1] });
+  const lastVerdict = await evaluateRequest({ ...baseRequest, model: models[models.length - 1] });
   return { model: null, verdict: lastVerdict };
 }
 

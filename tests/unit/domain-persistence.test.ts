@@ -5,7 +5,7 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 
-function assertAlmostEqual(actual, expected, epsilon = 1e-9, message = "") {
+async function assertAlmostEqual(actual, expected, epsilon = 1e-9, message = "") {
   assert.ok(
     Math.abs(actual - expected) <= epsilon,
     message || `expected ${actual} to be within ${epsilon} of ${expected}`
@@ -23,6 +23,8 @@ async function removeStorageFiles(dir) {
   try {
     const core = await import("../../src/lib/db/core.ts");
     await core.resetDbInstanceDrained();
+    core.getDbInstance();
+    await core.awaitDbMigrations();
   } catch {
     /* core may not be loaded yet */
   }
@@ -32,8 +34,6 @@ async function removeStorageFiles(dir) {
       if (fs.existsSync(p)) fs.unlinkSync(p);
     } catch {}
   }
-  core.getDbInstance();
-  await core.awaitDbMigrations();
 }
 
 beforeEach(async () => {
@@ -243,19 +243,19 @@ describe("lockoutPolicy persistence", () => {
     const config = { maxAttempts: 3, lockoutDurationMs: 5000, attemptWindowMs: 10000 };
 
     // First attempts should not lock
-    let result = recordFailedAttempt(id, config);
+    let result = await recordFailedAttempt(id, config);
     assert.ok(!result.locked);
 
-    result = recordFailedAttempt(id, config);
+    result = await recordFailedAttempt(id, config);
     assert.ok(!result.locked);
 
     // Third attempt triggers lockout
-    result = recordFailedAttempt(id, config);
+    result = await recordFailedAttempt(id, config);
     assert.ok(result.locked);
     assert.ok(result.remainingMs > 0);
 
     // Check lockout
-    const lockCheck = checkLockout(id, config);
+    const lockCheck = await checkLockout(id, config);
     assert.ok(lockCheck.locked);
 
     // Clean up
@@ -274,7 +274,7 @@ describe("lockoutPolicy persistence", () => {
 
     recordSuccess(id);
 
-    const check = checkLockout(id, config);
+    const check = await checkLockout(id, config);
     assert.ok(!check.locked);
   });
 
@@ -288,12 +288,12 @@ describe("lockoutPolicy persistence", () => {
     recordFailedAttempt(id, config);
     recordFailedAttempt(id, config);
 
-    const lockCheck = checkLockout(id, config);
+    const lockCheck = await checkLockout(id, config);
     assert.ok(lockCheck.locked);
 
     forceUnlock(id);
 
-    const afterUnlock = checkLockout(id, config);
+    const afterUnlock = await checkLockout(id, config);
     assert.ok(!afterUnlock.locked);
   });
 });

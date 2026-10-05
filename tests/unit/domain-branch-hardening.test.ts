@@ -20,7 +20,7 @@ const domainState = await import("../../src/lib/db/domainState.ts");
 const originalDateNow = Date.now;
 const originalMathRandom = Math.random;
 
-function isoFromNow(offsetMs) {
+async function isoFromNow(offsetMs) {
   return new Date(Date.now() + offsetMs).toISOString();
 }
 
@@ -68,7 +68,7 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("resolveComboModel covers empty combos, priority, round-robin, random, least-used and default fallback", () => {
+test("resolveComboModel covers empty combos, priority, round-robin, random, least-used and default fallback", async () => {
   assert.throws(
     () => comboResolver.resolveComboModel({ name: "empty", models: [] }),
     /has no models configured/
@@ -150,7 +150,7 @@ test("resolveComboModel covers empty combos, priority, round-robin, random, leas
   );
 });
 
-test("resolveComboModel also covers implicit defaults and missing optional fields", () => {
+test("resolveComboModel also covers implicit defaults and missing optional fields", async () => {
   assert.throws(() => comboResolver.resolveComboModel({}), /has no models configured/);
 
   assert.deepEqual(comboResolver.resolveComboModel({ models: ["implicit-a", "implicit-b"] }), {
@@ -191,19 +191,19 @@ test("resolveComboModel also covers implicit defaults and missing optional field
   assert.deepEqual(comboResolver.getComboFallbacks({}, 0), []);
 });
 
-test("providerExpiration derives status, sorting, summary and header-based expiration hints", () => {
+test("providerExpiration derives status, sorting, summary and header-based expiration hints", async () => {
   const expired = providerExpiration.setExpiration(
     "conn-expired",
     "claude",
     "Claude",
-    isoFromNow(-60_000),
+    await isoFromNow(-60_000),
     "oauth_token"
   );
   const soon = providerExpiration.setExpiration(
     "conn-soon",
     "openai",
     "OpenAI",
-    isoFromNow(2 * 24 * 60 * 60 * 1000),
+    await isoFromNow(2 * 24 * 60 * 60 * 1000),
     "subscription",
     { alertDays: 7 }
   );
@@ -211,7 +211,7 @@ test("providerExpiration derives status, sorting, summary and header-based expir
     "conn-active",
     "gemini",
     "Gemini",
-    isoFromNow(20 * 24 * 60 * 60 * 1000),
+    await isoFromNow(20 * 24 * 60 * 60 * 1000),
     "api_credits",
     { alertDays: 3, note: "healthy" }
   );
@@ -271,14 +271,14 @@ test("providerExpiration derives status, sorting, summary and header-based expir
   assert.deepEqual(providerExpiration.getAllExpirations(), []);
 });
 
-test("quotaCache covers normalized windows, stale exhaustion, stats and refresh timer lifecycle", () => {
+test("quotaCache covers normalized windows, stale exhaustion, stats and refresh timer lifecycle", async () => {
   let now = 10_000;
   Date.now = () => now;
 
   const activeConnectionId = "quota-active-connection";
   quotaCache.setQuotaCache(activeConnectionId, "cursor", {
-    daily: { remainingPercentage: 125, resetAt: isoFromNow(60_000) },
-    "weekly (7d)": { total: 100, used: 90, resetAt: isoFromNow(120_000) },
+    daily: { remainingPercentage: 125, resetAt: await isoFromNow(60_000) },
+    "weekly (7d)": { total: 100, used: 90, resetAt: await isoFromNow(120_000) },
     ignored: null,
   });
 
@@ -290,7 +290,7 @@ test("quotaCache covers normalized windows, stale exhaustion, stats and refresh 
   assert.deepEqual(weekly, {
     remainingPercentage: 10,
     usedPercentage: 90,
-    resetAt: isoFromNow(120_000),
+    resetAt: await isoFromNow(120_000),
     reachedThreshold: true,
   });
 
@@ -298,13 +298,13 @@ test("quotaCache covers normalized windows, stale exhaustion, stats and refresh 
   assert.deepEqual(daily, {
     remainingPercentage: 100,
     usedPercentage: 0,
-    resetAt: isoFromNow(60_000),
+    resetAt: await isoFromNow(60_000),
     reachedThreshold: false,
   });
 
   const expiredWindowId = "quota-expired-window";
   quotaCache.setQuotaCache(expiredWindowId, "cursor", {
-    session: { remainingPercentage: 5, resetAt: isoFromNow(-1_000) },
+    session: { remainingPercentage: 5, resetAt: await isoFromNow(-1_000) },
   });
   assert.deepEqual(quotaCache.getQuotaWindowStatus(expiredWindowId, "session", 90), {
     remainingPercentage: 5,
@@ -316,7 +316,7 @@ test("quotaCache covers normalized windows, stale exhaustion, stats and refresh 
 
   const exhaustedWithResetId = "quota-exhausted-reset";
   quotaCache.setQuotaCache(exhaustedWithResetId, "cursor", {
-    daily: { remainingPercentage: 0, resetAt: isoFromNow(60_000) },
+    daily: { remainingPercentage: 0, resetAt: await isoFromNow(60_000) },
   });
   assert.equal(quotaCache.isAccountQuotaExhausted(exhaustedWithResetId), true);
 
@@ -340,7 +340,7 @@ test("quotaCache covers normalized windows, stale exhaustion, stats and refresh 
   quotaCache.stopBackgroundRefresh();
 });
 
-test("quotaCache covers empty quotas, invalid dates and fallback percentage normalization", () => {
+test("quotaCache covers empty quotas, invalid dates and fallback percentage normalization", async () => {
   let now = 100_000;
   Date.now = () => now;
 
@@ -376,7 +376,7 @@ test("quotaCache covers empty quotas, invalid dates and fallback percentage norm
   assert.equal(quotaCache.isAccountQuotaExhausted("quota-invalid-exhausted"), true);
 });
 
-test("policyEngine evaluates lockout, budget, fallback chains and policy class actions", () => {
+test("policyEngine evaluates lockout, budget, fallback chains and policy class actions", async () => {
   const lockConfig = {
     maxAttempts: 1,
     lockoutDurationMs: 500,
@@ -386,7 +386,7 @@ test("policyEngine evaluates lockout, budget, fallback chains and policy class a
   Date.now = () => now;
 
   lockoutPolicy.recordFailedAttempt("10.0.0.1", lockConfig);
-  const locked = policyEngineModule.evaluateRequest({
+  const locked = await policyEngineModule.evaluateRequest({
     model: "claude-sonnet",
     clientIp: "10.0.0.1",
   });
@@ -398,7 +398,7 @@ test("policyEngine evaluates lockout, budget, fallback chains and policy class a
   costRules.setBudget("key-budget", { dailyLimitUsd: 5, warningThreshold: 0.5 });
   costRules.recordCost("key-budget", 6);
 
-  const overBudget = policyEngineModule.evaluateRequest({
+  const overBudget = await policyEngineModule.evaluateRequest({
     model: "claude-sonnet",
     apiKeyId: "key-budget",
   });
@@ -409,7 +409,7 @@ test("policyEngine evaluates lockout, budget, fallback chains and policy class a
     { provider: "vertex", priority: 2 },
     { provider: "bedrock", priority: 3 },
   ]);
-  const passed = policyEngineModule.evaluateRequest({
+  const passed = await policyEngineModule.evaluateRequest({
     model: "claude-sonnet",
     apiKeyId: "missing-key",
   });
@@ -419,7 +419,7 @@ test("policyEngine evaluates lockout, budget, fallback chains and policy class a
     { provider: "bedrock", priority: 3, enabled: true },
   ]);
 
-  const firstAllowed = policyEngineModule.evaluateFirstAllowed(["claude-sonnet", "gpt-4o"], {
+  const firstAllowed = await policyEngineModule.evaluateFirstAllowed(["claude-sonnet", "gpt-4o"], {
     clientIp: "10.0.0.2",
   });
   assert.equal(firstAllowed.model, "claude-sonnet");
