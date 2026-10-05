@@ -670,16 +670,10 @@ test(
         await db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
         [{ version: "021" }, { version: "024" }]
       );
-      assert.equal(
-        (
-          (await db
-            .prepare(
-              "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = ?"
-            )
-            .get("memory_fts")) as { count: number }
-        ).count,
-        0
-      );
+      const ftsCount = (await db
+        .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get("memory_fts")) as { count: number };
+      assert.equal(ftsCount.count, 0);
     } finally {
       await db.close();
     }
