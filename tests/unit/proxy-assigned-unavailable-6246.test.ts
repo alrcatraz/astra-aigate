@@ -34,11 +34,13 @@ async function resetStorage() {
   await core.awaitDbMigrations();
 }
 
-function setGlobalProxyEnabled(enabled: boolean) {
+async function setGlobalProxyEnabled(enabled: boolean) {
   const db = core.getDbInstance();
-  db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'proxyEnabled', ?)"
-  ).run(JSON.stringify(enabled));
+  await db
+    .prepare(
+      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('settings', 'proxyEnabled', ?)"
+    )
+    .run(JSON.stringify(enabled));
 }
 
 async function makeConnection(): Promise<string> {
@@ -69,7 +71,7 @@ test("BLOCKS: an account proxy assigned but marked inactive (the IP-leak case)",
   await proxiesDb.assignProxyToScope("account", connId, proxy!.id);
 
   assert.equal(
-    proxiesDb.hasBlockingProxyAssignment(connId),
+    await proxiesDb.hasBlockingProxyAssignment(connId),
     true,
     "a dead assigned proxy must block, not fall back to a direct egress"
   );
@@ -79,7 +81,7 @@ test("ALLOWS DIRECT: a connection with no proxy assignment at all", async () => 
   await resetStorage();
   const connId = await makeConnection();
   assert.equal(
-    proxiesDb.hasBlockingProxyAssignment(connId),
+    await proxiesDb.hasBlockingProxyAssignment(connId),
     false,
     "no assignment = user never configured a proxy = direct is legitimate"
   );
@@ -97,7 +99,7 @@ test("NOT BLOCKING: an assigned proxy that is still ALIVE", async () => {
   await proxiesDb.assignProxyToScope("account", connId, proxy!.id);
 
   assert.equal(
-    proxiesDb.hasBlockingProxyAssignment(connId),
+    await proxiesDb.hasBlockingProxyAssignment(connId),
     false,
     "an alive assigned proxy resolves normally; nothing to block"
   );
@@ -114,10 +116,10 @@ test("EXPLICIT DIRECT: global proxyEnabled=false is a deliberate choice, not a l
   });
   await proxiesDb.updateProxy(proxy!.id, { status: "inactive" });
   await proxiesDb.assignProxyToScope("account", connId, proxy!.id);
-  setGlobalProxyEnabled(false);
+  await setGlobalProxyEnabled(false);
 
   assert.equal(
-    proxiesDb.hasBlockingProxyAssignment(connId),
+    await proxiesDb.hasBlockingProxyAssignment(connId),
     false,
     "operator turned proxying off globally — direct is intended, do not block"
   );
@@ -136,7 +138,7 @@ test("BLOCKS: a dead GLOBAL proxy assignment blocks any connection", async () =>
   await proxiesDb.assignProxyToScope("global", null, proxy!.id);
 
   assert.equal(
-    proxiesDb.hasBlockingProxyAssignment(connId),
+    await proxiesDb.hasBlockingProxyAssignment(connId),
     true,
     "a dead global proxy assignment must block, not leak direct"
   );
@@ -154,7 +156,7 @@ test("BLOCKS: a dead no-auth provider proxy assignment", async () => {
   await proxiesDb.assignProxyToScope("provider", "mimocode", proxy!.id);
 
   assert.equal(
-    proxiesDb.hasBlockingProxyAssignment("noauth", "mimocode"),
+    await proxiesDb.hasBlockingProxyAssignment("noauth", "mimocode"),
     true,
     "a dead no-auth provider proxy must block instead of allowing direct egress"
   );

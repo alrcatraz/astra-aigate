@@ -22,6 +22,7 @@ test.after(async () => {
 
 test("#6272: resolveProxyForConnection('noauth', ...) honors a provider-level proxy assigned to 'mimocode'", async () => {
   core.getDbInstance();
+  await core.awaitDbMigrations();
   const proxy = { type: "http", host: "127.0.0.1", port: 8888 };
 
   // Reporter's second symptom: "same thing happen when i set the proxy directly
@@ -42,6 +43,7 @@ test("#6272: resolveProxyForConnection('noauth', ...) honors a provider-level pr
 
 test("control: resolveProxyForConnection('noauth', ...) still honors the GLOBAL proxy when no no-auth provider proxy is set", async () => {
   core.getDbInstance();
+  await core.awaitDbMigrations();
   await settingsDb.deleteProxyForLevel("provider", "mimocode");
   const proxy = { type: "http", host: "10.0.0.1", port: 9999 };
   await settingsDb.setProxyForLevel("global", null, proxy);
@@ -53,6 +55,7 @@ test("control: resolveProxyForConnection('noauth', ...) still honors the GLOBAL 
 
 test("resolveProxyForConnection keeps provider-level no-auth proxies isolated", async () => {
   core.getDbInstance();
+  await core.awaitDbMigrations();
   await settingsDb.deleteProxyForLevel("global", null);
   await settingsDb.setProxyForLevel("provider", "mimocode", {
     type: "http",
@@ -74,6 +77,7 @@ test("resolveProxyForConnection keeps provider-level no-auth proxies isolated", 
 
 test("safeResolveProxy keeps the synthetic no-auth connection provider-specific", async () => {
   core.getDbInstance();
+  await core.awaitDbMigrations();
   await settingsDb.setProxyForLevel("provider", "mimocode", {
     type: "http",
     host: "127.0.0.4",
