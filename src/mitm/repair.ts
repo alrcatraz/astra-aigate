@@ -18,16 +18,16 @@ const log = createLogger("mitm-repair");
  * nothing to "remove", but a host we forget to list leaks machine-wide.
  * (Gap 8 — clean-stop DNS leak.)
  */
-export function collectManagedHosts(): string[] {
+export async function collectManagedHosts(): Promise<string[]> {
   const hosts = new Set<string>();
   for (const target of ALL_TARGETS) {
     for (const h of target.hosts) hosts.add(h);
     if (target.id === "ghe-copilot") {
-      for (const h of getGheCopilotHosts()) hosts.add(h);
+      for (const h of await getGheCopilotHosts()) hosts.add(h);
     }
   }
   try {
-    for (const ch of listCustomHosts()) hosts.add(ch.host);
+    for (const ch of await listCustomHosts()) hosts.add(ch.host);
   } catch (err) {
     log.error({ err }, "collectManagedHosts: failed to read custom hosts (continuing)");
   }
@@ -45,9 +45,9 @@ export interface RepairPlan {
  * the enumeration is unit-testable without touching the OS or requiring sudo.
  * (Gap 7.)
  */
-export function buildRepairPlan(): RepairPlan {
+export async function buildRepairPlan(): Promise<RepairPlan> {
   return {
-    dnsHostsToRemove: collectManagedHosts(),
+    dnsHostsToRemove: await collectManagedHosts(),
     removeCert: true,
     revertSystemProxy: true,
   };
@@ -83,7 +83,7 @@ async function revertSystemProxyIfApplied(): Promise<boolean> {
  * unchanged from the original inline implementation. (Gap 7.)
  */
 export async function performRepairSteps(sudoPassword: string): Promise<string[]> {
-  const plan = buildRepairPlan();
+  const plan = await buildRepairPlan();
   const repaired: string[] = [];
 
   // 1. DNS — remove every host we may have spoofed (idempotent, reads /etc/hosts).
