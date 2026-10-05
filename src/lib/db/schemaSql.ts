@@ -349,6 +349,38 @@ export const SCHEMA_BACKFILL_COLUMNS: Array<[string, Array<[string, string]>]> =
 ];
 
 /**
+ * Indexes the async ensure*Columns wrappers in schemaColumns.ts create after
+ * their ALTERs — the synchronous mirror must create them too.
+ *
+ * Why: the sync column backfill runs BEFORE the versioned migration runner, so
+ * `isSchemaAlreadyApplied()` then judges those migrations "already present" and
+ * skips them (observed for 021_combo_call_log_targets,
+ * 025_call_logs_summary_storage and 029_provider_connection_max_concurrent).
+ * The migration's index side-effects were therefore silently lost on the SQLite
+ * open path, leaving hot-path indexes (idx_pc_max_concurrent,
+ * idx_call_logs_requested_model, idx_cl_combo_target, …) missing on upgraded DBs.
+ *
+ * [table, DDL]; the DDL is only executed when `table` exists.
+ */
+export const SCHEMA_BACKFILL_INDEXES: Array<[string, string]> = [
+  [
+    "provider_connections",
+    "CREATE INDEX IF NOT EXISTS idx_pc_max_concurrent ON provider_connections(provider, max_concurrent)",
+  ],
+  [
+    "call_logs",
+    "CREATE INDEX IF NOT EXISTS idx_call_logs_requested_model ON call_logs(requested_model)",
+  ],
+  ["call_logs", "CREATE INDEX IF NOT EXISTS idx_call_logs_request_type ON call_logs(request_type)"],
+  [
+    "call_logs",
+    "CREATE INDEX IF NOT EXISTS idx_cl_combo_target ON call_logs(combo_name, combo_execution_key, timestamp)",
+  ],
+  ["call_logs", "CREATE INDEX IF NOT EXISTS idx_cl_correlation_id ON call_logs(correlation_id)"],
+  ["call_logs", "CREATE INDEX IF NOT EXISTS idx_cl_session_tag ON call_logs(session_tag)"],
+];
+
+/**
  * Apply the column backfills synchronously on the raw SQLite handle. Shared by
  * the on-disk open path and the in-memory build/cloud path — both are inside
  * synchronous functions, so the async ensure* wrappers would leak un-awaited

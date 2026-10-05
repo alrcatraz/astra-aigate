@@ -351,6 +351,9 @@ test("getDbInstance creates sqlite schema, metadata and applies migrations", ser
     await withEnv({ DATA_DIR: dataDir, NEXT_PHASE: undefined }, async () => {
       const core = await importFresh("src/lib/db/core.ts");
       const db = core.getDbInstance();
+      // openSqliteDatabase() kicks the versioned migration run off without
+      // awaiting it — join the barrier before asserting on the schema.
+      await core.awaitDbMigrations();
 
       assert.equal(fs.existsSync(core.SQLITE_FILE), true);
       assert.ok(
@@ -415,6 +418,7 @@ test("local sqlite configuration enables WAL and sane pragmas", serial, async ()
     await withEnv({ DATA_DIR: dataDir, NEXT_PHASE: undefined }, async () => {
       const core = await importFresh("src/lib/db/core.ts");
       const db = core.getDbInstance();
+      await core.awaitDbMigrations();
 
       assert.equal(db.pragma("journal_mode", { simple: true }), "wal");
       // v3.8.32 intentionally capped busy_timeout at 2s (was 5s) so a contended
@@ -489,6 +493,7 @@ test("build phase uses an in-memory database without creating sqlite files", ser
       async () => {
         const core = await importFresh("src/lib/db/core.ts");
         const db = core.getDbInstance();
+        await core.awaitDbMigrations();
 
         assert.ok(
           db
@@ -553,6 +558,7 @@ test(
       await withEnv({ DATA_DIR: dataDir }, async () => {
         const core = await importFresh("src/lib/db/core.ts");
         const db = core.getDbInstance();
+        await core.awaitDbMigrations();
 
         assert.equal(fs.existsSync(`${sqliteFile}.old-schema`), true);
         assert.ok(
@@ -588,6 +594,7 @@ test(
       await withEnv({ DATA_DIR: dataDir }, async () => {
         const core = await importFresh("src/lib/db/core.ts");
         const db = core.getDbInstance();
+        await core.awaitDbMigrations();
 
         assert.deepEqual(
           db
@@ -662,6 +669,7 @@ test(
       await withEnv({ DATA_DIR: dataDir }, async () => {
         const core = await importFresh("src/lib/db/core.ts");
         const db = core.getDbInstance();
+        await core.awaitDbMigrations();
 
         assert.ok(
           db
@@ -708,6 +716,7 @@ test(
       await withEnv({ DATA_DIR: dataDir }, async () => {
         const core = await importFresh("src/lib/db/core.ts");
         const db = core.getDbInstance();
+        await core.awaitDbMigrations();
 
         assert.ok(
           db
@@ -775,6 +784,7 @@ test(
       await withEnv({ DATA_DIR: dataDir }, async () => {
         const core = await importFresh("src/lib/db/core.ts");
         const db = core.getDbInstance();
+        await core.awaitDbMigrations();
 
         assert.deepEqual(
           db
@@ -838,6 +848,7 @@ test(
       await withEnv({ DATA_DIR: dataDir }, async () => {
         const core = await importFresh("src/lib/db/core.ts");
         const db = core.getDbInstance();
+        await core.awaitDbMigrations();
 
         assert.deepEqual(
           db

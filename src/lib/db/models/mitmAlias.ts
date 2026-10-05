@@ -7,7 +7,7 @@ import { getKeyValue } from "./shared";
 export async function getMitmAlias(toolName?: string) {
   const db = await getAsyncDb();
   if (toolName) {
-    const row = db
+    const row = await db
       .prepare("SELECT value FROM key_value WHERE namespace = 'mitmAlias' AND key = ?")
       .get(toolName);
     const value = await getKeyValue(row).value;

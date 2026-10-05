@@ -50,7 +50,7 @@ import {
 } from "../usage/callLogArtifacts";
 import { migrateLegacyEncryptedString } from "./encryption";
 import { invalidateDbCache } from "./readCache";
-import { SCHEMA_SQL, SCHEMA_BACKFILL_COLUMNS } from "./schemaSql.ts";
+import { SCHEMA_SQL, SCHEMA_BACKFILL_COLUMNS, SCHEMA_BACKFILL_INDEXES } from "./schemaSql.ts";
 import { migrateFromJson } from "./jsonMigration.ts";
 import { parseLegacyError, offloadLegacyCallLogDetails } from "./legacyCallLogOffload.ts";
 import { rowToCamel } from "./caseMapping";
@@ -352,9 +352,21 @@ function applySchemaBackfillsSync(db: SqliteDatabase): void {
     );
     for (const [column, type] of adds) {
       if (!have.has(column)) {
-        rawBf.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        // Column names are identifiers and some are reserved words
+        // (`provider_connections."group"`): the async sibling
+        // ensureProviderConnectionsColumns quotes them explicitly — an
+        // unquoted `ADD COLUMN group TEXT` is a hard SQLite syntax error.
+        rawBf.exec(
+          `ALTER TABLE ${quoteIdentifier(table)} ADD COLUMN ${quoteIdentifier(column)} ${type}`
+        );
       }
     }
+  }
+  // Index half of the mirror: the column ALTERs above make the migration
+  // idempotency check skip migrations that also created these indexes, so the
+  // sync path has to create them itself (see SCHEMA_BACKFILL_INDEXES).
+  for (const [table, ddl] of SCHEMA_BACKFILL_INDEXES) {
+    if (tableExistsSyncRaw(db, table)) rawBf.exec(ddl);
   }
 }
 
@@ -385,6 +397,13 @@ function captureCriticalDbState(sqliteFile: string): PreservedCriticalDbState {
   let probe: SqliteDatabase | null = null;
   try {
     probe = openSqliteDatabase(sqliteFile, { readonly: true });
+
+    // A readonly open is lazy: better-sqlite3 accepts a non-SQLite file and
+    // only raises "file is not a database" on the first statement. Probe
+    // sqlite_master once so an unreadable file fails the capture
+    // (captureSucceeded=false → "Manual recovery required") instead of being
+    // reported as a successful empty snapshot.
+    (probe.raw as RawSyncDb).prepare("SELECT name FROM sqlite_master LIMIT 1").all();
 
     for (const tableSpec of CRITICAL_DB_TABLES) {
       // Sync raw check: `probe` is a synchronous readonly handle and this
