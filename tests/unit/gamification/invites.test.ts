@@ -7,6 +7,16 @@ import {
   revokeInvite,
 } from "../../../src/lib/gamification/invites";
 
+// The invite helpers write through the async adapter; join the migration
+// barrier before the first touch so `invite_tokens` exists (baseline raced
+// ahead of the runner and hit "no such table").
+const core = await import("../../../src/lib/db/core.ts");
+// The migration runner is kicked off lazily by the first getDbInstance();
+// without it there is no migrationsPromise to join and invite_tokens never
+// exists. Open the handle, THEN await the barrier.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 describe("Invite Tokens", () => {
   const testKeyId = `test-invite-${Date.now()}`;
   let inviteCode: string;
