@@ -43,14 +43,52 @@ function ensureAppStagingReady(): void {
   runNpm(["run", "build:cli"], "inherit");
 }
 
+/**
+ * Extract the FIRST balanced JSON array from npm's output.
+ *
+ * npm may append notice/summary lines after the payload (observed in CI:
+ * the array ends mid-stream and trailing lines contain `]`, so the old
+ * `indexOf("[")..lastIndexOf("]")` slice swallowed them and JSON.parse
+ * failed with "Unexpected non-whitespace character after JSON"). Scanning
+ * for the bracket-balanced extent of the first array makes the parse
+ * immune to whatever npm prints around it.
+ */
+function extractFirstJsonArray(output: string): unknown {
+  let start = output.indexOf("[");
+  while (start >= 0) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < output.length; i++) {
+      const ch = output[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "[") depth++;
+      else if (ch === "]") {
+        depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(output.slice(start, i + 1));
+          } catch {
+            break; // not actually JSON — try the next '['
+          }
+        }
+      }
+    }
+    start = output.indexOf("[", start + 1);
+  }
+  throw new Error("npm pack --dry-run --json: no parseable JSON array found in output.");
+}
+
 function runPackDryRun(): any {
   const output = runNpm(["pack", "--dry-run", "--json", "--ignore-scripts"]);
 
-  const jsonStart = output.indexOf("[");
-  const jsonEnd = output.lastIndexOf("]");
-  const jsonPayload =
-    jsonStart >= 0 && jsonEnd > jsonStart ? output.slice(jsonStart, jsonEnd + 1) : output;
-  const parsed = JSON.parse(jsonPayload);
+  const parsed = extractFirstJsonArray(output);
   const packReport = Array.isArray(parsed) ? parsed[0] : null;
 
   if (!packReport || !Array.isArray(packReport.files)) {
