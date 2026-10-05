@@ -68,3 +68,21 @@ updates:
       day: "monday"
     commit-message:
       prefix: "deps"
+
+  # OmniRoute OpenCode plugin — active sub-package with real deps (zod).
+  # The sibling @omniroute/opencode-provider is DEPRECATED and intentionally
+  # excluded. Has its own package-lock.json but is not covered by the root
+  # ecosystem (no npm workspaces in this repo).
+  - package-ecosystem: "npm"
+    directory: "/@omniroute/opencode-plugin"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "deps"
+    open-pull-requests-limit: 5
+    groups:
+      production:
+        dependency-type: "production"
+      development:
+        dependency-type: "development"
