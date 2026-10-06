@@ -3,7 +3,7 @@
  * keyword boundary check it relies on. Extracted from postgresDialect.ts.
  */
 
-export function isIdentifierChar(ch: string): boolean {
+function isIdentifierChar(ch: string): boolean {
   return /[A-Za-z0-9_$]/.test(ch);
 }
 
@@ -77,7 +77,7 @@ export function rewritePlaceholders(sql: string): string {
 }
 
 /** Case-insensitive keyword match at cursor position (word boundary). */
-export function kwAt(sql: string, i: number, kw: string): boolean {
+function kwAt(sql: string, i: number, kw: string): boolean {
   if (sql.length - i < kw.length) return false;
   if (
     !sql
