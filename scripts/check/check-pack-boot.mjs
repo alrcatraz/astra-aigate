@@ -21,13 +21,83 @@ import path from "node:path";
 const POLL_INTERVAL_MS = 2_000;
 const BOOT_DEADLINE_MS = 240_000;
 
-/** Parse `npm pack --json` output into the generated tarball filename. */
+/**
+ * Parse `npm pack --json` output into the generated tarball filename.
+ *
+ * Two robustness needs (CI, npm 12.2.0): (1) lifecycle output (prepare/husky)
+ * can precede/follow the JSON payload in the captured stdout, so a raw
+ * JSON.parse of the WHOLE string throws or lands on the wrong value; (2) npm
+ * has shipped more than one payload shape — the wrapper `[{filename, files, …}]`
+ * and a flatter object/array. We therefore extract the FIRST balanced JSON value
+ * (string-aware bracket scan, same technique as validate-pack-artifact.ts) and
+ * then read `filename` from whatever object carries it.
+ */
 export function pickTarball(packJsonOutput) {
-  const parsed = JSON.parse(packJsonOutput);
-  const filename = Array.isArray(parsed) ? parsed[0]?.filename : undefined;
-  if (!filename) throw new Error("npm pack --json returned no filename");
+  const parsed = extractFirstJson(packJsonOutput);
+  const record = findFilenameRecord(parsed);
+  if (!record?.filename) throw new Error("npm pack --json returned no filename");
   // npm >=9 may emit scoped names with "/" — normalize to the on-disk file name.
-  return filename.replace(/\//g, "-");
+  return record.filename.replace(/\//g, "-");
+}
+
+/** First balanced JSON value (array or object) in the output, string-aware. */
+function extractFirstJson(output) {
+  const startIdx = firstJsonStart(output);
+  if (startIdx < 0) return null;
+  const open = output[startIdx];
+  const close = open === "[" ? "]" : "}";
+  let depth = 0,
+    inStr = false,
+    esc = false;
+  for (let i = startIdx; i < output.length; i++) {
+    const ch = output[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "[" || ch === "{") depth++;
+    else if (ch === "]" || ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(output.slice(startIdx, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function firstJsonStart(s) {
+  // Skip ANY leading non-JSON text (npm lifecycle output such as `npm notice …`
+  // precedes the payload) and stop at the first array/object opener. We cannot
+  // stop at the first non-whitespace char — that char is often the lifecycle
+  // noise itself, which was the exact CI failure this scan exists to survive.
+  const i = s.search(/[\[{]/);
+  return i;
+}
+
+/** Locate the record carrying `filename`: wrapper[0], the object itself, or a nested `.files`. */
+function findFilenameRecord(parsed) {
+  if (Array.isArray(parsed)) {
+    for (const el of parsed) {
+      if (el && typeof el === "object") {
+        if (typeof el.filename === "string") return el;
+        if (Array.isArray(el.files)) {
+          // a flat file-list record — synthesise the name from entryCount/path if present
+          return el;
+        }
+      }
+    }
+    return parsed.find((el) => el && typeof el === "object") ?? null;
+  }
+  if (parsed && typeof parsed === "object") return parsed;
+  return null;
 }
 
 /**
@@ -56,10 +126,14 @@ function log(msg) {
 async function main() {
   const ROOT = process.cwd();
   if (!fs.existsSync(path.join(ROOT, "dist", "server.js"))) {
-    console.error("[pack-boot] dist/server.js missing — run `npm run build:cli` first (this is a --with-build gate)");
+    console.error(
+      "[pack-boot] dist/server.js missing — run `npm run build:cli` first (this is a --with-build gate)"
+    );
     process.exit(2);
   }
-  const expectedVersion = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
+  const expectedVersion = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "package.json"), "utf8")
+  ).version;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-pack-boot-"));
   let child = null;
   let exitCode = 1;
@@ -134,7 +208,9 @@ async function main() {
       exitCode = 0;
     } else {
       console.error(`[pack-boot] ❌ boot FAILED: ${verdict.failures.join("; ")}`);
-      console.error("[pack-boot] last server output:\n" + tail.join("").split("\n").slice(-40).join("\n"));
+      console.error(
+        "[pack-boot] last server output:\n" + tail.join("").split("\n").slice(-40).join("\n")
+      );
       exitCode = 1;
     }
   } finally {
@@ -157,7 +233,8 @@ async function main() {
 }
 
 const isDirectRun =
-  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
 if (isDirectRun) {
   main().catch((e) => {
     console.error("[pack-boot] fatal:", e.message);
