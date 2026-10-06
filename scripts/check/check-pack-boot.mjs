@@ -32,6 +32,25 @@ const BOOT_DEADLINE_MS = 240_000;
  * (string-aware bracket scan, same technique as validate-pack-artifact.ts) and
  * then read `filename` from whatever object carries it.
  */
+/**
+ * Pick the installed CLI's bin name from package.json's `bin` map.
+ *
+ * `bin` may be a string (single entry) or an object keyed by command name;
+ * npm creates `prefix/bin/<key>` on install. Prefer the key that is NOT a
+ * subcommand (skip "-"-containing keys like `…-reset-password`) so we get the
+ * primary CLI, else the first entry. Throws when there is no bin at all — a
+ * package that installs no CLI cannot be boot-smoked.
+ */
+export function resolveCliBinName(bin) {
+  if (typeof bin === "string") return bin.split("/").pop();
+  if (bin && typeof bin === "object") {
+    const keys = Object.keys(bin);
+    if (keys.length === 0) throw new Error("package.json bin map is empty");
+    return keys.find((k) => !k.includes("-")) ?? keys[0];
+  }
+  throw new Error("package.json has no bin entry — nothing to boot");
+}
+
 export function pickTarball(packJsonOutput) {
   const parsed = extractFirstJson(packJsonOutput);
   const record = findFilenameRecord(parsed);
@@ -157,9 +176,13 @@ async function main() {
     );
     process.exit(2);
   }
-  const expectedVersion = JSON.parse(
-    fs.readFileSync(path.join(ROOT, "package.json"), "utf8")
-  ).version;
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const expectedVersion = pkg.version;
+  // The installed CLI's symlink name is the `bin` MAP KEY (npm creates
+  // prefix/bin/<key>), NOT a hardcoded brand. Reading it here — instead of the
+  // legacy OmniRoute "omniroute" literal — is what makes this gate survive the
+  // OmniRoute→astra-aigate rename: the source of truth is package.json's bin.
+  const binName = resolveCliBinName(pkg.bin);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-pack-boot-"));
   let child = null;
   let exitCode = 1;
@@ -181,7 +204,8 @@ async function main() {
     const port = pickPort();
     const dataDir = path.join(tmp, "data");
     fs.mkdirSync(dataDir, { recursive: true });
-    const binPath = path.join(prefix, "bin", "omniroute");
+    const binPath = path.join(prefix, "bin", binName);
+    log(`CLI bin resolves to prefix/bin/${binName} (from package.json bin)`);
     log(`booting installed CLI on :${port} (DATA_DIR isolated)…`);
     child = spawn(binPath, ["serve", "--port", String(port)], {
       env: {
