@@ -130,17 +130,51 @@ function describeShape(value: unknown): string {
   return typeof value;
 }
 
-function runPackDryRun(): any {
+function runPackDryRun(): {
+  filename: string;
+  entryCount: number;
+  size: number;
+  unpackedSize: number;
+  files: Array<{ path: string }>;
+} {
   const output = runNpm(["pack", "--dry-run", "--json", "--ignore-scripts"]);
 
   const { parsed, kind } = extractFirstJsonArray(output);
-  const packReport = Array.isArray(parsed)
-    ? parsed[0]
-    : parsed && typeof parsed === "object"
-      ? parsed
-      : null;
 
-  if (!packReport || !Array.isArray(packReport.files)) {
+  // Shape 1 (expected): a wrapper object — [{ filename, entryCount, files: [...] }].
+  // Shape 2 (observed in guix CI, npm 11.19): a FLAT array of file entries —
+  // [{ path, size, mode }, ...] with no wrapper. Normalise both to one report.
+  let report: {
+    filename: string;
+    entryCount: number;
+    size: number;
+    unpackedSize: number;
+    files: Array<{ path: string }>;
+  } | null = null;
+
+  if (Array.isArray(parsed) && parsed.length > 0 && parsed[0] && typeof parsed[0] === "object") {
+    const head = parsed[0] as any;
+    if (Array.isArray(head.files)) {
+      // Shape 1: wrapper
+      report = head;
+    } else if (typeof head.path === "string") {
+      // Shape 2: flat array of { path, size, mode } — synthesise the wrapper
+      // so the policy check below (packReport.files.map(f => f.path)) is uniform.
+      const files = parsed as Array<{ path: string; size?: number }>;
+      report = {
+        filename: "package.tgz (dry-run)",
+        entryCount: files.length,
+        size: files.reduce((sum, f) => sum + (f.size ?? 0), 0),
+        unpackedSize: files.reduce((sum, f) => sum + (f.size ?? 0), 0),
+        files,
+      };
+    }
+  } else if (parsed && typeof parsed === "object" && Array.isArray((parsed as any).files)) {
+    // Shape 1 without the array wrapper: a bare wrapper object
+    report = parsed as any;
+  }
+
+  if (!report || !Array.isArray(report.files)) {
     // Surface what npm ACTUALLY returned (truncated) so the next CI failure
     // diagnoses itself instead of leaving us guessing the payload shape.
     const preview = (() => {
@@ -151,12 +185,12 @@ function runPackDryRun(): any {
       }
     })();
     throw new Error(
-      `npm pack --dry-run --json did not return the expected files[] payload. ` +
+      `npm pack --dry-run --json did not return a recognisable files payload. ` +
         `topLevel=${kind} parsed=${describeShape(parsed)} preview=${preview}`
     );
   }
 
-  return packReport;
+  return report;
 }
 
 function formatBytes(bytes: number): string {
