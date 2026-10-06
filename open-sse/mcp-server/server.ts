@@ -645,6 +645,40 @@ export function createMcpServer(domain: McpToolDomain = "all"): McpServer {
     }
     return registered;
   }) as typeof server.registerTool;
+
+  // Downstream (registered-endpoint) tools must NOT be subject to the local
+  // tool domain: an isolated endpoint sets domain "none" to hide AIGate's own
+  // builtins, but the tools forwarded FROM the downstream MCP server still have
+  // to be announced. `registerRawTool` keeps the compression/accessibility
+  // handler wrapping while SKIPPING the domain+profile disable, so a registered
+  // endpoint exposes exactly its downstream tool set and no builtins.
+  (server as McpServer & { registerRawTool: typeof server.registerTool }).registerRawTool = ((
+    name: string,
+    config: Record<string, unknown>,
+    handler: unknown
+  ) => {
+    const metadata = compressMcpRegistryMetadata(config, {
+      enabled: mcpDescriptionCompressionEnabled,
+    });
+    const filteredHandler = mcpAccessibilityConfig.enabled
+      ? async (args: unknown, extra?: unknown) => {
+          const result = await (handler as (a: unknown, e?: unknown) => Promise<TextToolResult>)(
+            args,
+            extra
+          );
+          if (Array.isArray(result?.content)) {
+            for (const block of result.content) {
+              if (block && block.type === "text" && typeof block.text === "string") {
+                block.text = smartFilterText(block.text, mcpAccessibilityConfig);
+              }
+            }
+          }
+          return result;
+        }
+      : handler;
+    return registerTool(name, metadata, filteredHandler as never);
+  }) as typeof server.registerTool;
+
   const registerPrompt = server.registerPrompt.bind(server);
   server.registerPrompt = ((name: string, config: Record<string, unknown>, handler: unknown) => {
     const metadata = compressMcpRegistryMetadata(config, {
