@@ -52,8 +52,14 @@ function ensureAppStagingReady(): void {
  * failed with "Unexpected non-whitespace character after JSON"). Scanning
  * for the bracket-balanced extent of the first array makes the parse
  * immune to whatever npm prints around it.
+ *
+ * Returns `{ parsed, kind }` where `kind` reports the payload shape
+ * ("array" | "object" | "primitive" | "none") so callers can produce a
+ * self-diagnosing error when the shape is unexpected (guix CI can surface
+ * an npm error OBJECT with no files[] at all).
  */
-function extractFirstJsonArray(output: string): unknown {
+function extractFirstJsonArray(output: string): { parsed: unknown; kind: string } {
+  // Prefer the first balanced ARRAY (the normal npm --json payload).
   let start = output.indexOf("[");
   while (start >= 0) {
     let depth = 0;
@@ -73,7 +79,7 @@ function extractFirstJsonArray(output: string): unknown {
         depth--;
         if (depth === 0) {
           try {
-            return JSON.parse(output.slice(start, i + 1));
+            return { parsed: JSON.parse(output.slice(start, i + 1)), kind: "array" };
           } catch {
             break; // not actually JSON — try the next '['
           }
@@ -82,17 +88,72 @@ function extractFirstJsonArray(output: string): unknown {
     }
     start = output.indexOf("[", start + 1);
   }
-  throw new Error("npm pack --dry-run --json: no parseable JSON array found in output.");
+
+  // No balanced array: fall back to the first balanced OBJECT (npm error payloads
+  // surface as `{"error": ...}` with no files[]). A string-aware brace scan keeps
+  // this immune to trailing notices too.
+  const objStart = output.indexOf("{");
+  if (objStart >= 0) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = objStart; i < output.length; i++) {
+      const ch = output[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          try {
+            return { parsed: JSON.parse(output.slice(objStart, i + 1)), kind: "object" };
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return { parsed: null, kind: "none" };
+}
+
+function describeShape(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (Array.isArray(value)) return `array[len=${value.length}]`;
+  if (typeof value === "object") return `object{${Object.keys(value as object).join(",")}}`;
+  return typeof value;
 }
 
 function runPackDryRun(): any {
   const output = runNpm(["pack", "--dry-run", "--json", "--ignore-scripts"]);
 
-  const parsed = extractFirstJsonArray(output);
-  const packReport = Array.isArray(parsed) ? parsed[0] : null;
+  const { parsed, kind } = extractFirstJsonArray(output);
+  const packReport = Array.isArray(parsed)
+    ? parsed[0]
+    : parsed && typeof parsed === "object"
+      ? parsed
+      : null;
 
   if (!packReport || !Array.isArray(packReport.files)) {
-    throw new Error("npm pack --dry-run --json did not return the expected files[] payload.");
+    // Surface what npm ACTUALLY returned (truncated) so the next CI failure
+    // diagnoses itself instead of leaving us guessing the payload shape.
+    const preview = (() => {
+      try {
+        return JSON.stringify(parsed)?.slice(0, 400) ?? String(parsed).slice(0, 400);
+      } catch {
+        return String(parsed).slice(0, 400);
+      }
+    })();
+    throw new Error(
+      `npm pack --dry-run --json did not return the expected files[] payload. ` +
+        `topLevel=${kind} parsed=${describeShape(parsed)} preview=${preview}`
+    );
   }
 
   return packReport;
