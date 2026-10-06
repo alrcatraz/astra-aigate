@@ -35,7 +35,24 @@ const BOOT_DEADLINE_MS = 240_000;
 export function pickTarball(packJsonOutput) {
   const parsed = extractFirstJson(packJsonOutput);
   const record = findFilenameRecord(parsed);
-  if (!record?.filename) throw new Error("npm pack --json returned no filename");
+  if (!record?.filename) {
+    // Self-diagnose: dump what npm ACTUALLY emitted (shape + preview) so the
+    // next CI failure tells us the payload instead of repeating "no filename".
+    const preview = String(packJsonOutput).slice(0, 500);
+    const shape =
+      parsed === null
+        ? "null"
+        : Array.isArray(parsed)
+          ? `array[len=${parsed.length}]`
+          : typeof parsed;
+    const rec =
+      parsed && !Array.isArray(parsed) && typeof parsed === "object"
+        ? Object.keys(parsed).join(",")
+        : "";
+    throw new Error(
+      `npm pack --json returned no filename. parsed=${shape}${rec ? ` keys=[${rec}]` : ""} len=${String(packJsonOutput).length} preview=${JSON.stringify(preview)}`
+    );
+  }
   // npm >=9 may emit scoped names with "/" — normalize to the on-disk file name.
   return record.filename.replace(/\//g, "-");
 }
@@ -82,21 +99,30 @@ function firstJsonStart(s) {
   return i;
 }
 
-/** Locate the record carrying `filename`: wrapper[0], the object itself, or a nested `.files`. */
+/**
+ * Locate the record carrying `filename`. npm ships more than one top-level
+ * shape for `pack --json`:
+ *   - npm 11: `[{ filename, files, … }]`                     (array wrapper)
+ *   - npm 12: `{ "<pkg-name>": { filename, … } }`            (object keyed by name)
+ * so we probe every plausible place the record can live: the array's first
+ * object-bearing element, the object itself, and each of the object's own
+ * values (the npm-12 keyed form). Returns the first record that actually
+ * carries a string `filename`, else null (→ caller throws, contract intact).
+ */
 function findFilenameRecord(parsed) {
   if (Array.isArray(parsed)) {
     for (const el of parsed) {
-      if (el && typeof el === "object") {
-        if (typeof el.filename === "string") return el;
-        if (Array.isArray(el.files)) {
-          // a flat file-list record — synthesise the name from entryCount/path if present
-          return el;
-        }
-      }
+      if (el && typeof el === "object" && typeof el.filename === "string") return el;
     }
-    return parsed.find((el) => el && typeof el === "object") ?? null;
+    return null;
   }
-  if (parsed && typeof parsed === "object") return parsed;
+  if (parsed && typeof parsed === "object") {
+    if (typeof parsed.filename === "string") return parsed;
+    // npm 12 keyed form: descend into the value record(s).
+    for (const val of Object.values(parsed)) {
+      if (val && typeof val === "object" && typeof val.filename === "string") return val;
+    }
+  }
   return null;
 }
 
