@@ -7,6 +7,7 @@ import {
 } from "../../src/lib/combos/steps.ts";
 import { registerToolSearchTool } from "./toolSearch/register.ts";
 import { registerMcpAdminTools } from "./mcpAdminTools.ts";
+import { MCP_ALLOWED_SCOPES, MCP_ENFORCE_SCOPES } from "./httpAuthContext.ts";
 import {
   MCP_TOOLS,
   getHealthInput,
@@ -95,13 +96,6 @@ import { getMcpModelsCatalog } from "./catalog.ts";
 export { getMcpModelsCatalog } from "./catalog.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
-const MCP_ENFORCE_SCOPES = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES === "true";
-const MCP_ALLOWED_SCOPES = new Set(
-  (process.env.OMNIROUTE_MCP_SCOPES || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-);
 const TOTAL_MCP_TOOL_COUNT = countUniqueMcpTools({
   MCP_TOOLS,
   memoryTools,
@@ -117,78 +111,18 @@ const TOTAL_MCP_TOOL_COUNT = countUniqueMcpTools({
   compressionTools,
 });
 
-type JsonRecord = Record<string, unknown>;
-
-function readMcpDescriptionCompressionEnabled(): boolean {
-  try {
-    const row = getAsyncDb()
-      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-      .get("compression", "mcpDescriptionCompressionEnabled") as { value?: string } | undefined;
-    if (!row?.value) return true;
-    return JSON.parse(row.value) !== false;
-  } catch {
-    return true;
-  }
-}
-
-function readMcpAccessibilityConfig(): McpAccessibilityConfig {
-  try {
-    const row = getAsyncDb()
-      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-      .get("compression", "mcpAccessibility") as { value?: string } | undefined;
-    if (!row?.value) return { ...DEFAULT_MCP_ACCESSIBILITY_CONFIG };
-    // clampMcpAccessibilityConfig bounds every field (and folds in the non-object guard), so a
-    // persisted out-of-range maxTextChars can't make smartFilterText truncate the whole text.
-    return clampMcpAccessibilityConfig(JSON.parse(row.value));
-  } catch {
-    return { ...DEFAULT_MCP_ACCESSIBILITY_CONFIG };
-  }
-}
-
-type TextToolResult = {
-  content: Array<{ type: "text"; text: string }>;
-  isError?: boolean;
-};
-
-function toRecord(value: unknown): JsonRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
-}
-
-function toArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function toString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function toStringArray(value: unknown, fallback: string[] = []): string[] {
-  const values = toArray(value).filter((entry): entry is string => typeof entry === "string");
-  return values.length > 0 ? values : fallback;
-}
-
-function normalizeComboModels(
-  rawModels: unknown
-): Array<{ provider: string; model: string; priority: number }> {
-  return toArray(rawModels).map((rawModel, index) => {
-    const modelRecord = toRecord(rawModel);
-    const modelString = getComboModelString(rawModel);
-    const target = getComboStepTarget(rawModel);
-    const provider =
-      getComboModelProvider(rawModel) ||
-      (modelString ? "unknown" : target ? "combo" : toString(modelRecord.provider, "unknown"));
-
-    return {
-      provider,
-      model: modelString || target || toString(modelRecord.model, "unknown"),
-      priority: toNumber(modelRecord.priority, index + 1),
-    };
-  });
-}
+import {
+  JsonRecord,
+  readMcpDescriptionCompressionEnabled,
+  readMcpAccessibilityConfig,
+  TextToolResult,
+  toRecord,
+  toArray,
+  toString,
+  toNumber,
+  toStringArray,
+  normalizeComboModels,
+} from "./valueUtils.ts";
 
 function getOmniRouteApiKey(): string {
   return process.env.OMNIROUTE_API_KEY || "";
@@ -711,6 +645,40 @@ export function createMcpServer(domain: McpToolDomain = "all"): McpServer {
     }
     return registered;
   }) as typeof server.registerTool;
+
+  // Downstream (registered-endpoint) tools must NOT be subject to the local
+  // tool domain: an isolated endpoint sets domain "none" to hide AIGate's own
+  // builtins, but the tools forwarded FROM the downstream MCP server still have
+  // to be announced. `registerRawTool` keeps the compression/accessibility
+  // handler wrapping while SKIPPING the domain+profile disable, so a registered
+  // endpoint exposes exactly its downstream tool set and no builtins.
+  (server as McpServer & { registerRawTool: typeof server.registerTool }).registerRawTool = ((
+    name: string,
+    config: Record<string, unknown>,
+    handler: unknown
+  ) => {
+    const metadata = compressMcpRegistryMetadata(config, {
+      enabled: mcpDescriptionCompressionEnabled,
+    });
+    const filteredHandler = mcpAccessibilityConfig.enabled
+      ? async (args: unknown, extra?: unknown) => {
+          const result = await (handler as (a: unknown, e?: unknown) => Promise<TextToolResult>)(
+            args,
+            extra
+          );
+          if (Array.isArray(result?.content)) {
+            for (const block of result.content) {
+              if (block && block.type === "text" && typeof block.text === "string") {
+                block.text = smartFilterText(block.text, mcpAccessibilityConfig);
+              }
+            }
+          }
+          return result;
+        }
+      : handler;
+    return registerTool(name, metadata, filteredHandler as never);
+  }) as typeof server.registerTool;
+
   const registerPrompt = server.registerPrompt.bind(server);
   server.registerPrompt = ((name: string, config: Record<string, unknown>, handler: unknown) => {
     const metadata = compressMcpRegistryMetadata(config, {

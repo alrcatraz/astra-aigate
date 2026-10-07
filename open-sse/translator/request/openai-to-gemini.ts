@@ -182,7 +182,7 @@ export function mergeConsecutiveSameRoleContents(contents: GeminiContent[]): Gem
 }
 
 // Core: Convert OpenAI request to Gemini format (base for all variants)
-function openaiToGeminiBase(
+async function openaiToGeminiBase(
   model: string,
   body: Record<string, unknown>,
   stream: boolean,
@@ -219,7 +219,7 @@ function openaiToGeminiBase(
   if (body.stop !== undefined) {
     result.generationConfig.stopSequences = Array.isArray(body.stop) ? body.stop : [body.stop];
   }
-  const maxOutputTokens = capMaxOutputTokens(
+  const maxOutputTokens = await capMaxOutputTokens(
     model,
     (body.max_tokens ?? body.max_completion_tokens) as number | undefined
   );
@@ -243,11 +243,11 @@ function openaiToGeminiBase(
     // distinct from the no-knob-at-all default-injection case below (#4170).
     // Port of decolua/9router#2043 by @nguyenxvotanminh3.
     if (body.reasoning_effort) {
-      const highBudget = capThinkingBudget(model, 32768);
+      const highBudget = await capThinkingBudget(model, 32768);
       const budgetMap: Record<string, number> = {
         none: 0,
-        low: capThinkingBudget(model, 1024),
-        medium: capThinkingBudget(model, getDefaultThinkingBudget(model) || 8192),
+        low: await capThinkingBudget(model, 1024),
+        medium: await capThinkingBudget(model, getDefaultThinkingBudget(model) || 8192),
         high: highBudget,
         auto: highBudget,
         max: highBudget,
@@ -255,7 +255,7 @@ function openaiToGeminiBase(
       };
       const budget =
         budgetMap[body.reasoning_effort as string] ??
-        capThinkingBudget(model, getDefaultThinkingBudget(model) ?? 8192);
+        (await capThinkingBudget(model, getDefaultThinkingBudget(model) ?? 8192));
       // Always send thinkingConfig on this path — including for models with
       // thinkingBudgetCap:0 (e.g. gemini-3-flash), where the cap collapses the
       // requested budget down to 0. Omitting thinkingConfig entirely here regressed
@@ -276,7 +276,7 @@ function openaiToGeminiBase(
     if (thinking?.type === "enabled" && typeof thinking.budget_tokens === "number") {
       // typeof check ensures only numeric budget_tokens triggers thinking path;
       // non-numeric values (e.g. string "auto") fall through to the effort-based path.
-      const cappedBudget = capThinkingBudget(model, thinking.budget_tokens);
+      const cappedBudget = await capThinkingBudget(model, thinking.budget_tokens);
       // Only send thinkingConfig if the model supports thinking via budget.
       // Models with thinkingBudgetCap:0 (e.g. gemini-3-flash) reject
       // thinkingConfig even when capped to 0. The supportsThinking flag
@@ -316,7 +316,7 @@ function openaiToGeminiBase(
       getModelSpec(model)?.thinkingBudgetCap !== 0
     ) {
       result.generationConfig.thinkingConfig = {
-        thinkingBudget: getDefaultThinkingBudget(model) || capThinkingBudget(model, 24576),
+        thinkingBudget: getDefaultThinkingBudget(model) || (await capThinkingBudget(model, 24576)),
         includeThoughts: true,
       };
     }
@@ -644,7 +644,7 @@ function openaiToGeminiBase(
 }
 
 // OpenAI -> Gemini (standard API)
-export function openaiToGeminiRequest(
+export async function openaiToGeminiRequest(
   model: string,
   body: Record<string, unknown>,
   stream: boolean,
@@ -669,7 +669,7 @@ export function openaiToGeminiRequest(
 }
 
 // OpenAI -> Cloud Code Gemini payload used by Antigravity.
-export function openaiToCloudCodeGeminiRequest(
+export async function openaiToCloudCodeGeminiRequest(
   model: string,
   body: Record<string, unknown>,
   stream: boolean,
@@ -678,7 +678,7 @@ export function openaiToCloudCodeGeminiRequest(
     signaturelessToolCallMode?: "native" | "text" | "context";
   } = {}
 ) {
-  const request = openaiToGeminiBase(model, body, stream, {
+  const request = await openaiToGeminiBase(model, body, stream, {
     stripNamespace: true,
     signatureNamespace: options.signatureNamespace,
     signaturelessToolCallMode: options.signaturelessToolCallMode,
@@ -787,7 +787,7 @@ function getAntigravityClaudeOutputTokens(body: Record<string, unknown>): number
 }
 
 // OpenAI -> Antigravity (Sandbox Cloud Code with wrapper)
-export function openaiToAntigravityRequest(model, body, stream, credentials = null) {
+export async function openaiToAntigravityRequest(model, body, stream, credentials = null) {
   const isClaude = model.toLowerCase().includes("claude");
   // All modern Gemini models (2.5+, 3.x, pro-agent, etc.) use thinking by default
   // and require thought_signature for multi-turn tool calls.
@@ -805,7 +805,7 @@ export function openaiToAntigravityRequest(model, body, stream, credentials = nu
     typeof (credentials as Record<string, unknown>)._signatureNamespace === "string"
       ? ((credentials as Record<string, unknown>)._signatureNamespace as string)
       : null;
-  const cloudCodeRequest = openaiToCloudCodeGeminiRequest(model, body, stream, {
+  const cloudCodeRequest = await openaiToCloudCodeGeminiRequest(model, body, stream, {
     signatureNamespace,
     signaturelessToolCallMode: isThinkingGemini ? "context" : "native",
   });

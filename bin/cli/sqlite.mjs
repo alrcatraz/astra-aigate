@@ -176,17 +176,20 @@ export async function backupSqliteFile(sourcePath, destPath) {
 }
 
 export async function readDatabaseHealth(dbPath) {
-  return withReadonlySqlite(dbPath, (db) => {
-    const quickCheck = db.prepare("PRAGMA quick_check").get();
+  // The driver-cascade fallback (openWithSyncDriverFallback) returns the async
+  // adapter, whose prepare().get/.all resolve to Promises — the original
+  // better-sqlite3 handle is synchronous. `await` is a no-op on a synchronous
+  // value, so awaiting every read is safe on BOTH drivers.
+  return withReadonlySqlite(dbPath, async (db) => {
+    const quickCheck = await db.prepare("PRAGMA quick_check").get();
     const quickCheckValue = Object.values(quickCheck || {})[0];
-    const hasMigrationTable = !!db
+    const hasMigrationTable = !!(await db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get("_omniroute_migrations");
+      .get("_omniroute_migrations"));
     const appliedMigrationVersions = hasMigrationTable
-      ? db
-          .prepare("SELECT version FROM _omniroute_migrations")
-          .all()
-          .map((row) => row.version)
+      ? (await db.prepare("SELECT version FROM _omniroute_migrations").all()).map(
+          (row) => row.version
+        )
       : [];
 
     return { quickCheckValue, hasMigrationTable, appliedMigrationVersions };
@@ -194,15 +197,17 @@ export async function readDatabaseHealth(dbPath) {
 }
 
 export async function readEncryptedCredentialSamples(dbPath) {
-  return withReadonlySqlite(dbPath, (db) => {
-    const hasProviderTable = !!db
+  // See readDatabaseHealth: await keeps both the sync native handle and the
+  // async driver-cascade adapter working.
+  return withReadonlySqlite(dbPath, async (db) => {
+    const hasProviderTable = !!(await db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get("provider_connections");
+      .get("provider_connections"));
     if (!hasProviderTable) {
       return { hasProviderTable: false, encryptedValues: [] };
     }
 
-    const rows = db
+    const rows = await db
       .prepare(
         `SELECT api_key, access_token, refresh_token, id_token
          FROM provider_connections

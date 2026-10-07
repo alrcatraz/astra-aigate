@@ -13,7 +13,7 @@ const { FORMATS } = await import("../../open-sse/translator/formats.ts");
  * Fix: open-sse/handlers/chatCore.ts — removed stray translatedBody arg.
  */
 
-test("Claude passthrough: stream field must be a boolean (stream=true)", () => {
+test("Claude passthrough: stream field must be a boolean (stream=true)", async () => {
   const body = {
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
@@ -22,7 +22,7 @@ test("Claude passthrough: stream field must be a boolean (stream=true)", () => {
   };
 
   // Simulate the claude->openai->claude round-trip from chatCore passthrough
-  const openaiBody = translateRequest(
+  const openaiBody = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.OPENAI,
     body.model,
@@ -33,7 +33,7 @@ test("Claude passthrough: stream field must be a boolean (stream=true)", () => {
     null
   );
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     body.model,
@@ -48,7 +48,7 @@ test("Claude passthrough: stream field must be a boolean (stream=true)", () => {
   assert.equal(result.stream, true);
 });
 
-test("Claude passthrough: stream field must be a boolean (stream=false)", () => {
+test("Claude passthrough: stream field must be a boolean (stream=false)", async () => {
   const body = {
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
@@ -56,7 +56,7 @@ test("Claude passthrough: stream field must be a boolean (stream=false)", () => 
     messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
   };
 
-  const openaiBody = translateRequest(
+  const openaiBody = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.OPENAI,
     body.model,
@@ -67,7 +67,7 @@ test("Claude passthrough: stream field must be a boolean (stream=false)", () => 
     null
   );
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     body.model,
@@ -82,14 +82,14 @@ test("Claude passthrough: stream field must be a boolean (stream=false)", () => 
   assert.equal(result.stream, false);
 });
 
-test("Claude passthrough: passing an object as stream propagates invalid type (guard)", () => {
+test("Claude passthrough: passing an object as stream propagates invalid type (guard)", async () => {
   const body = {
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
     messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
   };
 
-  const openaiBody = translateRequest(
+  const openaiBody = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.OPENAI,
     body.model,
@@ -101,7 +101,7 @@ test("Claude passthrough: passing an object as stream propagates invalid type (g
   );
 
   // Simulate the old bug: passing openaiBody (an object) where stream should be
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     body.model,

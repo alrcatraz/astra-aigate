@@ -13,7 +13,7 @@ const { cacheReasoningByKey, clearReasoningCacheAll, getReasoningCacheServiceSta
 const { clearModelsDevCapabilities, saveModelsDevCapabilities } =
   await import("../../src/lib/modelsDevSync.ts");
 
-function buildCapability(overrides = {}) {
+async function buildCapability(overrides = {}) {
   return {
     tool_call: null,
     reasoning: null,
@@ -42,7 +42,7 @@ test.afterEach(() => {
   Math.random = originalMathRandom;
 });
 
-test("schemaCoercion recursively coerces schema numeric fields across object variants", () => {
+test("schemaCoercion recursively coerces schema numeric fields across object variants", async () => {
   const result = schemaCoercion.coerceSchemaNumericFields({
     minimum: "1",
     maxItems: "5",
@@ -102,7 +102,7 @@ test("schemaCoercion recursively coerces schema numeric fields across object var
   ]);
 });
 
-test("schemaCoercion sanitizes descriptions, tool schemas, tool ids and deepseek reasoning placeholders", () => {
+test("schemaCoercion sanitizes descriptions, tool schemas, tool ids and deepseek reasoning placeholders", async () => {
   const sanitizedOpenAI = schemaCoercion.sanitizeToolDescription({
     type: "function",
     function: { name: "weather", description: 42 },
@@ -177,7 +177,7 @@ test("schemaCoercion sanitizes descriptions, tool schemas, tool ids and deepseek
   );
 });
 
-test("openaiHelper filters content, normalizes tools and removes OpenAI-incompatible fields", () => {
+test("openaiHelper filters content, normalizes tools and removes OpenAI-incompatible fields", async () => {
   const body = {
     messages: [
       { role: "tool", content: "" },
@@ -235,7 +235,7 @@ test("openaiHelper filters content, normalizes tools and removes OpenAI-incompat
   assert.equal("anthropic_version" in result, false);
 });
 
-test("openaiHelper keeps unmatched tool choices and deletes empty tools arrays", () => {
+test("openaiHelper keeps unmatched tool choices and deletes empty tools arrays", async () => {
   const autoChoice = openaiHelper.filterToOpenAIFormat({
     messages: [{ role: "assistant", content: "" }],
     tools: [],
@@ -256,7 +256,7 @@ test("openaiHelper keeps unmatched tool choices and deletes empty tools arrays",
   });
 });
 
-test("claudeHelper validates content, ordering and request preparation branches", () => {
+test("claudeHelper validates content, ordering and request preparation branches", async () => {
   assert.equal(claudeHelper.hasValidContent({ content: " hello " }), true);
   assert.equal(claudeHelper.hasValidContent({ content: [{ type: "tool_use", id: "call" }] }), true);
   assert.equal(claudeHelper.hasValidContent({ content: [{ type: "text", text: "   " }] }), false);
@@ -414,7 +414,7 @@ test("claudeHelper validates content, ordering and request preparation branches"
   assert.deepEqual(preserved.tools[0].cache_control, { type: "ephemeral" });
 });
 
-test("geminiHelper converts content, safely parses JSON and cleans complex schemas", () => {
+test("geminiHelper converts content, safely parses JSON and cleans complex schemas", async () => {
   assert.deepEqual(geminiHelper.convertOpenAIContentToParts("hello"), [{ text: "hello" }]);
   assert.deepEqual(
     geminiHelper.convertOpenAIContentToParts([
@@ -480,7 +480,7 @@ test("geminiHelper converts content, safely parses JSON and cleans complex schem
   assert.equal(placeholder.properties.reason.type, "string");
 });
 
-test("toolCallHelper normalizes ids, links tool responses and inserts missing tool results", () => {
+test("toolCallHelper normalizes ids, links tool responses and inserts missing tool results", async () => {
   let randomCalls = 0;
   Math.random = () => ((randomCalls++ % 50) + 1) / 100;
 
@@ -552,7 +552,7 @@ test("toolCallHelper normalizes ids, links tool responses and inserts missing to
   assert.deepEqual(toolCallHelper.fixMissingToolResponses({ messages: null }), { messages: null });
 });
 
-test("fixMissingToolResponses inserts Claude tool_result block when assistant uses Claude shape", () => {
+test("fixMissingToolResponses inserts Claude tool_result block when assistant uses Claude shape", async () => {
   const fixed = toolCallHelper.fixMissingToolResponses({
     messages: [
       { role: "user", content: [{ type: "text", text: "do it" }] },
@@ -578,7 +578,7 @@ test("fixMissingToolResponses inserts Claude tool_result block when assistant us
   assert.equal(inserted.content[1].tool_use_id, "tool_b");
 });
 
-test("fixMissingToolResponses keeps OpenAI role:tool when assistant uses OpenAI tool_calls", () => {
+test("fixMissingToolResponses keeps OpenAI role:tool when assistant uses OpenAI tool_calls", async () => {
   const fixed = toolCallHelper.fixMissingToolResponses({
     messages: [
       {
@@ -599,7 +599,7 @@ test("fixMissingToolResponses keeps OpenAI role:tool when assistant uses OpenAI 
   assert.equal(fixed.messages[2].tool_call_id, "call_b");
 });
 
-test("fallbackToolCallId returns the right id shape with and without an index", () => {
+test("fallbackToolCallId returns the right id shape with and without an index", async () => {
   const noIndex = toolCallHelper.fallbackToolCallId();
   assert.match(
     noIndex,
@@ -624,7 +624,7 @@ test("translateRequest replays cached reasoning-only messages when interleaved f
   await clearModelsDevCapabilities();
   await saveModelsDevCapabilities({
     deepseek: {
-      "deepseek-v4-flash": buildCapability({
+      "deepseek-v4-flash": await buildCapability({
         interleaved_field: "reasoning_content",
         reasoning: true,
         tool_call: true,
@@ -638,7 +638,7 @@ test("translateRequest replays cached reasoning-only messages when interleaved f
     "cached reasoning only"
   );
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "deepseek-v4-flash",
@@ -660,7 +660,7 @@ test("translateRequest replays cached reasoning-only messages when interleaved f
   clearReasoningCacheAll();
 });
 
-test("translateRequest does not replay reasoning-only messages for non-DeepSeek models", () => {
+test("translateRequest does not replay reasoning-only messages for non-DeepSeek models", async () => {
   clearReasoningCacheAll();
   cacheReasoningByKey(
     "request:req_kimi_reasoning_only:message:0",
@@ -669,7 +669,7 @@ test("translateRequest does not replay reasoning-only messages for non-DeepSeek 
     "cached kimi reasoning"
   );
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "kimi-k2.6",
@@ -690,7 +690,7 @@ test("translateRequest does not replay reasoning-only messages for non-DeepSeek 
   clearReasoningCacheAll();
 });
 
-test("translateRequest uses Kimi Coding's empty thinking marker instead of cached replay", () => {
+test("translateRequest uses Kimi Coding's empty thinking marker instead of cached replay", async () => {
   clearReasoningCacheAll();
   cacheReasoningByKey(
     "toolu_kimi_claude",
@@ -701,7 +701,7 @@ test("translateRequest uses Kimi Coding's empty thinking marker instead of cache
 
   // Claude-format request: assistant has tool_use in content[] but NO thinking block
   // This simulates the scenario that causes infinite loops
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     "kimi-for-coding",
@@ -746,10 +746,10 @@ test("translateRequest uses Kimi Coding's empty thinking marker instead of cache
   clearReasoningCacheAll();
 });
 
-test("translateRequest uses an empty Kimi Coding thinking marker on cache miss", () => {
+test("translateRequest uses an empty Kimi Coding thinking marker on cache miss", async () => {
   clearReasoningCacheAll();
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     "kimi-for-coding",
@@ -780,10 +780,10 @@ test("translateRequest uses an empty Kimi Coding thinking marker on cache miss",
   clearReasoningCacheAll();
 });
 
-test("translateRequest does NOT inject duplicate thinking for Claude-format messages with existing thinking block", () => {
+test("translateRequest does NOT inject duplicate thinking for Claude-format messages with existing thinking block", async () => {
   clearReasoningCacheAll();
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     "kimi-for-coding",

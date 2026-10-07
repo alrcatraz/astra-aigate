@@ -12,7 +12,7 @@ async function importFresh(modulePath) {
   return import(`${url}?test=${Date.now()}-${Math.random().toString(16).slice(2)}`);
 }
 
-function withMockedMigrationFs(files, fn) {
+async function withMockedMigrationFs(files, fn) {
   const originalExistsSync = fs.existsSync;
   const originalReaddirSync = fs.readdirSync;
   const originalReadFileSync = fs.readFileSync;
@@ -49,7 +49,7 @@ function withMockedMigrationFs(files, fn) {
   };
 
   try {
-    return fn();
+    return await fn();
   } finally {
     fs.existsSync = originalExistsSync;
     fs.readdirSync = originalReaddirSync;
@@ -57,12 +57,13 @@ function withMockedMigrationFs(files, fn) {
   }
 }
 
-function createDb() {
-  return new Database(":memory:");
+async function createDb() {
+  const core = await import("../../src/lib/db/core.ts");
+  return core.sqliteAsyncAdapter(new Database(":memory:"));
 }
 
-function createSqlJsLikeDb() {
-  const db = createDb();
+async function createSqlJsLikeDb() {
+  const db = await createDb();
 
   return {
     driver: "sql.js",
@@ -75,26 +76,25 @@ function createSqlJsLikeDb() {
     prepare(sql) {
       return db.prepare(sql);
     },
-    exec(sql) {
+    async exec(sql) {
       if (/fts5/i.test(sql)) {
         throw new Error("no such module: fts5");
       }
-      db.exec(sql);
+      await db.exec(sql);
     },
-    pragma(pragmaStr, options) {
-      return db.pragma(pragmaStr, options);
+    async pragma(pragmaStr, options) {
+      return await db.pragma(pragmaStr, options);
     },
     transaction(fn) {
-      const tx = db.transaction((...args) => fn(...args));
-      return (...args) => tx(...args);
+      return db.transaction((...args) => fn(...args));
     },
-    immediate(fn) {
-      fn();
+    async immediate(fn) {
+      await fn();
     },
     async backup() {},
-    checkpoint() {},
-    close() {
-      db.close();
+    async checkpoint() {},
+    async close() {
+      await db.close();
     },
     get raw() {
       return db;
@@ -102,8 +102,8 @@ function createSqlJsLikeDb() {
   };
 }
 
-function createInitialSchemaTables(db) {
-  db.exec(`
+async function createInitialSchemaTables(db) {
+  await db.exec(`
     CREATE TABLE provider_connections (id TEXT PRIMARY KEY);
     CREATE TABLE combos (id TEXT PRIMARY KEY);
     CREATE TABLE call_logs (id TEXT PRIMARY KEY);
@@ -122,7 +122,7 @@ function buildMockMigrationFiles(startVersion, endVersion, prefix) {
   return files;
 }
 
-function withNonTestEnvironment(fn) {
+async function withNonTestEnvironment(fn) {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalVitest = process.env.VITEST;
   const originalDisableAutoBackup = process.env.DISABLE_SQLITE_AUTO_BACKUP;
@@ -141,7 +141,7 @@ function withNonTestEnvironment(fn) {
   process.execArgv = process.execArgv.filter((arg) => !arg.includes("test"));
 
   try {
-    return fn();
+    return await fn();
   } finally {
     process.argv = originalArgv;
     process.execArgv = originalExecArgv;
@@ -167,22 +167,22 @@ const REAL_023_FIX_MEMORY_FTS_UUID_SQL = fs.readFileSync(
 );
 
 test("migration infrastructure avoids cwd-based repo tracing fallbacks", () => {
-  const runnerSource = fs.readFileSync(path.resolve("src/lib/db/migrationRunner.ts"), "utf8");
+  const discoverySource = fs.readFileSync(path.resolve("src/lib/db/migrationDiscovery.ts"), "utf8");
   const dataPathsSource = fs.readFileSync(path.resolve("src/lib/dataPaths.ts"), "utf8");
 
   // dataPaths must never use process.cwd() — it resolves via import.meta.url
   assert.doesNotMatch(dataPathsSource, /process\.cwd\(\)/);
-  // migrationRunner uses import.meta.url as the primary strategy (process.cwd is
-  // only a last-resort fallback for Windows/CI-built bundles with leaked paths)
-  assert.match(runnerSource, /fileURLToPath\(import\.meta\.url\)/);
+  // dir resolution lives in migrationDiscovery.ts (import.meta.url primary,
+  // process.cwd only as last-resort fallback for Windows/CI bundles)
+  assert.match(discoverySource, /fileURLToPath\(import\.meta\.url\)/);
 });
 
 test("runMigrations applies pending files sequentially in version order", serial, async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const db = createDb();
+  const db = await createDb();
 
   try {
-    const appliedCount = withMockedMigrationFs(
+    const appliedCount = await withMockedMigrationFs(
       {
         "010_last.sql": "CREATE TABLE migration_last (id INTEGER);",
         "002_middle.sql": "CREATE TABLE migration_middle (id INTEGER);",
@@ -193,30 +193,30 @@ test("runMigrations applies pending files sequentially in version order", serial
 
     assert.equal(appliedCount, 3);
     assert.deepEqual(
-      db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
+      await db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
       [{ version: "001" }, { version: "002" }, { version: "010" }]
     );
     assert.ok(
-      db
+      await db
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get("migration_first")
     );
     assert.ok(
-      db
+      await db
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get("migration_last")
     );
   } finally {
-    db.close();
+    await db.close();
   }
 });
 
 test("runMigrations skips versions that are already tracked as applied", serial, async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const db = createDb();
+  const db = await createDb();
 
   try {
-    withMockedMigrationFs(
+    await withMockedMigrationFs(
       {
         "001_first.sql": "CREATE TABLE skip_first (id INTEGER);",
         "002_second.sql": "CREATE TABLE skip_second (id INTEGER);",
@@ -224,7 +224,7 @@ test("runMigrations skips versions that are already tracked as applied", serial,
       () => runner.runMigrations(db)
     );
 
-    const secondRun = withMockedMigrationFs(
+    const secondRun = await withMockedMigrationFs(
       {
         "001_first.sql": "CREATE TABLE skip_first (id INTEGER);",
         "002_second.sql": "CREATE TABLE skip_second (id INTEGER);",
@@ -235,22 +235,22 @@ test("runMigrations skips versions that are already tracked as applied", serial,
     assert.equal(secondRun, 0);
     assert.equal(
       (
-        db
+        (await db
           .prepare("SELECT COUNT(*) AS count FROM _omniroute_migrations WHERE version = ?")
-          .get("001") as any
+          .get("001")) as any
       ).count,
       1
     );
     assert.equal(
       (
-        db
+        (await db
           .prepare("SELECT COUNT(*) AS count FROM _omniroute_migrations WHERE version = ?")
-          .get("002") as any
+          .get("002")) as any
       ).count,
       1
     );
   } finally {
-    db.close();
+    await db.close();
   }
 });
 
@@ -259,10 +259,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
       CREATE TABLE api_keys (
         id TEXT PRIMARY KEY,
         key TEXT NOT NULL,
@@ -270,7 +270,7 @@ test(
       );
     `);
 
-      const appliedCount = withMockedMigrationFs(
+      const appliedCount = await withMockedMigrationFs(
         {
           "032_apikey_lifecycle.sql": "ALTER TABLE api_keys ADD COLUMN revoked_at TEXT;",
         },
@@ -278,7 +278,9 @@ test(
       );
 
       assert.equal(appliedCount, 1);
-      const columns = db.prepare("PRAGMA table_info(api_keys)").all() as Array<{ name: string }>;
+      const columns = (await db.prepare("PRAGMA table_info(api_keys)").all()) as Array<{
+        name: string;
+      }>;
       const names = new Set(columns.map((column) => column.name));
       for (const expected of [
         "revoked_at",
@@ -291,11 +293,13 @@ test(
         assert.equal(names.has(expected), true, `${expected} should exist`);
       }
       assert.deepEqual(
-        db.prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?").get("032"),
+        await db
+          .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?")
+          .get("032"),
         { version: "032", name: "apikey_lifecycle" }
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -305,17 +309,17 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
       CREATE TABLE api_keys (
         id TEXT PRIMARY KEY,
         key TEXT NOT NULL
       );
     `);
 
-      const appliedCount = withMockedMigrationFs(
+      const appliedCount = await withMockedMigrationFs(
         {
           "032_renamed_lifecycle_patch.sql": "ALTER TABLE api_keys ADD COLUMN should_not_run TEXT;",
         },
@@ -323,39 +327,42 @@ test(
       );
 
       assert.equal(appliedCount, 1);
-      const columns = db.prepare("PRAGMA table_info(api_keys)").all() as Array<{ name: string }>;
+      const columns = (await db.prepare("PRAGMA table_info(api_keys)").all()) as Array<{
+        name: string;
+      }>;
       const names = new Set(columns.map((column) => column.name));
       assert.equal(names.has("revoked_at"), true);
       assert.equal(names.has("expires_at"), true);
       assert.equal(names.has("should_not_run"), false);
       assert.deepEqual(
-        db.prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?").get("032"),
+        await db
+          .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?")
+          .get("032"),
         { version: "032", name: "renamed_lifecycle_patch" }
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
 
 test("getMigrationStatus reports applied and pending migrations", serial, async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const db = createDb();
+  const db = await createDb();
 
   try {
-    db.exec(`
+    await db.exec(`
       CREATE TABLE _omniroute_migrations (
         version TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         applied_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
-    db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-      "001",
-      "first"
-    );
+    await db
+      .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+      .run("001", "first");
 
-    const status = withMockedMigrationFs(
+    const status = await withMockedMigrationFs(
       {
         "001_first.sql": "CREATE TABLE status_first (id INTEGER);",
         "002_second.sql": "CREATE TABLE status_second (id INTEGER);",
@@ -373,7 +380,7 @@ test("getMigrationStatus reports applied and pending migrations", serial, async 
       ["002", "003"]
     );
   } finally {
-    db.close();
+    await db.close();
   }
 });
 
@@ -382,80 +389,70 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      assert.throws(
-        () =>
-          withMockedMigrationFs(
-            {
-              "001_ok.sql": "CREATE TABLE rollback_ok (id INTEGER);",
-              "002_broken.sql":
-                "CREATE TABLE rollback_broken (id INTEGER); INSERT INTO missing_table VALUES (1);",
-            },
-            () => runner.runMigrations(db)
-          ),
+      await assert.rejects(
+        withMockedMigrationFs(
+          {
+            "001_ok.sql": "CREATE TABLE rollback_ok (id INTEGER);",
+            "002_broken.sql":
+              "CREATE TABLE rollback_broken (id INTEGER); INSERT INTO missing_table VALUES (1);",
+          },
+          () => runner.runMigrations(db)
+        ),
         /missing_table/i
       );
 
       assert.ok(
-        db
+        await db
           .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
           .get("rollback_ok")
       );
       assert.equal(
-        db
+        await db
           .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
           .get("rollback_broken"),
         undefined
       );
       assert.equal(
         (
-          db
+          (await db
             .prepare("SELECT COUNT(*) AS count FROM _omniroute_migrations WHERE version = ?")
-            .get("002") as any
+            .get("002")) as any
         ).count,
         0
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
 
 test("missing or empty migration directories are treated as a no-op", serial, async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const missingDb = createDb();
-  const emptyDb = createDb();
+  const missingDb = await createDb();
+  const emptyDb = await createDb();
 
   try {
-    assert.equal(
-      withMockedMigrationFs(null, () => runner.runMigrations(missingDb)),
-      0
-    );
-    assert.equal(
-      withMockedMigrationFs({}, () => runner.runMigrations(emptyDb)),
-      0
-    );
-    assert.deepEqual(
-      withMockedMigrationFs({}, () => runner.getMigrationStatus(emptyDb)),
-      {
-        applied: [],
-        pending: [],
-      }
-    );
+    assert.equal(await withMockedMigrationFs(null, () => runner.runMigrations(missingDb)), 0);
+    assert.equal(await withMockedMigrationFs({}, () => runner.runMigrations(emptyDb)), 0);
+    assert.deepEqual(await withMockedMigrationFs({}, () => runner.getMigrationStatus(emptyDb)), {
+      applied: [],
+      pending: [],
+    });
   } finally {
-    missingDb.close();
-    emptyDb.close();
+    await missingDb.close();
+    await emptyDb.close();
   }
 });
 
 test("invalid file names are ignored while valid migrations still run", serial, async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const db = createDb();
+  const db = await createDb();
 
   try {
-    const count = withMockedMigrationFs(
+    const count = await withMockedMigrationFs(
       {
         "README.md": "# ignored",
         "not-a-migration.sql": "CREATE TABLE should_not_exist (id INTEGER);",
@@ -466,17 +463,17 @@ test("invalid file names are ignored while valid migrations still run", serial, 
 
     assert.equal(count, 1);
     assert.deepEqual(
-      db.prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version").all(),
+      await db.prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version").all(),
       [{ version: "003", name: "valid" }]
     );
     assert.equal(
-      db
+      await db
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
         .get("should_not_exist"),
       undefined
     );
   } finally {
-    db.close();
+    await db.close();
   }
 });
 
@@ -485,10 +482,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      withMockedMigrationFs(
+      await withMockedMigrationFs(
         {
           "001_first.sql": "CREATE TABLE rerun_first (id INTEGER);",
           "002_second.sql": "CREATE TABLE rerun_second (id INTEGER);",
@@ -496,7 +493,7 @@ test(
         () => runner.runMigrations(db)
       );
 
-      const count = withMockedMigrationFs(
+      const count = await withMockedMigrationFs(
         {
           "001_first.sql": "CREATE TABLE rerun_first (id INTEGER);",
           "002_second.sql": "CREATE TABLE rerun_second (id INTEGER);",
@@ -507,11 +504,11 @@ test(
 
       assert.equal(count, 1);
       assert.deepEqual(
-        db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
+        await db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
         [{ version: "001" }, { version: "002" }, { version: "003" }]
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -521,22 +518,21 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
       CREATE TABLE _omniroute_migrations (
         version TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         applied_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "999",
-        "ghost"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("999", "ghost");
 
-      const count = withMockedMigrationFs(
+      const count = await withMockedMigrationFs(
         {
           "001_first.sql": "CREATE TABLE recover_first (id INTEGER);",
           "002_second.sql": "CREATE TABLE recover_second (id INTEGER);",
@@ -546,11 +542,11 @@ test(
 
       assert.equal(count, 2);
       assert.deepEqual(
-        db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
+        await db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
         [{ version: "001" }, { version: "002" }, { version: "999" }]
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -560,10 +556,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
       CREATE TABLE _omniroute_migrations (
         version TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -583,23 +579,24 @@ test(
         expires_at TEXT
       );
     `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "021",
-        "combo_call_log_targets"
-      );
-      db.prepare(
-        "INSERT INTO memories (id, api_key_id, session_id, type, key, content, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)"
-      ).run(
-        "550e8400-e29b-41d4-a716-446655440000",
-        "key-1",
-        "session-1",
-        "factual",
-        "topic",
-        "memory content",
-        "{}"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("021", "combo_call_log_targets");
+      await db
+        .prepare(
+          "INSERT INTO memories (id, api_key_id, session_id, type, key, content, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .run(
+          "550e8400-e29b-41d4-a716-446655440000",
+          "key-1",
+          "session-1",
+          "factual",
+          "topic",
+          "memory content",
+          "{}"
+        );
 
-      const count = withMockedMigrationFs(
+      const count = await withMockedMigrationFs(
         {
           "022_add_memory_fts5.sql": REAL_022_ADD_MEMORY_FTS5_SQL,
           "023_fix_memory_fts_uuid.sql": REAL_023_FIX_MEMORY_FTS_UUID_SQL,
@@ -609,20 +606,20 @@ test(
 
       assert.equal(count, 2);
       assert.deepEqual(
-        db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
+        await db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
         [{ version: "021" }, { version: "022" }, { version: "023" }]
       );
-      assert.deepEqual(db.prepare("SELECT memory_id, content FROM memories").get(), {
+      assert.deepEqual(await db.prepare("SELECT memory_id, content FROM memories").get(), {
         memory_id: 1,
         content: "memory content",
       });
-      assert.deepEqual(db.prepare("SELECT rowid, content, key FROM memory_fts").get(), {
+      assert.deepEqual(await db.prepare("SELECT rowid, content, key FROM memory_fts").get(), {
         rowid: 1,
         content: "memory content",
         key: "topic",
       });
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -632,10 +629,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createSqlJsLikeDb();
+    const db = await createSqlJsLikeDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -655,12 +652,11 @@ test(
           expires_at TEXT
         );
       `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "021",
-        "combo_call_log_targets"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("021", "combo_call_log_targets");
 
-      const count = withMockedMigrationFs(
+      const count = await withMockedMigrationFs(
         {
           "022_add_memory_fts5.sql": REAL_022_ADD_MEMORY_FTS5_SQL,
           "023_fix_memory_fts_uuid.sql": REAL_023_FIX_MEMORY_FTS_UUID_SQL,
@@ -671,17 +667,15 @@ test(
 
       assert.equal(count, 1);
       assert.deepEqual(
-        db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
+        await db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
         [{ version: "021" }, { version: "024" }]
       );
-      assert.equal(
-        db
-          .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = ?")
-          .get("memory_fts").count,
-        0
-      );
+      const ftsCount = (await db
+        .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get("memory_fts")) as { count: number };
+      assert.equal(ftsCount.count, 0);
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -691,31 +685,31 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      createInitialSchemaTables(db);
-      db.exec(`
+      await createInitialSchemaTables(db);
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           applied_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
       `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "001",
-        "initial_schema"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("001", "initial_schema");
 
-      const count = withNonTestEnvironment(() =>
-        withMockedMigrationFs(buildMockMigrationFiles(1, 7, "legacy_allow"), () =>
-          runner.runMigrations(db)
-        )
+      const count = await withNonTestEnvironment(
+        async () =>
+          await withMockedMigrationFs(buildMockMigrationFiles(1, 7, "legacy_allow"), () =>
+            runner.runMigrations(db)
+          )
       );
 
       assert.equal(count, 6);
       assert.deepEqual(
-        db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
+        await db.prepare("SELECT version FROM _omniroute_migrations ORDER BY version").all(),
         [
           { version: "001" },
           { version: "002" },
@@ -727,7 +721,7 @@ test(
         ]
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -737,11 +731,11 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      createInitialSchemaTables(db);
-      db.exec(`
+      await createInitialSchemaTables(db);
+      await db.exec(`
         CREATE TABLE request_detail_logs (id TEXT PRIMARY KEY);
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
@@ -749,22 +743,21 @@ test(
           applied_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
       `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "001",
-        "initial_schema"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("001", "initial_schema");
 
-      assert.throws(
-        () =>
-          withNonTestEnvironment(() =>
-            withMockedMigrationFs(buildMockMigrationFiles(1, 60, "legacy_abort"), () =>
+      await assert.rejects(
+        withNonTestEnvironment(
+          async () =>
+            await withMockedMigrationFs(buildMockMigrationFiles(1, 60, "legacy_abort"), () =>
               runner.runMigrations(db)
             )
-          ),
+        ),
         /Physical schema already shows 006/i
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -774,10 +767,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -785,10 +778,9 @@ test(
         );
       `);
       // Simulate a DB where compression_settings was applied at version 028
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "028",
-        "compression_settings"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("028", "compression_settings");
 
       // Disk has compression_settings at 034 (current location) and create_files_and_batches at 028
       const consoleErrors: string[] = [];
@@ -798,7 +790,7 @@ test(
       };
 
       try {
-        withMockedMigrationFs(
+        await withMockedMigrationFs(
           {
             "028_create_files_and_batches.sql":
               "CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY);",
@@ -809,12 +801,12 @@ test(
         );
 
         // The reconcile should have moved 028/compression_settings → 034/compression_settings
-        const row028 = db
+        const row028 = (await db
           .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?")
-          .get("028") as { version: string; name: string } | undefined;
-        const row034 = db
+          .get("028")) as { version: string; name: string } | undefined;
+        const row034 = (await db
           .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?")
-          .get("034") as { version: string; name: string } | undefined;
+          .get("034")) as { version: string; name: string } | undefined;
 
         // After reconciliation, 028 should be free (or have create_files_and_batches)
         // and 034 should have compression_settings
@@ -833,7 +825,7 @@ test(
         console.error = originalError;
       }
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -843,10 +835,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -854,10 +846,9 @@ test(
         );
       `);
       // Simulate DB where compression_analytics was applied at version 032
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "032",
-        "compression_analytics"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("032", "compression_analytics");
 
       const consoleErrors: string[] = [];
       const originalError = console.error;
@@ -866,13 +857,13 @@ test(
       };
 
       try {
-        db.exec(`
+        await db.exec(`
           CREATE TABLE api_keys (
             id TEXT PRIMARY KEY,
             key TEXT NOT NULL
           );
         `);
-        withMockedMigrationFs(
+        await withMockedMigrationFs(
           {
             "032_apikey_lifecycle.sql": "ALTER TABLE api_keys ADD COLUMN revoked_at TEXT;",
             "038_compression_analytics.sql":
@@ -881,9 +872,9 @@ test(
           () => runner.runMigrations(db)
         );
 
-        const row038 = db
+        const row038 = (await db
           .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?")
-          .get("038") as { version: string; name: string } | undefined;
+          .get("038")) as { version: string; name: string } | undefined;
 
         assert.equal(row038?.name, "compression_analytics");
 
@@ -899,7 +890,7 @@ test(
         console.error = originalError;
       }
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -909,10 +900,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -920,10 +911,9 @@ test(
         );
       `);
       // Simulate DB where compression_cache_stats was applied at version 033
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "033",
-        "compression_cache_stats"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("033", "compression_cache_stats");
 
       const consoleErrors: string[] = [];
       const originalError = console.error;
@@ -932,7 +922,7 @@ test(
       };
 
       try {
-        withMockedMigrationFs(
+        await withMockedMigrationFs(
           {
             "033_create_reasoning_cache.sql":
               "CREATE TABLE IF NOT EXISTS reasoning_cache (id TEXT PRIMARY KEY);",
@@ -942,9 +932,9 @@ test(
           () => runner.runMigrations(db)
         );
 
-        const row039 = db
+        const row039 = (await db
           .prepare("SELECT version, name FROM _omniroute_migrations WHERE version = ?")
-          .get("039") as { version: string; name: string } | undefined;
+          .get("039")) as { version: string; name: string } | undefined;
 
         assert.equal(row039?.name, "compression_cache_stats");
 
@@ -960,7 +950,7 @@ test(
         console.error = originalError;
       }
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -970,10 +960,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      const count = withMockedMigrationFs(
+      const count = await withMockedMigrationFs(
         {
           "038_compression_analytics.sql": `
             CREATE TABLE compression_analytics (
@@ -1001,15 +991,17 @@ test(
 
       assert.equal(count, 3);
       assert.equal(
-        db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("041")?.name,
+        (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("041"))
+          ?.name,
         "compression_receipts"
       );
       assert.equal(
-        db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("050")?.name,
+        (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("050"))
+          ?.name,
         "session_account_affinity"
       );
       assert.deepEqual(
-        db
+        await db
           .prepare(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (?, ?) ORDER BY name"
           )
@@ -1017,7 +1009,7 @@ test(
         [{ name: "session_account_affinity" }]
       );
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -1027,10 +1019,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -1041,10 +1033,9 @@ test(
           request_id TEXT
         );
       `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "041",
-        "session_account_affinity"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("041", "session_account_affinity");
 
       const consoleErrors: string[] = [];
       const originalError = console.error;
@@ -1053,7 +1044,7 @@ test(
       };
 
       try {
-        const count = withMockedMigrationFs(
+        const count = await withMockedMigrationFs(
           {
             "041_compression_receipts.sql": "-- handled by migrationRunner",
             "041_session_account_affinity.sql": `
@@ -1075,11 +1066,13 @@ test(
 
         assert.equal(count, 1);
         assert.equal(
-          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("041")?.name,
+          (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("041"))
+            ?.name,
           "compression_receipts"
         );
         assert.equal(
-          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("050")?.name,
+          (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("050"))
+            ?.name,
           "session_account_affinity"
         );
 
@@ -1095,7 +1088,7 @@ test(
         console.error = originalError;
       }
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -1105,20 +1098,19 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           applied_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
       `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "056",
-        "manifest_routing"
-      );
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("056", "manifest_routing");
 
       const consoleErrors: string[] = [];
       const originalError = console.error;
@@ -1127,7 +1119,7 @@ test(
       };
 
       try {
-        withMockedMigrationFs(
+        await withMockedMigrationFs(
           {
             "056_mcp_accessibility_compression.sql":
               "CREATE TABLE IF NOT EXISTS mcp_accessibility_compression (id TEXT PRIMARY KEY);",
@@ -1138,11 +1130,13 @@ test(
         );
 
         assert.equal(
-          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("056")?.name,
+          (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("056"))
+            ?.name,
           "mcp_accessibility_compression"
         );
         assert.equal(
-          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("059")?.name,
+          (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("059"))
+            ?.name,
           "manifest_routing"
         );
 
@@ -1158,7 +1152,7 @@ test(
         console.error = originalError;
       }
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -1168,21 +1162,20 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           applied_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
       `);
-      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-        "051",
-        "usage_history_service_tier"
-      );
-      db.exec(`
+      await db
+        .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+        .run("051", "usage_history_service_tier");
+      await db.exec(`
         CREATE TABLE usage_history (
           id TEXT PRIMARY KEY,
           api_key_id TEXT,
@@ -1197,7 +1190,7 @@ test(
       };
 
       try {
-        withMockedMigrationFs(
+        await withMockedMigrationFs(
           {
             "051_hot_path_db_indexes.sql":
               "CREATE INDEX IF NOT EXISTS idx_usage_history_api_key_id_timestamp ON usage_history(api_key_id, timestamp);",
@@ -1208,11 +1201,13 @@ test(
         );
 
         assert.equal(
-          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("051")?.name,
+          (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("051"))
+            ?.name,
           "hot_path_db_indexes"
         );
         assert.equal(
-          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("054")?.name,
+          (await db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("054"))
+            ?.name,
           "usage_history_service_tier"
         );
 
@@ -1228,7 +1223,7 @@ test(
         console.error = originalError;
       }
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -1238,10 +1233,10 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
 
     try {
-      db.exec(`
+      await db.exec(`
         CREATE TABLE _omniroute_migrations (
           version TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -1259,7 +1254,9 @@ test(
         ["056", "manifest_routing"],
       ] as const;
       for (const [v, n] of oldMigrations) {
-        db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(v, n);
+        await db
+          .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+          .run(v, n);
       }
 
       // Disk has the current migration file layout
@@ -1270,7 +1267,7 @@ test(
       };
 
       try {
-        db.exec(`
+        await db.exec(`
           CREATE TABLE api_keys (
             id TEXT PRIMARY KEY,
             key TEXT NOT NULL
@@ -1281,7 +1278,7 @@ test(
             timestamp TEXT
           );
         `);
-        withMockedMigrationFs(
+        await withMockedMigrationFs(
           {
             "027_skill_mode_and_metadata.sql":
               "CREATE TABLE IF NOT EXISTS skill_meta (id TEXT PRIMARY KEY);",
@@ -1321,27 +1318,27 @@ test(
         );
 
         // Verify the reconciled entries
-        const row034 = db
+        const row034 = (await db
           .prepare("SELECT name FROM _omniroute_migrations WHERE version = ?")
-          .get("034") as { name: string } | undefined;
-        const row038 = db
+          .get("034")) as { name: string } | undefined;
+        const row038 = (await db
           .prepare("SELECT name FROM _omniroute_migrations WHERE version = ?")
-          .get("038") as { name: string } | undefined;
-        const row039 = db
+          .get("038")) as { name: string } | undefined;
+        const row039 = (await db
           .prepare("SELECT name FROM _omniroute_migrations WHERE version = ?")
-          .get("039") as { name: string } | undefined;
-        const row051 = db
+          .get("039")) as { name: string } | undefined;
+        const row051 = (await db
           .prepare("SELECT name FROM _omniroute_migrations WHERE version = ?")
-          .get("051") as { name: string } | undefined;
-        const row054 = db
+          .get("051")) as { name: string } | undefined;
+        const row054 = (await db
           .prepare("SELECT name FROM _omniroute_migrations WHERE version = ?")
-          .get("054") as { name: string } | undefined;
-        const row056 = db
+          .get("054")) as { name: string } | undefined;
+        const row056 = (await db
           .prepare("SELECT name FROM _omniroute_migrations WHERE version = ?")
-          .get("056") as { name: string } | undefined;
-        const row059 = db
+          .get("056")) as { name: string } | undefined;
+        const row059 = (await db
           .prepare("SELECT name FROM _omniroute_migrations WHERE version = ?")
-          .get("059") as { name: string } | undefined;
+          .get("059")) as { name: string } | undefined;
 
         assert.equal(row034?.name, "compression_settings");
         assert.equal(row038?.name, "compression_analytics");
@@ -1354,7 +1351,7 @@ test(
         console.error = originalError;
       }
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -1369,18 +1366,17 @@ test(
 // Build an "existing DB" with only the migrations table + one applied row and no
 // physical-schema sentinel tables, so inferPhysicalSchemaBaseline() returns null
 // and the abort decision depends purely on the resolved threshold.
-function seedExistingDbWithoutPhysicalBaseline(db) {
-  db.exec(`
+async function seedExistingDbWithoutPhysicalBaseline(db) {
+  await db.exec(`
     CREATE TABLE _omniroute_migrations (
       version TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       applied_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
-  db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-    "001",
-    "initial_schema"
-  );
+  await db
+    .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+    .run("001", "initial_schema");
 }
 
 test(
@@ -1388,27 +1384,27 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
     const original = process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS;
 
     try {
-      seedExistingDbWithoutPhysicalBaseline(db);
+      await seedExistingDbWithoutPhysicalBaseline(db);
       process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS = "5";
 
       // 1 applied (001) + files 001..011 → 10 actionable pending > threshold 5.
-      assert.throws(
-        () =>
-          withNonTestEnvironment(() =>
-            withMockedMigrationFs(buildMockMigrationFiles(1, 11, "lower_threshold"), () =>
+      await assert.rejects(
+        withNonTestEnvironment(
+          async () =>
+            await withMockedMigrationFs(buildMockMigrationFiles(1, 11, "lower_threshold"), () =>
               runner.runMigrations(db)
             )
-          ),
+        ),
         /threshold is 5/i
       );
     } finally {
       if (original === undefined) delete process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS;
       else process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS = original;
-      db.close();
+      await db.close();
     }
   }
 );
@@ -1418,11 +1414,11 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
     const original = process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS;
 
     try {
-      seedExistingDbWithoutPhysicalBaseline(db);
+      await seedExistingDbWithoutPhysicalBaseline(db);
       process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS = "500";
 
       // 1 applied (001) + 60 plain pending files at versions 100..159 (chosen to
@@ -1434,15 +1430,15 @@ test(
           `CREATE TABLE raise_threshold_${v} (id INTEGER);`;
       }
 
-      const count = withNonTestEnvironment(() =>
-        withMockedMigrationFs(pendingFiles, () => runner.runMigrations(db))
+      const count = await withNonTestEnvironment(
+        async () => await withMockedMigrationFs(pendingFiles, () => runner.runMigrations(db))
       );
 
       assert.equal(count, 60);
     } finally {
       if (original === undefined) delete process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS;
       else process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS = original;
-      db.close();
+      await db.close();
     }
   }
 );
@@ -1457,38 +1453,38 @@ test(
     try {
       // Case 1: env unset → default 50 abort message.
       delete process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS;
-      const dbUnset = createDb();
+      const dbUnset = await createDb();
       try {
         seedExistingDbWithoutPhysicalBaseline(dbUnset);
-        assert.throws(
-          () =>
-            withNonTestEnvironment(() =>
-              withMockedMigrationFs(buildMockMigrationFiles(1, 60, "default_unset"), () =>
+        await assert.rejects(
+          withNonTestEnvironment(
+            async () =>
+              await withMockedMigrationFs(buildMockMigrationFiles(1, 60, "default_unset"), () =>
                 runner.runMigrations(dbUnset)
               )
-            ),
+          ),
           /threshold is 50/i
         );
       } finally {
-        dbUnset.close();
+        await dbUnset.close();
       }
 
       // Case 2: invalid (non-numeric) → fall back to default 50.
       process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS = "abc";
-      const dbInvalid = createDb();
+      const dbInvalid = await createDb();
       try {
         seedExistingDbWithoutPhysicalBaseline(dbInvalid);
-        assert.throws(
-          () =>
-            withNonTestEnvironment(() =>
-              withMockedMigrationFs(buildMockMigrationFiles(1, 60, "default_invalid"), () =>
+        await assert.rejects(
+          withNonTestEnvironment(
+            async () =>
+              await withMockedMigrationFs(buildMockMigrationFiles(1, 60, "default_invalid"), () =>
                 runner.runMigrations(dbInvalid)
               )
-            ),
+          ),
           /threshold is 50/i
         );
       } finally {
-        dbInvalid.close();
+        await dbInvalid.close();
       }
     } finally {
       if (original === undefined) delete process.env.OMNIROUTE_MAX_PENDING_MIGRATIONS;

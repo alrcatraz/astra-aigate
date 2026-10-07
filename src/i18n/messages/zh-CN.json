@@ -1244,11 +1244,11 @@
     "systemMitmProxy": "MITM 代理",
     "systemMitmProxySubtitle": "中间人代理",
     "settingsPricing": "定价",
-    "settingsPricingSubtitle": "按提供商定价",
+    "settingsPricingSubtitle": "按提供者定价",
     "relay": "Relay 部署",
     "relaySubtitle": "Relay 部署管理",
-    "mediaProviders": "媒体提供商",
-    "mediaProvidersSubtitle": "图像/音频/视频提供商",
+    "mediaProviders": "媒体提供者",
+    "mediaProvidersSubtitle": "图像/音频/视频提供者",
     "analyticsLimits": "速率限制",
     "analyticsLimitsSubtitle": "速率限制与约束",
     "gamificationAdmin": "游戏化管理",
@@ -1763,7 +1763,7 @@
     "updateStarted": "更新已开始...",
     "reloadingPageAutomatically": "自动重新加载页面...",
     "providerTopology": "提供者拓扑",
-    "step2Media": "媒体能力（图像/OCR/嵌入）在 <mediaProviders>媒体提供商</mediaProviders> 页面配置。"
+    "step2Media": "媒体能力（图像/OCR/嵌入）在 <mediaProviders>媒体提供者</mediaProviders> 页面配置。"
   },
   "analytics": {
     "title": "分析",
@@ -6123,7 +6123,7 @@
     "ccAliasLoadError": "__MISSING__:Failed to load discovery-alias settings: {error}",
     "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
     "apiProtocolDefault": "OpenAI 兼容（默认）",
-    "apiProtocolHint": "部分提供商通过多种协议发布相同的模型。除非需要使用特定协议，否则保留默认值即可。",
+    "apiProtocolHint": "部分提供者通过多种协议发布相同的模型。除非需要使用特定协议，否则保留默认值即可。",
     "apiProtocolLabel": "API 协议"
   },
   "settings": {

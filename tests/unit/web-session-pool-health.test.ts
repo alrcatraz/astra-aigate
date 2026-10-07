@@ -38,14 +38,16 @@ type MockBreakerState = {
   retryAfterMs: number;
 } | null;
 
-function createMockDeps(overrides: {
-  providers?: string[];
-  stats?: Record<string, MockPoolStats>;
-  sessionDetails?: Record<string, MockSessionDetail[]>;
-  breakerCooldown?: Record<string, boolean>;
-  breakerRemaining?: Record<string, number | null>;
-  breakerStates?: Record<string, MockBreakerState>;
-} = {}): WebSessionPoolHealthDeps {
+function createMockDeps(
+  overrides: {
+    providers?: string[];
+    stats?: Record<string, MockPoolStats>;
+    sessionDetails?: Record<string, MockSessionDetail[]>;
+    breakerCooldown?: Record<string, boolean>;
+    breakerRemaining?: Record<string, number | null>;
+    breakerStates?: Record<string, MockBreakerState>;
+  } = {}
+): WebSessionPoolHealthDeps {
   const providers = overrides.providers ?? [];
   const stats = overrides.stats ?? {};
   const sessionDetails = overrides.sessionDetails ?? {};
@@ -145,14 +147,14 @@ function downDeps(provider = "pollinations"): WebSessionPoolHealthDeps {
 }
 
 describe("getWebSessionPoolHealth", () => {
-  it("returns empty report when no pools registered", () => {
+  it("returns empty report when no pools registered", async () => {
     const deps = createMockDeps();
-    const report = getWebSessionPoolHealth(undefined, deps);
+    const report = await getWebSessionPoolHealth(undefined, deps);
     assert.equal(report.providers.length, 0);
     assert.ok(report.checkedAt);
   });
 
-  it("returns single-provider report when provider arg given", () => {
+  it("returns single-provider report when provider arg given", async () => {
     const deps = createMockDeps({
       providers: ["pollinations", "longcat"],
       stats: {
@@ -171,12 +173,12 @@ describe("getWebSessionPoolHealth", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.equal(report.providers.length, 1);
     assert.equal(report.providers[0].provider, "pollinations");
   });
 
-  it("returns all-providers report when no arg given", () => {
+  it("returns all-providers report when no arg given", async () => {
     const now = Date.now();
     const deps = createMockDeps({
       providers: ["pollinations", "longcat"],
@@ -206,18 +208,18 @@ describe("getWebSessionPoolHealth", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth(undefined, deps);
+    const report = await getWebSessionPoolHealth(undefined, deps);
     assert.equal(report.providers.length, 2);
   });
 
-  it('computes health: "down" when breaker in cooldown', () => {
+  it('computes health: "down" when breaker in cooldown', async () => {
     const deps = downDeps("pollinations");
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.equal(report.providers[0].health, "down");
     assert.ok(report.providers[0].issues.some((i: string) => i.includes("breaker")));
   });
 
-  it('computes health: "down" when all sessions dead', () => {
+  it('computes health: "down" when all sessions dead', async () => {
     const deps = createMockDeps({
       providers: ["pollinations"],
       stats: {
@@ -237,12 +239,12 @@ describe("getWebSessionPoolHealth", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.equal(report.providers[0].health, "down");
     assert.ok(report.providers[0].issues.some((i: string) => i.includes("dead")));
   });
 
-  it('computes health: "degraded" when success rate < 80%', () => {
+  it('computes health: "degraded" when success rate < 80%', async () => {
     const deps = createMockDeps({
       providers: ["pollinations"],
       stats: {
@@ -258,16 +260,21 @@ describe("getWebSessionPoolHealth", () => {
       },
       sessionDetails: { pollinations: [] },
       breakerStates: {
-        pollinations: { state: "CLOSED", failureCount: 2, lastFailureTime: Date.now() - 60000, retryAfterMs: 0 },
+        pollinations: {
+          state: "CLOSED",
+          failureCount: 2,
+          lastFailureTime: Date.now() - 60000,
+          retryAfterMs: 0,
+        },
       },
     });
 
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.equal(report.providers[0].health, "degraded");
     assert.ok(report.providers[0].issues.some((i: string) => i.includes("success rate")));
   });
 
-  it('computes health: "degraded" when >50% sessions in cooldown/dead', () => {
+  it('computes health: "degraded" when >50% sessions in cooldown/dead', async () => {
     const deps = createMockDeps({
       providers: ["pollinations"],
       stats: {
@@ -283,23 +290,32 @@ describe("getWebSessionPoolHealth", () => {
       },
       sessionDetails: { pollinations: [] },
       breakerStates: {
-        pollinations: { state: "CLOSED", failureCount: 1, lastFailureTime: Date.now() - 120000, retryAfterMs: 0 },
+        pollinations: {
+          state: "CLOSED",
+          failureCount: 1,
+          lastFailureTime: Date.now() - 120000,
+          retryAfterMs: 0,
+        },
       },
     });
 
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.equal(report.providers[0].health, "degraded");
-    assert.ok(report.providers[0].issues.some((i: string) => i.includes("sessions") && i.includes("cooldown")));
+    assert.ok(
+      report.providers[0].issues.some(
+        (i: string) => i.includes("sessions") && i.includes("cooldown")
+      )
+    );
   });
 
-  it('computes health: "healthy" when all metrics good', () => {
+  it('computes health: "healthy" when all metrics good', async () => {
     const deps = healthyDeps("pollinations");
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.equal(report.providers[0].health, "healthy");
     assert.equal(report.providers[0].issues.length, 0);
   });
 
-  it('computes health: "healthy" for idle pool with zero requests', () => {
+  it('computes health: "healthy" for idle pool with zero requests', async () => {
     const deps = createMockDeps({
       providers: ["idle"],
       stats: {
@@ -319,20 +335,20 @@ describe("getWebSessionPoolHealth", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth("idle", deps);
+    const report = await getWebSessionPoolHealth("idle", deps);
     assert.equal(report.providers[0].health, "healthy");
     assert.equal(report.providers[0].issues.length, 0);
   });
 
-  it("populates issues array with correct messages for down pool", () => {
+  it("populates issues array with correct messages for down pool", async () => {
     const deps = downDeps("pollinations");
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     const issues = report.providers[0].issues;
     assert.ok(issues.length > 0);
     assert.ok(issues.some((i: string) => i.toLowerCase().includes("breaker")));
   });
 
-  it("handles null pool gracefully (provider has breaker but no pool)", () => {
+  it("handles null pool gracefully (provider has breaker but no pool)", async () => {
     const deps = createMockDeps({
       providers: ["ghost"],
       breakerStates: {
@@ -340,13 +356,13 @@ describe("getWebSessionPoolHealth", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth("ghost", deps);
+    const report = await getWebSessionPoolHealth("ghost", deps);
     assert.equal(report.providers.length, 1);
     assert.equal(report.providers[0].pool, null);
     assert.ok(report.providers[0].breaker !== null);
   });
 
-  it("handles null breaker gracefully (provider has pool but no breaker)", () => {
+  it("handles null breaker gracefully (provider has pool but no breaker)", async () => {
     const deps = createMockDeps({
       providers: ["nobreaker"],
       stats: {
@@ -363,24 +379,24 @@ describe("getWebSessionPoolHealth", () => {
       sessionDetails: { nobreaker: [] },
     });
 
-    const report = getWebSessionPoolHealth("nobreaker", deps);
+    const report = await getWebSessionPoolHealth("nobreaker", deps);
     assert.equal(report.providers.length, 1);
     assert.ok(report.providers[0].pool !== null);
     assert.equal(report.providers[0].breaker, null);
     assert.equal(report.providers[0].health, "healthy");
   });
 
-  it("returns provider in report even when not in PoolRegistry but arg specified", () => {
+  it("returns provider in report even when not in PoolRegistry but arg specified", async () => {
     const deps = createMockDeps();
-    const report = getWebSessionPoolHealth("nonexistent", deps);
+    const report = await getWebSessionPoolHealth("nonexistent", deps);
     assert.equal(report.providers.length, 1);
     assert.equal(report.providers[0].provider, "nonexistent");
     assert.equal(report.providers[0].pool, null);
   });
 
-  it("includes session details in report", () => {
+  it("includes session details in report", async () => {
     const deps = healthyDeps("pollinations");
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.ok(report.providers[0].sessions.length > 0);
     assert.equal(report.providers[0].sessions[0].id, "s1");
     assert.equal(report.providers[0].sessions[0].fingerprint, "fp-1");

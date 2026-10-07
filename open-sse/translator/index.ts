@@ -182,7 +182,7 @@ const OPENAI_INCOMPATIBLE_ECHO_FIELDS = [
   "cache_control",
 ];
 
-export function translateRequest(
+export async function translateRequest(
   sourceFormat,
   targetFormat,
   model,
@@ -275,7 +275,7 @@ export function translateRequest(
               _provider: provider,
             }
           : credentials;
-      result = directTranslator(model, result, stream, directCredentials);
+      result = await directTranslator(model, result, stream, directCredentials);
     } else {
       // Fallback: hub-and-spoke via OpenAI
       // Step 1: source -> openai (if source is not openai)
@@ -302,7 +302,7 @@ export function translateRequest(
                   ...(preserveCacheControl ? { _preserveCacheControl: true } : {}),
                 }
               : credentials;
-          result = toOpenAI(model, result, stream, step1Credentials);
+          result = await toOpenAI(model, result, stream, step1Credentials);
           // Log OpenAI intermediate format
           reqLogger?.logOpenAIRequest?.(result);
         }
@@ -328,7 +328,7 @@ export function translateRequest(
                   ...(hasProvider ? { _provider: provider } : {}),
                 }
               : credentials;
-          result = fromOpenAI(model, result, stream, translationCredentials);
+          result = await fromOpenAI(model, result, stream, translationCredentials);
         }
       }
     }

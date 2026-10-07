@@ -281,7 +281,13 @@ export function registerDownstreamTools(server: McpServer, bridge: McpEndpointBr
         : [{ type: "text" as const, text: JSON.stringify(result) }];
       return { content, isError: result.isError === true };
     };
-    server.registerTool(
+    // Use registerRawTool (set by createMcpServer) so downstream tools BYPASS
+    // the endpoint tool domain: an isolated registered endpoint (domain "none")
+    // must still announce its downstream tools while hiding local builtins.
+    const register =
+      (server as typeof server & { registerRawTool?: typeof server.registerTool })
+        .registerRawTool ?? server.registerTool;
+    register(
       tool.name,
       {
         description: tool.description ?? `Forwarded from downstream MCP server ${bridge.id}`,

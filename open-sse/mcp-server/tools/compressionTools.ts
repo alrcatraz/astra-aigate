@@ -471,9 +471,9 @@ export async function handleSetCompressionEngine(
 }
 
 export async function handleListCompressionCombos(): Promise<{
-  combos: ReturnType<typeof listCompressionCombos>;
+  combos: Awaited<ReturnType<typeof listCompressionCombos>>;
 }> {
-  return { combos: listCompressionCombos() };
+  return { combos: await listCompressionCombos() };
 }
 
 export async function handleCompressionComboStats(

@@ -386,10 +386,13 @@ export async function syncPricingFromSources(opts?: {
     const providerCount = Object.keys(aggregated).length;
 
     if (!dryRun) {
-      saveSyncedPricing(aggregated);
+      // These writes must land before the function resolves — fire-and-forget
+      // here lets a caller read stale/empty pricing right after a successful
+      // sync (observed as synced.openai === undefined in the roundtrip test).
+      await saveSyncedPricing(aggregated);
       lastSyncTime = new Date().toISOString();
       lastSyncModelCount = modelCount;
-      writePersistedSyncStatus(lastSyncTime, modelCount);
+      await writePersistedSyncStatus(lastSyncTime, modelCount);
     }
 
     return {

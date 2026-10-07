@@ -5,7 +5,7 @@ import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 
 export async function GET() {
   try {
-    const lockedIdentifiers = getLockedIdentifiers();
+    const lockedIdentifiers = await getLockedIdentifiers();
     return NextResponse.json({ lockedIdentifiers });
   } catch (error) {
     console.error("Error loading policies:", error);

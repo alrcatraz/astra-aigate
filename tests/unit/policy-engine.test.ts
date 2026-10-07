@@ -29,60 +29,60 @@ describe("policyEngine", async () => {
   const { setBudget, recordCost } = await import("../../src/domain/costRules.ts");
   const { recordFailedAttempt } = await import("../../src/domain/lockoutPolicy.ts");
 
-  test("allows a basic request with no restrictions", () => {
-    const verdict = evaluateRequest({ model: "gpt-4o" });
+  test("allows a basic request with no restrictions", async () => {
+    const verdict = await evaluateRequest({ model: "gpt-4o" });
     assert.equal(verdict.allowed, true);
     assert.equal(verdict.policyPhase, "passed");
     assert.equal(verdict.reason, null);
   });
 
-  test("returns fallback chain when registered", () => {
+  test("returns fallback chain when registered", async () => {
     registerFallback("pe-model-fb", [
       { provider: "openai", priority: 1, enabled: true },
       { provider: "azure", priority: 2, enabled: true },
     ]);
 
-    const verdict = evaluateRequest({ model: "pe-model-fb" });
+    const verdict = await evaluateRequest({ model: "pe-model-fb" });
     assert.equal(verdict.allowed, true);
     assert.ok(Array.isArray(verdict.adjustments.fallbackChain));
     assert.ok(verdict.adjustments.fallbackChain.length > 0);
   });
 
-  test("denies when budget is exceeded", () => {
+  test("denies when budget is exceeded", async () => {
     const keyId = `pe-budget-${Date.now()}`;
     setBudget(keyId, { dailyLimitUsd: 0.001 });
     recordCost(keyId, 100);
 
-    const verdict = evaluateRequest({ model: "gpt-4o", apiKeyId: keyId });
+    const verdict = await evaluateRequest({ model: "gpt-4o", apiKeyId: keyId });
     assert.equal(verdict.allowed, false);
     assert.equal(verdict.policyPhase, "budget");
     assert.ok(verdict.reason.includes("Budget exceeded"));
   });
 
-  test("denies when client is locked out", () => {
+  test("denies when client is locked out", async () => {
     const ip = `pe-lockout-${Date.now()}`;
     // Force lockout by recording many failures
     for (let i = 0; i < 20; i++) {
       recordFailedAttempt(ip);
     }
 
-    const verdict = evaluateRequest({ model: "gpt-4o", clientIp: ip });
+    const verdict = await evaluateRequest({ model: "gpt-4o", clientIp: ip });
     assert.equal(verdict.allowed, false);
     assert.equal(verdict.policyPhase, "lockout");
   });
 
-  test("evaluateFirstAllowed returns first allowed model", () => {
-    const result = evaluateFirstAllowed(["model-a", "model-b", "model-c"], {});
+  test("evaluateFirstAllowed returns first allowed model", async () => {
+    const result = await evaluateFirstAllowed(["model-a", "model-b", "model-c"], {});
     assert.equal(result.model, "model-a");
     assert.equal(result.verdict.allowed, true);
   });
 
-  test("evaluateFirstAllowed returns null when all denied", () => {
+  test("evaluateFirstAllowed returns null when all denied", async () => {
     const keyId = `pe-all-denied-${Date.now()}`;
     setBudget(keyId, { dailyLimitUsd: 0.001 });
     recordCost(keyId, 100);
 
-    const result = evaluateFirstAllowed(["model-a", "model-b"], { apiKeyId: keyId });
+    const result = await evaluateFirstAllowed(["model-a", "model-b"], { apiKeyId: keyId });
     assert.equal(result.model, null);
     assert.equal(result.verdict.allowed, false);
   });

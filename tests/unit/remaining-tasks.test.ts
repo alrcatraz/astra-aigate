@@ -46,7 +46,7 @@ test("RequestTelemetry: measure() records errors", async () => {
   assert.equal(t.getSummary().phases[0].error, "timeout");
 });
 
-test("RequestTelemetry: getTelemetrySummary returns valid output", () => {
+test("RequestTelemetry: getTelemetrySummary returns valid output", async () => {
   const t = new RequestTelemetry("tel-4");
   t.startPhase("parse");
   t.endPhase();
@@ -62,7 +62,7 @@ test("RequestTelemetry: getTelemetrySummary returns valid output", () => {
 
 import { resolveComboModel, getComboFallbacks } from "../../src/domain/comboResolver.ts";
 
-test("comboResolver: priority returns first model", () => {
+test("comboResolver: priority returns first model", async () => {
   const combo = {
     name: "test-combo",
     strategy: "priority",
@@ -73,7 +73,7 @@ test("comboResolver: priority returns first model", () => {
   assert.equal(result.index, 0);
 });
 
-test("comboResolver: random returns a valid model", () => {
+test("comboResolver: random returns a valid model", async () => {
   const combo = {
     name: "test-random",
     strategy: "random",
@@ -83,7 +83,7 @@ test("comboResolver: random returns a valid model", () => {
   assert.ok(["a", "b", "c"].includes(result.model));
 });
 
-test("comboResolver: least-used picks model with lowest count", () => {
+test("comboResolver: least-used picks model with lowest count", async () => {
   const combo = {
     name: "test-least",
     strategy: "least-used",
@@ -95,14 +95,14 @@ test("comboResolver: least-used picks model with lowest count", () => {
   assert.equal(result.model, "b");
 });
 
-test("comboResolver: throws on empty models", () => {
+test("comboResolver: throws on empty models", async () => {
   assert.throws(
     () => resolveComboModel({ name: "empty", strategy: "priority", models: [] }),
     /no models configured/
   );
 });
 
-test("comboResolver: getComboFallbacks returns remaining models", () => {
+test("comboResolver: getComboFallbacks returns remaining models", async () => {
   const combo = { models: ["a", "b", "c", "d"] };
   const fallbacks = getComboFallbacks(combo, 1); // primary = "b"
   assert.deepEqual(fallbacks, ["c", "d", "a"]);
@@ -117,40 +117,40 @@ import {
   forceUnlock,
 } from "../../src/domain/lockoutPolicy.ts";
 
-test("lockoutPolicy: initially not locked", () => {
-  const result = checkLockout("user-fresh");
+test("lockoutPolicy: initially not locked", async () => {
+  const result = await checkLockout("user-fresh");
   assert.equal(result.locked, false);
 });
 
-test("lockoutPolicy: locks after max attempts", () => {
+test("lockoutPolicy: locks after max attempts", async () => {
   const config = { maxAttempts: 3, lockoutDurationMs: 60000, attemptWindowMs: 60000 };
   const id = "user-lock-test-" + Date.now();
 
   recordFailedAttempt(id, config);
   recordFailedAttempt(id, config);
-  const result = recordFailedAttempt(id, config);
+  const result = await recordFailedAttempt(id, config);
 
   assert.equal(result.locked, true);
   assert.ok(result.remainingMs > 0);
 });
 
-test("lockoutPolicy: recordSuccess clears state", () => {
+test("lockoutPolicy: recordSuccess clears state", async () => {
   const id = "user-success-" + Date.now();
   recordFailedAttempt(id);
   recordSuccess(id);
 
-  const result = checkLockout(id);
+  const result = await checkLockout(id);
   assert.equal(result.locked, false);
   assert.equal(result.attempts, 0);
 });
 
-test("lockoutPolicy: forceUnlock works", () => {
+test("lockoutPolicy: forceUnlock works", async () => {
   const config = { maxAttempts: 1, lockoutDurationMs: 60000, attemptWindowMs: 60000 };
   const id = "user-force-" + Date.now();
 
   recordFailedAttempt(id, config);
   forceUnlock(id);
 
-  const result = checkLockout(id);
+  const result = await checkLockout(id);
   assert.equal(result.locked, false);
 });

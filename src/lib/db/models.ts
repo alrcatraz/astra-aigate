@@ -8,6 +8,12 @@ import { getAsyncDb } from "./core";
 import { backupDbFile } from "./backup";
 import { getProviderConnectionsCount } from "./providers";
 import { type JsonRecord, asRecord, toNonEmptyString, getKeyValue } from "./models/shared";
+import type { SyncedAvailableModel, SyncedAvailableModelInput } from "./syncedModelNormalize.ts";
+import {
+  normalizeSyncedAvailableModel,
+  normalizeSyncedAvailableModels,
+} from "./syncedModelNormalize.ts";
+export type { SyncedAvailableModel } from "./syncedModelNormalize.ts";
 import {
   readCompatList,
   writeCompatList,
@@ -319,104 +325,6 @@ export async function removeCustomModel(providerId: string, modelId: string) {
 // Storage: namespace = 'syncedAvailableModels', key = '<providerId>:<connectionId>'
 // Each connection stores its own model list. Reads union across all connections
 // for a provider. Deleting a connection removes only its models.
-
-export interface SyncedAvailableModel {
-  id: string;
-  name: string;
-  source: "imported";
-  apiFormat?: string;
-  targetFormat?: string;
-  upstreamProtocol?: string;
-  supportedEndpoints?: string[];
-  supportedThinkingEfforts?: string[];
-  defaultThinkingEffort?: string;
-  inputTokenLimit?: number;
-  outputTokenLimit?: number;
-  description?: string;
-  supportsThinking?: boolean;
-  alwaysThinking?: boolean;
-  supportsTools?: boolean;
-  supportsVideo?: boolean;
-  // #4264: image-input capability captured at sync time (e.g. OpenRouter
-  // `architecture.input_modalities`/`modality`) so the catalog can surface vision.
-  supportsVision?: boolean;
-}
-
-type SyncedAvailableModelInput = Omit<SyncedAvailableModel, "source"> & {
-  source?: string;
-};
-
-function normalizeSyncedAvailableModel(model: unknown): SyncedAvailableModel | null {
-  const record = asRecord(model);
-  const id =
-    toNonEmptyString(record.id) || toNonEmptyString(record.name) || toNonEmptyString(record.model);
-  if (!id) return null;
-
-  const name =
-    toNonEmptyString(record.name) ||
-    toNonEmptyString(record.displayName) ||
-    toNonEmptyString(record.model) ||
-    id;
-  const supportedEndpoints = Array.isArray(record.supportedEndpoints)
-    ? Array.from(
-        new Set(
-          record.supportedEndpoints
-            .map((endpoint) => toNonEmptyString(endpoint))
-            .filter((endpoint): endpoint is string => Boolean(endpoint))
-        )
-      ).sort()
-    : undefined;
-
-  return {
-    id,
-    name,
-    source: "imported",
-    ...(toNonEmptyString(record.apiFormat)
-      ? { apiFormat: toNonEmptyString(record.apiFormat)! }
-      : {}),
-    ...(toNonEmptyString(record.targetFormat)
-      ? { targetFormat: toNonEmptyString(record.targetFormat)! }
-      : {}),
-    ...(toNonEmptyString(record.upstreamProtocol)
-      ? { upstreamProtocol: toNonEmptyString(record.upstreamProtocol)! }
-      : {}),
-    ...(supportedEndpoints && supportedEndpoints.length > 0 ? { supportedEndpoints } : {}),
-    ...(Array.isArray(record.supportedThinkingEfforts)
-      ? {
-          supportedThinkingEfforts: record.supportedThinkingEfforts.filter(
-            (effort): effort is string => typeof effort === "string" && effort.length > 0
-          ),
-        }
-      : {}),
-    ...(toNonEmptyString(record.defaultThinkingEffort)
-      ? { defaultThinkingEffort: toNonEmptyString(record.defaultThinkingEffort)! }
-      : {}),
-    ...(typeof record.inputTokenLimit === "number"
-      ? { inputTokenLimit: record.inputTokenLimit }
-      : {}),
-    ...(typeof record.outputTokenLimit === "number"
-      ? { outputTokenLimit: record.outputTokenLimit }
-      : {}),
-    ...(typeof record.description === "string" ? { description: record.description } : {}),
-    ...(typeof record.supportsThinking === "boolean"
-      ? { supportsThinking: record.supportsThinking }
-      : {}),
-    ...(record.alwaysThinking === true ? { alwaysThinking: true } : {}),
-    ...(typeof record.supportsTools === "boolean" ? { supportsTools: record.supportsTools } : {}),
-    ...(typeof record.supportsVideo === "boolean" ? { supportsVideo: record.supportsVideo } : {}),
-    ...(record.supportsVision === true ? { supportsVision: true } : {}),
-  };
-}
-
-function normalizeSyncedAvailableModels(models: unknown): SyncedAvailableModel[] {
-  if (!Array.isArray(models)) return [];
-  const deduped = new Map<string, SyncedAvailableModel>();
-  for (const model of models) {
-    const normalized = normalizeSyncedAvailableModel(model);
-    if (normalized) deduped.set(normalized.id, normalized);
-  }
-  return Array.from(deduped.values());
-}
 
 /**
  * Get synced available models for a specific provider connection.

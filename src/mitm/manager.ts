@@ -152,20 +152,22 @@ function readStoredUpstreamCaPath(): string | null {
  * an extension of its baseline antigravity hosts. Hard Rule #13: only the
  * declarative target hosts are persisted — no runtime paths, no shell escapes.
  */
-export function writeTargetsJson(targets: MitmTarget[] = ALL_TARGETS): void {
+export async function writeTargetsJson(targets: MitmTarget[] = ALL_TARGETS): Promise<void> {
   const dir = path.join(resolveMitmDataDir(), "mitm");
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   } catch {
     // mkdir failures are non-fatal; the write below will report the real error.
   }
+  // Resolve the async DB read OUTSIDE the synchronous map callback.
+  const gheCopilotHosts = await getGheCopilotHosts();
   const payload = {
     version: 1,
     generatedAt: new Date().toISOString(),
     targets: targets.map((t) => ({
       id: t.id,
       name: t.name,
-      hosts: t.id === "ghe-copilot" ? [...new Set([...t.hosts, ...getGheCopilotHosts()])] : t.hosts,
+      hosts: t.id === "ghe-copilot" ? [...new Set([...t.hosts, ...gheCopilotHosts])] : t.hosts,
       endpointPatterns: t.endpointPatterns,
       viability: t.viability ?? "supported",
     })),
@@ -307,7 +309,7 @@ export async function handleExitCleanup(
     getCachedPassword?: () => string | null;
     removeDNSEntry?: (sudoPassword: string) => Promise<void>;
     removeDNSEntries?: (hosts: string[], sudoPassword: string) => Promise<void>;
-    collectManagedHosts?: () => string[];
+    collectManagedHosts?: () => Promise<string[]>;
   }
 ): Promise<void> {
   const deps = {
@@ -335,7 +337,7 @@ export async function handleExitCleanup(
 
   try {
     await deps.removeDNSEntry(sudoPassword);
-    const managed = deps.collectManagedHosts();
+    const managed = await deps.collectManagedHosts();
     if (managed.length > 0) {
       await deps.removeDNSEntries(managed, sudoPassword);
     }
@@ -466,7 +468,7 @@ async function startMitmInternal(
   // 0. Persist the canonical targets.json so server.cjs can pick up the full
   //    AgentBridge target registry alongside its hard-coded antigravity baseline.
   try {
-    writeTargetsJson();
+    await writeTargetsJson();
   } catch (err) {
     log.error({ err }, "Failed to write targets.json (continuing)");
   }
@@ -762,7 +764,7 @@ export async function stopMitm(
   _depsOverride?: {
     removeDNSEntry?: (sudoPassword: string) => Promise<void>;
     removeDNSEntries?: (hosts: string[], sudoPassword: string) => Promise<void>;
-    collectManagedHosts?: () => string[];
+    collectManagedHosts?: () => Promise<string[]>;
   }
 ): Promise<{ running: false; pid: null }> {
   const deps = {

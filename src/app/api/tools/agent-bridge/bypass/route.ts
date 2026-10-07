@@ -41,7 +41,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    replaceUserBypassPatterns(parsed.data.patterns);
+    await replaceUserBypassPatterns(parsed.data.patterns);
     const patterns = await getAllBypassPatterns();
     return Response.json({ ok: true, patterns });
   } catch (err) {
@@ -61,7 +61,7 @@ export async function DELETE(request: Request): Promise<Response> {
   try {
     const existing = await getUserBypassPatterns();
     const updated = existing.filter((p) => p !== pattern);
-    replaceUserBypassPatterns(updated);
+    await replaceUserBypassPatterns(updated);
     const patterns = await getAllBypassPatterns();
     return Response.json({ ok: true, patterns });
   } catch (err) {

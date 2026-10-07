@@ -35,33 +35,33 @@ test.after(() => {
 // Ask 1: applyDefaultReasoningEffort
 // ---------------------------------------------------------------------------
 
-test("applyDefaultReasoningEffort: injects the model's default when no reasoning field is present", () => {
+test("applyDefaultReasoningEffort: injects the model's default when no reasoning field is present", async () => {
   const body = { model: FIXTURE_MODEL_ID, messages: [] };
   const result = applyDefaultReasoningEffort(body, FIXTURE_MODEL_ID);
   assert.equal(result.reasoning_effort, "none");
 });
 
-test("applyDefaultReasoningEffort: an explicit reasoning_effort always wins over the model default", () => {
+test("applyDefaultReasoningEffort: an explicit reasoning_effort always wins over the model default", async () => {
   const body = { model: FIXTURE_MODEL_ID, messages: [], reasoning_effort: "high" };
   const result = applyDefaultReasoningEffort(body, FIXTURE_MODEL_ID);
   assert.equal(result.reasoning_effort, "high");
 });
 
-test("applyDefaultReasoningEffort: an explicit reasoning object always wins (Responses shape)", () => {
+test("applyDefaultReasoningEffort: an explicit reasoning object always wins (Responses shape)", async () => {
   const body = { model: FIXTURE_MODEL_ID, messages: [], reasoning: { effort: "medium" } };
   const result = applyDefaultReasoningEffort(body, FIXTURE_MODEL_ID);
   assert.deepEqual(result.reasoning, { effort: "medium" });
   assert.equal("reasoning_effort" in result, false);
 });
 
-test("applyDefaultReasoningEffort: an explicit thinking block always wins (Claude legacy shape)", () => {
+test("applyDefaultReasoningEffort: an explicit thinking block always wins (Claude legacy shape)", async () => {
   const body = { model: FIXTURE_MODEL_ID, messages: [], thinking: { type: "enabled" } };
   const result = applyDefaultReasoningEffort(body, FIXTURE_MODEL_ID);
   assert.deepEqual(result.thinking, { type: "enabled" });
   assert.equal("reasoning_effort" in result, false);
 });
 
-test("applyDefaultReasoningEffort: no injection when the model has no configured default (regression)", () => {
+test("applyDefaultReasoningEffort: no injection when the model has no configured default (regression)", async () => {
   const body = { model: "gpt-5.4-sol", messages: [] };
   const result = applyDefaultReasoningEffort(body, "gpt-5.4-sol");
   assert.equal("reasoning_effort" in result, false);
@@ -72,7 +72,7 @@ test("applyDefaultReasoningEffort: no injection when the model has no configured
 // Ask 2: applyNoThinkingAlias on the OpenAI path expresses "none"
 // ---------------------------------------------------------------------------
 
-test("applyNoThinkingAlias: OpenAI path sets reasoning_effort:none instead of deleting the field", () => {
+test("applyNoThinkingAlias: OpenAI path sets reasoning_effort:none instead of deleting the field", async () => {
   const body: Record<string, unknown> = {
     model: "no-think/gemini/gemini-flash-lite-latest",
     messages: [],
@@ -85,7 +85,7 @@ test("applyNoThinkingAlias: OpenAI path sets reasoning_effort:none instead of de
   assert.equal("reasoning" in body, false);
 });
 
-test("applyNoThinkingAlias: OpenAI path overrides a client-supplied reasoning_effort with none (alias always wins)", () => {
+test("applyNoThinkingAlias: OpenAI path overrides a client-supplied reasoning_effort with none (alias always wins)", async () => {
   const body: Record<string, unknown> = {
     model: "no-think/gemini/gemini-flash-lite-latest",
     messages: [],
@@ -96,7 +96,7 @@ test("applyNoThinkingAlias: OpenAI path overrides a client-supplied reasoning_ef
   assert.equal(body.reasoning_effort, "none");
 });
 
-test("applyNoThinkingAlias: Claude/Messages path is unchanged (thinking:disabled, no reasoning_effort field)", () => {
+test("applyNoThinkingAlias: Claude/Messages path is unchanged (thinking:disabled, no reasoning_effort field)", async () => {
   const body: Record<string, unknown> = {
     model: "no-think/claude/claude-opus-4-6",
     messages: [],
@@ -109,7 +109,7 @@ test("applyNoThinkingAlias: Claude/Messages path is unchanged (thinking:disabled
   assert.equal("reasoning" in body, false);
 });
 
-test("applyNoThinkingAlias: non-alias model is untouched (regression)", () => {
+test("applyNoThinkingAlias: non-alias model is untouched (regression)", async () => {
   const body: Record<string, unknown> = { model: "gemini/gemini-flash-lite-latest", messages: [] };
   const result = applyNoThinkingAlias(body, { claudeFormat: false });
   assert.equal(result.applied, false);
@@ -122,7 +122,7 @@ test("applyNoThinkingAlias: non-alias model is untouched (regression)", () => {
 // end state as today's delete-only behavior, correct on more lanes.
 // ---------------------------------------------------------------------------
 
-test("a lane known to reject reasoning_effort still drops it downstream (delete-fallback preserved)", () => {
+test("a lane known to reject reasoning_effort still drops it downstream (delete-fallback preserved)", async () => {
   const body: Record<string, unknown> = {
     model: "no-think/github/claude-3-5-sonnet",
     messages: [],
@@ -157,7 +157,7 @@ test("7631: translateRequest promotes a stray top-level reasoning_effort into re
     reasoning_effort: "none",
   };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.OPENAI_RESPONSES,
     "gpt-5.1-codex",
@@ -178,7 +178,7 @@ test("7631: same-format OPENAI_RESPONSES lane leaves an explicit reasoning objec
     reasoning: { effort: "high", summary: "auto" },
   };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.OPENAI_RESPONSES,
     "gpt-5.1-codex",
@@ -199,7 +199,12 @@ test("7631: cross-format openai -> openai-responses promotion is unchanged (no r
     reasoning_effort: "none",
   };
 
-  const result = translateRequest(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, "gpt-5.1-codex", body);
+  const result = await translateRequest(
+    FORMATS.OPENAI,
+    FORMATS.OPENAI_RESPONSES,
+    "gpt-5.1-codex",
+    body
+  );
 
   assert.equal("reasoning_effort" in result, false);
   assert.deepEqual(result.reasoning, { effort: "none" });

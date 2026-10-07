@@ -20,9 +20,12 @@ export async function summarizeMemories(
     : "WHERE api_key_id = ?";
   const params = sessionId ? [apiKeyId, sessionId] : [apiKeyId];
 
-  const memories = db
+  // getAsyncDb() yields the async adapter (both drivers), so the statement
+  // result is a promise — the missing await made `memories` a Promise and
+  // every downstream iteration/`.length` read fail with "not iterable".
+  const memories = (await db
     .prepare(`SELECT * FROM memories ${whereClause} ORDER BY created_at DESC`)
-    .all(...params) as MemoryRow[];
+    .all(...params)) as MemoryRow[];
 
   if (memories.length === 0) {
     return { originalCount: 0, summarizedCount: 0, tokensSaved: 0 };
@@ -146,14 +149,14 @@ export async function summarizeMemoriesOlderThan(
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
   const rows: MemoryRow[] = apiKeyId
-    ? (db
+    ? ((await db
         .prepare(
           "SELECT * FROM memories WHERE api_key_id = ? AND created_at < ? ORDER BY created_at ASC"
         )
-        .all(apiKeyId, cutoff) as MemoryRow[])
-    : (db
+        .all(apiKeyId, cutoff)) as MemoryRow[])
+    : ((await db
         .prepare("SELECT * FROM memories WHERE created_at < ? ORDER BY created_at ASC")
-        .all(cutoff) as MemoryRow[]);
+        .all(cutoff)) as MemoryRow[]);
 
   const candidates = rows.map(rowToMemory);
   const totalTokens = candidates.reduce((sum, m) => sum + estimateTokens(m.content), 0);

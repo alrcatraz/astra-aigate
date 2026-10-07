@@ -6,7 +6,7 @@ const { claudeToOpenAIRequest } =
 const { translateRequest } = await import("../../open-sse/translator/index.ts");
 const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 
-test("Claude -> OpenAI maps system blocks, parameters, tool declarations and tool choice", () => {
+test("Claude -> OpenAI maps system blocks, parameters, tool declarations and tool choice", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-4o",
     {
@@ -54,9 +54,7 @@ test("Claude -> OpenAI maps system blocks, parameters, tool declarations and too
   });
 });
 
-
-
-test("Claude -> OpenAI maps Claude server WebSearch to native Responses web_search", () => {
+test("Claude -> OpenAI maps Claude server WebSearch to native Responses web_search", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-5.5",
     {
@@ -90,14 +88,14 @@ test("Claude -> OpenAI maps Claude server WebSearch to native Responses web_sear
   assert.deepEqual(result.tool_choice, { type: "web_search" });
 });
 
-test("translateRequest maps Claude server WebSearch natively only for Responses targets", () => {
+test("translateRequest maps Claude server WebSearch natively only for Responses targets", async () => {
   const body = {
     messages: [{ role: "user", content: "Search docs" }],
     tools: [{ type: "web_search_20250305", name: "web_search" }],
     tool_choice: { type: "tool", name: "web_search" },
   };
 
-  const responses = translateRequest(
+  const responses = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.OPENAI_RESPONSES,
     "gpt-5.5",
@@ -107,7 +105,7 @@ test("translateRequest maps Claude server WebSearch natively only for Responses 
   assert.deepEqual(responses.tools, [{ type: "web_search" }]);
   assert.deepEqual(responses.tool_choice, { type: "web_search" });
 
-  const chat = translateRequest(
+  const chat = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.OPENAI,
     "gpt-4o",
@@ -130,7 +128,7 @@ test("translateRequest maps Claude server WebSearch natively only for Responses 
   });
 });
 
-test("Claude -> OpenAI skips invalid tool payloads without crashing", () => {
+test("Claude -> OpenAI skips invalid tool payloads without crashing", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-4o",
     {
@@ -152,7 +150,7 @@ test("Claude -> OpenAI skips invalid tool payloads without crashing", () => {
   ]);
 });
 
-test("Claude -> OpenAI leaves ordinary web_search function tools as functions", () => {
+test("Claude -> OpenAI leaves ordinary web_search function tools as functions", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-4o",
     {
@@ -184,7 +182,7 @@ test("Claude -> OpenAI leaves ordinary web_search function tools as functions", 
   });
 });
 
-test("Claude -> OpenAI converts assistant text and both base64 and URL images", () => {
+test("Claude -> OpenAI converts assistant text and both base64 and URL images", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-4o",
     {
@@ -217,7 +215,7 @@ test("Claude -> OpenAI converts assistant text and both base64 and URL images", 
   ]);
 });
 
-test("Claude -> OpenAI turns thinking and tool_use blocks into assistant tool_calls and auto-fills tool responses", () => {
+test("Claude -> OpenAI turns thinking and tool_use blocks into assistant tool_calls and auto-fills tool responses", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-4o",
     {
@@ -259,7 +257,7 @@ test("Claude -> OpenAI turns thinking and tool_use blocks into assistant tool_ca
   });
 });
 
-test("Claude -> OpenAI passes pre-stringified tool_use input through verbatim (no double-encoding)", () => {
+test("Claude -> OpenAI passes pre-stringified tool_use input through verbatim (no double-encoding)", async () => {
   // #2279: some upstream Claude sources emit tool_use.input already JSON-encoded
   // as a string. Re-running JSON.stringify on it would double-encode the
   // payload (wrapping it in an extra pair of quotes with escaped internals).
@@ -295,7 +293,7 @@ test("Claude -> OpenAI passes pre-stringified tool_use input through verbatim (n
   ]);
 });
 
-test("Claude -> OpenAI converts tool_result blocks into tool messages and preserves trailing user text", () => {
+test("Claude -> OpenAI converts tool_result blocks into tool messages and preserves trailing user text", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-4o",
     {
@@ -345,7 +343,7 @@ test("Claude -> OpenAI converts tool_result blocks into tool messages and preser
   });
 });
 
-test("Claude -> OpenAI maps output_config.effort to reasoning_effort", () => {
+test("Claude -> OpenAI maps output_config.effort to reasoning_effort", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",
     {
@@ -358,7 +356,7 @@ test("Claude -> OpenAI maps output_config.effort to reasoning_effort", () => {
   assert.equal(result.reasoning_effort, "high");
 });
 
-test("Claude -> OpenAI normalizes output_config.effort casing", () => {
+test("Claude -> OpenAI normalizes output_config.effort casing", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",
     {
@@ -371,7 +369,7 @@ test("Claude -> OpenAI normalizes output_config.effort casing", () => {
   assert.equal(result.reasoning_effort, "medium");
 });
 
-test("Claude -> OpenAI prefers output_config.effort over thinking.budget_tokens", () => {
+test("Claude -> OpenAI prefers output_config.effort over thinking.budget_tokens", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",
     {
@@ -385,7 +383,7 @@ test("Claude -> OpenAI prefers output_config.effort over thinking.budget_tokens"
   assert.equal(result.reasoning_effort, "low");
 });
 
-test("Claude -> OpenAI maps thinking.budget_tokens to reasoning_effort buckets", () => {
+test("Claude -> OpenAI maps thinking.budget_tokens to reasoning_effort buckets", async () => {
   const buckets: Array<{ budget: number; expected: string }> = [
     { budget: 512, expected: "low" },
     { budget: 1024, expected: "low" },
@@ -408,7 +406,7 @@ test("Claude -> OpenAI maps thinking.budget_tokens to reasoning_effort buckets",
   }
 });
 
-test("Claude -> OpenAI normalizes output_config.effort=max to xhigh", () => {
+test("Claude -> OpenAI normalizes output_config.effort=max to xhigh", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",
     {
@@ -421,7 +419,7 @@ test("Claude -> OpenAI normalizes output_config.effort=max to xhigh", () => {
   assert.equal(result.reasoning_effort, "xhigh");
 });
 
-test("Claude -> OpenAI ignores disabled thinking and leaves reasoning_effort unset", () => {
+test("Claude -> OpenAI ignores disabled thinking and leaves reasoning_effort unset", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",
     {
@@ -434,7 +432,7 @@ test("Claude -> OpenAI ignores disabled thinking and leaves reasoning_effort uns
   assert.equal(result.reasoning_effort, undefined);
 });
 
-test("Claude -> OpenAI leaves reasoning_effort unset when no thinking/output_config present", () => {
+test("Claude -> OpenAI leaves reasoning_effort unset when no thinking/output_config present", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",
     { messages: [{ role: "user", content: "hi" }] },
@@ -444,7 +442,7 @@ test("Claude -> OpenAI leaves reasoning_effort unset when no thinking/output_con
   assert.equal(result.reasoning_effort, undefined);
 });
 
-test("Claude -> OpenAI handles redacted thinking, empty arrays and unknown blocks defensively", () => {
+test("Claude -> OpenAI handles redacted thinking, empty arrays and unknown blocks defensively", async () => {
   const result = claudeToOpenAIRequest(
     "gpt-4o",
     {

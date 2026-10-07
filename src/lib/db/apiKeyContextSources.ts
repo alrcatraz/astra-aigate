@@ -56,38 +56,42 @@ export async function setApiKeyContextSource(
 
   const now = new Date().toISOString();
   if (existing) {
-    db.prepare(
-      `UPDATE api_key_context_sources SET
+    await db
+      .prepare(
+        `UPDATE api_key_context_sources SET
         token = COALESCE(?, token),
         base_url = COALESCE(?, base_url),
         vault_path = COALESCE(?, vault_path),
         enabled = COALESCE(?, enabled),
         updated_at = ?
-      WHERE api_key_id = ? AND source_type = ?`
-    ).run(
-      config.token ?? null,
-      config.baseUrl ?? null,
-      config.vaultPath ?? null,
-      config.enabled !== undefined ? (config.enabled ? 1 : 0) : null,
-      now,
-      apiKeyId,
-      sourceType
-    );
+        WHERE api_key_id = ? AND source_type = ?`
+      )
+      .run(
+        config.token ?? null,
+        config.baseUrl ?? null,
+        config.vaultPath ?? null,
+        config.enabled !== undefined ? (config.enabled ? 1 : 0) : null,
+        now,
+        apiKeyId,
+        sourceType
+      );
   } else {
-    db.prepare(
-      `INSERT INTO api_key_context_sources
+    await db
+      .prepare(
+        `INSERT INTO api_key_context_sources
         (api_key_id, source_type, token, base_url, vault_path, enabled, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      apiKeyId,
-      sourceType,
-      config.token ?? null,
-      config.baseUrl ?? null,
-      config.vaultPath ?? null,
-      config.enabled !== undefined ? (config.enabled ? 1 : 0) : 1,
-      now,
-      now
-    );
+      )
+      .run(
+        apiKeyId,
+        sourceType,
+        config.token ?? null,
+        config.baseUrl ?? null,
+        config.vaultPath ?? null,
+        config.enabled !== undefined ? (config.enabled ? 1 : 0) : 1,
+        now,
+        now
+      );
   }
 }
 

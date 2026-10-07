@@ -50,12 +50,18 @@ const IGNORE_FROM_CODE = new Set([
   "LC_MESSAGES",
   "CI",
   "GITHUB_ACTIONS",
+  // CI-provided step-summary file path (scripts/guix-native-probe.mjs writes to it).
+  "GITHUB_STEP_SUMMARY",
   "RUNNER_OS",
   // Quality-gate harness knobs (optional cache/report paths for CI scripts — not product config).
   "ESLINT_RESULTS_JSON",
   "COMPLEXITY_ESLINT_REPORT",
   // Agent environment / system execution paths.
   "PROJECT_ROOT",
+  // Regression harness knobs, not product config (scripts/test/regression-final.mjs:
+  // target base URL + admin password, default CHANGEME).
+  "BASE",
+  "PASSWORD",
   "ARTIFACTS_DIR",
   // OS / Node internals frequently surfaced by indirect dependencies.
   "APPDATA",

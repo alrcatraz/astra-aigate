@@ -18,7 +18,7 @@ _tasks/
 .logs/**
 .tests/**
 .coverage/**
-coverage/
+/coverage/
 .dist/**
 .next/**
 .build/**
@@ -113,7 +113,12 @@ open-sse/test/*
 test-results/
 playwright-report/
 blob-report/
-cloud/
+# NOTE: bare `cloud/` (inherited from the OmniRoute bootstrap) matched ANY level and
+# silently swallowed the source route dirs src/app/api/cloud/ and src/app/api/sync/cloud/
+# — those endpoints existed locally but were NEVER committed, so every clean checkout /
+# CI build lacked them. Anchored to repo root (/cloud/) to preserve the original intent
+# without touching tracked source. See aigate-step3 ledger entry I1.
+/cloud/
 .tmp/
 
 # Security Analysis (standalone project with own git)

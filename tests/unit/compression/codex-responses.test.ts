@@ -16,7 +16,7 @@ async function run(input: unknown[], config: Record<string, unknown> = {}) {
 }
 
 describe("Responses tool-output compression", () => {
-  it("minifies eligible JSON function output and preserves the Responses envelope", () => {
+  it("minifies eligible JSON function output and preserves the Responses envelope", async () => {
     const output = JSON.stringify(
       {
         files: Array.from({ length: 12 }, (_, i) => ({
@@ -29,7 +29,7 @@ describe("Responses tool-output compression", () => {
       null,
       2
     );
-    const { result, body } = run([
+    const { result, body } = await run([
       { type: "function_call", call_id: "call-1", name: "run_command", arguments: "{}" },
       { type: "function_call_output", call_id: "call-1", output },
     ]);
@@ -40,7 +40,7 @@ describe("Responses tool-output compression", () => {
     assert.ok(String(restored.output).length < output.length);
   });
 
-  it("compresses shell/build logs and patch output when they are large enough", () => {
+  it("compresses shell/build logs and patch output when they are large enough", async () => {
     const log = [
       "npm test",
       ...Array.from({ length: 35 }, (_, i) => `verbose test progress ${i}`),
@@ -56,11 +56,13 @@ describe("Responses tool-output compression", () => {
       "+new value",
       ...Array.from({ length: 60 }, (_, i) => ` context after ${i}`),
     ].join("\n");
-    const logResult = run([
+    const logResult = await run([
       { type: "function_call", call_id: "shell-1", name: "run_shell", arguments: "{}" },
       { type: "function_call_output", call_id: "shell-1", output: log },
     ]);
-    const diffResult = run([{ type: "apply_patch_call_output", id: "patch-1", output: diff }]);
+    const diffResult = await run([
+      { type: "apply_patch_call_output", id: "patch-1", output: diff },
+    ]);
     assert.equal(logResult.result.compressed, true);
     assert.equal(diffResult.result.compressed, true);
     assert.match(
@@ -73,19 +75,19 @@ describe("Responses tool-output compression", () => {
     );
   });
 
-  it("keeps lossy shell/log, diff, and search rewrites fail-open", () => {
+  it("keeps lossy shell/log, diff, and search rewrites fail-open", async () => {
     const log = [
       "npm test",
       ...Array.from({ length: 50 }, (_, i) => `progress ${i}`),
       "Error: expected value",
     ].join("\n");
-    const result = run([{ type: "local_shell_call_output", id: "shell-1", output: log }]);
+    const result = await run([{ type: "local_shell_call_output", id: "shell-1", output: log }]);
     const restored = result.body.input as Array<Record<string, unknown>>;
     assert.equal(result.result.compressed, false);
     assert.equal(restored[0].output, log);
   });
 
-  it("protects Read/Grep, retrieval, unknown tools, malformed JSON, and non-string output", () => {
+  it("protects Read/Grep, retrieval, unknown tools, malformed JSON, and non-string output", async () => {
     const noisy = JSON.stringify(
       { data: Array.from({ length: 20 }, (_, i) => ({ i, value: "x" })) },
       null,
@@ -110,7 +112,7 @@ describe("Responses tool-output compression", () => {
         output: [{ type: "input_text", text: noisy }],
       },
     ];
-    const { result, body } = run(input);
+    const { result, body } = await run(input);
     const restored = body.input as Array<Record<string, unknown>>;
     assert.equal(result.compressed, false);
     assert.equal(restored[1].output, noisy);
@@ -120,15 +122,15 @@ describe("Responses tool-output compression", () => {
     assert.deepEqual(restored[7].output, input[7].output);
   });
 
-  it("fails open when disabled and when the candidate exceeds configured limits", () => {
+  it("fails open when disabled and when the candidate exceeds configured limits", async () => {
     const output = JSON.stringify(
       { data: Array.from({ length: 50 }, (_, i) => ({ i, value: "x" })) },
       null,
       2
     );
     const input = [{ type: "local_shell_call_output", id: "shell-1", output }];
-    const disabled = run(input, { enabled: false });
-    const limited = run(input, { maxCandidateBytes: 10 });
+    const disabled = await run(input, { enabled: false });
+    const limited = await run(input, { maxCandidateBytes: 10 });
     assert.equal(disabled.result.compressed, false);
     assert.equal(limited.result.compressed, false);
     assert.equal((disabled.body.input as Array<Record<string, unknown>>)[0].output, output);

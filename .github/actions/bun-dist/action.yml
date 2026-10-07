@@ -1,0 +1,153 @@
+name: bun dist (pinned, official binary)
+
+# Why this exists next to the Guix toolchain (same reasoning as node-dist,
+# scoped to the one runtime the check-gate layer still needs): `test:bun:db`
+# must exercise the bunSqliteAdapter under a real `bun` host — that is a
+# product capability (driver priority bun:sqlite → better-sqlite3 → node:sqlite
+# → sql.js), not a build step, so the coverage cannot be dropped.
+#
+# The npm `bun` package is a STUB whose postinstall (node install.js) fetches
+# the platform binary at `npm ci` time. Under our Guix-pinned install that
+# postinstall does not run (probe: `Bun's postinstall script was not run`),
+# leaving node_modules/bun/bin/bun non-executable → the Bun SQLite job dies
+# before running any test. The other five `bun`-invoked check scripts were
+# already moved off bun (they use zero Bun APIs) — this action feeds the
+# single remaining real consumer.
+#
+# Guix has no bun package at our channel pin (probe: `define-public bun` = 0
+# in javascript.scm / node.scm / web.scm at 5ceffb60), so — exactly like node —
+# the official prebuilt binary is the only reproducible source. Determinism,
+# two layers (mirrors node-dist):
+#   1. per-release: the zip's SHA-256 must match the hex digest recorded in
+#      this file (from oven-sh/bun's SHASUMS256.txt for the release).
+#   2. every run: that digest must equal what the release's own
+#      SHASUMS256.txt publishes — two independent statements agree.
+#
+# Version: read from package.json devDependencies.bun (single source of truth,
+# same pattern as node-dist reading the Dockerfile ARG). Bump ceremony: edit
+# package.json's bun pin and add its digest case below in the same commit.
+#
+# CONTRACT: after this action runs, `bun` on PATH is THIS binary (not the npm
+# stub). Only test:bun:db and any explicit `bun` consumer should rely on it.
+
+description: >-
+  Download and checksum-verify the pinned official bun binary, then export its
+  directory (BUN_DIST_BIN / PATH) so `bun` runs the pinned release instead of
+  the npm stub left without a postinstall.
+author: alrcatraz
+branding:
+  icon: box
+  color: orange
+
+inputs: {}
+
+outputs:
+  bun-dist-bin:
+    description: Directory containing the bun executable (absolute path)
+    value: ${{ steps.bun-dist.outputs.bin }}
+  bun-version:
+    description: Version actually installed (verified twice)
+    value: ${{ steps.bun-dist.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch and verify the pinned bun binary
+      id: bun-dist
+      shell: bash
+      env:
+        DEST_ROOT: ${{ github.workspace }}/.bun-dist
+      run: |
+        set -euo pipefail
+
+        # ── Single source of truth: the bun pin the project declares ──────
+        # Read straight from package.json so CI cannot drift by editing the
+        # pin there and forgetting this action (same pattern as node-dist
+        # reading the Dockerfile ARG).
+        BUN_VERSION=$(node -p "require('$GITHUB_WORKSPACE/package.json').devDependencies.bun" 2>/dev/null || true)
+        test -n "$BUN_VERSION" || { echo "FATAL: package.json carries no devDependencies.bun pin"; exit 1; }
+        echo "bun version from package.json: $BUN_VERSION"
+
+        # ── FETCH PINNED DIGEST ──────────────────────────────────────────
+        # HEX = the linux-x64.zip line in the release's SHASUMS256.txt.
+        case "$BUN_VERSION" in
+          1.3.14)
+            EXPECTED_HEX=951ee2aee855f08595aeec6225226a298d3fea83a3dcd6465c09cbccdf7e848f
+            ;;
+          *)
+            echo "FATAL: no in-file digest for bun v$BUN_VERSION — add it during the bump"
+            echo "       (EXPECTED_HEX = the bun-linux-x64.zip line in the release's"
+            echo "        https://github.com/oven-sh/bun/releases/download/bun-v<version>/SHASUMS256.txt)"
+            exit 1
+            ;;
+        esac
+
+        ZIP="bun-linux-x64.zip"
+        RELEASE_URL="https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}"
+        mkdir -p "$DEST_ROOT"
+
+        BIN_DIR="$DEST_ROOT/bun-linux-x64"
+        if [ -x "$BIN_DIR/bun" ]; then
+          echo "reusing already-extracted bun (same job)"
+        else
+          # Layer 1: byte-pin against the digest recorded in this file.
+          curl -fsSL "$RELEASE_URL/$ZIP" -o "/tmp/$ZIP"
+          echo "$EXPECTED_HEX  /tmp/$ZIP" | sha256sum --check --quiet \
+            || { echo "FATAL: zip bytes != in-file digest $EXPECTED_HEX"; exit 1; }
+          echo "in-file digest OK"
+          # Layer 2: independent statement from the release's SHASUMS256.txt.
+          curl -fsSL "$RELEASE_URL/SHASUMS256.txt" -o /tmp/bun-SHASUMS256.txt
+          REMOTE_HEX=$(awk -v f="$ZIP" '$2 == f {print $1}' /tmp/bun-SHASUMS256.txt)
+          test -n "$REMOTE_HEX" || { echo "FATAL: $ZIP not listed in SHASUMS256.txt"; exit 1; }
+          [ "$REMOTE_HEX" = "$EXPECTED_HEX" ] \
+            || { echo "FATAL: oven-sh SHASUMS ($REMOTE_HEX) != in-file digest"; exit 1; }
+          # Zip has no guaranteed `unzip` on the runner — fall back to python.
+          rm -rf "$DEST_ROOT" && mkdir -p "$DEST_ROOT"
+          (unzip -o -q "/tmp/$ZIP" -d "$DEST_ROOT" 2>/dev/null) \
+            || python3 -c "import zipfile; zipfile.ZipFile('/tmp/$ZIP').extractall('$DEST_ROOT')"
+          rm -f "/tmp/$ZIP" /tmp/bun-SHASUMS256.txt
+        fi
+
+        BIN_DIR="$DEST_ROOT/bun-linux-x64"
+        test -x "$BIN_DIR/bun" || { echo "FATAL: bun missing after unpack"; exit 1; }
+        chmod +x "$BIN_DIR/bun" 2>/dev/null || true
+
+        # Prove it runs (glibc compatibility with the runner image) and that
+        # it is the PINNED release, not a stub that silently reports nothing.
+        ACTUAL=$("$BIN_DIR/bun" --version)
+        [ "$ACTUAL" = "$BUN_VERSION" ] \
+          || { echo "FATAL: bun --version = $ACTUAL, want $BUN_VERSION"; exit 1; }
+        echo "bun verified: $ACTUAL"
+
+        {
+          echo "bin=$BIN_DIR"
+          echo "version=$BUN_VERSION"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Export environment
+      shell: bash
+      env:
+        BUN_BIN: ${{ steps.bun-dist.outputs.bin }}
+        BUN_VER: ${{ steps.bun-dist.outputs.version }}
+      run: |
+        set -euo pipefail
+        # BUN_BIN IS the bin directory (…/bun-linux-x64). Assertions cover
+        # the executable itself, not just the var, per the node-dist lesson.
+        test -x "$BUN_BIN/bun" || { echo "FATAL: BUN_BIN has no bun: $BUN_BIN"; exit 1; }
+        # npm prepends node_modules/.bin to PATH when it runs a script (verified:
+        # `npm exec -c` shows node_modules/.bin as PATH[0]), so the npm STUB
+        # (node_modules/.bin/bun -> bun/bin/bun.exe, postinstall-skipped and
+        # non-executable) would otherwise WIN over any GITHUB_ENV PATH entry.
+        # Neutralise the stub so `npm run test:bun:db` resolves THIS binary.
+        # (GITHUB_ENV PATH is set too, as a belt-and-braces for non-npm consumers.)
+        STUB="$GITHUB_WORKSPACE/node_modules/.bin/bun"
+        if [ -e "$STUB" ] || [ -L "$STUB" ]; then
+          # Remove only the local stub symlink/dir, never the dist package itself.
+          rm -f "$STUB"
+          echo "removed npm bun stub so PATH resolves the pinned dist"
+        fi
+        {
+          printf 'BUN_DIST_BIN<<EOF\n%s\nEOF\n' "$BUN_BIN"
+          printf 'PATH=%s:%s\n' "$BUN_BIN" "$PATH"
+        } >> "$GITHUB_ENV"
+        echo "bun dist: v$BUN_VER ($BUN_BIN)"

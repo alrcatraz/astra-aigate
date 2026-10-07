@@ -20,7 +20,6 @@
     "src/lib/db/apiKeys.ts",
     "src/lib/db/cliToolState.ts",
     "src/lib/db/encryption.ts",
-    "src/lib/db/prompts.ts",
     "src/lib/db/providers.ts",
     "src/lib/db/settings.ts",
     "src/lib/db/stateReset.ts",
@@ -34,7 +33,8 @@
     "open-sse/mcp-server/scopeEnforcement.ts",
     "open-sse/translator/registry.ts",
     "open-sse/handlers/responseSanitizer.ts",
-    "open-sse/handlers/responseTranslator.ts"
+    "open-sse/handlers/responseTranslator.ts",
+    "src/lib/db/prompts.ts"
   ],
   "exclude": ["node_modules", ".next", "app.__qa_backup", "vscode-extension"]
 }

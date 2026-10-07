@@ -27,6 +27,11 @@ const core = await import("../../src/lib/db/core.ts");
 const skillsMod = await import("../../src/lib/db/skills.ts");
 const backupMod = await import("../../src/lib/db/backup.ts");
 
+// getDbInstance() kicks migrations off lazily; join the barrier before the first
+// query or tables such as skills may not exist yet.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 // ──────────────── Helpers ────────────────
 
 function uniqueId(prefix = "test") {

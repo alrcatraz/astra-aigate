@@ -107,9 +107,6 @@
   "open-sse/mcp-server/server.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
-    },
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "open-sse/mcp-server/tools/advancedTools.ts": {
@@ -282,11 +279,6 @@
   },
   "src/app/(dashboard)/dashboard/settings/components/AuthzSection.tsx": {
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/app/(dashboard)/dashboard/settings/components/MitmProxyTab.tsx": {
-    "@next/next/no-html-link-for-pages": {
       "count": 1
     }
   },
@@ -2217,12 +2209,7 @@
   },
   "tests/unit/token-refresh-service.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 17
-    }
-  },
-  "tests/unit/tool-request-sanitization.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 12
+      "count": 15
     }
   },
   "tests/unit/trae-executor.test.ts": {
@@ -2253,11 +2240,6 @@
   "tests/unit/translator-claude-to-openai.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "tests/unit/translator-helper-branches.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 25
     }
   },
   "tests/unit/translator-openai-responses-req.test.ts": {
@@ -2398,6 +2380,16 @@
   "tests/unit/webhook-abort-timer-cleanup.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
+    }
+  },
+  "tests/unit/tool-request-sanitization.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 12
+    }
+  },
+  "tests/unit/translator-helper-branches.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 25
     }
   }
 }

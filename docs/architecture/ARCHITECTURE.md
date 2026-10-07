@@ -431,7 +431,6 @@ have to assemble lockout/budget/fallback logic themselves.
 - Provider expiration tracking: `src/domain/providerExpiration.ts`
 - Quota cache: `src/domain/quotaCache.ts`
 - Degradation state: `src/domain/degradation.ts`
-- Configuration audit: `src/domain/configAudit.ts`
 - OmniRoute response metadata builder: `src/domain/omnirouteResponseMeta.ts`
 - Assessment subsystem: `src/domain/assessment/` — periodic evaluation jobs
 
@@ -447,7 +446,6 @@ appropriate policy chain before dispatch.
 - Policies: `src/server/authz/policies/` — composable predicates
   (`requireApiKey`, `requireManagement`, `requireFreshAuth`, etc.)
 - Header utilities: `src/server/authz/headers.ts`
-- Assertion helper: `src/server/authz/assertAuth.ts`
 - Request context: `src/server/authz/context.ts`
 
 Public vs management routes are a hard boundary: agent/cooldown APIs and

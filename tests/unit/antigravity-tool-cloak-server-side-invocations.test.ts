@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { sanitizeAntigravityToolPayload } from "../../open-sse/config/toolCloaking.ts";
 import { openaiToAntigravityRequest } from "../../open-sse/translator/request/openai-to-gemini.ts";
 
-test("Antigravity payload does not synthesize decoys or server-side tool invocation flags", () => {
+test("Antigravity payload does not synthesize decoys or server-side tool invocation flags", async () => {
   const body = {
     model: "gemini-pro-agent",
     messages: [{ role: "user", content: "list files in the repo" }],
@@ -19,7 +19,7 @@ test("Antigravity payload does not synthesize decoys or server-side tool invocat
       },
     ],
   };
-  const envelope = openaiToAntigravityRequest("gemini-pro-agent", body, false, {
+  const envelope = await openaiToAntigravityRequest("gemini-pro-agent", body, false, {
     projectId: "test-project",
   });
   const sanitized = sanitizeAntigravityToolPayload(envelope as Record<string, unknown>);

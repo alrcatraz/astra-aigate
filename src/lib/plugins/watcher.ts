@@ -30,7 +30,11 @@ type ReloadFn = (name: string) => Promise<void>;
 export function startWatching(pluginDir: string, pluginName: string, reload: ReloadFn): void {
   if (watchers.has(pluginDir)) return;
 
-  const entry: WatcherEntry = { watcher: null as unknown as FSWatcher, pluginName, debounceTimer: null };
+  const entry: WatcherEntry = {
+    watcher: null as unknown as FSWatcher,
+    pluginName,
+    debounceTimer: null,
+  };
 
   try {
     entry.watcher = watch(pluginDir, { recursive: false }, (eventType, filename) => {
@@ -68,7 +72,9 @@ export function stopWatching(pluginDir: string): void {
   if (!entry) return;
 
   if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
-  try { entry.watcher.close(); } catch {}
+  try {
+    entry.watcher.close();
+  } catch {}
   watchers.delete(pluginDir);
   log.info("watcher.stopped", { pluginName: entry.pluginName, dir: pluginDir });
 }

@@ -11,7 +11,7 @@ import { openaiToAntigravityRequest } from "../../open-sse/translator/request/op
 
 type EnvelopeTool = { functionDeclarations?: Array<{ name: string }> };
 
-function declaredToolNames(result: { request: { tools?: EnvelopeTool[] } }): string[] {
+async function declaredToolNames(result: { request: { tools?: EnvelopeTool[] } }): string[] {
   return (result.request.tools ?? []).flatMap((tool) =>
     (tool.functionDeclarations ?? []).map((fn) => fn.name)
   );
@@ -19,8 +19,8 @@ function declaredToolNames(result: { request: { tools?: EnvelopeTool[] } }): str
 
 const CREDS = { projectId: "proj-1" } as never;
 
-test("Antigravity envelope strips built-in tool names mixed with custom functionDeclarations (#1095)", () => {
-  const result = openaiToAntigravityRequest(
+test("Antigravity envelope strips built-in tool names mixed with custom functionDeclarations (#1095)", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: "Search and read" }],
@@ -39,7 +39,7 @@ test("Antigravity envelope strips built-in tool names mixed with custom function
     CREDS
   );
 
-  const names = declaredToolNames(result);
+  const names = await declaredToolNames(result);
   // Built-in tool name must be gone from functionDeclarations...
   assert.ok(
     !names.includes("google_search") && !names.includes("googleSearch"),
@@ -53,8 +53,8 @@ test("Antigravity envelope strips built-in tool names mixed with custom function
   });
 });
 
-test("Antigravity envelope keeps a normal custom-only tool request intact (#1095 regression)", () => {
-  const result = openaiToAntigravityRequest(
+test("Antigravity envelope keeps a normal custom-only tool request intact (#1095 regression)", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: "Hello" }],
@@ -69,15 +69,15 @@ test("Antigravity envelope keeps a normal custom-only tool request intact (#1095
     CREDS
   );
 
-  const names = declaredToolNames(result);
+  const names = await declaredToolNames(result);
   assert.deepEqual(names, ["weather"]);
   assert.deepEqual(result.request.toolConfig, {
     functionCallingConfig: { mode: "VALIDATED" },
   });
 });
 
-test("Antigravity envelope drops tools + toolConfig when only built-in tools are present (#1095)", () => {
-  const result = openaiToAntigravityRequest(
+test("Antigravity envelope drops tools + toolConfig when only built-in tools are present (#1095)", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: "Search the web" }],
@@ -92,7 +92,7 @@ test("Antigravity envelope drops tools + toolConfig when only built-in tools are
     CREDS
   );
 
-  const names = declaredToolNames(result);
+  const names = await declaredToolNames(result);
   assert.ok(
     !names.includes("google_search") && !names.includes("googleSearch"),
     `expected no built-in functionDeclarations, got ${JSON.stringify(names)}`

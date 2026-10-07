@@ -26,7 +26,7 @@ const SAMPLE_TOOLS = [
   },
 ];
 
-function baseBody(toolChoice?: unknown) {
+async function baseBody(toolChoice?: unknown) {
   return {
     messages: [{ role: "user", content: "hi" }],
     tools: SAMPLE_TOOLS,
@@ -34,83 +34,87 @@ function baseBody(toolChoice?: unknown) {
   };
 }
 
-test("no tool_choice (unset) keeps the existing VALIDATED default — no behavior change", () => {
-  const result = openaiToGeminiRequest("gemini-2.5-pro", baseBody(), false) as ToolConfigResult;
+test("no tool_choice (unset) keeps the existing VALIDATED default — no behavior change", async () => {
+  const result = (await openaiToGeminiRequest(
+    "gemini-2.5-pro",
+    await baseBody(),
+    false
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "VALIDATED");
 });
 
-test('tool_choice: "auto" maps to VALIDATED (same as unset)', () => {
-  const result = openaiToGeminiRequest(
+test('tool_choice: "auto" maps to VALIDATED (same as unset)', async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-pro",
-    baseBody("auto"),
+    await baseBody("auto"),
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "VALIDATED");
 });
 
-test('tool_choice: "required" maps to Gemini ANY mode (forces a function call)', () => {
-  const result = openaiToGeminiRequest(
+test('tool_choice: "required" maps to Gemini ANY mode (forces a function call)', async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-pro",
-    baseBody("required"),
+    await baseBody("required"),
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "ANY");
 });
 
-test('tool_choice: "any" (OpenAI-compatible alias) also maps to ANY', () => {
-  const result = openaiToGeminiRequest(
+test('tool_choice: "any" (OpenAI-compatible alias) also maps to ANY', async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-pro",
-    baseBody("any"),
+    await baseBody("any"),
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "ANY");
 });
 
-test('tool_choice: "none" maps to Gemini NONE mode (disables function calling)', () => {
-  const result = openaiToGeminiRequest(
+test('tool_choice: "none" maps to Gemini NONE mode (disables function calling)', async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-pro",
-    baseBody("none"),
+    await baseBody("none"),
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "NONE");
 });
 
-test("tool_choice forcing a specific function maps to ANY with allowedFunctionNames", () => {
-  const result = openaiToGeminiRequest(
+test("tool_choice forcing a specific function maps to ANY with allowedFunctionNames", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-pro",
-    baseBody({ type: "function", function: { name: "run_command" } }),
+    await baseBody({ type: "function", function: { name: "run_command" } }),
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "ANY");
   assert.deepEqual(result.toolConfig?.functionCallingConfig.allowedFunctionNames, ["run_command"]);
 });
 
-test("no tools present: toolConfig is not set regardless of tool_choice", () => {
-  const result = openaiToGeminiRequest(
+test("no tools present: toolConfig is not set regardless of tool_choice", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-pro",
     { messages: [{ role: "user", content: "hi" }], tool_choice: "required" },
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig, undefined);
 });
 
 // Antigravity / Cloud Code envelope path (wrapInCloudCodeEnvelope) previously
 // re-derived its own hardcoded VALIDATED independently of the base translator —
 // it now reuses whatever openaiToGeminiBase already computed from tool_choice.
-test("Antigravity/Cloud Code path also honors tool_choice: required", () => {
-  const result = openaiToCloudCodeGeminiRequest(
+test("Antigravity/Cloud Code path also honors tool_choice: required", async () => {
+  const result = (await openaiToCloudCodeGeminiRequest(
     "gemini-2.5-pro",
-    baseBody("required"),
+    await baseBody("required"),
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "ANY");
 });
 
-test("Antigravity/Cloud Code path defaults to VALIDATED when tool_choice is unset (no regression)", () => {
-  const result = openaiToCloudCodeGeminiRequest(
+test("Antigravity/Cloud Code path defaults to VALIDATED when tool_choice is unset (no regression)", async () => {
+  const result = (await openaiToCloudCodeGeminiRequest(
     "gemini-2.5-pro",
-    baseBody(),
+    await baseBody(),
     false
-  ) as ToolConfigResult;
+  )) as ToolConfigResult;
   assert.equal(result.toolConfig?.functionCallingConfig.mode, "VALIDATED");
 });

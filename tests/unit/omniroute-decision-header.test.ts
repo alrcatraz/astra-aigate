@@ -8,18 +8,23 @@ import {
 import { assembleStreamingResponseHeaders } from "../../open-sse/handlers/chatCore/streamingResponseHeaders.ts";
 import { buildNonStreamingResponseHeaders } from "../../open-sse/handlers/chatCore/nonStreamingResponseHeaders.ts";
 
+// The response-meta header family was renamed X-OmniRoute-* -> X-AI-Gate-*
+// (fe247769 "legal response headers"): the literal is now resolved from the
+// exported constant so a future rename cannot silently desync this suite.
+const DECISION_HEADER = OMNIROUTE_RESPONSE_HEADERS.decision;
+
 test("headers constant exposes the decision key", () => {
-  assert.equal(OMNIROUTE_RESPONSE_HEADERS.decision, "X-OmniRoute-Decision");
+  assert.equal(DECISION_HEADER, "X-AI-Gate-Decision");
 });
 
-test("buildOmniRouteResponseMetaHeaders emits X-OmniRoute-Decision for a combo strategy", () => {
+test("buildOmniRouteResponseMetaHeaders emits the decision header for a combo strategy", () => {
   const headers = buildOmniRouteResponseMetaHeaders({
     strategy: "priority",
     provider: "openai",
     model: "gpt-4o",
     latencyMs: 42,
   });
-  assert.equal(headers["X-OmniRoute-Decision"], "strategy=priority; provider=openai; latency_ms=42");
+  assert.equal(headers[DECISION_HEADER], "strategy=priority; provider=openai; latency_ms=42");
 });
 
 test("strategy: single (non-combo request) still emits the header", () => {
@@ -28,12 +33,12 @@ test("strategy: single (non-combo request) still emits the header", () => {
     provider: "anthropic",
     latencyMs: 10,
   });
-  assert.equal(headers["X-OmniRoute-Decision"], "strategy=single; provider=anthropic; latency_ms=10");
+  assert.equal(headers[DECISION_HEADER], "strategy=single; provider=anthropic; latency_ms=10");
 });
 
 test("omitted strategy AND provider -> header absent entirely", () => {
   const headers = buildOmniRouteResponseMetaHeaders({ model: "gpt-4o" });
-  assert.equal("X-OmniRoute-Decision" in headers, false);
+  assert.equal(DECISION_HEADER in headers, false);
 });
 
 test("control characters in strategy are stripped, no header-injection / leak surface", () => {
@@ -48,7 +53,7 @@ test("control characters in strategy are stripped, no header-injection / leak su
   assert.equal((value as string).includes(" at /"), false);
 });
 
-test("assembleStreamingResponseHeaders includes X-OmniRoute-Decision with strategy=fusion", () => {
+test("assembleStreamingResponseHeaders includes the decision header with strategy=fusion", () => {
   const providerHeaders = new Headers();
   const headers = assembleStreamingResponseHeaders({
     providerHeaders,
@@ -57,7 +62,7 @@ test("assembleStreamingResponseHeaders includes X-OmniRoute-Decision with strate
     pendingRequestId: "req-1",
     comboStrategy: "fusion",
   });
-  assert.equal(headers["X-OmniRoute-Decision"], "strategy=fusion; provider=openai; latency_ms=0");
+  assert.equal(headers[DECISION_HEADER], "strategy=fusion; provider=openai; latency_ms=0");
 });
 
 test("buildNonStreamingResponseHeaders falls back to strategy=single when comboStrategy is null", () => {
@@ -70,5 +75,5 @@ test("buildNonStreamingResponseHeaders falls back to strategy=single when comboS
     requestId: "req-2",
     comboStrategy: null,
   });
-  assert.match(headers["X-OmniRoute-Decision"], /^strategy=single; provider=openai; latency_ms=\d+$/);
+  assert.match(headers[DECISION_HEADER], /^strategy=single; provider=openai; latency_ms=\d+$/);
 });

@@ -35,25 +35,19 @@ import {
 import { isThinkingCapableModel, resolveChatGptModel } from "./chatgpt-web/models.ts";
 import { cleanChatGptText } from "./chatgpt-web/citations.ts";
 import { resumeChatGptHandoff, type FinalAssistantAnswer } from "./chatgpt-web/handoff.ts";
-
-// ─── Constants ──────────────────────────────────────────────────────────────
-
-const CHATGPT_BASE = "https://chatgpt.com";
-const SESSION_URL = `${CHATGPT_BASE}/api/auth/session`;
-const SENTINEL_PREPARE_URL = `${CHATGPT_BASE}/backend-api/sentinel/chat-requirements/prepare`;
-const SENTINEL_CR_URL = `${CHATGPT_BASE}/backend-api/sentinel/chat-requirements`;
-const CONV_URL = `${CHATGPT_BASE}/backend-api/f/conversation`;
-const USER_LAST_USED_MODEL_CONFIG_URL = `${CHATGPT_BASE}/backend-api/settings/user_last_used_model_config`;
-
-const DEFAULT_PRO_POLL_TIMEOUT_MS = 20 * 60_000;
-const DEFAULT_PRO_POLL_INTERVAL_MS = 4_000;
-
-const CHATGPT_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:152.0) Gecko/20100101 Firefox/152.0";
-
-// Captured from a real chatgpt.com browser session (April 2026).
-const OAI_CLIENT_VERSION = "prod-81e0c5cdf6140e8c5db714d613337f4aeab94029";
-const OAI_CLIENT_BUILD_NUMBER = "6128297";
+import {
+  CHATGPT_BASE,
+  SESSION_URL,
+  SENTINEL_PREPARE_URL,
+  SENTINEL_CR_URL,
+  CONV_URL,
+  USER_LAST_USED_MODEL_CONFIG_URL,
+  DEFAULT_PRO_POLL_TIMEOUT_MS,
+  DEFAULT_PRO_POLL_INTERVAL_MS,
+  CHATGPT_USER_AGENT,
+  OAI_CLIENT_VERSION,
+  OAI_CLIENT_BUILD_NUMBER,
+} from "./chatgptWebConstants.ts";
 
 // Per-cookie device ID. The browser stores a persistent `oai-did` cookie that
 // uniquely identifies the device for OpenAI's risk model — we derive a stable

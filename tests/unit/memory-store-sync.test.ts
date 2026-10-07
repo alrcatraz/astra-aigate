@@ -7,12 +7,12 @@
  * reassign or defineProperty on them. These tests verify the critical behaviors
  * through observable DB side-effects and white-box path coverage:
  *
- *   - createMemory() writes the row and returns a valid Memory
- *   - createMemory() UPSERT: same apiKeyId+key → update, not insert
- *   - deleteMemory() removes the SQLite row (Qdrant + vec are best-effort — no crash)
- *   - deleteMemory() returns false for non-existent id
- *   - updateMemory() with content change marks needs_reindex=1 (scheduleVectorUpsert fail path)
- *   - updateMemory() WITHOUT content/key change does NOT change needs_reindex
+ *   - await createMemory() writes the row and returns a valid Memory
+ *   - await createMemory() UPSERT: same apiKeyId+key → update, not insert
+ *   - await deleteMemory() removes the SQLite row (Qdrant + vec are best-effort — no crash)
+ *   - await deleteMemory() returns false for non-existent id
+ *   - await updateMemory() with content change marks needs_reindex=1 (scheduleVectorUpsert fail path)
+ *   - await updateMemory() WITHOUT content/key change does NOT change needs_reindex
  *
  * The D15 contract (deleteMemory calls BOTH vec.deleteVector AND
  * deleteSemanticMemoryPoint) is verified structurally in the code review comment
@@ -161,7 +161,7 @@ test("deleteMemory() returns false for non-existent id (D15 — no crash)", asyn
 });
 
 test("updateMemory() with content change returns true and updates the row", async () => {
-  // This test verifies that updateMemory() correctly detects content changes
+  // This test verifies that await updateMemory() correctly detects content changes
   // and updates the DB row. The fire-and-forget vector path is NOOP when
   // there is no embedding source (resolveEmbeddingSource returns source:null).
   const created = await store.createMemory({

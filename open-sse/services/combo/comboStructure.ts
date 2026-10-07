@@ -707,8 +707,14 @@ export async function filterTargetsByRequestCompatibility(
     entry.reasons.includes("context_window")
   );
   if (requirements.requiredContextTokens > 0 && rejectedForContextWindow) {
-    const knownContextCompatible = compatibleTargets.filter((target) =>
-      hasKnownCompatibleContextLimit(target, requirements)
+    // hasKnownCompatibleContextLimit is async (it awaits capability resolution);
+    // an async predicate inside Array.filter returns Promises, which are all
+    // truthy — resolve the flags first, then filter by index.
+    const knownCompatibleFlags = await Promise.all(
+      compatibleTargets.map((target) => hasKnownCompatibleContextLimit(target, requirements))
+    );
+    const knownContextCompatible = compatibleTargets.filter(
+      (_, index) => knownCompatibleFlags[index]
     );
 
     if (

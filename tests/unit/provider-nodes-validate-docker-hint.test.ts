@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { augmentDockerLocalhostHint } from "../../src/app/api/provider-nodes/validate/route.ts";
 import { SafeOutboundFetchError } from "../../src/shared/network/safeOutboundFetch.ts";
-import { resetDbInstance } from "../../src/lib/db/core.ts";
+import { resetDbInstanceDrained } from "../../src/lib/db/core.ts";
 
 test.after(async () => {
   await resetDbInstanceDrained();

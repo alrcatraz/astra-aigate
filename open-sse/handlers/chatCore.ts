@@ -367,7 +367,7 @@ import {
 // 200MB that sat below the app's own ~260MB baseline and rejected every request.
 
 import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
-
+export { isTokenExpiringSoon } from "./chatCore/tokenExpiry.ts";
 /**
  * Core chat handler - shared between SSE and Worker
  * Returns { success, response, status, error } for caller to handle fallback
@@ -1267,9 +1267,11 @@ export async function handleChatCore({
             const { getCompressionComboForRoutingCombo } =
               await import("../../src/lib/db/compressionCombos.ts");
             const assignedCompressionCombo =
-              routingComboIds
-                .map((id) => getCompressionComboForRoutingCombo(id))
-                .find((combo) => combo !== null) ?? null;
+              (
+                await Promise.all(
+                  routingComboIds.map((id) => getCompressionComboForRoutingCombo(id))
+                )
+              ).find((combo) => combo !== null) ?? null;
             if (
               applyCompressionComboConfig(
                 assignedCompressionCombo as RuntimeCompressionCombo | null,
@@ -1290,7 +1292,7 @@ export async function handleChatCore({
       let namedCombos: Record<string, CompressionPipelineStep[]> = {};
       try {
         const { listCompressionCombos } = await import("../../src/lib/db/compressionCombos.ts");
-        namedCombos = buildNamedComboLookup(listCompressionCombos());
+        namedCombos = buildNamedComboLookup(await listCompressionCombos());
       } catch (err) {
         log?.debug?.(
           "COMPRESSION",
@@ -1330,7 +1332,7 @@ export async function handleChatCore({
         try {
           const { getDefaultCompressionCombo } =
             await import("../../src/lib/db/compressionCombos.ts");
-          const defaultCompressionCombo = getDefaultCompressionCombo();
+          const defaultCompressionCombo = await getDefaultCompressionCombo();
           if (
             isStackedCompressionCombo(defaultCompressionCombo as RuntimeCompressionCombo | null) &&
             applyCompressionComboConfig(defaultCompressionCombo as RuntimeCompressionCombo | null)
@@ -2008,7 +2010,7 @@ export async function handleChatCore({
           model || "",
           sourceFormat
         );
-        normalizedForCc = translateRequest(
+        normalizedForCc = await translateRequest(
           sourceFormat,
           FORMATS.OPENAI,
           model,
@@ -2182,7 +2184,7 @@ export async function handleChatCore({
         model || "",
         sourceFormat
       );
-      translatedBody = translateRequest(
+      translatedBody = await translateRequest(
         sourceFormat,
         targetFormat,
         model,
@@ -5016,10 +5018,4 @@ export async function handleChatCore({
       headers: responseHeaders,
     }),
   };
-}
-
-export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
-  if (!expiresAt) return false;
-  const expiresAtMs = new Date(expiresAt).getTime();
-  return expiresAtMs - Date.now() < bufferMs;
 }

@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -10,9 +10,17 @@ import {
   getMiddlewareHook,
   recordHookExecution,
 } from "../../src/lib/db/middleware.ts";
+import { getDbInstance, awaitDbMigrations } from "../../src/lib/db/core.ts";
 
 describe("middleware hooks DB", () => {
   const hookName = `test-hook-${Date.now()}`;
+
+  before(async () => {
+    // getDbInstance() kicks migrations off lazily; join the barrier before the
+    // first query or middleware_hooks may not exist yet.
+    getDbInstance();
+    await awaitDbMigrations();
+  });
 
   const hookConfig = {
     name: hookName,
@@ -73,6 +81,6 @@ describe("middleware hooks DB", () => {
     const delName = `del-hook-${Date.now()}`;
     await createMiddlewareHook({ ...hookConfig, name: delName });
     await deleteMiddlewareHook(delName);
-    assert.equal(getMiddlewareHook(delName), undefined);
+    assert.equal(await getMiddlewareHook(delName), undefined);
   });
 });

@@ -15,38 +15,18 @@ import type { MemoryRow } from "./retrieval/scoring";
 
 const log = logger("MEMORY_RETRIEVAL");
 
-interface RetrievalOptions extends Partial<MemoryConfig> {
-  query?: string;
-  sessionId?: string;
-}
-
-// ──────────────── Types exposed publicly (§3.6) ────────────────
-
-export interface RetrievePreviewItem {
-  memory: Memory;
-  score: number;
-  tokens: number;
-  tier: "fts5" | "vector" | "hybrid-rrf" | "qdrant";
-  vecScore: number | null;
-  ftsScore: number | null;
-}
-
-export interface RetrievePreviewResolution {
-  embeddingSource: "remote" | "static" | "transformers" | null;
-  embeddingModel: string | null;
-  vectorStore: "sqlite-vec" | "qdrant" | "none";
-  strategyUsed: "exact" | "semantic" | "hybrid";
-  rerankApplied: boolean;
-  fallbackReason: string | null;
-}
-
-export interface RetrievePreviewBundle {
-  items: RetrievePreviewItem[];
-  resolution: RetrievePreviewResolution;
-  totalTokens: number;
-  budgetMaxTokens: number;
-}
-
+import type {
+  RetrievalOptions,
+  RetrievePreviewItem,
+  RetrievePreviewResolution,
+  RetrievePreviewBundle,
+} from "./retrievalTypes.ts";
+export type {
+  RetrievalOptions,
+  RetrievePreviewItem,
+  RetrievePreviewResolution,
+  RetrievePreviewBundle,
+} from "./retrievalTypes.ts";
 export { estimateTokens } from "./retrieval/scoring";
 
 // ──────────────── Helpers ────────────────

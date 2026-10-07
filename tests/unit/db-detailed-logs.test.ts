@@ -75,22 +75,22 @@ test("isDetailedLoggingEnabled follows the stored setting", async () => {
   assert.equal(await detailedLogsDb.isDetailedLoggingEnabled(), true);
 });
 
-test("legacy detailed log helpers tolerate databases without request_detail_logs", () => {
+test("legacy detailed log helpers tolerate databases without request_detail_logs", async () => {
   const db = core.getDbInstance();
-  db.exec("DROP TABLE request_detail_logs");
+  await db.exec("DROP TABLE request_detail_logs");
 
-  assert.doesNotThrow(() =>
-    detailedLogsDb.saveRequestDetailLog({
-      id: "missing-table-write",
-      call_log_id: "call-missing-table",
-      provider: "openai",
-      model: "gpt-4.1",
-    })
-  );
-  assert.deepEqual(detailedLogsDb.getRequestDetailLogs(), []);
-  assert.equal(detailedLogsDb.getRequestDetailLogCount(), 0);
-  assert.equal(detailedLogsDb.getRequestDetailLogById("missing-table-write"), null);
-  assert.equal(detailedLogsDb.getRequestDetailLogByCallLogId("call-missing-table"), null);
+  // The helper must SWALLOW the missing-table error rather than reject: it is
+  // called from the hot request path, where a throw would break the request.
+  await detailedLogsDb.saveRequestDetailLog({
+    id: "missing-table-write",
+    call_log_id: "call-missing-table",
+    provider: "openai",
+    model: "gpt-4.1",
+  });
+  assert.deepEqual(await detailedLogsDb.getRequestDetailLogs(), []);
+  assert.equal(await detailedLogsDb.getRequestDetailLogCount(), 0);
+  assert.equal(await detailedLogsDb.getRequestDetailLogById("missing-table-write"), null);
+  assert.equal(await detailedLogsDb.getRequestDetailLogByCallLogId("call-missing-table"), null);
 });
 
 test("saveRequestDetailLog persists protected payloads and compacted stream summaries", async () => {
@@ -165,7 +165,7 @@ test("latest log lookup by call_log_id and paginated listing use newest-first or
   const firstPage = await detailedLogsDb.getRequestDetailLogs(2, 0);
   const secondPage = await detailedLogsDb.getRequestDetailLogs(1, 1);
 
-  assert.equal(detailedLogsDb.getRequestDetailLogByCallLogId("call-2").id, "newer");
+  assert.equal((await detailedLogsDb.getRequestDetailLogByCallLogId("call-2"))!.id, "newer");
   assert.deepEqual(
     firstPage.map((row) => row.id),
     ["latest", "newer"]
@@ -174,7 +174,7 @@ test("latest log lookup by call_log_id and paginated listing use newest-first or
     secondPage.map((row) => row.id),
     ["newer"]
   );
-  assert.equal(detailedLogsDb.getRequestDetailLogCount(), 3);
+  assert.equal(await detailedLogsDb.getRequestDetailLogCount(), 3);
 });
 
 test("logs are skipped when the associated API key is marked as no_log", async () => {
@@ -189,8 +189,8 @@ test("logs are skipped when the associated API key is marked as no_log", async (
     no_log: false,
   });
 
-  assert.equal(detailedLogsDb.getRequestDetailLogCount(), 0);
-  assert.equal(detailedLogsDb.getRequestDetailLogById("should-not-persist"), null);
+  assert.equal(await detailedLogsDb.getRequestDetailLogCount(), 0);
+  assert.equal(await detailedLogsDb.getRequestDetailLogById("should-not-persist"), null);
 });
 
 test("request_detail_logs trigger keeps only the latest 500 rows", async () => {
@@ -205,10 +205,10 @@ test("request_detail_logs trigger keeps only the latest 500 rows", async () => {
 
   const rows = await detailedLogsDb.getRequestDetailLogs(600, 0);
 
-  assert.equal(detailedLogsDb.getRequestDetailLogCount(), 500);
-  assert.equal(detailedLogsDb.getRequestDetailLogById("ring-0"), null);
-  assert.equal(detailedLogsDb.getRequestDetailLogById("ring-4"), null);
-  assert.equal(detailedLogsDb.getRequestDetailLogById("ring-5")?.id, "ring-5");
+  assert.equal(await detailedLogsDb.getRequestDetailLogCount(), 500);
+  assert.equal(await detailedLogsDb.getRequestDetailLogById("ring-0"), null);
+  assert.equal(await detailedLogsDb.getRequestDetailLogById("ring-4"), null);
+  assert.equal((await detailedLogsDb.getRequestDetailLogById("ring-5"))?.id, "ring-5");
   assert.equal(rows[0].id, "ring-504");
   assert.equal(rows.at(-1)?.id, "ring-5");
 });

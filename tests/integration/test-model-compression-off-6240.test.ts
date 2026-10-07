@@ -28,6 +28,8 @@ const readCacheDb = await import("../../src/lib/db/readCache.ts");
 const compressionDb = await import("../../src/lib/db/compression.ts");
 const { handleChatCore } = await import("../../open-sse/handlers/chatCore.ts");
 const { resetAllCircuitBreakers } = await import("../../src/shared/utils/circuitBreaker.ts");
+const { OUTPUT_STYLE_MARKER } =
+  await import("../../open-sse/services/compression/outputStyles/apply.ts");
 
 const originalFetch = globalThis.fetch;
 
@@ -134,7 +136,10 @@ test("chatCore: x-omniroute-compression: off suppresses Output Styles injection 
   });
   const plainFirstMessage = withoutOptOut?.messages?.[0];
   assert.equal(plainFirstMessage?.role, "system");
-  assert.match(plainFirstMessage?.content ?? "", /OmniRoute Output Styles/);
+  assert.ok(
+    (plainFirstMessage?.content ?? "").includes(OUTPUT_STYLE_MARKER),
+    "globally-enabled Output Styles must inject the marker system message"
+  );
 
   // The "Test model" connection test sends x-omniroute-compression: off — must be clean.
   const testModelBody = await runChatCore({
@@ -149,7 +154,7 @@ test("chatCore: x-omniroute-compression: off suppresses Output Styles injection 
     "Test-model request (compression:off) must not receive an injected Output Styles system message"
   );
   const anyMessageHasMarker = (testModelBody?.messages ?? []).some((m) =>
-    (m?.content ?? "").includes("OmniRoute Output Styles")
+    (m?.content ?? "").includes(OUTPUT_STYLE_MARKER)
   );
   assert.equal(
     anyMessageHasMarker,

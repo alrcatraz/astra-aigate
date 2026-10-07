@@ -6,7 +6,7 @@ type ClaudeBlock = { type: string; id?: string; tool_use_id?: string; [key: stri
 type ClaudeMessage = { role: string; content: ClaudeBlock[] | unknown };
 
 describe("issue #7705 — tool_use id mismatch on Claude OAuth", () => {
-  it("keeps tool_use.id and the follow-up tool_result.tool_use_id identical when the incoming id has non-alnum characters", () => {
+  it("keeps tool_use.id and the follow-up tool_result.tool_use_id identical when the incoming id has non-alnum characters", async () => {
     const rawToolCallId = "call.read_file:0";
 
     const body = {
@@ -17,14 +17,18 @@ describe("issue #7705 — tool_use id mismatch on Claude OAuth", () => {
           role: "assistant",
           content: null,
           tool_calls: [
-            { id: rawToolCallId, type: "function", function: { name: "read_file", arguments: "{}" } },
+            {
+              id: rawToolCallId,
+              type: "function",
+              function: { name: "read_file", arguments: "{}" },
+            },
           ],
         },
         { role: "tool", tool_call_id: rawToolCallId, content: "file contents" },
       ],
     };
 
-    const claudeRequest = openaiToClaudeRequest("claude-sonnet-4-5", body, false);
+    const claudeRequest = await openaiToClaudeRequest("claude-sonnet-4-5", body, false);
 
     const messages = claudeRequest.messages as ClaudeMessage[];
     const assistantMsg = messages.find((m) => m.role === "assistant");
@@ -39,9 +43,7 @@ describe("issue #7705 — tool_use id mismatch on Claude OAuth", () => {
         : []
     );
 
-    const matchingToolResult = allToolResultBlocks.find(
-      (b) => b.tool_use_id === toolUseBlock!.id
-    );
+    const matchingToolResult = allToolResultBlocks.find((b) => b.tool_use_id === toolUseBlock!.id);
 
     assert.ok(
       matchingToolResult,

@@ -7,16 +7,16 @@ describe("sqljsAdapter", () => {
   test("abre DB in-memory e executa CRUD básico", async () => {
     const adapter = await createSqlJsAdapter(":memory:");
 
-    adapter.exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)");
-    const result = adapter.prepare("INSERT INTO test (val) VALUES (?)").run("hello");
+    await adapter.exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)");
+    const result = await adapter.prepare("INSERT INTO test (val) VALUES (?)").run("hello");
     assert.equal(result.changes, 1);
 
-    const row = adapter
+    const row = (await adapter
       .prepare("SELECT val FROM test WHERE id = ?")
-      .get(result.lastInsertRowid) as { val: string };
+      .get(result.lastInsertRowid)) as { val: string };
     assert.equal(row.val, "hello");
 
-    const rows = adapter.prepare("SELECT * FROM test").all();
+    const rows = await adapter.prepare("SELECT * FROM test").all();
     assert.equal(rows.length, 1);
 
     adapter.close();
@@ -30,37 +30,40 @@ describe("sqljsAdapter", () => {
 
   test("pragma retorna valor", async () => {
     const adapter = await createSqlJsAdapter(":memory:");
-    const mode = adapter.pragma("journal_mode", { simple: true });
+    const mode = await adapter.pragma("journal_mode", { simple: true });
     assert.ok(mode !== null && mode !== undefined);
     adapter.close();
   });
 
   test("transaction é atômica — rollback em erro", async () => {
     const adapter = await createSqlJsAdapter(":memory:");
-    adapter.exec("CREATE TABLE tx_test (id INTEGER PRIMARY KEY, val TEXT NOT NULL)");
+    await adapter.exec("CREATE TABLE tx_test (id INTEGER PRIMARY KEY, val TEXT NOT NULL)");
 
-    const insert = adapter.transaction(() => {
-      adapter.prepare("INSERT INTO tx_test (val) VALUES (?)").run("ok");
+    const insert = adapter.transaction(async () => {
+      await adapter.prepare("INSERT INTO tx_test (val) VALUES (?)").run("ok");
       throw new Error("rollback!");
     });
 
-    assert.throws(() => insert(), /rollback/);
+    // async wrapper: thrown error surfaces as a rejection, not a sync throw.
+    await assert.rejects(() => insert(), /rollback/);
 
-    const count = adapter.prepare("SELECT COUNT(*) as cnt FROM tx_test").get() as { cnt: number };
+    const count = (await adapter.prepare("SELECT COUNT(*) as cnt FROM tx_test").get()) as {
+      cnt: number;
+    };
     assert.equal(count.cnt, 0, "Rollback deve ter desfeito o insert");
     adapter.close();
   });
 
   test("transaction confirma quando não lança erro", async () => {
     const adapter = await createSqlJsAdapter(":memory:");
-    adapter.exec("CREATE TABLE commit_test (id INTEGER PRIMARY KEY, val TEXT)");
+    await adapter.exec("CREATE TABLE commit_test (id INTEGER PRIMARY KEY, val TEXT)");
 
-    const insert = adapter.transaction(() => {
-      adapter.prepare("INSERT INTO commit_test (val) VALUES (?)").run("committed");
+    const insert = adapter.transaction(async () => {
+      await adapter.prepare("INSERT INTO commit_test (val) VALUES (?)").run("committed");
     });
-    insert();
+    await insert();
 
-    const count = adapter.prepare("SELECT COUNT(*) as cnt FROM commit_test").get() as {
+    const count = (await adapter.prepare("SELECT COUNT(*) as cnt FROM commit_test").get()) as {
       cnt: number;
     };
     assert.equal(count.cnt, 1);
@@ -80,12 +83,14 @@ describe("sqljsAdapter", () => {
     });
 
     const writer = await createSqlJsAdapter(tmpFile);
-    writer.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)");
-    writer.prepare("INSERT INTO items (name) VALUES (?)").run("test-value");
+    await writer.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)");
+    await writer.prepare("INSERT INTO items (name) VALUES (?)").run("test-value");
     writer.close();
 
     const reader = await createSqlJsAdapter(tmpFile);
-    const row = reader.prepare("SELECT name FROM items WHERE id = 1").get() as { name: string };
+    const row = (await reader.prepare("SELECT name FROM items WHERE id = 1").get()) as {
+      name: string;
+    };
     assert.equal(row.name, "test-value");
     reader.close();
   });
@@ -97,19 +102,18 @@ describe("sqljsAdapter", () => {
   describe("named-parameter object bind (#6802)", () => {
     test("all() with a single named-params object mirrors getProviderConnections", async () => {
       const adapter = await createSqlJsAdapter(":memory:");
-      adapter.exec(
+      await adapter.exec(
         "CREATE TABLE provider_connections (id INTEGER PRIMARY KEY, provider TEXT, is_active INTEGER)"
       );
-      adapter
+      await adapter
         .prepare("INSERT INTO provider_connections (provider, is_active) VALUES (?, ?)")
         .run("glm", 1);
-      adapter
+      await adapter
         .prepare("INSERT INTO provider_connections (provider, is_active) VALUES (?, ?)")
         .run("openai", 0);
 
-      const sql =
-        "SELECT * FROM provider_connections WHERE is_active = @isActive ORDER BY id ASC";
-      const rows = adapter.prepare(sql).all({ isActive: 1 }) as Array<{ provider: string }>;
+      const sql = "SELECT * FROM provider_connections WHERE is_active = @isActive ORDER BY id ASC";
+      const rows = (await adapter.prepare(sql).all({ isActive: 1 })) as Array<{ provider: string }>;
 
       assert.equal(rows.length, 1, "expected exactly 1 active provider connection");
       assert.equal(rows[0].provider, "glm");
@@ -118,10 +122,10 @@ describe("sqljsAdapter", () => {
 
     test("get() with a single named-params object resolves the row", async () => {
       const adapter = await createSqlJsAdapter(":memory:");
-      adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)");
-      adapter.prepare("INSERT INTO t (val) VALUES (?)").run("named-get");
+      await adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)");
+      await adapter.prepare("INSERT INTO t (val) VALUES (?)").run("named-get");
 
-      const row = adapter.prepare("SELECT val FROM t WHERE id = @id").get({ id: 1 }) as {
+      const row = (await adapter.prepare("SELECT val FROM t WHERE id = @id").get({ id: 1 })) as {
         val: string;
       };
       assert.equal(row.val, "named-get");
@@ -130,46 +134,46 @@ describe("sqljsAdapter", () => {
 
     test("run() with a single named-params object binds correctly", async () => {
       const adapter = await createSqlJsAdapter(":memory:");
-      adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)");
-      const result = adapter
+      await adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)");
+      const result = await adapter
         .prepare("INSERT INTO t (val) VALUES (@val)")
         .run({ val: "named-run" });
       assert.equal(result.changes, 1);
 
-      const row = adapter
+      const row = (await adapter
         .prepare("SELECT val FROM t WHERE id = ?")
-        .get(result.lastInsertRowid) as { val: string };
+        .get(result.lastInsertRowid)) as { val: string };
       assert.equal(row.val, "named-run");
       adapter.close();
     });
 
     test("supports :name and $name sigils in addition to @name", async () => {
       const adapter = await createSqlJsAdapter(":memory:");
-      adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)");
-      adapter.prepare("INSERT INTO t (val) VALUES (?)").run("colon-sigil");
-      adapter.prepare("INSERT INTO t (val) VALUES (?)").run("dollar-sigil");
+      await adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)");
+      await adapter.prepare("INSERT INTO t (val) VALUES (?)").run("colon-sigil");
+      await adapter.prepare("INSERT INTO t (val) VALUES (?)").run("dollar-sigil");
 
-      const colonRow = adapter.prepare("SELECT val FROM t WHERE val = :val").get({
+      const colonRow = (await adapter.prepare("SELECT val FROM t WHERE val = :val").get({
         val: "colon-sigil",
-      }) as { val: string };
+      })) as { val: string };
       assert.equal(colonRow.val, "colon-sigil");
 
-      const dollarRow = adapter.prepare("SELECT val FROM t WHERE val = $val").get({
+      const dollarRow = (await adapter.prepare("SELECT val FROM t WHERE val = $val").get({
         val: "dollar-sigil",
-      }) as { val: string };
+      })) as { val: string };
       assert.equal(dollarRow.val, "dollar-sigil");
       adapter.close();
     });
 
     test("existing positional-array binding still works unchanged", async () => {
       const adapter = await createSqlJsAdapter(":memory:");
-      adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, a TEXT, b TEXT)");
-      const result = adapter.prepare("INSERT INTO t (a, b) VALUES (?, ?)").run("x", "y");
+      await adapter.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, a TEXT, b TEXT)");
+      const result = await adapter.prepare("INSERT INTO t (a, b) VALUES (?, ?)").run("x", "y");
       assert.equal(result.changes, 1);
 
-      const row = adapter
+      const row = (await adapter
         .prepare("SELECT a, b FROM t WHERE id = ?")
-        .get(result.lastInsertRowid) as { a: string; b: string };
+        .get(result.lastInsertRowid)) as { a: string; b: string };
       assert.equal(row.a, "x");
       assert.equal(row.b, "y");
       adapter.close();

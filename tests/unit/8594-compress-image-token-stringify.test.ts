@@ -12,7 +12,7 @@ function makeFakePngBase64(approxBytes: number): string {
   return Buffer.alloc(approxBytes, 65).toString("base64");
 }
 
-test("#8594: compressContext does NOT compress a within-limit inline-image request", () => {
+test("#8594: compressContext does NOT compress a within-limit inline-image request", async () => {
   // ~500KB image => ~666KB base64. As raw text that is ~166k tokens (over the limit);
   // as a bounded image estimate it is ~1.2k tokens (well under). maxTokens=20000 sits
   // between the two, so the bug (stringify) trips compression and the fix does not.
@@ -31,7 +31,7 @@ test("#8594: compressContext does NOT compress a within-limit inline-image reque
     ],
   };
 
-  const result = compressContext(body, { maxTokens: 20000, reserveTokens: 0 });
+  const result = await compressContext(body, { maxTokens: 20000, reserveTokens: 0 });
 
   assert.equal(
     result.compressed,
@@ -46,7 +46,7 @@ test("#8594: compressContext does NOT compress a within-limit inline-image reque
   );
 });
 
-test("#8594: purifyHistory keeps all image-bearing turns when they fit within the limit", () => {
+test("#8594: purifyHistory keeps all image-bearing turns when they fit within the limit", async () => {
   // Multiple image messages that, measured correctly, fit under the limit. The bug
   // makes the Layer-3 binary search over-estimate and prune turns; the fix preserves them.
   const base64 = makeFakePngBase64(200_000);
@@ -71,7 +71,7 @@ test("#8594: purifyHistory keeps all image-bearing turns when they fit within th
   };
   const originalCount = body.messages.length;
 
-  const result = compressContext(body, { maxTokens: 20000, reserveTokens: 0 });
+  const result = await compressContext(body, { maxTokens: 20000, reserveTokens: 0 });
 
   assert.equal(result.compressed, false, "within-limit image history must not be compressed");
   assert.equal(
@@ -81,7 +81,7 @@ test("#8594: purifyHistory keeps all image-bearing turns when they fit within th
   );
 });
 
-test("#8594: control — an oversized text request is still compressed (no regression)", () => {
+test("#8594: control — an oversized text request is still compressed (no regression)", async () => {
   const body = {
     model: "gpt-text",
     messages: [
@@ -89,6 +89,6 @@ test("#8594: control — an oversized text request is still compressed (no regre
       { role: "user", content: "a".repeat(200_000) }, // ~50k tokens, over a 20k limit
     ],
   };
-  const result = compressContext(body, { maxTokens: 20000, reserveTokens: 0 });
+  const result = await compressContext(body, { maxTokens: 20000, reserveTokens: 0 });
   assert.equal(result.compressed, true, "oversized text must still trigger compression");
 });

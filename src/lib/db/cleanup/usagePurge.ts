@@ -17,7 +17,7 @@ export type DeleteByPeriodTarget = {
 };
 
 export async function deleteAllFromTable(table: string): Promise<number> {
-  if (!(await tableExists(table))) return 0;
+  if (!(await tableExists(table, getAsyncDb()))) return 0;
   const db = await getAsyncDb();
   const result = await db.prepare(`DELETE FROM ${table}`).run();
   return result.changes;
@@ -27,7 +27,7 @@ export async function deleteFromTableBefore(
   target: DeleteByPeriodTarget,
   cutoffIso: string
 ): Promise<number> {
-  if (!(await tableExists(target.table))) return 0;
+  if (!(await tableExists(target.table, getAsyncDb()))) return 0;
 
   const cutoff = (() => {
     switch (target.cutoff) {
@@ -53,7 +53,7 @@ export async function deleteFromTableBefore(
 }
 
 export async function collectCallLogArtifactsBefore(cutoffIso: string): Promise<string[]> {
-  if (!(await tableExists("call_logs"))) return [];
+  if (!(await tableExists("call_logs", getAsyncDb()))) return [];
 
   const db = await getAsyncDb();
   const rows = (await db

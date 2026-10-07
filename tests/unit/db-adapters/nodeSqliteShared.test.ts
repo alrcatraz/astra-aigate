@@ -56,26 +56,26 @@ class FakeDb {
   }
 }
 
-test("createNodeSqliteAdapterFromDatabase wraps node:sqlite statements", () => {
+test("createNodeSqliteAdapterFromDatabase wraps node:sqlite statements", async () => {
   const db = new FakeDb();
   const adapter = createNodeSqliteAdapterFromDatabase(db, ":memory:");
 
-  const insert = adapter.prepare("INSERT INTO t VALUES (?)").run("ok");
+  const insert = await adapter.prepare("INSERT INTO t VALUES (?)").run("ok");
   assert.deepEqual(insert, { changes: 1, lastInsertRowid: 7 });
 
-  const row = adapter.prepare("SELECT value FROM t").get() as Row;
+  const row = (await adapter.prepare("SELECT value FROM t").get()) as Row;
   assert.equal(row.value, "ok");
 
-  assert.equal(adapter.pragma("journal_mode", { simple: true }), "wal");
-  assert.deepEqual(adapter.pragma("journal_mode"), [{ journal_mode: "wal" }]);
+  assert.equal(await adapter.pragma("journal_mode", { simple: true }), "wal");
+  assert.deepEqual(await adapter.pragma("journal_mode"), [{ journal_mode: "wal" }]);
 });
 
-test("createNodeSqliteAdapterFromDatabase uses savepoints for transactions", () => {
+test("createNodeSqliteAdapterFromDatabase uses savepoints for transactions", async () => {
   const db = new FakeDb();
   const adapter = createNodeSqliteAdapterFromDatabase(db, ":memory:");
 
   const run = adapter.transaction((value: string) => value.toUpperCase());
-  assert.equal(run("ok"), "OK");
+  assert.equal(await run("ok"), "OK");
   assert.equal(db.execCalls[0].startsWith("SAVEPOINT "), true);
   assert.equal(db.execCalls[1].startsWith("RELEASE "), true);
 });

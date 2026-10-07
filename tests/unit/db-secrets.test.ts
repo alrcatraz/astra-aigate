@@ -42,24 +42,24 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("getPersistedSecret returns null for missing keys", () => {
-  assert.equal(secretsDb.getPersistedSecret("missing"), null);
+test("getPersistedSecret returns null for missing keys", async () => {
+  assert.equal(await secretsDb.getPersistedSecret("missing"), null);
 });
 
 test("persistSecret stores and reads secrets from the key_value table", async () => {
   await secretsDb.persistSecret("oauth_token", "secret-value");
 
-  assert.equal(secretsDb.getPersistedSecret("oauth_token"), "secret-value");
+  assert.equal(await secretsDb.getPersistedSecret("oauth_token"), "secret-value");
 });
 
 test("persistSecret does not overwrite an existing secret because storage is insert-only", async () => {
   await secretsDb.persistSecret("api_token", "first-value");
   await secretsDb.persistSecret("api_token", "second-value");
 
-  assert.equal(secretsDb.getPersistedSecret("api_token"), "first-value");
+  assert.equal(await secretsDb.getPersistedSecret("api_token"), "first-value");
 });
 
-test("malformed persisted rows are treated as missing secrets", () => {
+test("malformed persisted rows are treated as missing secrets", async () => {
   const db = core.getDbInstance();
   db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
     "secrets",
@@ -67,5 +67,5 @@ test("malformed persisted rows are treated as missing secrets", () => {
     "not-json"
   );
 
-  assert.equal(secretsDb.getPersistedSecret("broken"), null);
+  assert.equal(await secretsDb.getPersistedSecret("broken"), null);
 });

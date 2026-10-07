@@ -226,13 +226,13 @@ export async function saveModelsDevPricing(data: PricingByProvider): Promise<voi
   const insert = await db.prepare(
     "INSERT INTO key_value (namespace, key, value) VALUES ('models_dev_pricing', ?, ?)"
   );
-  const tx = db.transaction(() => {
-    del.run();
+  const tx = db.transaction(async () => {
+    await del.run();
     for (const [provider, models] of Object.entries(data)) {
-      insert.run(provider, JSON.stringify(models));
+      await insert.run(provider, JSON.stringify(models));
     }
   });
-  tx();
+  await tx();
   backupDbFile("pre-write");
   invalidateDbCache("pricing");
 }
@@ -360,7 +360,21 @@ const SYNCED_CAPABILITY_FALLBACK_ALIASES: Record<string, string[]> = {
   // glm-5.3-flash → zhipuai (1M), deepseek-v4-flash* → deepseek (1M). Only
   // ids that genuinely exist upstream inherit anything; DMXAPI-exclusive ids
   // keep falling through to registry/spec/defaults.
-  "dmxapi-cn": ["zhipuai", "zai", "alibaba", "deepseek"],
+  // aihubmix / alibaba-token-plan / alibaba-cn appended: DMXAPI also resells
+  // deepseek-v4.1-flash and mimo-v2.6-flash under ids absent from all four
+  // channels above (verified 0/4 hits), so those lookups fell through and
+  // combo windows collapsed to the 128K default. aihubmix alone carries all
+  // three affected ids; the alibaba variants back it up for deepseek/qwen.
+  // Appended last so every lookup that resolves today keeps its current source.
+  "dmxapi-cn": [
+    "zhipuai",
+    "zai",
+    "alibaba",
+    "deepseek",
+    "aihubmix",
+    "alibaba-token-plan",
+    "alibaba-cn",
+  ],
 };
 
 export async function getSyncedCapability(
@@ -433,11 +447,11 @@ export async function saveModelsDevCapabilities(data: CapabilitiesByProvider): P
   `);
 
   const now = new Date().toISOString();
-  const tx = db.transaction(() => {
-    del.run();
+  const tx = db.transaction(async () => {
+    await del.run();
     for (const [provider, models] of Object.entries(data)) {
       for (const [modelId, cap] of Object.entries(models)) {
-        insert.run(
+        await insert.run(
           provider,
           modelId,
           cap.tool_call === null ? null : cap.tool_call ? 1 : 0,
@@ -462,7 +476,7 @@ export async function saveModelsDevCapabilities(data: CapabilitiesByProvider): P
       }
     }
   });
-  tx();
+  await tx();
   backupDbFile("pre-write");
   cachedCapabilities = data;
   cachedCapabilitiesLoadedAll = true;
@@ -522,10 +536,10 @@ export async function syncModelsDev(opts?: {
       }
 
       if (!dryRun) {
-        saveModelsDevPricing(pricing);
+        await saveModelsDevPricing(pricing);
         if (syncCapabilities) {
           ensureCapabilitiesTable();
-          saveModelsDevCapabilities(capabilities);
+          await saveModelsDevCapabilities(capabilities);
         }
         lastSyncTime = new Date().toISOString();
         lastSyncModelCount = modelCount;

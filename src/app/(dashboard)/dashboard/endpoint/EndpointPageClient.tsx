@@ -1,6 +1,16 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import type {
+  CloudflaredTunnelPhase,
+  CloudflaredTunnelStatus,
+  TailscaleTunnelPhase,
+  TailscaleTunnelStatus,
+  NgrokTunnelPhase,
+  NgrokTunnelStatus,
+  TunnelNotice,
+  EndpointTunnelVisibility,
+} from "./endpointTunnelTypes";
 import Link from "next/link";
 import { Card, Button, Input, Modal, CardSkeleton, SegmentedControl } from "@/shared/components";
 import Toggle from "@/shared/components/Toggle";
@@ -21,65 +31,6 @@ const BUILD_TIME_CLOUD_URL = process.env.NEXT_PUBLIC_CLOUD_URL || null;
 const CLOUD_ACTION_TIMEOUT_MS = 15000;
 
 type TranslationValues = Record<string, string | number | boolean | Date>;
-type CloudflaredTunnelPhase =
-  "unsupported" | "not_installed" | "stopped" | "starting" | "running" | "error";
-
-type CloudflaredTunnelStatus = {
-  supported: boolean;
-  installed: boolean;
-  managedInstall: boolean;
-  installSource: string | null;
-  binaryPath: string | null;
-  running: boolean;
-  pid: number | null;
-  publicUrl: string | null;
-  apiUrl: string | null;
-  targetUrl: string;
-  phase: CloudflaredTunnelPhase;
-  lastError: string | null;
-  logPath: string;
-};
-
-type TailscaleTunnelPhase =
-  "unsupported" | "not_installed" | "needs_login" | "stopped" | "running" | "error";
-
-type TailscaleTunnelStatus = {
-  supported: boolean;
-  installed: boolean;
-  managedInstall: boolean;
-  installSource: string | null;
-  binaryPath: string | null;
-  loggedIn: boolean;
-  daemonRunning: boolean;
-  running: boolean;
-  enabled: boolean;
-  tunnelUrl: string | null;
-  apiUrl: string | null;
-  phase: TailscaleTunnelPhase;
-  platform: string;
-  brewAvailable: boolean;
-  lastError: string | null;
-  pid: number | null;
-};
-
-type NgrokTunnelPhase =
-  "unsupported" | "not_installed" | "stopped" | "needs_auth" | "starting" | "running" | "error";
-
-type NgrokTunnelStatus = {
-  supported: boolean;
-  installed: boolean;
-  running: boolean;
-  publicUrl: string | null;
-  apiUrl: string | null;
-  targetUrl: string;
-  phase: NgrokTunnelPhase;
-  lastError: string | null;
-};
-
-type TunnelNotice = {
-  type: "success" | "error" | "info";
-  message: string;
-};
 
 type APIPageClientProps = {
   machineId: string;
@@ -103,12 +54,6 @@ type EndpointModelSummary = {
 };
 
 type CopyHandler = (text: string, key?: string) => void | Promise<void>;
-
-type EndpointTunnelVisibility = {
-  showCloudflaredTunnel: boolean;
-  showTailscaleFunnel: boolean;
-  showNgrokTunnel: boolean;
-};
 
 type EndpointTab = "apis" | "mcp" | "services" | "api-endpoints" | "a2a" | "context-sources";
 

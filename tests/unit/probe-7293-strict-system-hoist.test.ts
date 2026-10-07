@@ -3,10 +3,8 @@ import assert from "node:assert/strict";
 import { translateRequest } from "../../open-sse/translator/index.ts";
 import { FORMATS } from "../../open-sse/translator/formats.ts";
 
-function buildRepro(messageCount: number) {
-  const messages: Array<{ role: string; content: string }> = [
-    { role: "user", content: "hello" },
-  ];
+async function buildRepro(messageCount: number) {
+  const messages: Array<{ role: string; content: string }> = [{ role: "user", content: "hello" }];
   for (let i = 1; i < messageCount - 1; i++) {
     messages.push({ role: i % 2 === 1 ? "assistant" : "user", content: `turn ${i}` });
   }
@@ -19,11 +17,11 @@ function buildRepro(messageCount: number) {
   return messages.slice(0, messageCount);
 }
 
-test("#7293: client-injected system message at index>0 is hoisted to index 0 for a strict provider (mimo) via translateRequest", () => {
-  const messages = buildRepro(70);
+test("#7293: client-injected system message at index>0 is hoisted to index 0 for a strict provider (mimo) via translateRequest", async () => {
+  const messages = await buildRepro(70);
   const body = { model: "mimo-v2.5", messages };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI, // same-format passthrough — exactly mimo-v2.5's path
     "mimo-v2.5",
@@ -42,7 +40,7 @@ test("#7293: client-injected system message at index>0 is hoisted to index 0 for
   assert.match(outMessages[0].content, /CLIENT INJECTED: remember to answer in JSON/);
 });
 
-test("#7293: multiple offending system messages are folded into the leading system message, in order", () => {
+test("#7293: multiple offending system messages are folded into the leading system message, in order", async () => {
   const messages = [
     { role: "user", content: "hi" },
     { role: "assistant", content: "hello" },
@@ -52,7 +50,7 @@ test("#7293: multiple offending system messages are folded into the leading syst
   ];
   const body = { model: "mimo-v2.5", messages };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "mimo-v2.5",
@@ -76,7 +74,7 @@ test("#7293: multiple offending system messages are folded into the leading syst
   );
 });
 
-test("#7293: existing leading system message is preserved and merges client-injected ones after it", () => {
+test("#7293: existing leading system message is preserved and merges client-injected ones after it", async () => {
   const messages = [
     { role: "system", content: "leading prompt" },
     { role: "user", content: "hi" },
@@ -84,7 +82,7 @@ test("#7293: existing leading system message is preserved and merges client-inje
   ];
   const body = { model: "mimo-v2.5", messages };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "mimo-v2.5",
@@ -100,7 +98,7 @@ test("#7293: existing leading system message is preserved and merges client-inje
   assert.equal(outMessages.length, 2);
 });
 
-test("#7293: non-strict provider is left untouched (no hoist regression)", () => {
+test("#7293: non-strict provider is left untouched (no hoist regression)", async () => {
   const messages = [
     { role: "user", content: "hi" },
     { role: "assistant", content: "hello" },
@@ -108,7 +106,7 @@ test("#7293: non-strict provider is left untouched (no hoist regression)", () =>
   ];
   const body = { model: "gpt-5-mini", messages: JSON.parse(JSON.stringify(messages)) };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "gpt-5-mini",
@@ -122,7 +120,7 @@ test("#7293: non-strict provider is left untouched (no hoist regression)", () =>
   assert.deepEqual(outMessages, messages);
 });
 
-test("#7293: already-compliant strict-provider request is a no-op (prompt-cache prefix stability)", () => {
+test("#7293: already-compliant strict-provider request is a no-op (prompt-cache prefix stability)", async () => {
   const messages = [
     { role: "system", content: "leading prompt" },
     { role: "user", content: "hi" },
@@ -130,7 +128,7 @@ test("#7293: already-compliant strict-provider request is a no-op (prompt-cache 
   ];
   const body = { model: "mimo-v2.5", messages };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "mimo-v2.5",

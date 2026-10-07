@@ -303,6 +303,7 @@ export async function createChatPipelineHarness(prefix) {
     resetAllCircuitBreakers();
     await core.resetDbInstanceDrained();
     fs.rmSync(testDataDir, { recursive: true, force: true });
+    fs.mkdirSync(testDataDir, { recursive: true });
     core.getDbInstance();
     await core.awaitDbMigrations();
   }

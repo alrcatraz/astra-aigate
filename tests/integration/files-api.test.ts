@@ -1,8 +1,16 @@
-import { describe, it, afterEach } from "node:test";
+import { describe, it, afterEach, before } from "node:test";
 import assert from "node:assert";
 import { createFile, listFiles, deleteFile, getFile } from "@/lib/localDb";
+import { getDbInstance, awaitDbMigrations } from "@/lib/db/core";
 
 describe("Files API - Integration Tests", () => {
+  before(async () => {
+    // The `files` table is created by migration 028, which runs asynchronously
+    // after the lazy DB open. Materialise the schema before the first insert.
+    getDbInstance();
+    await awaitDbMigrations();
+  });
+
   afterEach(async () => {
     const allFiles = await listFiles({ limit: 1000 });
     for (const f of allFiles) {
@@ -175,12 +183,12 @@ describe("Files API - Integration Tests", () => {
         mimeType: "text/plain",
       });
 
-      const beforeDelete = listFiles({ limit: 100 }).some((f) => f.id === file.id);
+      const beforeDelete = (await listFiles({ limit: 100 })).some((f) => f.id === file.id);
       assert(beforeDelete === true);
 
       await deleteFile(file.id);
 
-      const afterDelete = listFiles({ limit: 100 }).some((f) => f.id === file.id);
+      const afterDelete = (await listFiles({ limit: 100 })).some((f) => f.id === file.id);
       assert(afterDelete === false);
     });
 

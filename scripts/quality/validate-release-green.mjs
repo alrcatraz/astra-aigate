@@ -96,9 +96,7 @@ export function firstFailureLine(out) {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
-  const hit = lines.find((l) =>
-    /✖|✗|not ok|AssertionError|error TS|FAIL|Error:|REGRESS/i.test(l)
-  );
+  const hit = lines.find((l) => /✖|✗|not ok|AssertionError|error TS|FAIL|Error:|REGRESS/i.test(l));
   return (hit || lines[lines.length - 1] || "failed").slice(0, 200);
 }
 
@@ -244,7 +242,16 @@ export function extractCiGates(
       const runStr = typeof step?.run === "string" ? step.run : "";
       if (!runStr) continue;
       for (const rawLine of runStr.split("\n")) {
-        const m = rawLine.trim().match(/^npm run (\S+)(?:\s+--\s+(.+?))?\s*$/);
+        // CI wraps every gate in the Guix shell ($GUIX_SHELL npm run ...) and may add
+        // env/cd wrappers. Strip leading assignments, `cd ... &&`, and the $GUIX_SHELL
+        // token so the local pre-flight extracts the SAME gate set CI actually runs —
+        // otherwise every static gate silently drops out of --full-ci.
+        const line = rawLine
+          .trim()
+          .replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)+/, "")
+          .replace(/^cd\s+\S+\s*&&\s*/, "")
+          .replace(/^\$GUIX_SHELL\s+/, "");
+        const m = line.match(/^npm run (\S+)(?:\s+--\s+(.+?))?\s*$/);
         if (!m) continue;
         const script = m[1];
         if (script !== "lint" && !script.startsWith("check:")) continue; // gates only

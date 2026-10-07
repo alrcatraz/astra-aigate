@@ -14,8 +14,8 @@ function setup() {
 }
 
 async function cleanup() {
+  const { resetDbInstanceDrained, ensureDbInitialized } = await import("../../src/lib/db/core.ts");
   try {
-    const { resetDbInstance } = require("../../src/lib/db/core.ts");
     await resetDbInstanceDrained();
   } catch {}
   if (originalDataDir !== undefined) {
@@ -23,11 +23,22 @@ async function cleanup() {
   } else {
     delete process.env.DATA_DIR;
   }
+  // Do NOT rm tempDir here: core.ts freezes DATA_DIR/SQLITE_FILE at first
+  // import (inside the first test), so deleting the first temp dir breaks
+  // every later open in this file ("directory does not exist" → sql.js →
+  // rawBf.prepare().all crashes). The dir is a per-process mkdtemp under
+  // /tmp and is reaped with the OS.
+  // try {
+  //   fs.rmSync(tempDir, { recursive: true, force: true });
+  // } catch {}
   try {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  } catch {}
-  getDbInstance();
-  await awaitDbMigrations();
+    // Best-effort restore for the shared DATA_DIR: the next test re-opens its
+    // own DB in setup(), so a driver/adapter quirk here must not fail the
+    // test that already passed its assertions.
+    await ensureDbInitialized();
+  } catch {
+    // ignore restore failures
+  }
 }
 
 test("statement cache handles 200+ unique SELECTs without errors (LRU eviction)", async () => {

@@ -21,12 +21,17 @@ import {
   openDatabaseAsync,
 } from "./adapters/driverFactory";
 import { createPostgresAdapter, type PostgresAdapterConfig } from "./adapters/postgresAdapter";
+import { setDbOptimizationSettingsPromise } from "./optimizationSettingsTracker";
 import path from "path";
 import os from "node:os";
 import fs from "fs";
 import { resolveWritableDataDir, getLegacyDotDataDir } from "../dataPaths";
 import { runMigrations } from "./migrationRunner";
-import { runDbHealthCheck, type DbHealthCheckResult } from "./healthCheck";
+// Type-only import: erased at runtime, so `core.ts` -> `healthCheck.ts` is a
+// compile-time-only edge and no longer half of a runtime import cycle.
+// `runDbHealthCheck` itself is imported lazily (dynamic `import()`) at its two
+// call sites below (the codebase-wide convention for this handler).
+import type { DbHealthCheckResult } from "./healthCheck";
 import { resetAllDbModuleState } from "./stateReset";
 import { parseStoredPayload } from "../logPayloads";
 import { DEFAULT_DATABASE_SETTINGS, type DatabaseSettings } from "@/types/databaseSettings";
@@ -45,6 +50,9 @@ import {
 } from "../usage/callLogArtifacts";
 import { migrateLegacyEncryptedString } from "./encryption";
 import { invalidateDbCache } from "./readCache";
+import { SCHEMA_SQL, SCHEMA_BACKFILL_COLUMNS, SCHEMA_BACKFILL_INDEXES } from "./schemaSql.ts";
+import { migrateFromJson } from "./jsonMigration.ts";
+import { parseLegacyError, offloadLegacyCallLogDetails } from "./legacyCallLogOffload.ts";
 import { rowToCamel } from "./caseMapping";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
 // Re-exported so existing call sites that pull these helpers off the core module keep working.
@@ -251,284 +259,6 @@ if (!isCloud && !fs.existsSync(DATA_DIR)) {
 
 // ──────────────── Schema ────────────────
 
-const SCHEMA_SQL = `
-  CREATE TABLE IF NOT EXISTS provider_connections (
-    id TEXT PRIMARY KEY,
-    provider TEXT NOT NULL,
-    auth_type TEXT,
-    name TEXT,
-    email TEXT,
-    priority INTEGER DEFAULT 0,
-    is_active INTEGER DEFAULT 1,
-    access_token TEXT,
-    refresh_token TEXT,
-    expires_at TEXT,
-    token_expires_at TEXT,
-    scope TEXT,
-    project_id TEXT,
-    test_status TEXT,
-    error_code TEXT,
-    last_error TEXT,
-    last_error_at TEXT,
-    last_error_type TEXT,
-    last_error_source TEXT,
-    backoff_level INTEGER DEFAULT 0,
-    rate_limited_until TEXT,
-    health_check_interval INTEGER,
-    last_health_check_at TEXT,
-    last_tested TEXT,
-    api_key TEXT,
-    id_token TEXT,
-    provider_specific_data TEXT,
-    expires_in INTEGER,
-    display_name TEXT,
-    global_priority INTEGER,
-    default_model TEXT,
-    token_type TEXT,
-    consecutive_use_count INTEGER DEFAULT 0,
-    rate_limit_protection INTEGER DEFAULT 0,
-    last_used_at TEXT,
-    "group" TEXT,
-    max_concurrent INTEGER,
-    proxy_enabled INTEGER NOT NULL DEFAULT 1,
-    per_key_proxy_enabled INTEGER NOT NULL DEFAULT 0,
-    quota_visible INTEGER NOT NULL DEFAULT 1,
-    quota_window_thresholds_json TEXT,
-    rate_limit_overrides_json TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_pc_provider ON provider_connections(provider);
-  CREATE INDEX IF NOT EXISTS idx_pc_active ON provider_connections(is_active);
-  CREATE INDEX IF NOT EXISTS idx_pc_priority ON provider_connections(provider, priority);
-
-  CREATE TABLE IF NOT EXISTS provider_nodes (
-    id TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    name TEXT NOT NULL,
-    prefix TEXT,
-    api_type TEXT,
-    base_url TEXT,
-    chat_path TEXT,
-    models_path TEXT,
-    custom_headers_json TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS key_value (
-    namespace TEXT NOT NULL,
-    key TEXT NOT NULL,
-    value TEXT NOT NULL,
-    PRIMARY KEY (namespace, key)
-  );
-
-  CREATE TABLE IF NOT EXISTS combos (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    data TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS api_keys (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    key TEXT NOT NULL UNIQUE,
-    machine_id TEXT,
-    allowed_models TEXT DEFAULT '[]',
-    no_log INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_ak_key ON api_keys(key);
-
-  CREATE TABLE IF NOT EXISTS db_meta (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS usage_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    provider TEXT,
-    model TEXT,
-    connection_id TEXT,
-    account_key TEXT,
-    account_label TEXT,
-    account_label_priority INTEGER DEFAULT 0,
-    api_key_id TEXT,
-    api_key_name TEXT,
-    tokens_input INTEGER DEFAULT 0,
-    tokens_output INTEGER DEFAULT 0,
-    tokens_cache_read INTEGER DEFAULT 0,
-    tokens_cache_creation INTEGER DEFAULT 0,
-    tokens_reasoning INTEGER DEFAULT 0,
-    service_tier TEXT DEFAULT 'standard',
-    status TEXT,
-    success INTEGER DEFAULT 1,
-    latency_ms INTEGER DEFAULT 0,
-    ttft_ms INTEGER DEFAULT 0,
-    error_code TEXT,
-    timestamp TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_uh_timestamp ON usage_history(timestamp);
-  CREATE INDEX IF NOT EXISTS idx_uh_provider ON usage_history(provider);
-  CREATE INDEX IF NOT EXISTS idx_uh_model ON usage_history(model);
-
-  CREATE TABLE IF NOT EXISTS call_logs (
-    id TEXT PRIMARY KEY,
-    timestamp TEXT NOT NULL,
-    method TEXT,
-    path TEXT,
-    status INTEGER,
-    model TEXT,
-    requested_model TEXT,
-    provider TEXT,
-    account TEXT,
-    connection_id TEXT,
-    duration INTEGER DEFAULT 0,
-    tokens_in INTEGER DEFAULT 0,
-    tokens_out INTEGER DEFAULT 0,
-    tokens_cache_read INTEGER DEFAULT NULL,
-    tokens_cache_creation INTEGER DEFAULT NULL,
-    tokens_reasoning INTEGER DEFAULT NULL,
-    tokens_compressed INTEGER DEFAULT NULL,
-    cache_source TEXT DEFAULT "upstream",
-    request_type TEXT,
-    source_format TEXT,
-    target_format TEXT,
-    api_key_id TEXT,
-    api_key_name TEXT,
-    combo_name TEXT,
-    combo_step_id TEXT,
-    combo_execution_key TEXT,
-    error_summary TEXT,
-    detail_state TEXT DEFAULT 'none',
-    artifact_relpath TEXT,
-    artifact_size_bytes INTEGER DEFAULT NULL,
-    artifact_sha256 TEXT DEFAULT NULL,
-    has_request_body INTEGER DEFAULT 0,
-    has_response_body INTEGER DEFAULT 0,
-    has_pipeline_details INTEGER DEFAULT 0,
-    request_summary TEXT,
-    correlation_id TEXT,
-    model_pinned INTEGER DEFAULT 0,
-    session_tag TEXT DEFAULT NULL,
-    reasoning_source TEXT DEFAULT NULL,
-    reasoning_chars INTEGER DEFAULT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_cl_timestamp ON call_logs(timestamp);
-  CREATE INDEX IF NOT EXISTS idx_cl_status ON call_logs(status);
-
-  CREATE TABLE IF NOT EXISTS proxy_logs (
-    id TEXT PRIMARY KEY,
-    timestamp TEXT NOT NULL,
-    status TEXT,
-    proxy_type TEXT,
-    proxy_host TEXT,
-    proxy_port INTEGER,
-    level TEXT,
-    level_id TEXT,
-    provider TEXT,
-    target_url TEXT,
-    public_ip TEXT,
-    latency_ms INTEGER DEFAULT 0,
-    error TEXT,
-    connection_id TEXT,
-    combo_id TEXT,
-    account TEXT,
-    tls_fingerprint INTEGER DEFAULT 0
-  );
-  CREATE INDEX IF NOT EXISTS idx_pl_timestamp ON proxy_logs(timestamp);
-  CREATE INDEX IF NOT EXISTS idx_pl_status ON proxy_logs(status);
-  CREATE INDEX IF NOT EXISTS idx_pl_provider ON proxy_logs(provider);
-
-  -- Domain State Persistence (Phase 5)
-  CREATE TABLE IF NOT EXISTS domain_fallback_chains (
-    model TEXT PRIMARY KEY,
-    chain TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS domain_budgets (
-    api_key_id TEXT PRIMARY KEY,
-    daily_limit_usd REAL NOT NULL,
-    weekly_limit_usd REAL DEFAULT 0,
-    monthly_limit_usd REAL DEFAULT 0,
-    warning_threshold REAL DEFAULT 0.8,
-    reset_interval TEXT DEFAULT 'daily',
-    reset_time TEXT DEFAULT '00:00',
-    budget_reset_at INTEGER,
-    last_budget_reset_at INTEGER,
-    warning_emitted_at INTEGER,
-    warning_period_start INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS domain_budget_reset_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    api_key_id TEXT NOT NULL,
-    reset_interval TEXT NOT NULL,
-    previous_spend REAL NOT NULL DEFAULT 0,
-    reset_at INTEGER NOT NULL,
-    next_reset_at INTEGER NOT NULL,
-    period_start INTEGER NOT NULL,
-    period_end INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_dbrl_key_reset ON domain_budget_reset_logs(api_key_id, reset_at DESC);
-
-  CREATE TABLE IF NOT EXISTS domain_cost_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    api_key_id TEXT NOT NULL,
-    cost REAL NOT NULL,
-    timestamp INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_dch_key ON domain_cost_history(api_key_id);
-  CREATE INDEX IF NOT EXISTS idx_dch_ts ON domain_cost_history(timestamp);
-
-  CREATE TABLE IF NOT EXISTS domain_lockout_state (
-    identifier TEXT PRIMARY KEY,
-    attempts TEXT NOT NULL,
-    locked_until INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS domain_circuit_breakers (
-    name TEXT PRIMARY KEY,
-    state TEXT NOT NULL DEFAULT 'CLOSED',
-    failure_count INTEGER DEFAULT 0,
-    last_failure_time INTEGER,
-    options TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS semantic_cache (
-    id TEXT PRIMARY KEY,
-    signature TEXT NOT NULL UNIQUE,
-    model TEXT NOT NULL,
-    prompt_hash TEXT NOT NULL,
-    response TEXT NOT NULL,
-    tokens_saved INTEGER DEFAULT 0,
-    hit_count INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_sc_sig ON semantic_cache(signature);
-  CREATE INDEX IF NOT EXISTS idx_sc_model ON semantic_cache(model);
-
-  CREATE TABLE IF NOT EXISTS quota_snapshots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    provider TEXT NOT NULL,
-    connection_id TEXT NOT NULL,
-    window_key TEXT NOT NULL,
-    remaining_percentage REAL,
-    is_exhausted INTEGER DEFAULT 0,
-    next_reset_at TEXT,
-    window_duration_ms INTEGER,
-    raw_data TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_quota_snapshots_provider_time ON quota_snapshots(provider, created_at);
-  CREATE INDEX IF NOT EXISTS idx_quota_snapshots_connection_time ON quota_snapshots(connection_id, created_at);
-  CREATE INDEX IF NOT EXISTS idx_quota_snapshots_created_at ON quota_snapshots(created_at);
-`;
-
 // ──────────────── Singleton DB Instance ────────────────
 // Use globalThis to survive Next.js dev HMR module re-evaluation.
 // Module-level `let` resets on every webpack recompile, causing connection leaks.
@@ -612,80 +342,6 @@ function listProbeFailureBackups(sqliteFile: string): string[] {
  * PRAGMA read; their ALTERs are sync). Keep in sync when adding columns —
  * the PG path still uses the async wrappers via initDatabaseDriver().
  */
-const SCHEMA_BACKFILL_COLUMNS: Array<[string, Array<[string, string]>]> = [
-  [
-    "provider_connections",
-    [
-      ["auth_type", "TEXT"],
-      ["name", "TEXT"],
-      ["email", "TEXT"],
-      ["display_name", "TEXT"],
-      ["provider_specific_data", "TEXT"],
-      ["rate_limit_protection", "INTEGER DEFAULT 0"],
-      ["last_used_at", "TEXT"],
-      ["group", "TEXT"],
-      ["max_concurrent", "INTEGER"],
-      ["proxy_enabled", "INTEGER NOT NULL DEFAULT 1"],
-      ["per_key_proxy_enabled", "INTEGER NOT NULL DEFAULT 0"],
-      ["quota_visible", "INTEGER NOT NULL DEFAULT 1"],
-      ["quota_window_thresholds_json", "TEXT"],
-      ["rate_limit_overrides_json", "TEXT"],
-      ["refresh_token", "TEXT"],
-    ],
-  ],
-  [
-    "usage_history",
-    [
-      ["success", "INTEGER DEFAULT 1"],
-      ["latency_ms", "INTEGER DEFAULT 0"],
-      ["ttft_ms", "INTEGER DEFAULT 0"],
-      ["error_code", "TEXT"],
-      ["service_tier", "TEXT DEFAULT 'standard'"],
-      ["combo_strategy", "TEXT DEFAULT 'direct'"],
-      ["account_key", "TEXT"],
-      ["account_label", "TEXT"],
-      ["account_label_priority", "INTEGER DEFAULT 0"],
-      // Migration 105 lives in usageHistory-related callers; backfill here too
-      // so SQLite DBs whose migration 105 failed mid-run (same defect class as
-      // call_logs_v1_legacy) can still write the `endpoint` column.
-      ["endpoint", "TEXT"],
-    ],
-  ],
-  [
-    "call_logs",
-    [
-      ["artifact_relpath", "TEXT"],
-      ["has_pipeline_details", "INTEGER DEFAULT 0"],
-      ["requested_model", "TEXT DEFAULT NULL"],
-      ["request_type", "TEXT DEFAULT NULL"],
-      ["tokens_cache_read", "INTEGER DEFAULT NULL"],
-      ["tokens_cache_creation", "INTEGER DEFAULT NULL"],
-      ["tokens_reasoning", "INTEGER DEFAULT NULL"],
-      ["cache_source", "TEXT DEFAULT 'upstream'"],
-      ["combo_step_id", "TEXT DEFAULT NULL"],
-      ["combo_execution_key", "TEXT DEFAULT NULL"],
-      ["error_summary", "TEXT DEFAULT NULL"],
-      ["detail_state", "TEXT DEFAULT 'none'"],
-      ["artifact_size_bytes", "INTEGER DEFAULT NULL"],
-      ["artifact_sha256", "TEXT DEFAULT NULL"],
-      ["has_request_body", "INTEGER DEFAULT 0"],
-      ["has_response_body", "INTEGER DEFAULT 0"],
-      ["request_summary", "TEXT DEFAULT NULL"],
-      ["correlation_id", "TEXT DEFAULT NULL"],
-      ["model_pinned", "INTEGER DEFAULT 0"],
-      ["session_tag", "TEXT DEFAULT NULL"],
-      ["reasoning_source", "TEXT DEFAULT NULL"],
-      ["reasoning_chars", "INTEGER DEFAULT NULL"],
-    ],
-  ],
-];
-
-/**
- * Apply the column backfills synchronously on the raw SQLite handle. Shared by
- * the on-disk open path and the in-memory build/cloud path — both are inside
- * synchronous functions, so the async ensure* wrappers would leak un-awaited
- * Promises and leave call_logs half-backfilled for the first writers.
- */
 function applySchemaBackfillsSync(db: SqliteDatabase): void {
   const rawBf = db.raw as unknown as RawSyncDb;
   for (const [table, adds] of SCHEMA_BACKFILL_COLUMNS) {
@@ -696,9 +352,21 @@ function applySchemaBackfillsSync(db: SqliteDatabase): void {
     );
     for (const [column, type] of adds) {
       if (!have.has(column)) {
-        rawBf.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        // Column names are identifiers and some are reserved words
+        // (`provider_connections."group"`): the async sibling
+        // ensureProviderConnectionsColumns quotes them explicitly — an
+        // unquoted `ADD COLUMN group TEXT` is a hard SQLite syntax error.
+        rawBf.exec(
+          `ALTER TABLE ${quoteIdentifier(table)} ADD COLUMN ${quoteIdentifier(column)} ${type}`
+        );
       }
     }
+  }
+  // Index half of the mirror: the column ALTERs above make the migration
+  // idempotency check skip migrations that also created these indexes, so the
+  // sync path has to create them itself (see SCHEMA_BACKFILL_INDEXES).
+  for (const [table, ddl] of SCHEMA_BACKFILL_INDEXES) {
+    if (tableExistsSyncRaw(db, table)) rawBf.exec(ddl);
   }
 }
 
@@ -729,6 +397,13 @@ function captureCriticalDbState(sqliteFile: string): PreservedCriticalDbState {
   let probe: SqliteDatabase | null = null;
   try {
     probe = openSqliteDatabase(sqliteFile, { readonly: true });
+
+    // A readonly open is lazy: better-sqlite3 accepts a non-SQLite file and
+    // only raises "file is not a database" on the first statement. Probe
+    // sqlite_master once so an unreadable file fails the capture
+    // (captureSucceeded=false → "Manual recovery required") instead of being
+    // reported as a successful empty snapshot.
+    (probe.raw as RawSyncDb).prepare("SELECT name FROM sqlite_master LIMIT 1").all();
 
     for (const tableSpec of CRITICAL_DB_TABLES) {
       // Sync raw check: `probe` is a synchronous readonly handle and this
@@ -828,161 +503,6 @@ function cleanupRecreatedSqliteFiles(sqliteFile: string) {
     } catch {
       /* ignore */
     }
-  }
-}
-
-function parseLegacyError(value: unknown): unknown {
-  if (typeof value !== "string" || value.trim().length === 0) return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-async function offloadLegacyCallLogDetails(db: SqliteDatabase) {
-  if (!(await hasTable(db, "call_logs_v1_legacy"))) return;
-
-  type LegacyCallLogRow = {
-    id: string;
-    timestamp: string | null;
-    method: string | null;
-    path: string | null;
-    status: number | null;
-    model: string | null;
-    requested_model: string | null;
-    provider: string | null;
-    account: string | null;
-    connection_id: string | null;
-    duration: number | null;
-    tokens_in: number | null;
-    tokens_out: number | null;
-    tokens_cache_read: number | null;
-    tokens_cache_creation: number | null;
-    tokens_reasoning: number | null;
-    tokens_compressed: number | null;
-    request_type: string | null;
-    source_format: string | null;
-    target_format: string | null;
-    api_key_id: string | null;
-    api_key_name: string | null;
-    combo_name: string | null;
-    combo_step_id: string | null;
-    combo_execution_key: string | null;
-    request_body: string | null;
-    response_body: string | null;
-    error: string | null;
-  };
-
-  const pendingRows = (await db
-    .prepare(
-      `
-      SELECT legacy.*
-      FROM call_logs_v1_legacy AS legacy
-      JOIN call_logs AS current ON current.id = legacy.id
-      WHERE current.detail_state = 'legacy-inline'
-      ORDER BY legacy.timestamp ASC
-    `
-    )
-    .all()) as LegacyCallLogRow[];
-
-  if (pendingRows.length === 0) {
-    await db.exec("DROP TABLE IF EXISTS call_logs_v1_legacy");
-    return;
-  }
-
-  const updateStmt = db.prepare(`
-    UPDATE call_logs
-    SET artifact_relpath = @artifactRelPath,
-        artifact_size_bytes = @artifactSizeBytes,
-        artifact_sha256 = @artifactSha256,
-        detail_state = 'ready'
-    WHERE id = @id
-  `);
-  const markMissingStmt = db.prepare(`
-    UPDATE call_logs
-    SET detail_state = 'missing',
-        artifact_relpath = NULL,
-        artifact_size_bytes = NULL,
-        artifact_sha256 = NULL
-    WHERE id = ?
-  `);
-
-  let failed = 0;
-  const tx = db.transaction(async () => {
-    for (const row of pendingRows) {
-      const artifact: CallLogArtifact = {
-        schemaVersion: 5,
-        summary: {
-          id: row.id,
-          timestamp: row.timestamp || new Date().toISOString(),
-          method: row.method || "POST",
-          path: row.path || "/v1/chat/completions",
-          status: row.status || 0,
-          model: row.model || "-",
-          requestedModel: row.requested_model || null,
-          provider: row.provider || "-",
-          account: row.account || "-",
-          connectionId: row.connection_id || null,
-          duration: row.duration || 0,
-          tokens: {
-            in: row.tokens_in || 0,
-            out: row.tokens_out || 0,
-            cacheRead: row.tokens_cache_read ?? null,
-            cacheWrite: row.tokens_cache_creation ?? null,
-            reasoning: row.tokens_reasoning ?? null,
-            compressed: row.tokens_compressed ?? null,
-          },
-          requestType: row.request_type || null,
-          sourceFormat: row.source_format || null,
-          targetFormat: row.target_format || null,
-          apiKeyId: row.api_key_id || null,
-          apiKeyName: row.api_key_name || null,
-          comboName: row.combo_name || null,
-          comboStepId: row.combo_step_id || null,
-          comboExecutionKey: row.combo_execution_key || null,
-        },
-        requestBody: parseStoredPayload(row.request_body),
-        responseBody: parseStoredPayload(row.response_body),
-        error: parseLegacyError(row.error),
-      };
-
-      const artifactResult = writeCallArtifact(
-        artifact,
-        buildArtifactRelativePath(artifact.summary.timestamp, artifact.summary.id)
-      );
-      if (!artifactResult) {
-        failed++;
-        await markMissingStmt.run(row.id);
-        continue;
-      }
-
-      await updateStmt.run({
-        id: row.id,
-        artifactRelPath: artifactResult.relPath,
-        artifactSizeBytes: artifactResult.sizeBytes,
-        artifactSha256: artifactResult.sha256,
-      });
-    }
-  });
-
-  await tx();
-
-  if (failed > 0) {
-    console.warn(
-      `[DB] Kept call_logs_v1_legacy after partial call log offload (${failed} failed row(s)).`
-    );
-    return;
-  }
-
-  await db.exec("DROP TABLE IF EXISTS call_logs_v1_legacy");
-  try {
-    await db.pragma("wal_checkpoint(TRUNCATE)");
-    await db.exec("VACUUM");
-    console.log(`[DB] Offloaded ${pendingRows.length} legacy call log detail row(s) to artifacts.`);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn("[DB] Legacy call log compaction finished without VACUUM:", message);
   }
 }
 
@@ -1098,6 +618,7 @@ function startDbHealthCheckScheduler(db: SqliteDatabase) {
   dbHealthCheckTimer = setInterval(async () => {
     try {
       if (!db.open) return;
+      const { runDbHealthCheck } = await import("./healthCheck");
       await runDbHealthCheck(db, {
         autoRepair: true,
         skipIntegrityCheck: process.env.OMNIROUTE_SKIP_DB_HEALTHCHECK === "1",
@@ -1116,6 +637,7 @@ export async function runManagedDbHealthCheck(options?: {
   autoRepair?: boolean;
 }): Promise<DbHealthCheckResult> {
   const db = getDbInstance();
+  const { runDbHealthCheck } = await import("./healthCheck");
   return await runDbHealthCheck(db, {
     autoRepair: options?.autoRepair === true,
     expectedSchemaVersion: "1",
@@ -1136,31 +658,12 @@ export function getDbDriver(): DbDriver {
 }
 
 /**
- * PG-aware table existence check (single source of truth). SQLite uses
- * `sqlite_master`; PostgreSQL uses `information_schema.tables`. Returns false
- * on any read error so PG-mode code degrades to the "missing table" path
- * (empty/fallback) instead of crashing on `relation does not exist`.
+ * PG-aware table existence check (single source of truth) now lives in the
+ * dependency-free leaf `./tableExists` (adapter + driver injected by the
+ * caller), so `core.ts` <-> `healthCheck.ts` no longer form an import cycle.
+ * Re-exported here because existing call sites import it from `core`.
  */
-export async function tableExists(tableName: string, db?: DatabaseAdapter): Promise<boolean> {
-  const adapter = db ?? getAsyncDb();
-  const driver = getDbDriver();
-  try {
-    if (driver === "postgres") {
-      const row = (await adapter
-        .prepare(
-          "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?"
-        )
-        .get(tableName)) as { table_name?: string } | undefined;
-      return row?.table_name === tableName;
-    }
-    const row = (await adapter
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get(tableName)) as { name?: string } | undefined;
-    return row?.name === tableName;
-  } catch {
-    return false;
-  }
-}
+export { tableExists } from "./tableExists";
 
 /**
  * Wrap the synchronous SQLite handle in the async DatabaseAdapter interface so
@@ -1745,7 +1248,12 @@ export function getDbInstance(): SqliteDatabase {
   // async work can interleave on this connection.
   ensureUsageHistoryAccountIndex(db);
 
-  applyStoredDatabaseOptimizationSettings(db);
+  const optimizationSettingsApply = applyStoredDatabaseOptimizationSettings(db)
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      console.warn("[DB] Stored optimization settings apply failed:", error);
+    });
+  setDbOptimizationSettingsPromise(optimizationSettingsApply);
 
   // Apply mmap_size from stored settings (migration 046), fallback to 256MiB
   try {
@@ -1815,14 +1323,15 @@ export function getDbInstance(): SqliteDatabase {
     // statements against a half-migrated schema.
     trackDeferredStartupWork(
       awaitDbMigrations()
-        .then(() =>
-          runDbHealthCheck(db, {
+        .then(async () => {
+          const { runDbHealthCheck } = await import("./healthCheck");
+          return runDbHealthCheck(db, {
             autoRepair: true,
             expectedSchemaVersion: "1",
             skipIntegrityCheck,
             createBackupBeforeRepair: () => createHealthCheckBackup(db),
-          })
-        )
+          });
+        })
         .catch((error: unknown) => {
           console.warn("[DB] Startup health-check failed:", error);
         })
@@ -1932,6 +1441,8 @@ export async function awaitDbColumnBackfills(): Promise<void> {
   await columnBackfillsPromise;
 }
 
+export { awaitDbOptimizationSettings } from "./optimizationSettingsTracker";
+
 /**
  * Await post-migration startup maintenance (currently: the legacy call-log
  * offload). Must run AFTER `awaitDbMigrations()` — VACUUM cannot start inside
@@ -1976,6 +1487,7 @@ export async function closeDbInstanceDrained(options?: {
   asyncDb = null;
   migrationsPromise = null;
   columnBackfillsPromise = Promise.resolve();
+  setDbOptimizationSettingsPromise(Promise.resolve());
   startupTasksPromise = null;
   return closed;
 }
@@ -2071,199 +1583,6 @@ export async function ensureDbInitialized(): Promise<void> {
 }
 
 // ──────────────── JSON → SQLite Migration ────────────────
-
-async function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
-  try {
-    const raw = fs.readFileSync(jsonPath, "utf-8");
-    const data = JSON.parse(raw);
-
-    const connCount = (data.providerConnections || []).length;
-    const nodeCount = (data.providerNodes || []).length;
-    const keyCount = (data.apiKeys || []).length;
-
-    if (connCount === 0 && nodeCount === 0 && keyCount === 0) {
-      console.log("[DB] db.json has no data to migrate, skipping");
-      fs.renameSync(jsonPath, jsonPath + ".empty");
-      return;
-    }
-
-    console.log(
-      `[DB] Migrating db.json → SQLite (${connCount} connections, ${nodeCount} nodes, ${keyCount} keys)...`
-    );
-
-    const migrate = db.transaction(() => {
-      // 1. Provider Connections
-      const insertConn = db.prepare(`
-        INSERT OR REPLACE INTO provider_connections (
-          id, provider, auth_type, name, email, priority, is_active,
-          access_token, refresh_token, expires_at, token_expires_at,
-          scope, project_id, test_status, error_code, last_error,
-          last_error_at, last_error_type, last_error_source, backoff_level,
-          rate_limited_until, health_check_interval, last_health_check_at,
-          last_tested, api_key, id_token, provider_specific_data,
-          expires_in, display_name, global_priority, default_model,
-          token_type, consecutive_use_count, rate_limit_protection, last_used_at, created_at, updated_at
-        ) VALUES (
-          @id, @provider, @authType, @name, @email, @priority, @isActive,
-          @accessToken, @refreshToken, @expiresAt, @tokenExpiresAt,
-          @scope, @projectId, @testStatus, @errorCode, @lastError,
-          @lastErrorAt, @lastErrorType, @lastErrorSource, @backoffLevel,
-          @rateLimitedUntil, @healthCheckInterval, @lastHealthCheckAt,
-          @lastTested, @apiKey, @idToken, @providerSpecificData,
-          @expiresIn, @displayName, @globalPriority, @defaultModel,
-          @tokenType, @consecutiveUseCount, @rateLimitProtection, @lastUsedAt, @createdAt, @updatedAt
-        )
-      `);
-
-      for (const conn of data.providerConnections || []) {
-        insertConn.run({
-          id: conn.id,
-          provider: conn.provider,
-          authType: conn.authType || "oauth",
-          name: conn.name || null,
-          email: conn.email || null,
-          priority: conn.priority || 0,
-          isActive: conn.isActive === false ? 0 : 1,
-          accessToken: conn.accessToken || null,
-          refreshToken: conn.refreshToken || null,
-          expiresAt: conn.expiresAt || null,
-          tokenExpiresAt: conn.tokenExpiresAt || null,
-          scope: conn.scope || null,
-          projectId: conn.projectId || null,
-          testStatus: conn.testStatus || null,
-          errorCode: conn.errorCode || null,
-          lastError: conn.lastError || null,
-          lastErrorAt: conn.lastErrorAt || null,
-          lastErrorType: conn.lastErrorType || null,
-          lastErrorSource: conn.lastErrorSource || null,
-          backoffLevel: conn.backoffLevel || 0,
-          rateLimitedUntil: conn.rateLimitedUntil || null,
-          healthCheckInterval: conn.healthCheckInterval || null,
-          lastHealthCheckAt: conn.lastHealthCheckAt || null,
-          lastTested: conn.lastTested || null,
-          apiKey: conn.apiKey || null,
-          idToken: conn.idToken || null,
-          providerSpecificData: conn.providerSpecificData
-            ? JSON.stringify(conn.providerSpecificData)
-            : null,
-          expiresIn: conn.expiresIn || null,
-          displayName: conn.displayName || null,
-          globalPriority: conn.globalPriority || null,
-          defaultModel: conn.defaultModel || null,
-          tokenType: conn.tokenType || null,
-          consecutiveUseCount: conn.consecutiveUseCount || 0,
-          lastUsedAt: conn.lastUsedAt || null,
-          rateLimitProtection:
-            conn.rateLimitProtection === true || conn.rateLimitProtection === 1 ? 1 : 0,
-          createdAt: conn.createdAt || new Date().toISOString(),
-          updatedAt: conn.updatedAt || new Date().toISOString(),
-        });
-      }
-
-      // 2. Provider Nodes
-      const insertNode = db.prepare(`
-        INSERT OR REPLACE INTO provider_nodes (id, type, name, prefix, api_type, base_url, created_at, updated_at)
-        VALUES (@id, @type, @name, @prefix, @apiType, @baseUrl, @createdAt, @updatedAt)
-      `);
-      for (const node of data.providerNodes || []) {
-        insertNode.run({
-          id: node.id,
-          type: node.type,
-          name: node.name,
-          prefix: node.prefix || null,
-          apiType: node.apiType || null,
-          baseUrl: node.baseUrl || null,
-          createdAt: node.createdAt || new Date().toISOString(),
-          updatedAt: node.updatedAt || new Date().toISOString(),
-        });
-      }
-
-      // 3. Key-Value pairs
-      const insertKv = db.prepare(
-        "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
-      );
-
-      for (const [alias, model] of Object.entries(data.modelAliases || {})) {
-        insertKv.run("modelAliases", alias, JSON.stringify(model));
-      }
-      for (const [toolName, mappings] of Object.entries(data.mitmAlias || {})) {
-        insertKv.run("mitmAlias", toolName, JSON.stringify(mappings));
-      }
-      for (const [key, value] of Object.entries(data.settings || {})) {
-        insertKv.run("settings", key, JSON.stringify(value));
-      }
-      for (const [provider, models] of Object.entries(data.pricing || {})) {
-        insertKv.run("pricing", provider, JSON.stringify(models));
-      }
-      for (const [providerId, models] of Object.entries(data.customModels || {})) {
-        insertKv.run("customModels", providerId, JSON.stringify(models));
-      }
-      if (data.proxyConfig) {
-        insertKv.run("proxyConfig", "global", JSON.stringify(data.proxyConfig.global || null));
-        insertKv.run("proxyConfig", "providers", JSON.stringify(data.proxyConfig.providers || {}));
-        insertKv.run("proxyConfig", "combos", JSON.stringify(data.proxyConfig.combos || {}));
-        insertKv.run("proxyConfig", "keys", JSON.stringify(data.proxyConfig.keys || {}));
-      }
-
-      // 4. Combos
-      const insertCombo = db.prepare(`
-        INSERT OR REPLACE INTO combos (id, name, data, sort_order, created_at, updated_at)
-        VALUES (@id, @name, @data, @sortOrder, @createdAt, @updatedAt)
-      `);
-      for (const [index, combo] of (data.combos || []).entries()) {
-        const normalizedCombo = {
-          ...combo,
-          sortOrder: typeof combo.sortOrder === "number" ? combo.sortOrder : index + 1,
-        };
-        insertCombo.run({
-          id: normalizedCombo.id,
-          name: normalizedCombo.name,
-          data: JSON.stringify(normalizedCombo),
-          sortOrder: normalizedCombo.sortOrder,
-          createdAt: normalizedCombo.createdAt || new Date().toISOString(),
-          updatedAt: normalizedCombo.updatedAt || new Date().toISOString(),
-        });
-      }
-
-      // 5. API Keys
-      const insertKey = db.prepare(`
-        INSERT OR REPLACE INTO api_keys (id, name, key, machine_id, allowed_models, no_log, created_at)
-        VALUES (@id, @name, @key, @machineId, @allowedModels, @noLog, @createdAt)
-      `);
-      for (const apiKey of data.apiKeys || []) {
-        insertKey.run({
-          id: apiKey.id,
-          name: apiKey.name,
-          key: apiKey.key,
-          machineId: apiKey.machineId || null,
-          allowedModels: JSON.stringify(apiKey.allowedModels || []),
-          noLog: apiKey.noLog ? 1 : 0,
-          createdAt: apiKey.createdAt || new Date().toISOString(),
-        });
-      }
-    });
-
-    migrate();
-
-    const migratedPath = jsonPath + ".migrated";
-    fs.renameSync(jsonPath, migratedPath);
-    console.log(`[DB] ✓ Migration complete. Original saved as ${migratedPath}`);
-
-    const legacyBackupDir = path.join(DATA_DIR, "db_backups");
-    if (fs.existsSync(legacyBackupDir)) {
-      const jsonBackups = fs.readdirSync(legacyBackupDir).filter((f) => f.endsWith(".json"));
-      if (jsonBackups.length > 0) {
-        console.log(
-          `[DB] Note: ${jsonBackups.length} legacy .json backups remain in ${legacyBackupDir}`
-        );
-      }
-    }
-  } catch (err) {
-    console.error("[DB] Migration from db.json failed:", err.message);
-  }
-}
-
-// ──────────────── Auto-Vacuum Management ────────────────
 
 export async function applyDatabaseOptimizationSettings(
   settings: DatabaseOptimizationSettings

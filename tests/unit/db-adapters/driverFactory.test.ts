@@ -28,13 +28,13 @@ function createTempDatabasePath(t: Parameters<typeof test>[1]) {
 }
 
 describe("driverFactory", () => {
-  test("tryOpenSync retorna adapter síncrono ou null", () => {
+  test("tryOpenSync retorna adapter síncrono ou null", async () => {
     const adapter = tryOpenSync(":memory:");
     if (adapter) {
       assert.ok(["better-sqlite3", "node:sqlite", "bun:sqlite"].includes(adapter.driver));
-      adapter.exec("CREATE TABLE t (v TEXT)");
-      adapter.prepare("INSERT INTO t VALUES (?)").run("ok");
-      const row = adapter.prepare("SELECT v FROM t").get() as { v: string };
+      await adapter.exec("CREATE TABLE t (v TEXT)");
+      await adapter.prepare("INSERT INTO t VALUES (?)").run("ok");
+      const row = (await adapter.prepare("SELECT v FROM t").get()) as { v: string };
       assert.equal(row.v, "ok");
       adapter.close();
     } else {
@@ -82,22 +82,22 @@ describe("driverFactory", () => {
       adapter.close();
     });
 
-    test("forced node:sqlite fallback creates, reopens, and queries a writable database", (t) => {
+    test("forced node:sqlite fallback creates, reopens, and queries a writable database", async (t) => {
       const databasePath = createTempDatabasePath(t);
       const openNodeSqlite = forceNodeSqlite();
 
       const writer = openNodeSqlite(databasePath);
       assert.ok(writer);
       assert.equal(writer.driver, "node:sqlite");
-      writer.exec("CREATE TABLE items (value TEXT)");
-      writer.prepare("INSERT INTO items VALUES (?)").run("native");
+      await writer.exec("CREATE TABLE items (value TEXT)");
+      await writer.prepare("INSERT INTO items VALUES (?)").run("native");
       writer.close();
 
       const reader = openNodeSqlite(databasePath);
       assert.ok(reader);
       assert.equal(reader.driver, "node:sqlite");
       assert.equal(
-        (reader.prepare("SELECT value FROM items").get() as { value: string }).value,
+        ((await reader.prepare("SELECT value FROM items").get()) as { value: string }).value,
         "native"
       );
       reader.close();
@@ -113,7 +113,7 @@ describe("driverFactory", () => {
       assert.equal(fs.existsSync(`${databasePath}-shm`), false);
     });
 
-    test("forced node:sqlite fallback preserves existing read-only behavior", (t) => {
+    test("forced node:sqlite fallback preserves existing read-only behavior", async (t) => {
       const databasePath = createTempDatabasePath(t);
       const { DatabaseSync } = require("node:sqlite") as {
         DatabaseSync: new (filePath: string) => {
@@ -129,10 +129,12 @@ describe("driverFactory", () => {
       assert.ok(adapter);
       assert.equal(adapter.driver, "node:sqlite");
       assert.equal(
-        (adapter.prepare("SELECT value FROM items").get() as { value: string }).value,
+        ((await adapter.prepare("SELECT value FROM items").get()) as { value: string }).value,
         "seed"
       );
-      assert.throws(() => adapter.exec("INSERT INTO items VALUES ('write')"));
+      // async wrapper: the underlying DatabaseSync.exec throws synchronously inside
+      // the async fn → surfaces as a rejection, not a sync throw.
+      await assert.rejects(() => adapter.exec("INSERT INTO items VALUES ('write')"));
       adapter.close();
 
       const check = new DatabaseSync(databasePath);
@@ -166,9 +168,9 @@ describe("driverFactory", () => {
     const adapter = await openDatabaseAsync(":memory:");
     assert.ok(["better-sqlite3", "node:sqlite", "bun:sqlite", "sql.js"].includes(adapter.driver));
 
-    adapter.exec("CREATE TABLE t (v TEXT)");
-    adapter.prepare("INSERT INTO t VALUES (?)").run("ok");
-    const row = adapter.prepare("SELECT v FROM t").get() as { v: string };
+    await adapter.exec("CREATE TABLE t (v TEXT)");
+    await adapter.prepare("INSERT INTO t VALUES (?)").run("ok");
+    const row = (await adapter.prepare("SELECT v FROM t").get()) as { v: string };
     assert.equal(row.v, "ok");
     adapter.close();
   });
@@ -209,14 +211,16 @@ describe("driverFactory", () => {
 
     const adapter = await openDatabaseAsync(tmpFile);
 
-    adapter.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, qty INTEGER)");
+    await adapter.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, qty INTEGER)");
 
-    const r1 = adapter.prepare("INSERT INTO items (name, qty) VALUES (?, ?)").run("apple", 5);
-    const r2 = adapter.prepare("INSERT INTO items (name, qty) VALUES (?, ?)").run("banana", 3);
+    const r1 = await adapter.prepare("INSERT INTO items (name, qty) VALUES (?, ?)").run("apple", 5);
+    const r2 = await adapter
+      .prepare("INSERT INTO items (name, qty) VALUES (?, ?)")
+      .run("banana", 3);
     assert.equal(r1.changes, 1);
     assert.equal(r2.changes, 1);
 
-    const rows = adapter.prepare("SELECT * FROM items ORDER BY id").all() as Array<{
+    const rows = (await adapter.prepare("SELECT * FROM items ORDER BY id").all()) as Array<{
       id: number;
       name: string;
       qty: number;
@@ -295,13 +299,15 @@ describe("driverFactory", () => {
       console.log("SKIP: nenhum driver síncrono disponível para cross-driver test");
       return;
     }
-    syncAdapter.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)");
-    syncAdapter.prepare("INSERT INTO items (name) VALUES (?)").run("cross-test");
+    await syncAdapter.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)");
+    await syncAdapter.prepare("INSERT INTO items (name) VALUES (?)").run("cross-test");
     syncAdapter.close();
 
     const { createSqlJsAdapter } = await import("../../../src/lib/db/adapters/sqljsAdapter.ts");
     const reader = await createSqlJsAdapter(tmpFile);
-    const row = reader.prepare("SELECT name FROM items WHERE id = 1").get() as { name: string };
+    const row = (await reader.prepare("SELECT name FROM items WHERE id = 1").get()) as {
+      name: string;
+    };
     assert.equal(row.name, "cross-test");
     reader.close();
   });
