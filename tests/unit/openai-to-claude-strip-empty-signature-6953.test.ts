@@ -22,8 +22,8 @@ import assert from "node:assert/strict";
 const { openaiToClaudeRequest } =
   await import("../../open-sse/translator/request/openai-to-claude.ts");
 
-test('#6953: thinking block with signature:"" is stripped, not fabricated', () => {
-  const result = openaiToClaudeRequest(
+test('#6953: thinking block with signature:"" is stripped, not fabricated', async () => {
+  const result = await openaiToClaudeRequest(
     "claude-opus-4-8",
     {
       messages: [
@@ -62,9 +62,9 @@ test('#6953: thinking block with signature:"" is stripped, not fabricated', () =
   assert.ok(textBlocks.length >= 1, "text blocks must be preserved");
 });
 
-test("#6953: thinking block with valid signature is preserved verbatim", () => {
+test("#6953: thinking block with valid signature is preserved verbatim", async () => {
   const realSig = "EuY2xhdWRlLXNpZ25hdHVyZS0xNzA5...";
-  const result = openaiToClaudeRequest(
+  const result = await openaiToClaudeRequest(
     "claude-opus-4-8",
     {
       messages: [
@@ -90,11 +90,11 @@ test("#6953: thinking block with valid signature is preserved verbatim", () => {
   assert.equal(thinkingBlocks[0].signature, realSig, "valid signature must be preserved verbatim");
 });
 
-test("#6953: thinking block with undefined signature (Claude-format) is preserved with fallback", () => {
+test("#6953: thinking block with undefined signature (Claude-format) is preserved with fallback", async () => {
   // Claude-format messages may have thinking blocks without a signature field at all.
   // These are legitimate and must NOT be stripped — only signature:"" (empty string)
   // indicates a non-Anthropic synthesized block.
-  const result = openaiToClaudeRequest(
+  const result = await openaiToClaudeRequest(
     "claude-opus-4-8",
     {
       messages: [
@@ -125,8 +125,8 @@ test("#6953: thinking block with undefined signature (Claude-format) is preserve
   assert.ok(thinkingBlocks[0].signature, "fallback signature must be applied");
 });
 
-test("#6953: redacted_thinking with empty data is stripped", () => {
-  const result = openaiToClaudeRequest(
+test("#6953: redacted_thinking with empty data is stripped", async () => {
+  const result = await openaiToClaudeRequest(
     "claude-opus-4-8",
     {
       messages: [
@@ -151,11 +151,11 @@ test("#6953: redacted_thinking with empty data is stripped", () => {
   assert.equal(redactedBlocks.length, 0, "redacted_thinking with empty data must be stripped");
 });
 
-test("#6953: combo scenario — codex-sourced thinking block does not block Anthropic leg", () => {
+test("#6953: combo scenario — codex-sourced thinking block does not block Anthropic leg", async () => {
   // Simulates a combo route: turn 1 served by codex produced a thinking block
   // with signature:"". Turn 2 should be able to route to Anthropic without
   // the poisoned block causing a 400.
-  const result = openaiToClaudeRequest(
+  const result = await openaiToClaudeRequest(
     "claude-opus-4-8",
     {
       messages: [

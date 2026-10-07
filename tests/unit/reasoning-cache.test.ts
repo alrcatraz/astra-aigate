@@ -127,23 +127,23 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(stats.dbEntries, 1);
   });
 
-  it("should return null for unknown tool_call_id", () => {
+  it("should return null for unknown tool_call_id", async () => {
     const result = lookupReasoning("call_nonexistent");
     assert.equal(result, null);
   });
 
-  it("should return null for empty tool_call_id", () => {
+  it("should return null for empty tool_call_id", async () => {
     const result = lookupReasoning("");
     assert.equal(result, null);
   });
 
-  it("should skip caching when reasoning is empty", () => {
+  it("should skip caching when reasoning is empty", async () => {
     cacheReasoning("call_empty", "deepseek", "deepseek-chat", "");
     const result = lookupReasoning("call_empty");
     assert.equal(result, null);
   });
 
-  it("should cache reasoning for multiple tool_call_ids (batch)", () => {
+  it("should cache reasoning for multiple tool_call_ids (batch)", async () => {
     cacheReasoningBatch(
       ["call_batch_1", "call_batch_2", "call_batch_3"],
       "deepseek",
@@ -269,7 +269,7 @@ describe("Reasoning Replay Cache — Service Layer", () => {
     assert.equal(getReasoningCache("request:req_direct:message:1")?.reasoning, "Keyed plan");
   });
 
-  it("should not overwrite if same tool_call_id is cached again", () => {
+  it("should not overwrite if same tool_call_id is cached again", async () => {
     cacheReasoning("call_overwrite", "deepseek", "deepseek-chat", "First reasoning");
     cacheReasoning("call_overwrite", "deepseek", "deepseek-chat", "Updated reasoning");
     // Second write wins (INSERT OR REPLACE)
@@ -448,40 +448,40 @@ describe("Reasoning Replay Cache — Service Layer", () => {
 });
 
 describe("Reasoning Replay Cache — Provider Detection", () => {
-  it("should detect deepseek as requiring replay", () => {
+  it("should detect deepseek as requiring replay", async () => {
     assert.equal(requiresReasoningReplay({ provider: "deepseek", model: "deepseek-chat" }), true);
   });
 
-  it("should detect opencode-go as requiring replay", () => {
+  it("should detect opencode-go as requiring replay", async () => {
     assert.equal(requiresReasoningReplay({ provider: "opencode-go", model: "some-model" }), true);
   });
 
-  it("should not replay legacy deepseek-r1 even under replay providers", () => {
+  it("should not replay legacy deepseek-r1 even under replay providers", async () => {
     assert.equal(requiresReasoningReplay({ provider: "siliconflow", model: "deepseek-r1" }), false);
   });
 
-  it("should not replay deepseek-r1 model pattern", () => {
+  it("should not replay deepseek-r1 model pattern", async () => {
     assert.equal(
       requiresReasoningReplay({ provider: "unknown-provider", model: "deepseek-r1" }),
       false
     );
   });
 
-  it("should detect deepseek-reasoner model pattern", () => {
+  it("should detect deepseek-reasoner model pattern", async () => {
     assert.equal(
       requiresReasoningReplay({ provider: "unknown-provider", model: "deepseek-reasoner" }),
       false
     );
   });
 
-  it("should detect DeepSeek V4 model pattern", () => {
+  it("should detect DeepSeek V4 model pattern", async () => {
     assert.equal(
       requiresReasoningReplay({ provider: "unknown-provider", model: "deepseek/v4-pro" }),
       true
     );
   });
 
-  it("should detect DeepSeek V4 thinking mode explicitly", () => {
+  it("should detect DeepSeek V4 thinking mode explicitly", async () => {
     assert.equal(
       isDeepSeekReasoningModel({
         provider: "unknown-provider",
@@ -492,7 +492,7 @@ describe("Reasoning Replay Cache — Provider Detection", () => {
     );
   });
 
-  it("should NOT detect DeepSeek V4 when thinking mode is disabled", () => {
+  it("should NOT detect DeepSeek V4 when thinking mode is disabled", async () => {
     assert.equal(
       isDeepSeekReasoningModel({
         provider: "unknown-provider",
@@ -503,32 +503,32 @@ describe("Reasoning Replay Cache — Provider Detection", () => {
     );
   });
 
-  it("should detect kimi-k2 model pattern", () => {
+  it("should detect kimi-k2 model pattern", async () => {
     assert.equal(
       requiresReasoningReplay({ provider: "unknown-provider", model: "kimi-k2.5" }),
       true
     );
   });
 
-  it("should detect qwq model pattern", () => {
+  it("should detect qwq model pattern", async () => {
     assert.equal(
       requiresReasoningReplay({ provider: "unknown-provider", model: "qwq-32b-preview" }),
       true
     );
   });
 
-  it("should detect qwen-thinking model pattern", () => {
+  it("should detect qwen-thinking model pattern", async () => {
     assert.equal(
       requiresReasoningReplay({ provider: "unknown-provider", model: "qwen3-thinking-235b" }),
       true
     );
   });
 
-  it("should detect GLM thinking model pattern", () => {
+  it("should detect GLM thinking model pattern", async () => {
     assert.equal(requiresReasoningReplay({ provider: "glm", model: "glm-5-thinking" }), true);
   });
 
-  it("should detect xiaomi-mimo provider", () => {
+  it("should detect xiaomi-mimo provider", async () => {
     // MiMo enforces reasoning_content echo on subsequent turns; without
     // replay the upstream returns 400 "Param Incorrect: The reasoning_content
     // in the thinking mode must be passed back to the API."
@@ -539,7 +539,7 @@ describe("Reasoning Replay Cache — Provider Detection", () => {
     assert.equal(requiresReasoningReplay({ provider: "XIAOMI-MIMO", model: "mimo-v2.5" }), true);
   });
 
-  it("should detect mimo-v* model pattern under any provider id", () => {
+  it("should detect mimo-v* model pattern under any provider id", async () => {
     assert.equal(
       requiresReasoningReplay({ provider: "unknown-provider", model: "mimo-v2.5-pro" }),
       true
@@ -551,11 +551,11 @@ describe("Reasoning Replay Cache — Provider Detection", () => {
     );
   });
 
-  it("should NOT detect a generic openai model", () => {
+  it("should NOT detect a generic openai model", async () => {
     assert.equal(requiresReasoningReplay({ provider: "openai", model: "gpt-4o" }), false);
   });
 
-  it("should NOT detect claude as requiring replay", () => {
+  it("should NOT detect claude as requiring replay", async () => {
     assert.equal(requiresReasoningReplay({ provider: "anthropic", model: "claude-opus-4" }), false);
   });
 });
@@ -571,7 +571,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     await clearModelsDevCapabilities();
   });
 
-  function translateWithToolHistory(provider: string, model: string, callId: string) {
+  async function translateWithToolHistory(provider: string, model: string, callId: string) {
     return translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI,
@@ -610,7 +610,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     cacheReasoning("call_translate_ds", "deepseek", "deepseek-reasoner", "DeepSeek cached plan");
     await warmCapabilities("deepseek", "deepseek-reasoner");
 
-    const translated = translateWithToolHistory(
+    const translated = await translateWithToolHistory(
       "deepseek",
       "deepseek-reasoner",
       "call_translate_ds"
@@ -635,7 +635,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     cacheReasoning("call_preserve", "deepseek", "deepseek-reasoner", "Cached reasoning");
     await warmCapabilities("deepseek", "deepseek-reasoner");
 
-    const translated = translateRequest(
+    const translated = await translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI,
       "deepseek-reasoner",
@@ -687,8 +687,8 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     cacheReasoning("call_qwen_think", "qwen", "qwen3-thinking-235b", "Qwen cached plan");
     cacheReasoning("call_glm_think", "glm", "glm-5-thinking", "GLM cached plan");
 
-    const qwen = translateWithToolHistory("qwen", "qwen3-thinking-235b", "call_qwen_think");
-    const glm = translateWithToolHistory("glm", "glm-5-thinking", "call_glm_think");
+    const qwen = await translateWithToolHistory("qwen", "qwen3-thinking-235b", "call_qwen_think");
+    const glm = await translateWithToolHistory("glm", "glm-5-thinking", "call_glm_think");
 
     assert.equal(qwen.messages[1].reasoning_content, "Qwen cached plan");
     assert.equal(glm.messages[1].reasoning_content, "GLM cached plan");
@@ -700,7 +700,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     await clearModelsDevCapabilities();
     cacheReasoning("call_openai", "openai", "gpt-4o", "Should not replay");
 
-    const translated = translateWithToolHistory("openai", "gpt-4o", "call_openai");
+    const translated = await translateWithToolHistory("openai", "gpt-4o", "call_openai");
 
     assert.equal(translated.messages[1].reasoning_content, undefined);
     assert.equal((await getReasoningCacheServiceStats()).replays, 0);
@@ -729,7 +729,11 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
       "deepseek-reasoner"
     );
 
-    const translated = translateWithToolHistory("deepseek", "deepseek-reasoner", "call_full_flow");
+    const translated = await translateWithToolHistory(
+      "deepseek",
+      "deepseek-reasoner",
+      "call_full_flow"
+    );
 
     assert.equal(captured, 1);
     assert.equal(translated.messages[1].reasoning_content, "Full flow cached plan");
@@ -740,7 +744,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     await clearReasoningCacheAll();
     await clearModelsDevCapabilities();
 
-    const translated = translateRequest(
+    const translated = await translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI,
       "deepseek-reasoner",
@@ -776,7 +780,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     });
     cacheReasoning("call_details", "testprovider", "test-reasoning-details", "cached");
 
-    const translated = translateWithToolHistory(
+    const translated = await translateWithToolHistory(
       "testprovider",
       "test-reasoning-details",
       "call_details"
@@ -806,7 +810,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
       await import("../../open-sse/translator/helpers/claudeHelper.ts");
 
     // No cache entry → cache miss
-    const translated = translateRequest(
+    const translated = await translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI,
       "deepseek-v4-flash",
@@ -860,7 +864,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
     const { NON_ANTHROPIC_THINKING_PLACEHOLDER } =
       await import("../../open-sse/translator/helpers/claudeHelper.ts");
 
-    const translated = translateRequest(
+    const translated = await translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI,
       "deepseek-v4-pro",
@@ -908,7 +912,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
       "Real cached plain-turn reasoning"
     );
 
-    const translated = translateRequest(
+    const translated = await translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI,
       "deepseek-v4-pro",

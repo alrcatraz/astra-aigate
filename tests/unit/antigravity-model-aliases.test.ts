@@ -31,7 +31,7 @@ const RETIRED_FLASH_IDS = [
   "gemini-3.5-flash-preview",
 ] as const;
 
-test("toClientAntigravityQuotaModelId preserves upstream Gemini Flash bucket IDs", () => {
+test("toClientAntigravityQuotaModelId preserves upstream Gemini Flash bucket IDs", async () => {
   for (const [modelId] of EXPECTED_FLASH_TIERS) {
     assert.equal(toClientAntigravityQuotaModelId(modelId), modelId);
   }
@@ -43,7 +43,7 @@ test("toClientAntigravityQuotaModelId preserves upstream Gemini Flash bucket IDs
   assert.equal(toClientAntigravityQuotaModelId(""), null);
 });
 
-test("resolveAntigravityModelId maps the documented Antigravity aliases to upstream IDs", () => {
+test("resolveAntigravityModelId maps the documented Antigravity aliases to upstream IDs", async () => {
   assert.equal(resolveAntigravityModelId("gemini-3-pro-image-preview"), "gemini-3-pro-image");
   for (const [modelId] of EXPECTED_FLASH_TIERS) {
     assert.equal(resolveAntigravityModelId(modelId), modelId);
@@ -57,7 +57,7 @@ test("resolveAntigravityModelId maps the documented Antigravity aliases to upstr
   assert.equal(resolveAntigravityModelId("unknown-model"), "unknown-model");
 });
 
-test("toClientAntigravityModelId preserves public upstream IDs", () => {
+test("toClientAntigravityModelId preserves public upstream IDs", async () => {
   for (const [modelId] of EXPECTED_FLASH_TIERS) {
     assert.equal(toClientAntigravityModelId(modelId), modelId);
   }
@@ -66,7 +66,7 @@ test("toClientAntigravityModelId preserves public upstream IDs", () => {
   assert.equal(toClientAntigravityModelId("claude-opus-4-6-thinking"), "claude-opus-4-6-thinking");
 });
 
-test("isUserCallableAntigravityModelId only allows public chat-capable model IDs", () => {
+test("isUserCallableAntigravityModelId only allows public chat-capable model IDs", async () => {
   // Retired ids and their former upstream targets are neither aliased nor callable.
   assert.equal(isUserCallableAntigravityModelId("gemini-3-pro-preview"), false);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro"), false);
@@ -96,7 +96,7 @@ test("isUserCallableAntigravityModelId only allows public chat-capable model IDs
   assert.equal(isUserCallableAntigravityModelId("unknown-model"), false);
 });
 
-test("ANTIGRAVITY_PUBLIC_MODELS exposes current live names and capabilities", () => {
+test("ANTIGRAVITY_PUBLIC_MODELS exposes current live names and capabilities", async () => {
   // #3184: Claude is exposed in the antigravity catalog (same backend as `agy`, verified).
   // #7129: Opus 4.6, Sonnet 4.6, and Sonnet 5 graduated to a 1M-token context window at GA
   // (Anthropic docs, platform.claude.com/docs/en/build-with-claude/context-windows: "Claude
@@ -152,7 +152,7 @@ test("ANTIGRAVITY_PUBLIC_MODELS exposes current live names and capabilities", ()
   assert.equal(getPublicModel("gemini-2.5-computer-use-preview-10-2025"), undefined);
 });
 
-test("ANTIGRAVITY_PUBLIC_MODELS has no duplicate model IDs", () => {
+test("ANTIGRAVITY_PUBLIC_MODELS has no duplicate model IDs", async () => {
   const ids = ANTIGRAVITY_PUBLIC_MODELS.map((model) => model.id);
   const seen = new Set<string>();
   const duplicates = ids.filter((id) => {
@@ -185,7 +185,7 @@ test("AntigravityExecutor.transformRequest preserves Gemini Flash upstream IDs",
 
 test("AntigravityExecutor.transformRequest sends Claude through Gemini-compatible Cloud Code schema", async () => {
   const executor = new AntigravityExecutor();
-  const bridged = openaiToAntigravityRequest(
+  const bridged = await openaiToAntigravityRequest(
     "claude-opus-4-6-thinking",
     {
       messages: [{ role: "user", content: "Hello" }],

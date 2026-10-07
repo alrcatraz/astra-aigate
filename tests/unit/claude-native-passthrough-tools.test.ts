@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const { translateRequest } = await import("../../open-sse/translator/index.ts");
 const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 
-test("Claude native passthrough normalization keeps original tool names", () => {
+test("Claude native passthrough normalization keeps original tool names", async () => {
   const body = {
     model: "claude-sonnet-4-6",
     max_tokens: 64,
@@ -32,7 +32,7 @@ test("Claude native passthrough normalization keeps original tool names", () => 
     ],
   };
 
-  const openaiBody = translateRequest(
+  const openaiBody = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.OPENAI,
     body.model,
@@ -53,7 +53,7 @@ test("Claude native passthrough normalization keeps original tool names", () => 
   );
 });
 
-test("Claude-to-Claude passthrough should not alter tool names", () => {
+test("Claude-to-Claude passthrough should not alter tool names", async () => {
   const body = {
     model: "claude-sonnet-4-6",
     max_tokens: 64,
@@ -81,7 +81,7 @@ test("Claude-to-Claude passthrough should not alter tool names", () => {
     ],
   };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.CLAUDE,
     body.model,

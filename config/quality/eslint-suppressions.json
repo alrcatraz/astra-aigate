@@ -337,6 +337,11 @@
       "count": 1
     }
   },
+  "src/lib/db/prompts.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
   "src/lib/db/providers/lazyConnectionView.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -2207,11 +2212,6 @@
       "count": 15
     }
   },
-  "tests/unit/tool-request-sanitization.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 12
-    }
-  },
   "tests/unit/trae-executor.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 7
@@ -2240,11 +2240,6 @@
   "tests/unit/translator-claude-to-openai.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "tests/unit/translator-helper-branches.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 25
     }
   },
   "tests/unit/translator-openai-responses-req.test.ts": {
@@ -2387,9 +2382,14 @@
       "count": 5
     }
   },
-  "src/lib/db/prompts.ts": {
-    "no-restricted-syntax": {
-      "count": 1
+  "tests/unit/tool-request-sanitization.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 12
+    }
+  },
+  "tests/unit/translator-helper-branches.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 25
     }
   }
 }

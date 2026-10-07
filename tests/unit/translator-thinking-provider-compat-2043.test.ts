@@ -18,7 +18,7 @@ const { capThinkingBudget } = await import("../../src/lib/modelCapabilities.ts")
 
 // ──────────────── Fix (a): DeepSeek placeholder has NO signature field ────────────────
 
-test("deepseek: injected thinking placeholder has no signature field", () => {
+test("deepseek: injected thinking placeholder has no signature field", async () => {
   reasoningCache.clearReasoningCacheAll();
   const body = {
     model: "deepseek-v4-pro",
@@ -36,7 +36,7 @@ test("deepseek: injected thinking placeholder has no signature field", () => {
     ],
   };
   const out = prepareClaudeRequest(body as any, "deepseek");
-  const assistant = (out as any).messages.find((m: any) => m.role === "assistant");
+  const assistant = async(out as any).messages.find((m: any) => m.role === "assistant");
   assert.ok(assistant, "assistant message should exist");
   assert.equal(assistant.content[0].type, "thinking", "injected block should be type=thinking");
   assert.equal(
@@ -49,7 +49,7 @@ test("deepseek: injected thinking placeholder has no signature field", () => {
 
 // ──────────────── Fix (b): DeepSeek keeps existing thinking blocks as-is ────────────────
 
-test("deepseek: existing thinking blocks are preserved as-is (text and type unchanged)", () => {
+test("deepseek: existing thinking blocks are preserved as-is (text and type unchanged)", async () => {
   reasoningCache.clearReasoningCacheAll();
   const body = {
     model: "deepseek-v4-pro",
@@ -70,7 +70,7 @@ test("deepseek: existing thinking blocks are preserved as-is (text and type unch
     ],
   };
   const out = prepareClaudeRequest(body as any, "deepseek");
-  const assistant = (out as any).messages.find((m: any) => m.role === "assistant");
+  const assistant = async(out as any).messages.find((m: any) => m.role === "assistant");
   assert.equal(assistant.content[0].type, "thinking");
   assert.equal(
     assistant.content[0].thinking,
@@ -86,7 +86,7 @@ test("deepseek: existing thinking blocks are preserved as-is (text and type unch
   assert.equal(assistant.content[1].type, "tool_use");
 });
 
-test("deepseek: injected placeholder thinking text is non-empty dot sentinel", () => {
+test("deepseek: injected placeholder thinking text is non-empty dot sentinel", async () => {
   // The upstream uses "." as placeholder text for DeepSeek (not the long NON_ANTHROPIC placeholder)
   reasoningCache.clearReasoningCacheAll();
   const body = {
@@ -105,7 +105,7 @@ test("deepseek: injected placeholder thinking text is non-empty dot sentinel", (
     ],
   };
   const out = prepareClaudeRequest(body as any, "deepseek");
-  const assistant = (out as any).messages.find((m: any) => m.role === "assistant");
+  const assistant = async(out as any).messages.find((m: any) => m.role === "assistant");
   assert.equal(assistant.content[0].type, "thinking");
   // Placeholder must be non-empty (DeepSeek rejects empty thinking text).
   // The value is either "." (upstream canonical) or another non-empty fallback.
@@ -123,14 +123,14 @@ test("deepseek: injected placeholder thinking text is non-empty dot sentinel", (
 // ──────────────── Fix (c): Gemini reasoning_effort "auto" → high budget ────────────────
 
 test("Gemini: reasoning_effort 'auto' maps to a defined (non-zero) thinking budget", async () => {
-  const out = openaiToGeminiRequest(
+  const out = (await openaiToGeminiRequest(
     "gemini-3-pro",
     {
       messages: [{ role: "user", content: "hello" }],
       reasoning_effort: "auto",
     },
     false
-  ) as any;
+  )) as any;
 
   const thinkingBudget = out.generationConfig?.thinkingConfig?.thinkingBudget;
   assert.ok(
@@ -149,14 +149,14 @@ test("Gemini: reasoning_effort 'auto' maps to a defined (non-zero) thinking budg
 // ──────────────── Fix (d): Gemini reasoning_effort "max"/"xhigh" → high budget ────────────────
 
 test("Gemini: reasoning_effort 'max' clamps to high budget (not default fallback)", async () => {
-  const out = openaiToGeminiRequest(
+  const out = (await openaiToGeminiRequest(
     "gemini-3-pro",
     {
       messages: [{ role: "user", content: "hello" }],
       reasoning_effort: "max",
     },
     false
-  ) as any;
+  )) as any;
 
   const thinkingBudget = out.generationConfig?.thinkingConfig?.thinkingBudget;
   const highBudget = await capThinkingBudget("gemini-3-pro", 32768);
@@ -168,14 +168,14 @@ test("Gemini: reasoning_effort 'max' clamps to high budget (not default fallback
 });
 
 test("Gemini: reasoning_effort 'xhigh' clamps to high budget (not default fallback)", async () => {
-  const out = openaiToGeminiRequest(
+  const out = (await openaiToGeminiRequest(
     "gemini-3-pro",
     {
       messages: [{ role: "user", content: "hello" }],
       reasoning_effort: "xhigh",
     },
     false
-  ) as any;
+  )) as any;
 
   const thinkingBudget = out.generationConfig?.thinkingConfig?.thinkingBudget;
   const highBudget = await capThinkingBudget("gemini-3-pro", 32768);

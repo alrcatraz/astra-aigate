@@ -15,7 +15,7 @@ const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 const { clearModelsDevCapabilities, saveModelsDevCapabilities } =
   await import("../../src/lib/modelsDevSync.ts");
 
-function buildCapability(overrides = {}) {
+async function buildCapability(overrides = {}) {
   return {
     tool_call: null,
     reasoning: null,
@@ -38,7 +38,7 @@ function buildCapability(overrides = {}) {
   };
 }
 
-test("tool sanitization: coerces numeric JSON Schema fields recursively", () => {
+test("tool sanitization: coerces numeric JSON Schema fields recursively", async () => {
   const schema = {
     type: "object",
     properties: {
@@ -58,7 +58,7 @@ test("tool sanitization: coerces numeric JSON Schema fields recursively", () => 
   assert.equal((result as any).properties.items.items.minLength, 3);
 });
 
-test("tool sanitization: preserves non-numeric JSON Schema strings", () => {
+test("tool sanitization: preserves non-numeric JSON Schema strings", async () => {
   const schema = {
     type: "object",
     properties: {
@@ -70,7 +70,7 @@ test("tool sanitization: preserves non-numeric JSON Schema strings", () => {
   assert.equal((result as any).properties.value.minimum, "abc");
 });
 
-test("tool sanitization: normalizes descriptions across OpenAI, Claude, and Gemini shapes", () => {
+test("tool sanitization: normalizes descriptions across OpenAI, Claude, and Gemini shapes", async () => {
   const openAITool = sanitizeToolDescription({
     type: "function",
     function: { name: "sum", description: null, parameters: {} },
@@ -89,7 +89,7 @@ test("tool sanitization: normalizes descriptions across OpenAI, Claude, and Gemi
   assert.equal((geminiTool as any).functionDeclarations[0].description, "false");
 });
 
-test("tool sanitization: coerces schemas and descriptions in tool arrays", () => {
+test("tool sanitization: coerces schemas and descriptions in tool arrays", async () => {
   const tools = sanitizeToolDescriptions(
     coerceToolSchemas([
       {
@@ -112,8 +112,8 @@ test("tool sanitization: coerces schemas and descriptions in tool arrays", () =>
   assert.equal(tools[0].function.parameters.properties.count.minimum, 1);
 });
 
-test("translateRequest sanitizes tools before Claude output", () => {
-  const translated = translateRequest(
+test("translateRequest sanitizes tools before Claude output", async () => {
+  const translated = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     "claude-sonnet-4-6",
@@ -145,8 +145,8 @@ test("translateRequest sanitizes tools before Claude output", () => {
   assert.equal(translated.tools[0].input_schema.properties.count.maximum, 9);
 });
 
-test("translateRequest sanitizes OpenAI tool payloads on passthrough", () => {
-  const translated = translateRequest(
+test("translateRequest sanitizes OpenAI tool payloads on passthrough", async () => {
+  const translated = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "gpt-5.2",
@@ -177,7 +177,7 @@ test("translateRequest sanitizes OpenAI tool payloads on passthrough", () => {
   assert.equal(translated.tools[0].function.parameters.properties.count.minimum, 2);
 });
 
-test("tool sanitization: injects empty reasoning_content only for DeepSeek tool-call history", () => {
+test("tool sanitization: injects empty reasoning_content only for DeepSeek tool-call history", async () => {
   const messages = [
     { role: "user", content: "hello" },
     {
@@ -201,7 +201,7 @@ test("translateRequest injects reasoning_content for DeepSeek assistant tool cal
   await clearModelsDevCapabilities();
   await saveModelsDevCapabilities({
     deepseek: {
-      "deepseek-v4-flash": buildCapability({
+      "deepseek-v4-flash": await buildCapability({
         interleaved_field: "reasoning_content",
         reasoning: true,
         tool_call: true,
@@ -209,7 +209,7 @@ test("translateRequest injects reasoning_content for DeepSeek assistant tool cal
     },
   });
 
-  const translated = translateRequest(
+  const translated = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "deepseek-v4-flash",

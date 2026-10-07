@@ -11,8 +11,8 @@ const { openaiToClaudeRequest } =
 // `400 messages: at least one message is required`. The converter must
 // synthesize a minimal user turn so the request stays valid. (#5245)
 
-test("openaiToClaudeRequest: all-system input never yields an empty messages array", () => {
-  const result = openaiToClaudeRequest(
+test("openaiToClaudeRequest: all-system input never yields an empty messages array", async () => {
+  const result = await openaiToClaudeRequest(
     "claude-sonnet-4-6",
     {
       messages: [
@@ -35,8 +35,8 @@ test("openaiToClaudeRequest: all-system input never yields an empty messages arr
   assert.ok(typeof block.text === "string" && block.text.length > 0);
 });
 
-test("openaiToClaudeRequest: developer-only input also gets a synthesized user turn", () => {
-  const result = openaiToClaudeRequest(
+test("openaiToClaudeRequest: developer-only input also gets a synthesized user turn", async () => {
+  const result = await openaiToClaudeRequest(
     "claude-sonnet-4-6",
     { messages: [{ role: "developer", content: "Follow these rules." }] },
     false
@@ -45,8 +45,8 @@ test("openaiToClaudeRequest: developer-only input also gets a synthesized user t
   assert.equal(result.messages[0].role, "user");
 });
 
-test("openaiToClaudeRequest: normal system+user request is unaffected by the guard", () => {
-  const result = openaiToClaudeRequest(
+test("openaiToClaudeRequest: normal system+user request is unaffected by the guard", async () => {
+  const result = await openaiToClaudeRequest(
     "claude-sonnet-4-6",
     {
       messages: [

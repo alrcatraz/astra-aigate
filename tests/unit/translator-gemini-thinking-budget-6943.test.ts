@@ -5,79 +5,82 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiToGeminiRequest } = await import(
-  "../../open-sse/translator/request/openai-to-gemini.ts"
-);
+const { openaiToGeminiRequest } =
+  await import("../../open-sse/translator/request/openai-to-gemini.ts");
 
 type GeminiReq = {
   generationConfig?: { thinkingConfig?: { thinkingBudget?: number; includeThoughts?: boolean } };
 };
 
-const base = (extra: Record<string, unknown>) => ({
+const base = async (extra: Record<string, unknown>) => ({
   model: "gemini/gemini-2.5-flash",
   messages: [{ role: "user", content: "hi" }],
   safetySettings: [],
   ...extra,
 });
 
-test("#6813: budget_tokens 0 passes through without dropping to default", () => {
-  const r = openaiToGeminiRequest(
+test("#6813: budget_tokens 0 passes through without dropping to default", async () => {
+  const r = (await openaiToGeminiRequest(
     "gemini/gemini-2.5-flash",
-    base({ thinking: { type: "enabled", budget_tokens: 0 } }),
+    await base({ thinking: { type: "enabled", budget_tokens: 0 } }),
     false
-  ) as GeminiReq;
+  )) as GeminiReq;
   assert.equal(r.generationConfig?.thinkingConfig?.thinkingBudget, 0);
   assert.equal(r.generationConfig?.thinkingConfig?.includeThoughts, false);
 });
 
-test("#6813: budget_tokens 1 passes through", () => {
-  const r = openaiToGeminiRequest(
+test("#6813: budget_tokens 1 passes through", async () => {
+  const r = (await openaiToGeminiRequest(
     "gemini/gemini-2.5-flash",
-    base({ thinking: { type: "enabled", budget_tokens: 1 } }),
+    await base({ thinking: { type: "enabled", budget_tokens: 1 } }),
     false
-  ) as GeminiReq;
+  )) as GeminiReq;
   assert.equal(r.generationConfig?.thinkingConfig?.thinkingBudget, 1);
 });
 
-test("#4170: no-knob case still injects default thinkingConfig with includeThoughts", () => {
-  const r = openaiToGeminiRequest("gemini/gemini-2.5-flash", base({}), false) as GeminiReq;
+test("#4170: no-knob case still injects default thinkingConfig with includeThoughts", async () => {
+  const r = (await openaiToGeminiRequest(
+    "gemini/gemini-2.5-flash",
+    await base({}),
+    false
+  )) as GeminiReq;
   assert.equal(r.generationConfig?.thinkingConfig?.includeThoughts, true);
   assert.ok((r.generationConfig?.thinkingConfig?.thinkingBudget ?? 0) > 0);
 });
 
-test("#6813: reasoning_effort none is the explicit off-switch (budget 0, no thoughts)", () => {
-  const r = openaiToGeminiRequest(
+test("#6813: reasoning_effort none is the explicit off-switch (budget 0, no thoughts)", async () => {
+  const r = (await openaiToGeminiRequest(
     "gemini/gemini-2.5-flash",
-    base({ reasoning_effort: "none" }),
+    await base({ reasoning_effort: "none" }),
     false
-  ) as GeminiReq;
+  )) as GeminiReq;
   assert.equal(r.generationConfig?.thinkingConfig?.thinkingBudget, 0);
   assert.equal(r.generationConfig?.thinkingConfig?.includeThoughts, false);
 });
 
-test("reasoning_effort low maps to thinkingBudget 1024", () => {
-  const r = openaiToGeminiRequest(
+test("reasoning_effort low maps to thinkingBudget 1024", async () => {
+  const r = (await openaiToGeminiRequest(
     "gemini/gemini-2.5-flash",
-    base({ reasoning_effort: "low" }),
+    await base({ reasoning_effort: "low" }),
     false
-  ) as GeminiReq;
+  )) as GeminiReq;
   assert.equal(r.generationConfig?.thinkingConfig?.thinkingBudget, 1024);
 });
 
-test("reasoning_effort medium falls back to the model default budget (>=1024)", () => {
-  const r = openaiToGeminiRequest(
+test("reasoning_effort medium falls back to the model default budget (>=1024)", async () => {
+  const r = (await openaiToGeminiRequest(
     "custom-model",
     { ...base({ reasoning_effort: "medium" }), model: "custom-model" },
     false
-  ) as GeminiReq;
+  )) as GeminiReq;
   assert.ok((r.generationConfig?.thinkingConfig?.thinkingBudget ?? 0) >= 1024);
 });
 
-test("reasoning_effort high maps to the flash cap 24576", () => {
-  const r = openaiToGeminiRequest(
+test("reasoning_effort high maps to the flash cap 24576", async () => {
+  const r = (await openaiToGeminiRequest(
     "gemini/gemini-2.5-flash",
-    base({ reasoning_effort: "high" }),
+    await base({ reasoning_effort: "high" }),
     false
-  ) as GeminiReq;
+  )) as GeminiReq;
   assert.equal(r.generationConfig?.thinkingConfig?.thinkingBudget, 24576);
 });

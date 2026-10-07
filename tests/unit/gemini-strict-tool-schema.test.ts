@@ -21,7 +21,7 @@ import {
 } from "../../open-sse/translator/helpers/geminiHelper.ts";
 import { openaiToGeminiRequest } from "../../open-sse/translator/request/openai-to-gemini.ts";
 
-test("strict is stripped at all levels for antigravity/gemini schemas", () => {
+test("strict is stripped at all levels for antigravity/gemini schemas", async () => {
   const schema = {
     type: "object",
     strict: true,
@@ -37,11 +37,11 @@ test("strict is stripped at all levels for antigravity/gemini schemas", () => {
   assert.ok(cleaned.includes("query"), "unrelated properties must be preserved");
 });
 
-test("strict is in GEMINI_UNSUPPORTED_SCHEMA_KEYS", () => {
+test("strict is in GEMINI_UNSUPPORTED_SCHEMA_KEYS", async () => {
   assert.ok(GEMINI_UNSUPPORTED_SCHEMA_KEYS.has("strict"));
 });
 
-test("OpenAI -> Gemini request strips strict from OpenAI-style function tool parameters", () => {
+test("OpenAI -> Gemini request strips strict from OpenAI-style function tool parameters", async () => {
   const body = {
     messages: [{ role: "user", content: "hi" }],
     tools: [
@@ -56,11 +56,14 @@ test("OpenAI -> Gemini request strips strict from OpenAI-style function tool par
     ],
   };
 
-  const result = openaiToGeminiRequest("gemini-3.5-flash-low", body, false) as {
+  const result = (await openaiToGeminiRequest("gemini-3.5-flash-low", body, false)) as {
     tools?: Array<{ functionDeclarations?: Array<{ parameters: unknown }> }>;
   };
 
   const parameters = result.tools?.[0]?.functionDeclarations?.[0]?.parameters;
   assert.ok(parameters, "expected a translated function declaration");
-  assert.ok(!JSON.stringify(parameters).includes("strict"), "strict must not reach the upstream request");
+  assert.ok(
+    !JSON.stringify(parameters).includes("strict"),
+    "strict must not reach the upstream request"
+  );
 });

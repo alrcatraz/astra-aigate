@@ -35,18 +35,18 @@ function buildClaudeBody() {
   };
 }
 
-function hasCacheControl(node: unknown): boolean {
+async function hasCacheControl(node: unknown): boolean {
   return JSON.stringify(node).includes("cache_control");
 }
 
 describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
-  test("alibaba is recognized as a prompt-caching provider", () => {
+  test("alibaba is recognized as a prompt-caching provider", async () => {
     assert.equal(providerSupportsCaching("alibaba"), true);
     assert.equal(providerSupportsCaching("alibaba-cn"), true);
     assert.equal(providerSupportsCaching("qwen-cloud"), true);
   });
 
-  test("shouldPreserveCacheControl is true for Claude Code → alibaba single model", () => {
+  test("shouldPreserveCacheControl is true for Claude Code → alibaba single model", async () => {
     assert.equal(
       shouldPreserveCacheControl({
         userAgent: "claude-cli/2.1.0 (external, sdk-cli)",
@@ -58,8 +58,8 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
     );
   });
 
-  test("preserveCacheControl=true keeps cache_control on system + message text blocks", () => {
-    const out = translateRequest(
+  test("preserveCacheControl=true keeps cache_control on system + message text blocks", async () => {
+    const out = (await translateRequest(
       "claude",
       "openai",
       "alibaba/qwen3-coder-plus",
@@ -69,15 +69,15 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
       "alibaba",
       null,
       { preserveCacheControl: true }
-    ) as { messages: Array<Record<string, unknown>> };
+    )) as { messages: Array<Record<string, unknown>> };
 
     const system = out.messages.find((m) => m.role === "system");
     const user = out.messages.find((m) => m.role === "user");
 
     assert.ok(system, "system message present");
     assert.ok(user, "user message present");
-    assert.equal(hasCacheControl(system), true, "system cache_control preserved");
-    assert.equal(hasCacheControl(user), true, "user cache_control preserved");
+    assert.equal(await hasCacheControl(system), true, "system cache_control preserved");
+    assert.equal(await hasCacheControl(user), true, "user cache_control preserved");
 
     // The cache_control marker must land on the exact block the client tagged,
     // not be smeared across uncached blocks.
@@ -89,8 +89,8 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
     assert.equal(untagged?.cache_control, undefined);
   });
 
-  test("preserveCacheControl=false strips cache_control (OmniRoute manages caching)", () => {
-    const out = translateRequest(
+  test("preserveCacheControl=false strips cache_control (OmniRoute manages caching)", async () => {
+    const out = (await translateRequest(
       "claude",
       "openai",
       "alibaba/qwen3-coder-plus",
@@ -100,12 +100,16 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
       "alibaba",
       null,
       { preserveCacheControl: false }
-    ) as { messages: Array<Record<string, unknown>> };
+    )) as { messages: Array<Record<string, unknown>> };
 
-    assert.equal(hasCacheControl(out.messages), false, "cache_control stripped when not preserved");
+    assert.equal(
+      await hasCacheControl(out.messages),
+      false,
+      "cache_control stripped when not preserved"
+    );
   });
 
-  test("non-caching OpenAI provider still strips cache_control even if asked", () => {
+  test("non-caching OpenAI provider still strips cache_control even if asked", async () => {
     // A generic OpenAI-compatible provider not on the caching allowlist must NOT
     // receive cache_control passthrough — guards against blast radius. Here the
     // policy gate (shouldPreserveCacheControl) would already be false, but even a
@@ -123,7 +127,7 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
     );
   });
 
-  test("explicit-breakpoint predicate is narrow: DashScope/Xiaomi yes, implicit-cache OpenAI no", () => {
+  test("explicit-breakpoint predicate is narrow: DashScope/Xiaomi yes, implicit-cache OpenAI no", async () => {
     // alibaba / alibaba-cn / qwen-cloud / xiaomi-mimo accept explicit OpenAI-format markers.
     assert.equal(providerHonorsOpenAIFormatCacheControl("alibaba"), true);
     assert.equal(providerHonorsOpenAIFormatCacheControl("alibaba-cn"), true);
@@ -138,7 +142,7 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
     assert.equal(providerHonorsOpenAIFormatCacheControl(null), false);
   });
 
-  test("mixed string + object system blocks: string text preserved, no crash", () => {
+  test("mixed string + object system blocks: string text preserved, no crash", async () => {
     const body = {
       system: [
         "plain string directive",
@@ -146,7 +150,7 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
       ],
       messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
     };
-    const out = translateRequest(
+    const out = (await translateRequest(
       "claude",
       "openai",
       "alibaba/qwen3-coder-plus",
@@ -156,7 +160,7 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
       "alibaba",
       null,
       { preserveCacheControl: true }
-    ) as { messages: Array<Record<string, unknown>> };
+    )) as { messages: Array<Record<string, unknown>> };
 
     const system = out.messages.find((m) => m.role === "system");
     const content = system!.content as Array<Record<string, unknown>>;
@@ -171,12 +175,12 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
     assert.deepEqual(tagged?.cache_control, { type: "ephemeral" });
   });
 
-  test("openai provider strips cache_control even with preserveCacheControl=true (implicit cache)", () => {
+  test("openai provider strips cache_control even with preserveCacheControl=true (implicit cache)", async () => {
     // Mirrors tests/unit/chatcore-translation-paths.test.ts: a Claude Code request
     // routed to the `openai` provider must arrive WITHOUT cache_control even though
     // shouldPreserveCacheControl() returns true (openai ∈ CACHING_PROVIDERS).
     assert.equal(providerSupportsCaching("openai"), true);
-    const out = translateRequest(
+    const out = (await translateRequest(
       "claude",
       "openai",
       "openai/gpt-4o-mini",
@@ -186,9 +190,9 @@ describe("DashScope OpenAI-compat cache_control preservation (#2069)", () => {
       "openai",
       null,
       { preserveCacheControl: true }
-    ) as { messages: Array<Record<string, unknown>> };
+    )) as { messages: Array<Record<string, unknown>> };
     assert.equal(
-      hasCacheControl(out.messages),
+      await hasCacheControl(out.messages),
       false,
       "openai (implicit prefix cache) must not receive explicit cache_control"
     );

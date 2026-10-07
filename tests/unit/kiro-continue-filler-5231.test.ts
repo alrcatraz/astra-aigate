@@ -8,8 +8,8 @@ const { buildKiroPayload } = await import("../../open-sse/translator/request/ope
 // turn ("...") rather than the literal word "Continue" — Kiro/CodeWhisperer can
 // read "Continue" as a real user instruction and take unintended agent action.
 
-test("#5231: assistant-text-ending request never leaks the literal 'Continue' filler", () => {
-  const result = buildKiroPayload(
+test("#5231: assistant-text-ending request never leaks the literal 'Continue' filler", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -22,18 +22,22 @@ test("#5231: assistant-text-ending request never leaks the literal 'Continue' fi
   );
 
   const synthesized = result.conversationState.currentMessage.userInputMessage.content;
-  assert.match(synthesized, /\n\n\.\.\.$/, "synthesized trailing turn must end with the neutral filler");
+  assert.match(
+    synthesized,
+    /\n\n\.\.\.$/,
+    "synthesized trailing turn must end with the neutral filler"
+  );
   assert.ok(
     !/\bContinue\b/.test(synthesized),
     `synthesized trailing turn must not contain the literal "Continue", got: ${synthesized}`
   );
 });
 
-test("#5231: a trailing tool-result turn is promoted as-is, NOT replaced by the filler", () => {
+test("#5231: a trailing tool-result turn is promoted as-is, NOT replaced by the filler", async () => {
   // Proves the change is scoped strictly to the assistant-text-ending case: a
   // conversation ending on a tool result already collapses to a real user turn
   // (carrying its toolResults), which is promoted into currentMessage unchanged.
-  const result = buildKiroPayload(
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
