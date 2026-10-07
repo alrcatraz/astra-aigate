@@ -271,7 +271,7 @@ export class GlmExecutor extends DefaultExecutor {
     return applyGlmRequestDefaults(cleanedBody, this.config.requestDefaults as JsonRecord | null);
   }
 
-  transformForTransport(
+  async transformForTransport(
     model: string,
     body: unknown,
     stream: boolean,
@@ -319,7 +319,7 @@ export class GlmExecutor extends DefaultExecutor {
       return transformed;
     }
 
-    const translated = translateRequest(
+    const translated = await translateRequest(
       FORMATS.OPENAI,
       FORMATS.CLAUDE,
       effectiveModel,
@@ -374,7 +374,7 @@ export class GlmExecutor extends DefaultExecutor {
     applyConfiguredUserAgent(headers, credentials.providerSpecificData);
     mergeUpstreamExtraHeaders(headers, input.upstreamExtraHeaders);
 
-    const transformedBody = this.transformForTransport(
+    const transformedBody = await this.transformForTransport(
       input.model,
       input.body,
       input.stream,
@@ -446,7 +446,12 @@ export class GlmExecutor extends DefaultExecutor {
    */
   private async finalizeAnthropicTransportResult(
     input: ExecuteInput,
-    result: { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown }
+    result: {
+      response: Response;
+      url: string;
+      headers: Record<string, string>;
+      transformedBody: unknown;
+    }
   ): Promise<GlmExecuteResult> {
     const { response: rawResponse, url, headers, transformedBody } = result;
     const clientHeaders = input.clientHeaders ?? {};

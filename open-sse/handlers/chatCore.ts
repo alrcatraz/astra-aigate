@@ -2010,7 +2010,7 @@ export async function handleChatCore({
           model || "",
           sourceFormat
         );
-        normalizedForCc = translateRequest(
+        normalizedForCc = await translateRequest(
           sourceFormat,
           FORMATS.OPENAI,
           model,
@@ -2184,7 +2184,7 @@ export async function handleChatCore({
         model || "",
         sourceFormat
       );
-      translatedBody = translateRequest(
+      translatedBody = await translateRequest(
         sourceFormat,
         targetFormat,
         model,

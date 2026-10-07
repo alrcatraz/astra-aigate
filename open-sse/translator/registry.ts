@@ -3,7 +3,7 @@ type RequestTranslator = (
   body: Record<string, unknown>,
   stream?: boolean,
   credentials?: Record<string, unknown> | null
-) => unknown;
+) => unknown | Promise<unknown>;
 
 type ResponseTranslator = (
   chunk: Record<string, unknown>,
