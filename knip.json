@@ -22,7 +22,11 @@
         ".build/**",
         "dist/**",
         "coverage/**",
-        "**/.next/**"
+        "**/.next/**",
+        "src/store/index.ts",
+        "src/lib/plugins/pluginWorker.ts",
+        "src/lib/skills/builtin/browser.ts",
+        "src/shared/utils/apiResponse.ts"
       ],
       "ignoreDependencies": [
         "typescript",

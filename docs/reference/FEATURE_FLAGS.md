@@ -68,7 +68,6 @@ used when neither a DB override nor an environment variable is present.
 | Key                                             | Type    | Default | Restart | Description                                                                                                                                                                                   |
 | ----------------------------------------------- | ------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ENABLE_TLS_FINGERPRINT`                        | boolean | `false` | ✓       | Enable TLS fingerprint stealth mode.                                                                                                                                                          |
-| `ONEPROXY_ENABLED`                              | boolean | `true`  |         | Enable 1proxy request proxying.                                                                                                                                                               |
 | `PROXY_AUTO_SELECT_ENABLED`                     | boolean | `false` |         | When no proxy is assigned to a connection, auto-select the first working proxy from the registry. Off by default (otherwise any registry proxy becomes a global fallback — #3332).            |
 | `OMNIROUTE_CONTROL_PLANE_PROXY_DIRECT_FALLBACK` | boolean | `false` |         | Allow OAuth and provider validation flows to bypass a pinned proxy and connect directly when proxy reachability pre-checks fail. Off by default because this can change egress IP.            |
 | `MITM_DISABLE_TLS_VERIFY`                       | boolean | `false` | ✓       | Disable TLS certificate verification for the MITM proxy. **Danger.**                                                                                                                          |
@@ -78,11 +77,10 @@ used when neither a DB override nor an environment variable is present.
 
 ### Policies (3)
 
-| Key                                       | Type    | Default    | Restart | Description                                                            |
-| ----------------------------------------- | ------- | ---------- | ------- | ---------------------------------------------------------------------- |
-| `TOOL_POLICY_MODE`                        | enum    | `disabled` |         | Tool-use policy enforcement mode. Values: `disabled`, `warn`, `block`. |
-| `RATE_LIMIT_AUTO_ENABLE`                  | boolean | `false`    |         | Automatically enable rate limiting based on usage patterns.            |
-| `ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE` | boolean | `false`    | ✓       | Allow multiple connections per compatibility node.                     |
+| Key                                       | Type    | Default | Restart | Description                                                 |
+| ----------------------------------------- | ------- | ------- | ------- | ----------------------------------------------------------- |
+| `RATE_LIMIT_AUTO_ENABLE`                  | boolean | `false` |         | Automatically enable rate limiting based on usage patterns. |
+| `ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE` | boolean | `false` | ✓       | Allow multiple connections per compatibility node.          |
 
 ### Runtime (11)
 
