@@ -422,6 +422,12 @@ detection above).
 | `OMNIROUTE_HTTP_TIMEOUT_MS`    | `30000`    | `bin/cli/api.mjs`                       | Per-attempt HTTP timeout (ms) for CLI → server requests.                                                                           |
 | `OMNIROUTE_VERBOSE`            | `0`        | `bin/cli/api.mjs`                       | Set to `1` to print retry/backoff diagnostics to stderr during CLI commands.                                                       |
 | `OMNIROUTE_PLUGIN_PATH`        | _(unset)_  | `bin/cli/plugins.mjs`                   | Custom directory for CLI plugin discovery (`omniroute-cmd-*` packages). Defaults to `~/.omniroute/plugins/` when unset.            |
+| `OMNIROUTE_SERVER`  | auto-detect | `src/lib/oauth/config/index.ts` | Server URL for CLI↔OmniRoute auth bridge. |
+| `OMNIROUTE_TOKEN`   | _(unset)_   | `src/lib/oauth/config/index.ts` | Auth token for CLI bridge.                |
+| `OMNIROUTE_USER_ID` | `cli`       | `src/lib/oauth/config/index.ts` | User ID for CLI bridge sessions.          |
+| `SERVER_URL`        | _(unset)_   | `src/lib/oauth/config/index.ts` | Legacy alias for `OMNIROUTE_SERVER`.      |
+| `CLI_TOKEN`         | _(unset)_   | `src/lib/oauth/config/index.ts` | Legacy alias for `OMNIROUTE_TOKEN`.       |
+| `CLI_USER_ID`       | _(unset)_   | `src/lib/oauth/config/index.ts` | Legacy alias for `OMNIROUTE_USER_ID`.     |
 | `OMNIROUTE_PLUGINS_ALLOW_EXEC` | `0`        | `src/lib/plugins/pluginWorker.ts`       | Set to `1` to allow plugins to request the `exec` permission (spawn child processes from the worker sandbox). Local operator only. |
 
 ---
