@@ -282,11 +282,6 @@
       "count": 1
     }
   },
-  "src/app/(dashboard)/dashboard/settings/components/MitmProxyTab.tsx": {
-    "@next/next/no-html-link-for-pages": {
-      "count": 1
-    }
-  },
   "src/app/(dashboard)/dashboard/settings/components/ProviderAccountRoutingCard.tsx": {
     "react-hooks/exhaustive-deps": {
       "count": 1
@@ -338,11 +333,6 @@
     }
   },
   "src/lib/db/domainState.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/lib/db/prompts.ts": {
     "no-restricted-syntax": {
       "count": 1
     }
