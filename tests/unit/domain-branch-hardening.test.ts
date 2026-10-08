@@ -26,6 +26,9 @@ async function isoFromNow(offsetMs) {
 
 async function resetStorage() {
   costRules.resetCostData();
+  // resetCostData() fires domainState.deleteAllCostData() WITHOUT awaiting it;
+  // give the floating DELETE time to land on the still-open connection.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   fallbackPolicy.resetAllFallbacks();
   providerExpiration.resetExpirations();
   quotaCache.stopBackgroundRefresh();
@@ -385,7 +388,7 @@ test("policyEngine evaluates lockout, budget, fallback chains and policy class a
   let now = 50_000;
   Date.now = () => now;
 
-  lockoutPolicy.recordFailedAttempt("10.0.0.1", lockConfig);
+  await lockoutPolicy.recordFailedAttempt("10.0.0.1", lockConfig);
   const locked = await policyEngineModule.evaluateRequest({
     model: "claude-sonnet",
     clientIp: "10.0.0.1",
@@ -393,7 +396,7 @@ test("policyEngine evaluates lockout, budget, fallback chains and policy class a
   assert.equal(locked.allowed, false);
   assert.equal(locked.policyPhase, "lockout");
 
-  lockoutPolicy.recordSuccess("10.0.0.1");
+  await lockoutPolicy.recordSuccess("10.0.0.1");
   Date.now = originalDateNow;
   costRules.setBudget("key-budget", { dailyLimitUsd: 5, warningThreshold: 0.5 });
   costRules.recordCost("key-budget", 6);

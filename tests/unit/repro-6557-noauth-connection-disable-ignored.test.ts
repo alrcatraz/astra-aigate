@@ -32,11 +32,16 @@ const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
+const { invalidateDbCache } = await import("../../src/lib/db/readCache.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const virtualFactory = await import("../../open-sse/services/autoCombo/virtualFactory.ts");
 
 async function resetStorage() {
   await core.resetDbInstanceDrained();
+  // resetDbInstanceDrained() does NOT clear the module-level read caches (only
+  // the sync resetDbInstance() does), so without this the 5s connections TTL
+  // cache leaks rows from the previous test's database into this one.
+  invalidateDbCache();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();

@@ -9,6 +9,38 @@ import path from "node:path";
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-plugins-lifecycle-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
+// ── Plugin-host child: make the tsconfig alias resolvable ──
+// src/lib/plugins/loader.ts writes PLUGIN_HOST_SCRIPT into os.tmpdir() and runs
+// it with a bare `node` child. That script starts with
+//   import { nativeRequire } from "@/lib/module-require";
+// — a tsconfig path alias only the parent understands (tsx resolves it for this
+// process; the child has no loader). The child dies with ERR_MODULE_NOT_FOUND
+// before ever loading the plugin, so no hook fires. Reported as a src bug
+// (alias baked into a plain .mjs child) — until the host script drops it, give
+// the child a resolvable alias package by pointing TMPDIR at a scratch dir that
+// carries a minimal node_modules/@/lib shim.
+const PLUGIN_HOST_TMP = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-plugin-host-alias-"));
+const shimDir = path.join(PLUGIN_HOST_TMP, "node_modules", "@", "lib");
+fs.mkdirSync(shimDir, { recursive: true });
+fs.writeFileSync(
+  path.join(shimDir, "package.json"),
+  JSON.stringify(
+    {
+      name: "@/lib",
+      version: "0.0.0",
+      type: "module",
+      exports: { "./module-require": "./module-require.mjs" },
+    },
+    null,
+    2
+  )
+);
+fs.writeFileSync(
+  path.join(shimDir, "module-require.mjs"),
+  'import { createRequire } from "node:module";\nexport const nativeRequire = createRequire(import.meta.url);\n'
+);
+process.env.TMPDIR = PLUGIN_HOST_TMP;
+
 // ── Dynamic imports (after DATA_DIR set) ──
 
 const core = await import("../../src/lib/db/core.ts");
@@ -93,6 +125,9 @@ test.after(async () => {
   cleanupSourceDirs();
   try {
     cleanupDir(TEST_DATA_DIR);
+  } catch {}
+  try {
+    cleanupDir(PLUGIN_HOST_TMP);
   } catch {}
 });
 

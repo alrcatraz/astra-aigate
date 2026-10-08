@@ -88,7 +88,7 @@ test("expired lockouts are cleared and stale attempts outside the window are pru
     attemptWindowMs: 50,
   };
 
-  lockoutPolicy.recordFailedAttempt(id, config);
+  await lockoutPolicy.recordFailedAttempt(id, config);
   now += 60;
   assert.deepEqual(await lockoutPolicy.recordFailedAttempt(id, config), { locked: false });
 
@@ -112,17 +112,17 @@ test("recordSuccess and forceUnlock remove tracked identifiers", async () => {
     attemptWindowMs: 1_000,
   };
 
-  lockoutPolicy.recordFailedAttempt("unlock-success", config);
+  await lockoutPolicy.recordFailedAttempt("unlock-success", config);
   assert.equal((await lockoutPolicy.checkLockout("unlock-success", config)).locked, true);
-  lockoutPolicy.recordSuccess("unlock-success");
+  await lockoutPolicy.recordSuccess("unlock-success");
   assert.deepEqual(await lockoutPolicy.checkLockout("unlock-success", config), {
     locked: false,
     attempts: 0,
   });
 
-  lockoutPolicy.recordFailedAttempt("unlock-force", config);
+  await lockoutPolicy.recordFailedAttempt("unlock-force", config);
   assert.equal((await lockoutPolicy.checkLockout("unlock-force", config)).locked, true);
-  lockoutPolicy.forceUnlock("unlock-force");
+  await lockoutPolicy.forceUnlock("unlock-force");
   assert.deepEqual(await lockoutPolicy.checkLockout("unlock-force", config), {
     locked: false,
     attempts: 0,
@@ -144,8 +144,8 @@ test("getLockedIdentifiers returns active lockouts and filters expired ones", as
     attemptWindowMs: 500,
   };
 
-  lockoutPolicy.recordFailedAttempt("expired-id", shortConfig);
-  lockoutPolicy.recordFailedAttempt("active-id", longConfig);
+  await lockoutPolicy.recordFailedAttempt("expired-id", shortConfig);
+  await lockoutPolicy.recordFailedAttempt("active-id", longConfig);
   now += 100;
 
   const locked = await lockoutPolicy.getLockedIdentifiers();

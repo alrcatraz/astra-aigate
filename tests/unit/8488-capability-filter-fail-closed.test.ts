@@ -115,7 +115,7 @@ test("#8488 filter: zero tool-capable targets → empty (fail closed)", async ()
   const kept = await filterTargetsByRequestCompatibility(targets, body, log);
   assert.equal(kept.length, 0);
 
-  const exhaustion = describeCapabilityFilterExhaustion(targets, body, "tools-combo");
+  const exhaustion = await describeCapabilityFilterExhaustion(targets, body, "tools-combo");
   assert.ok(exhaustion);
   assert.match(exhaustion!.message, /supports tool calling/i);
   assert.equal(exhaustion!.terminalReason, "capability_mismatch");
@@ -144,7 +144,7 @@ test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#52
     ["chatgpt-web/gpt-5.5", "chatgpt-web/o3"]
   );
 
-  const exhaustion = describeCapabilityFilterExhaustion(
+  const exhaustion = await describeCapabilityFilterExhaustion(
     [target("chatgpt-web", "chatgpt-web/gpt-5.5"), target("chatgpt-web", "chatgpt-web/o3")],
     {
       messages: [{ role: "user", content: "Use a tool." }],

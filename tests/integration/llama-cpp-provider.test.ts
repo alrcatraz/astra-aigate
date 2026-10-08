@@ -19,6 +19,7 @@ const { BaseExecutor } = await import("../../open-sse/executors/base.ts");
 const { getCircuitBreaker, resetAllCircuitBreakers } =
   await import("../../src/shared/utils/circuitBreaker.ts");
 const { clearProviderFailure } = await import("../../open-sse/services/accountFallback.ts");
+const { invalidateDbCache } = await import("../../src/lib/db/readCache.ts");
 
 const originalFetch = globalThis.fetch;
 const originalRetryDelayMs = BaseExecutor.RETRY_CONFIG.delayMs;
@@ -79,6 +80,10 @@ test.beforeEach(async () => {
   clearInflight();
   resetAllCircuitBreakers();
   await core.resetDbInstanceDrained();
+  // The drained reset closes the connection but does NOT drop the read caches
+  // (only the sync resetDbInstance() does), so rows from the previous test's
+  // database leak into the freshly created one. Bust them explicitly.
+  invalidateDbCache();
   await initTranslators();
   core.getDbInstance();
   await core.awaitDbMigrations();

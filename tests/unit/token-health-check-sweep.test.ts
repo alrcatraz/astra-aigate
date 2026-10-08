@@ -99,7 +99,7 @@ test("sweep() skips re-entrant calls while a previous sweep is still in flight",
   assert.equal(seeded.length, 21, "precondition: 21 oauth connections exist");
   assert.equal(isSweeping(), false, "precondition: no sweep in flight yet");
 
-  const first = await sweep();
+  const first = sweep();
   // sweep() sets state.sweeping = true synchronously before its first
   // `await`, so this is already true the instant sweep() returns control to
   // us — no microtask boundary needed to observe it.

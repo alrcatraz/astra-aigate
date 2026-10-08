@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs";
 import Database from "better-sqlite3";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const OMNIROUTE_BIN = path.join(ROOT, "bin", "omniroute.mjs");
+const OMNIROUTE_BIN = path.join(ROOT, "bin", "astra-aigate.mjs");
 const RESET_BIN = path.join(ROOT, "bin", "reset-password.mjs");
 
 // Isolate every spawn from the development repo's .env and the machine's real

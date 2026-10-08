@@ -113,7 +113,7 @@ async function consumeViaHotPath(model: string, requests: number) {
 // End-to-end: cap blocks via the hot-path hook (proves `model` is plumbed)
 // ---------------------------------------------------------------------------
 test("hot-path: model cap blocks after N consumptions driven through scheduleQuotaShareConsumption", async () => {
-  const pool = makePool();
+  const pool = await makePool();
   await setModelCap({
     poolId: pool.id,
     apiKeyId: KEY_A,
@@ -155,7 +155,7 @@ test("hot-path: model cap blocks after N consumptions driven through scheduleQuo
 // (If a caller forgets to pass model, the cap simply does not fire — fail-open.)
 // ---------------------------------------------------------------------------
 test("hot-path: enforce WITHOUT model never triggers model-cap block (fail-safe)", async () => {
-  const pool = makePool();
+  const pool = await makePool();
   await setModelCap({
     poolId: pool.id,
     apiKeyId: KEY_A,

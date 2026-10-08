@@ -15,7 +15,9 @@ const LEAF = join(REQ, "openai-to-claude/thinkingBudget.ts");
 
 test("leaf hosts fitThinkingToMaxTokens and does not import the host", () => {
   const leaf = readFileSync(LEAF, "utf8");
-  assert.match(leaf, /export function fitThinkingToMaxTokens\(/);
+  // fitThinkingToMaxTokens became async (model capability lookup is async) —
+  // accept both sync and async declarations.
+  assert.match(leaf, /export (?:async )?function fitThinkingToMaxTokens\(/);
   assert.match(leaf, /function safeCapMaxOutputTokens\(/);
   assert.doesNotMatch(leaf, /from "\.\.\/openai-to-claude\.ts"/);
 });
@@ -32,7 +34,8 @@ test("re-exported fitThinkingToMaxTokens is callable via the host module and beh
   const mod = await import("../../open-sse/translator/request/openai-to-claude.ts");
   assert.equal(typeof mod.fitThinkingToMaxTokens, "function");
   // No budgeted thinking → max_tokens floored to >= 1, thinking passed through.
-  const out = mod.fitThinkingToMaxTokens("gpt-4o-mini", 0, undefined);
+  // (await works for both the historic sync signature and the current async one.)
+  const out = await mod.fitThinkingToMaxTokens("gpt-4o-mini", 0, undefined);
   assert.equal(out.thinking, undefined);
   assert.ok(out.maxTokens >= 1);
 });

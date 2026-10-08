@@ -58,31 +58,54 @@ const TARGETS: Target[] = [
   { file: "nightly-llm-security.yml", jobName: "garak", stepName: "Build CLI bundle" },
 ];
 
+// nightly-* and npm-publish workflows were removed from .github/workflows (verified:
+// only build-image/ci/codeql/dast-smoke/guix-drift/guix-smoke/scorecard/semgrep remain).
+// Targets whose workflow file no longer exists are skipped instead of asserted, so the
+// guard comes back to life unchanged if a workflow is reintroduced.
+const REMOVED_WORKFLOW_REASON =
+  "workflow file removed from .github/workflows (nightly-* / npm-publish cleanup)";
+
 for (const { file, jobName, stepName } of TARGETS) {
-  test(`${file} :: ${jobName} '${stepName}' step sets OMNIROUTE_BUILD_BACKEND_ONLY=1 (skips dashboard UI build the API-only smoke job never exercises)`, () => {
-    const doc = loadWorkflow(file);
-    const job = doc.jobs[jobName];
-    assert.ok(job, `${file} must have a '${jobName}' job`);
-    const step = job.steps.find((s) => s.name === stepName);
-    assert.ok(step, `${file}'s '${jobName}' job must have a '${stepName}' step`);
-    assert.equal(
-      isBackendOnly(step),
-      true,
-      `${file}'s '${jobName}' -> '${stepName}' step must set OMNIROUTE_BUILD_BACKEND_ONLY=1 or OMNIROUTE_BUILD_PROFILE=backend`
-    );
-  });
+  const exists = fs.existsSync(path.join(WORKFLOWS_DIR, file));
+  test(
+    `${file} :: ${jobName} '${stepName}' step sets OMNIROUTE_BUILD_BACKEND_ONLY=1 (skips dashboard UI build the API-only smoke job never exercises)`,
+    { skip: exists ? false : REMOVED_WORKFLOW_REASON },
+    () => {
+      const doc = loadWorkflow(file);
+      const job = doc.jobs[jobName];
+      assert.ok(job, `${file} must have a '${jobName}' job`);
+      const step = job.steps.find((s) => s.name === stepName);
+      assert.ok(step, `${file}'s '${jobName}' job must have a '${stepName}' step`);
+      assert.equal(
+        isBackendOnly(step),
+        true,
+        `${file}'s '${jobName}' -> '${stepName}' step must set OMNIROUTE_BUILD_BACKEND_ONLY=1 or OMNIROUTE_BUILD_PROFILE=backend`
+      );
+    }
+  );
 }
 
-test("npm-publish.yml 'Build CLI bundle (standalone app)' step must NOT be backend-only (it legitimately ships the full dashboard UI)", () => {
-  const doc = loadWorkflow("npm-publish.yml");
-  const publishJob = Object.values(doc.jobs).find((job) =>
-    job.steps.some((s) => s.name === "Build CLI bundle (standalone app)")
-  );
-  assert.ok(publishJob, "npm-publish.yml must have a job with a 'Build CLI bundle (standalone app)' step");
-  const step = publishJob!.steps.find((s) => s.name === "Build CLI bundle (standalone app)")!;
-  assert.equal(
-    isBackendOnly(step),
-    false,
-    "npm-publish.yml's build step must ship the full dashboard UI, not the backend-only stub"
-  );
-});
+test(
+  "npm-publish.yml 'Build CLI bundle (standalone app)' step must NOT be backend-only (it legitimately ships the full dashboard UI)",
+  {
+    skip: fs.existsSync(path.join(WORKFLOWS_DIR, "npm-publish.yml"))
+      ? false
+      : REMOVED_WORKFLOW_REASON,
+  },
+  () => {
+    const doc = loadWorkflow("npm-publish.yml");
+    const publishJob = Object.values(doc.jobs).find((job) =>
+      job.steps.some((s) => s.name === "Build CLI bundle (standalone app)")
+    );
+    assert.ok(
+      publishJob,
+      "npm-publish.yml must have a job with a 'Build CLI bundle (standalone app)' step"
+    );
+    const step = publishJob!.steps.find((s) => s.name === "Build CLI bundle (standalone app)")!;
+    assert.equal(
+      isBackendOnly(step),
+      false,
+      "npm-publish.yml's build step must ship the full dashboard UI, not the backend-only stub"
+    );
+  }
+);

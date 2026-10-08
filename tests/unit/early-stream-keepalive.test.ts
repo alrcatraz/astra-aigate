@@ -204,9 +204,9 @@ test("RESPONSES_STARTUP_THINKING_FRAME is a self-closed synthetic reasoning item
 
   assert.equal(partAdded.data.item_id, itemId);
   assert.equal(delta.data.item_id, itemId);
-  assert.equal(delta.data.delta, "OmniRoute: got request, sending to provider");
+  assert.equal(delta.data.delta, "AI Gate: got request, sending to provider");
   assert.equal(partDone.data.item_id, itemId);
-  assert.equal(partDone.data.part.text, "OmniRoute: got request, sending to provider");
+  assert.equal(partDone.data.part.text, "AI Gate: got request, sending to provider");
 });
 
 test("slow handler emits the Responses API startup frame before the real body", async () => {
@@ -225,7 +225,7 @@ test("slow handler emits the Responses API startup frame before the real body", 
 
   const body = await readAll(result);
   assert.match(body, /event: response\.output_item\.added/);
-  assert.match(body, /OmniRoute: got request, sending to provider/);
+  assert.match(body, /AI Gate: got request, sending to provider/);
   assert.match(body, /event: response\.reasoning_summary_part\.done/);
   assert.match(body, /event: response\.created/, "should forward the real upstream body");
   assert.match(body, /data: \[DONE\]/);

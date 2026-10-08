@@ -22,6 +22,11 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const { recordComboRequest } = await import("../../open-sse/services/comboMetrics.ts");
 const { saveModelsDevCapabilities } = await import("../../src/lib/modelsDevSync.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test
+// (otherwise the first query races the ALTER TABLE that adds newer columns).
+dbCore.getDbInstance();
+await dbCore.awaitDbMigrations();
+
 after(async () => {
   await dbCore.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

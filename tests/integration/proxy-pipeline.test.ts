@@ -302,13 +302,13 @@ describe("Prompt Template Versioning — prompts.ts module existence", () => {
 
   it("should export CRUD functions", () => {
     const src = readFileSync(join(ROOT, "src", "lib", "db", "prompts.ts"), "utf8");
-    assert.match(src, /export function savePrompt/);
-    assert.match(src, /export function getActivePrompt/);
-    assert.match(src, /export function getPromptVersion/);
-    assert.match(src, /export function listPromptVersions/);
-    assert.match(src, /export function listPrompts/);
-    assert.match(src, /export function rollbackPrompt/);
-    assert.match(src, /export function renderPrompt/);
+    assert.match(src, /export (?:async )?function savePrompt/);
+    assert.match(src, /export (?:async )?function getActivePrompt/);
+    assert.match(src, /export (?:async )?function getPromptVersion/);
+    assert.match(src, /export (?:async )?function listPromptVersions/);
+    assert.match(src, /export (?:async )?function listPrompts/);
+    assert.match(src, /export (?:async )?function rollbackPrompt/);
+    assert.match(src, /export (?:async )?function renderPrompt/);
   });
 
   it("should define PromptTemplate interface", () => {

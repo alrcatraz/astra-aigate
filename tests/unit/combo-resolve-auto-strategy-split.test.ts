@@ -2,7 +2,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { resolveAutoStrategyOrder } from "@omniroute/open-sse/services/combo/resolveAutoStrategy.ts";
-import { resetDbInstance } from "@/lib/db/core.ts";
+import { resetDbInstanceDrained } from "@/lib/db/core.ts";
 
 // resolveAutoStrategyOrder loads the LKGP via the DB singleton (dynamic import);
 // release the handle so the node:test runner does not hang on teardown (learning #3).

@@ -14,6 +14,11 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const usageHistory = await import("../../src/lib/usage/usageHistory.ts");
 const exportRoute = await import("../../src/app/api/settings/export-json/route.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test
+// (the export route reads combos columns added by later migrations).
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.beforeEach(() => {
   const db = core.getDbInstance();
   db.prepare("DELETE FROM usage_history").run();

@@ -126,8 +126,8 @@ test("lockoutPolicy: locks after max attempts", async () => {
   const config = { maxAttempts: 3, lockoutDurationMs: 60000, attemptWindowMs: 60000 };
   const id = "user-lock-test-" + Date.now();
 
-  recordFailedAttempt(id, config);
-  recordFailedAttempt(id, config);
+  await recordFailedAttempt(id, config);
+  await recordFailedAttempt(id, config);
   const result = await recordFailedAttempt(id, config);
 
   assert.equal(result.locked, true);
@@ -136,8 +136,8 @@ test("lockoutPolicy: locks after max attempts", async () => {
 
 test("lockoutPolicy: recordSuccess clears state", async () => {
   const id = "user-success-" + Date.now();
-  recordFailedAttempt(id);
-  recordSuccess(id);
+  await recordFailedAttempt(id);
+  await recordSuccess(id);
 
   const result = await checkLockout(id);
   assert.equal(result.locked, false);
@@ -148,8 +148,8 @@ test("lockoutPolicy: forceUnlock works", async () => {
   const config = { maxAttempts: 1, lockoutDurationMs: 60000, attemptWindowMs: 60000 };
   const id = "user-force-" + Date.now();
 
-  recordFailedAttempt(id, config);
-  forceUnlock(id);
+  await recordFailedAttempt(id, config);
+  await forceUnlock(id);
 
   const result = await checkLockout(id);
   assert.equal(result.locked, false);

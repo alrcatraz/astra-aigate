@@ -21,8 +21,8 @@ import assert from "node:assert/strict";
 const { openaiToGeminiRequest } =
   await import("../../open-sse/translator/request/openai-to-gemini.ts");
 
-function translateToGemini(messages, tools) {
-  return openaiToGeminiRequest(
+async function translateToGemini(messages, tools) {
+  return await openaiToGeminiRequest(
     "gemini-2.0-flash",
     {
       model: "gemini-2.0-flash",
@@ -36,7 +36,7 @@ function translateToGemini(messages, tools) {
   );
 }
 
-test("T43: functionCall parts do NOT get a fake thoughtSignature injected", () => {
+test("T43: functionCall parts do NOT get a fake thoughtSignature injected", async () => {
   const messages = [
     { role: "user", content: "What is the weather in Tokyo?" },
     {
@@ -72,7 +72,7 @@ test("T43: functionCall parts do NOT get a fake thoughtSignature injected", () =
     },
   ];
 
-  const result = translateToGemini(messages, tools);
+  const result = await translateToGemini(messages, tools);
 
   const modelTurn = result.contents.find(
     (c) => c.role === "model" && c.parts?.some((p) => p.functionCall)
@@ -93,7 +93,7 @@ test("T43: functionCall parts do NOT get a fake thoughtSignature injected", () =
   );
 });
 
-test("T43: client-provided thoughtSignature is ignored in default enabled cache mode", () => {
+test("T43: client-provided thoughtSignature is ignored in default enabled cache mode", async () => {
   // In "enabled" mode (default), the signature cache ignores client-provided
   // signatures and only uses persisted ones from upstream responses.
   // This is the correct behavior to prevent stale/fake signatures from being
@@ -120,7 +120,7 @@ test("T43: client-provided thoughtSignature is ignored in default enabled cache 
     },
   ];
 
-  const result = translateToGemini(messages, []);
+  const result = await translateToGemini(messages, []);
 
   const modelTurn = result.contents.find(
     (c) => c.role === "model" && c.parts?.some((p) => p.functionCall)
@@ -138,7 +138,7 @@ test("T43: client-provided thoughtSignature is ignored in default enabled cache 
   );
 });
 
-test("T43: thinking parts still emit thought=true (regression guard)", () => {
+test("T43: thinking parts still emit thought=true (regression guard)", async () => {
   // Ensure we did not accidentally break the thinking parts that legitimately
   // need thought: true (present when msg.reasoning_content is set).
   const messages = [
@@ -151,7 +151,7 @@ test("T43: thinking parts still emit thought=true (regression guard)", () => {
     },
   ];
 
-  const result = translateToGemini(messages, []);
+  const result = await translateToGemini(messages, []);
 
   const modelTurn = result.contents.find((c) => c.role === "model");
   assert.ok(modelTurn, "Expected a model turn");

@@ -45,7 +45,7 @@ test("#5312 RC-A: persisted thinkingBudget mode is restored at boot", async () =
   assert.equal(getThinkingBudgetConfig().mode, "passthrough", "pre-hydration baseline");
 
   const settings = await getSettings();
-  const applied = hydrateThinkingBudgetConfig(settings);
+  const applied = await hydrateThinkingBudgetConfig(settings);
 
   assert.equal(applied, true, "hydrator must report it applied a config");
   assert.equal(getThinkingBudgetConfig().mode, "auto", "operator mode must survive restart");
@@ -58,7 +58,7 @@ test("#5312 RC-A: custom budget fields are restored verbatim", async () => {
   setThinkingBudgetConfig(DEFAULT_THINKING_CONFIG);
 
   const settings = await getSettings();
-  assert.equal(hydrateThinkingBudgetConfig(settings), true);
+  assert.equal(await hydrateThinkingBudgetConfig(settings), true);
 
   const cfg = getThinkingBudgetConfig();
   assert.equal(cfg.mode, "custom");
@@ -68,7 +68,7 @@ test("#5312 RC-A: custom budget fields are restored verbatim", async () => {
 
 test("#5312 RC-A: no behavior change when the setting is unset", async () => {
   setThinkingBudgetConfig(DEFAULT_THINKING_CONFIG);
-  const applied = hydrateThinkingBudgetConfig({});
+  const applied = await hydrateThinkingBudgetConfig({});
   assert.equal(applied, false, "hydrator must be a no-op when thinkingBudget is absent");
   assert.equal(getThinkingBudgetConfig().mode, "passthrough");
 });

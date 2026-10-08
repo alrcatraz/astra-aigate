@@ -192,6 +192,14 @@ let app:
   | undefined;
 
 test.before(async () => {
+  // Wait for the async migration runner before seeding: provider_nodes gains
+  // columns (icon_url, ...) via migrations, and createProviderNode would
+  // otherwise hit a freshly-created, not-yet-migrated table. Awaiting here also
+  // prevents "Migration runner failed: connection is not open" once
+  // closeDbInstance() runs below while migrations are still in flight.
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+
   // Start mock upstream
   const upstreamBaseUrl = await upstream.start();
   upstream.configureToken(TOKEN, {

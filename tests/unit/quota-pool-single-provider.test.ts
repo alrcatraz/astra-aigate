@@ -73,7 +73,9 @@ test("createPool with two different-provider connections throws /single provider
   const idA = (a as any).id as string;
   const idB = (b as any).id as string;
 
-  assert.throws(
+  // createPool is async (validates providers after awaiting them), so the
+  // rejection must be caught with assert.rejects, not assert.throws.
+  await assert.rejects(
     () =>
       poolsDb.createPool({
         connectionId: idA,
@@ -140,7 +142,7 @@ test("updatePool replacing connectionIds with mixed providers throws /single pro
   });
 
   // Try updating to mixed-provider set → should throw.
-  assert.throws(
+  await assert.rejects(
     () => poolsDb.updatePool(pool.id, { connectionIds: [idA, idB] }),
     /same provider|single provider/i
   );

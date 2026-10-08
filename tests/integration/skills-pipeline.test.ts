@@ -531,14 +531,14 @@ test("skill execution stores a record and marks it complete", async () => {
   assert.ok(execution.id, "execution should have an ID");
 
   // Verify the record is persisted and retrievable
-  const retrieved = skillExecutor.getExecution(execution.id);
+  const retrieved = await skillExecutor.getExecution(execution.id);
   assert.ok(retrieved, "execution should be retrievable from storage");
   assert.equal(retrieved.status, "success");
   assert.equal(retrieved.skillId, execution.skillId);
   assert.deepEqual(retrieved.output, { processed: true, value: "hello" });
 
   // Verify it appears in listings
-  const executions = skillExecutor.listExecutions(apiKey.id);
+  const executions = await skillExecutor.listExecutions(apiKey.id);
   assert.ok(executions.length >= 1, "listExecutions should return at least one record");
   assert.ok(
     executions.some((e) => e.id === execution.id),

@@ -24,10 +24,7 @@ test("peer routing stays disabled without an instance id", () => {
     false
   );
   assert.deepEqual(headers, {});
-  assert.equal(
-    inspectPeerRequest(new Headers({ "X-OmniRoute-Peer-Trace": "gateway-a" }), {}),
-    null
-  );
+  assert.equal(inspectPeerRequest(new Headers({ "X-AI-Gate-Peer-Trace": "gateway-a" }), {}), null);
 });
 
 test("peer URL matching requires the configured origin and path boundary", () => {
@@ -47,12 +44,12 @@ test("outbound peer calls append the local instance to the existing trace", () =
   const headers: Record<string, string> = { Authorization: "Bearer test" };
   const applied = applyPeerTraceHeader(
     headers,
-    { "x-omniroute-peer-trace": "edge,gateway-z" },
+    { "x-ai-gate-peer-trace": "edge,gateway-z" },
     "http://gateway-b:20128/v1/chat/completions",
     env
   );
   assert.equal(applied, true);
-  assert.equal(headers["X-OmniRoute-Peer-Trace"], "edge,gateway-z,gateway-a");
+  assert.equal(headers["X-AI-Gate-Peer-Trace"], "edge,gateway-z,gateway-a");
   assert.equal(headers.Authorization, "Bearer test");
 });
 
@@ -62,25 +59,22 @@ test("non-peer providers never receive peer metadata", () => {
     applyPeerTraceHeader(headers, null, "https://api.openai.com/v1/chat/completions", env),
     false
   );
-  assert.equal(headers["X-OmniRoute-Peer-Trace"], undefined);
+  assert.equal(headers["X-AI-Gate-Peer-Trace"], undefined);
 });
 
 test("ingress rejects a repeated instance and an exhausted hop budget", () => {
   assert.deepEqual(
-    inspectPeerRequest(new Headers({ "X-OmniRoute-Peer-Trace": "edge,gateway-a" }), env),
+    inspectPeerRequest(new Headers({ "X-AI-Gate-Peer-Trace": "edge,gateway-a" }), env),
     {
       code: "peer_loop_detected",
-      message: "OmniRoute peer routing loop detected",
+      message: "AI Gate peer routing loop detected",
     }
   );
   assert.deepEqual(
-    inspectPeerRequest(
-      { "X-OmniRoute-Peer-Trace": "gateway-w,gateway-x,gateway-y,gateway-z" },
-      env
-    ),
+    inspectPeerRequest({ "X-AI-Gate-Peer-Trace": "gateway-w,gateway-x,gateway-y,gateway-z" }, env),
     {
       code: "peer_hop_limit_exceeded",
-      message: "OmniRoute peer routing hop limit exceeded",
+      message: "AI Gate peer routing hop limit exceeded",
     }
   );
 });
@@ -98,7 +92,7 @@ test("BaseExecutor adds the trace only on an allowlisted peer dispatch", async (
   };
   let capturedTrace: string | undefined;
   const server = createServer((request, response) => {
-    capturedTrace = request.headers["x-omniroute-peer-trace"];
+    capturedTrace = request.headers["x-ai-gate-peer-trace"];
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify({ choices: [] }));
   });
@@ -124,8 +118,8 @@ test("BaseExecutor adds the trace only on an allowlisted peer dispatch", async (
         apiKey: "peer-key",
         providerSpecificData: { baseUrl: peerBaseUrl },
       },
-      clientHeaders: { "x-omniroute-peer-trace": "edge" },
-      upstreamExtraHeaders: { "x-omniroute-peer-trace": "overridden" },
+      clientHeaders: { "x-ai-gate-peer-trace": "edge" },
+      upstreamExtraHeaders: { "x-ai-gate-peer-trace": "overridden" },
     });
 
     assert.equal(capturedTrace, "edge,gateway-a");
@@ -152,7 +146,7 @@ test("handleChat rejects a reciprocal peer loop before provider routing", async 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-OmniRoute-Peer-Trace": "gateway-b,gateway-a",
+          "X-AI-Gate-Peer-Trace": "gateway-b,gateway-a",
         },
         body: JSON.stringify({
           model: "steady-free",

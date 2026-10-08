@@ -223,7 +223,7 @@ test("plugin_uninstall: removes plugin", async () => {
   const tool = getTool("plugin_uninstall");
   const result = await tool.handler({ name });
   assert.equal(result.success, true);
-  assert.equal(dbPlugins.getPluginByName(name), null);
+  assert.equal(await dbPlugins.getPluginByName(name), null);
 });
 
 test("plugin_uninstall: returns error for nonexistent plugin", async () => {

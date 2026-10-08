@@ -37,7 +37,11 @@ test("analytics page exposes the restored analytics tab shell", () => {
 test("endpoint page keeps APIs, MCP, and A2A as in-page tabs", () => {
   const source = readSource("src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.tsx");
 
-  assert.ok(source.includes('type EndpointTab = "apis" | "mcp" | "a2a" | "context-sources"'));
+  assert.ok(
+    source.includes(
+      'type EndpointTab = "apis" | "mcp" | "services" | "api-endpoints" | "a2a" | "context-sources"'
+    )
+  );
   for (const labelKey of ["tabApis", "tabMcp", "tabA2a", "tabContextSources"]) {
     assert.ok(source.includes('labelKey: "' + labelKey + '"'));
   }
@@ -53,7 +57,11 @@ test("endpoint page exposes context-sources tab with Notion and Obsidian source 
   const source = readSource("src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.tsx");
 
   // Verify context-sources is part of the EndpointTab type contract
-  assert.ok(source.includes('type EndpointTab = "apis" | "mcp" | "a2a" | "context-sources"'));
+  assert.ok(
+    source.includes(
+      'type EndpointTab = "apis" | "mcp" | "services" | "api-endpoints" | "a2a" | "context-sources"'
+    )
+  );
 
   // Verify context-sources tab label is in ENDPOINT_TABS
   assert.ok(

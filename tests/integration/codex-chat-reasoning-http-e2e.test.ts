@@ -276,6 +276,7 @@ test("chat completions streams Codex Responses reasoning through real route HTTP
         type: "message",
         role: "user",
         content: [{ type: "input_text", text: "What is the answer?" }],
+        status: "completed",
       },
     ]);
 

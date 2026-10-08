@@ -40,6 +40,10 @@ const { createProviderNode } = await import("../../src/lib/db/providers/nodes.ts
 const { getCallLogs } = await import("../../src/lib/usage/callLogs.ts");
 const { POST } = await import("../../src/app/api/v1/embeddings/route.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const PLAYGROUND_KEY_ID_HEADER = "x-omniroute-playground-key-id";
 
 test.after(async () => {

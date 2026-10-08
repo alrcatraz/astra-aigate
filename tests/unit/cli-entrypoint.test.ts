@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 test("omniroute CLI entrypoint can print version", async () => {
-  const { stdout } = await execFileAsync(process.execPath, ["bin/omniroute.mjs", "--version"], {
+  const { stdout } = await execFileAsync(process.execPath, ["bin/astra-aigate.mjs", "--version"], {
     cwd: process.cwd(),
     env: { ...process.env, DATA_DIR: "" },
   });

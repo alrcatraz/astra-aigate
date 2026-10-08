@@ -18,20 +18,20 @@ describe("normalizeBasePath", () => {
 });
 
 describe("getDeployBasePath", () => {
-  it("reads NEXT_PUBLIC_OMNIROUTE_BASE_PATH first", () => {
+  it("reads NEXT_PUBLIC_AIGATE_BASE_PATH first", () => {
     assert.equal(
       getDeployBasePath({
-        NEXT_PUBLIC_OMNIROUTE_BASE_PATH: "/omniroute",
-        OMNIROUTE_BASE_PATH: "/other",
+        NEXT_PUBLIC_AIGATE_BASE_PATH: "/omniroute",
+        AIGATE_BASE_PATH: "/other",
       } as NodeJS.ProcessEnv),
       "/omniroute"
     );
   });
 
-  it("falls back to OMNIROUTE_BASE_PATH", () => {
+  it("falls back to AIGATE_BASE_PATH", () => {
     assert.equal(
       getDeployBasePath({
-        OMNIROUTE_BASE_PATH: "/omniroute",
+        AIGATE_BASE_PATH: "/omniroute",
       } as NodeJS.ProcessEnv),
       "/omniroute"
     );

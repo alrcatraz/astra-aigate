@@ -33,16 +33,25 @@ test.beforeEach(async () => {
 // Simulate an OmniRoute restart: the module's in-memory state is wiped (as it
 // would be on a fresh import) but the DB file persists — exactly what happens
 // across an update/restart.
-function simulateRestart() {
+//
+// ensureLoaded() applies the persisted config in a fire-and-forget promise
+// (.then), so the caller must flush the microtask/immediate queue before
+// reading the config back — otherwise every accessor still sees the defaults.
+async function simulateRestart() {
   ipFilter.resetIPFilter();
+  // The first accessor call after the reset is what FIRES ensureLoaded()'s
+  // fire-and-forget read (its .then applies the persisted config later), so
+  // trigger it here and only then flush the promise before the assertions.
+  ipFilter.getIPFilterConfig();
+  await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
-test("#6131 blacklist + enabled survive a restart (persisted to DB)", () => {
+test("#6131 blacklist + enabled survive a restart (persisted to DB)", async () => {
   ipFilter.configureIPFilter({ enabled: true, mode: "blacklist" });
   ipFilter.addToBlacklist("203.0.113.7");
   ipFilter.addToBlacklist("198.51.100.42");
 
-  simulateRestart();
+  await simulateRestart();
 
   const cfg = ipFilter.getIPFilterConfig();
   assert.equal(cfg.enabled, true, "enabled must persist across restart");
@@ -50,24 +59,24 @@ test("#6131 blacklist + enabled survive a restart (persisted to DB)", () => {
   assert.deepEqual(cfg.blacklist.sort(), ["198.51.100.42", "203.0.113.7"]);
 });
 
-test("#6131 blacklisted IP is still blocked after a restart", () => {
+test("#6131 blacklisted IP is still blocked after a restart", async () => {
   ipFilter.configureIPFilter({ enabled: true, mode: "blacklist" });
   ipFilter.addToBlacklist("203.0.113.7");
 
-  simulateRestart();
+  await simulateRestart();
 
   assert.equal(ipFilter.checkIP("203.0.113.7").allowed, false);
   assert.equal(ipFilter.checkIP("203.0.113.8").allowed, true);
 });
 
-test("#6131 removing an IP and disabling also persist across restart", () => {
+test("#6131 removing an IP and disabling also persist across restart", async () => {
   ipFilter.configureIPFilter({ enabled: true, mode: "blacklist" });
   ipFilter.addToBlacklist("203.0.113.7");
   ipFilter.addToBlacklist("203.0.113.8");
   ipFilter.removeFromBlacklist("203.0.113.7");
   ipFilter.configureIPFilter({ enabled: false });
 
-  simulateRestart();
+  await simulateRestart();
 
   const cfg = ipFilter.getIPFilterConfig();
   assert.equal(cfg.enabled, false);
@@ -76,11 +85,11 @@ test("#6131 removing an IP and disabling also persist across restart", () => {
   assert.equal(ipFilter.checkIP("203.0.113.8").allowed, true);
 });
 
-test("#6131 whitelist mode persists across restart", () => {
+test("#6131 whitelist mode persists across restart", async () => {
   ipFilter.configureIPFilter({ enabled: true, mode: "whitelist" });
   ipFilter.addToWhitelist("203.0.113.7");
 
-  simulateRestart();
+  await simulateRestart();
 
   const cfg = ipFilter.getIPFilterConfig();
   assert.equal(cfg.mode, "whitelist");
@@ -89,8 +98,8 @@ test("#6131 whitelist mode persists across restart", () => {
   assert.equal(ipFilter.checkIP("10.0.0.1").allowed, false);
 });
 
-test("#6131 defaults are safe when nothing was ever persisted (disabled, allow-all)", () => {
-  simulateRestart();
+test("#6131 defaults are safe when nothing was ever persisted (disabled, allow-all)", async () => {
+  await simulateRestart();
   const cfg = ipFilter.getIPFilterConfig();
   assert.equal(cfg.enabled, false);
   assert.deepEqual(cfg.blacklist, []);

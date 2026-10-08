@@ -13,6 +13,10 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const combosDb = await import("../../src/lib/db/combos.ts");
 const catalog = await import("../../src/app/api/v1/models/catalog.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

@@ -269,10 +269,10 @@ describe("lockoutPolicy persistence", () => {
     const id = "test-unlock-" + Date.now();
     const config = { maxAttempts: 3, lockoutDurationMs: 5000, attemptWindowMs: 10000 };
 
-    recordFailedAttempt(id, config);
-    recordFailedAttempt(id, config);
+    await recordFailedAttempt(id, config);
+    await recordFailedAttempt(id, config);
 
-    recordSuccess(id);
+    await recordSuccess(id);
 
     const check = await checkLockout(id, config);
     assert.ok(!check.locked);
@@ -285,13 +285,13 @@ describe("lockoutPolicy persistence", () => {
     const id = "test-force-" + Date.now();
     const config = { maxAttempts: 2, lockoutDurationMs: 60000, attemptWindowMs: 60000 };
 
-    recordFailedAttempt(id, config);
-    recordFailedAttempt(id, config);
+    await recordFailedAttempt(id, config);
+    await recordFailedAttempt(id, config);
 
     const lockCheck = await checkLockout(id, config);
     assert.ok(lockCheck.locked);
 
-    forceUnlock(id);
+    await forceUnlock(id);
 
     const afterUnlock = await checkLockout(id, config);
     assert.ok(!afterUnlock.locked);

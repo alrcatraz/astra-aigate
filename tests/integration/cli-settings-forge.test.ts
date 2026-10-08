@@ -116,7 +116,10 @@ test("forge-settings POST: writes config.toml with valid body", async () => {
       const configPath = path.join(tmpHome, ".forge", "config.toml");
       if (fs.existsSync(configPath)) {
         const content = fs.readFileSync(configPath, "utf-8");
-        assert.ok(content.includes("managed by OmniRoute"), "Config should have OmniRoute marker");
+        assert.ok(
+          content.includes("managed by AI Gate") || content.includes("managed by OmniRoute"),
+          "Config should have the managed-by marker (AI Gate, or OmniRoute for pre-rebrand)"
+        );
         assert.ok(content.includes("http://localhost:20128"), "Config should contain base URL");
         assert.ok(content.includes("[openai]"), "Config should have [openai] section");
       }

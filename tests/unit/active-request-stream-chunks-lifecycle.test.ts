@@ -165,7 +165,7 @@ test("streamChunks survive the full lifecycle: in-flight → completed → persi
   });
 
   // Verify via pendingById (what the API reads)
-  const apiResponse1 = buildApiResponseFromPending(requestId);
+  const apiResponse1 = await buildApiResponseFromPending(requestId);
   assert.ok(apiResponse1, "API should find in-flight request");
   assert.ok(apiResponse1!.pipelinePayloads, "should have pipelinePayloads");
   assert.ok(
@@ -209,7 +209,7 @@ test("streamChunks survive the full lifecycle: in-flight → completed → persi
   });
 
   // Verify API sees the latest (shows all stages now)
-  const apiResponse2 = buildApiResponseFromPending(requestId);
+  const apiResponse2 = await buildApiResponseFromPending(requestId);
   const streamChunks2 = (apiResponse2!.pipelinePayloads as Record<string, unknown>)
     .streamChunks as Record<string, string[]>;
   assert.equal(streamChunks2.provider.length, 1, "provider chunks: 1");
@@ -253,7 +253,7 @@ test("streamChunks survive the full lifecycle: in-flight → completed → persi
     "request should be removed from pendingById after finalization"
   );
 
-  const completedResponse = buildApiResponseFromCompleted(requestId);
+  const completedResponse = await buildApiResponseFromCompleted(requestId);
   assert.ok(completedResponse, "API should find request in completedDetails");
   assert.ok(
     (completedResponse!.pipelinePayloads as Record<string, unknown>).streamChunks,
@@ -459,7 +459,7 @@ test("pendingById references are live: push mutates the shared arrays visible to
   );
 
   // Verify via simulated API response
-  const apiResp = buildApiResponseFromPending(requestId);
+  const apiResp = await buildApiResponseFromPending(requestId);
   const apiChunks = (apiResp!.pipelinePayloads as Record<string, unknown>).streamChunks as Record<
     string,
     string[]
@@ -489,7 +489,7 @@ test("no connectionId in request logger does not break anything", async () => {
   assert.equal(detail.streamChunks, undefined, "streamChunks should not be set");
 
   // Simulated API should return null for streamChunks
-  const apiResp = buildApiResponseFromPending(
+  const apiResp = await buildApiResponseFromPending(
     // We need the actual ID. trackPendingRequest returns it now.
     (() => {
       usageHistory.clearPendingRequests();
@@ -543,7 +543,7 @@ test("createRequestLogger and trackPendingRequest with matching model propagate 
   assert.equal(detail!.streamChunks!.openai.length, 1);
   assert.equal(detail!.streamChunks!.client.length, 1);
 
-  const apiResp = buildApiResponseFromPending(requestId!);
+  const apiResp = await buildApiResponseFromPending(requestId!);
   assert.ok(apiResp);
   const apiChunks = (apiResp!.pipelinePayloads as Record<string, unknown>).streamChunks as Record<
     string,
@@ -640,7 +640,7 @@ test("streamChunks in completedDetails survives beyond the logs polling window",
     "should be in completedDetails after finalization"
   );
 
-  const completedResp = buildApiResponseFromCompleted(requestId);
+  const completedResp = await buildApiResponseFromCompleted(requestId);
   assert.ok(completedResp, "API response should be available from completedDetails");
   assert.ok(
     (completedResp!.pipelinePayloads as Record<string, unknown>).streamChunks,
