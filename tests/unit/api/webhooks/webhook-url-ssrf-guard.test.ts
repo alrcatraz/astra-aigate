@@ -24,6 +24,8 @@ process.env.NODE_ENV = "test";
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
 const core = await import("../../../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { updateSettings } = await import("../../../../src/lib/db/settings.ts");
 await updateSettings({ requireLogin: false });
 

@@ -10,10 +10,14 @@ before(async () => {
 });
 
 after(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await h.cleanup();
 });
 
 beforeEach(async () => {
+  // Let fire-and-forget post-response writes (gamification/cost calc) settle
+  // while the current DATA_DIR still exists, before resetStorage() wipes it.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await h.resetStorage();
   delete process.env.STREAM_RECOVERY_ENABLED;
 });

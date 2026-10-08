@@ -23,6 +23,11 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 process.env.MEMORY_RRF_K = "60";
 
 const core = await import("../../src/lib/db/core.ts");
+
+// Bootstrap: open the DB and wait for the async migration run BEFORE the first
+// test touches any table (afterEach cleanup() re-awaits after every rmSync).
+core.getDbInstance();
+await core.awaitDbMigrations();
 const vsModule = await import("../../src/lib/memory/vectorStore.ts");
 const { getVectorStore, _resetVectorStoreSingleton } = vsModule;
 

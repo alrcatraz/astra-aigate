@@ -23,6 +23,11 @@ const proxyTestRoute = await import("../../src/app/api/settings/proxy/test/route
 const shutdownRoute = await import("../../src/app/api/shutdown/route.ts");
 const restartRoute = await import("../../src/app/api/restart/route.ts");
 
+// Bootstrap: open the DB and wait for the async migration run before the first
+// test touches any table (resetStorage() re-awaits after every dir rebuild).
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 async function withEnv(name, value, fn) {
   const previous = process.env[name];
   if (value === undefined) {
@@ -297,6 +302,9 @@ test('provider connection migration adds "group" column for existing databases',
   const Database = (await import("better-sqlite3")).default;
   const db = new Database(sqlitePath);
   db.exec(`
+    -- Simulate a legacy database: drop the modern table so the reopen path
+    -- re-adds the columns this test is about (incl. "group").
+    DROP TABLE IF EXISTS provider_connections;
     CREATE TABLE provider_connections (
       id TEXT PRIMARY KEY,
       provider TEXT NOT NULL,

@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
+const core = await import("../../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 describe("Federation Leaderboard Auth", () => {
   it("rejects requests without Authorization header", async () => {
     const { GET } = await import("../../../src/app/api/gamification/federation/leaderboard/route");

@@ -41,6 +41,11 @@ const {
 const { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } =
   await import("../../src/lib/db/core.ts");
 
+// Bootstrap: open the isolated DB and wait for the async migration run before
+// the first cleanup test touches telemetry tables.
+getDbInstance();
+await awaitDbMigrations();
+
 // Repo test rule: DB-touching tests must close the handle in test.after(),
 // or the native test runner can hang indefinitely on a dangling connection.
 test.after(async () => {

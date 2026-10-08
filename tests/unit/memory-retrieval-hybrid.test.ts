@@ -24,6 +24,11 @@ process.env.VECTOR_STORE_DISABLE_VEC = "true"; // force vec → null
 
 const core = await import("../../src/lib/db/core.ts");
 
+// Bootstrap: open the DB and wait for the async migration run BEFORE the first
+// test touches any table (afterEach cleanup() re-awaits after every rmSync).
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 async function removeTestDataDir() {
   for (let attempt = 0; attempt < 10; attempt++) {
     try {

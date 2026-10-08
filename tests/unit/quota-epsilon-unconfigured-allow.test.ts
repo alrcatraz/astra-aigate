@@ -36,6 +36,9 @@ const { SqliteQuotaStore } = await import("../../src/lib/quota/sqliteQuotaStore.
 const { enforceQuotaShare } = await import("../../src/lib/quota/enforce.ts");
 const core = await import("../../src/lib/db/core.ts");
 
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   if (fs.existsSync(TEST_DATA_DIR)) {

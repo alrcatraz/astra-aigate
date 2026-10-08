@@ -34,6 +34,11 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 process.env.VECTOR_STORE_DISABLE_VEC = "true";
 
 const core = await import("../../src/lib/db/core.ts");
+
+// Bootstrap: open the DB and wait for the async migration run BEFORE the first
+// test touches any table (afterEach cleanup() re-awaits after every rmSync).
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { MemoryType } = await import("../../src/lib/memory/types.ts");
 const store = await import("../../src/lib/memory/store.ts");
 const memoryVec = await import("../../src/lib/db/memoryVec.ts");
