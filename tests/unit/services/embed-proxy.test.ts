@@ -8,7 +8,7 @@
  * can't be reassigned, so direct module patching is not possible).
  */
 
-import { describe, it, afterEach } from "node:test";
+import { describe, it, before, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { registerSupervisor, unregisterSupervisor } from "../../../src/lib/services/registry.ts";
@@ -24,6 +24,14 @@ import {
 } from "../../../src/app/(dashboard)/dashboard/providers/services/[name]/embed/[[...path]]/route.ts";
 
 const originalFetch = globalThis.fetch;
+
+// The route handler's proxyRequest → getOrCreateApiKey reads version_manager;
+// fully drain migrations before the first test or it hits `no such table`.
+before(async () => {
+  const core = await import("../../../src/lib/db/core.ts");
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
 
 afterEach(() => {
   globalThis.fetch = originalFetch;

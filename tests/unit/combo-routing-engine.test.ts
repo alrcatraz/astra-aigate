@@ -125,6 +125,12 @@ async function cleanupTestDataDir() {
     try {
       await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+      // Re-run migrations after the dir rebuild — the success path must also
+      // repopulate the schema (previously only the error-retry tail did), or
+      // the first beforeEach query hits `no such table`.
+      fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+      core.getDbInstance();
+      await core.awaitDbMigrations();
       return;
     } catch (error: any) {
       lastError = error;
@@ -135,6 +141,7 @@ async function cleanupTestDataDir() {
   if (lastError) {
     throw lastError;
   }
+  fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();
   await core.awaitDbMigrations();
 }

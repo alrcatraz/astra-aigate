@@ -45,6 +45,10 @@ execSync("which npm", { env: process.env });
 
 // DB bootstrap (must be before bifrost import due to db/core eager init)
 const core = await import("../../../../src/lib/db/core.ts");
+// Fully drain migrations before the seed INSERT — getDbInstance() returns while
+// runMigrations is still in flight (`no such table: version_manager`).
+core.getDbInstance();
+await core.awaitDbMigrations();
 const db = core.getDbInstance();
 db.prepare(
   `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)
