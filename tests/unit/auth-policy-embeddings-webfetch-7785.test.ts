@@ -30,6 +30,9 @@ delete process.env.OMNIROUTE_API_KEY;
 delete process.env.ROUTER_API_KEY;
 
 const core = await import("../../src/lib/db/core.ts");
+// Open + fully drain migrations before the first test statement.
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { createProviderNode } = await import("../../src/lib/db/providers/nodes.ts");
 const { POST: embeddingsPOST } = await import("../../src/app/api/v1/embeddings/route.ts");
 const { POST: webFetchPOST } = await import("../../src/app/api/v1/web/fetch/route.ts");

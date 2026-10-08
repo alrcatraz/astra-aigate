@@ -78,7 +78,7 @@ test("incrementBucket accumulates delta on successive calls", async () => {
   await consumptionDb.incrementBucket(key, dim, bucket, 3, now);
   await consumptionDb.incrementBucket(key, dim, bucket, 2, now);
 
-  assert.equal(consumptionDb.getBucket(key, dim, bucket), 10);
+  assert.equal(await consumptionDb.getBucket(key, dim, bucket), 10);
 });
 
 test("incrementBucket is atomic: 100 concurrent increments sum correctly", async () => {
@@ -167,8 +167,8 @@ test("gcOlderThan deletes only rows with updated_at strictly less than threshold
   assert.equal(deleted, 2, `should have deleted 2 rows, deleted ${deleted}`);
 
   // Remaining rows: key-gc3 and key-gc4
-  assert.equal(consumptionDb.getBucket("key-gc3", "pool-gc:tokens:daily", 3), 1);
-  assert.equal(consumptionDb.getBucket("key-gc4", "pool-gc:tokens:daily", 4), 1);
+  assert.equal(await consumptionDb.getBucket("key-gc3", "pool-gc:tokens:daily", 3), 1);
+  assert.equal(await consumptionDb.getBucket("key-gc4", "pool-gc:tokens:daily", 4), 1);
 });
 
 test("gcOlderThan returns 0 when no rows qualify", async () => {
@@ -192,6 +192,6 @@ test("different dimension keys are independent", async () => {
   await consumptionDb.incrementBucket("key-iso", "pool-a:tokens:hourly", 1, 40, now);
   await consumptionDb.incrementBucket("key-iso", "pool-b:tokens:hourly", 1, 60, now);
 
-  assert.equal(consumptionDb.getBucket("key-iso", "pool-a:tokens:hourly", 1), 40);
-  assert.equal(consumptionDb.getBucket("key-iso", "pool-b:tokens:hourly", 1), 60);
+  assert.equal(await consumptionDb.getBucket("key-iso", "pool-a:tokens:hourly", 1), 40);
+  assert.equal(await consumptionDb.getBucket("key-iso", "pool-b:tokens:hourly", 1), 60);
 });

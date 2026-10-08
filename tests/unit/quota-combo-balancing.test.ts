@@ -31,9 +31,12 @@ const { isQuotaModelName, quotaModelName } =
   await import("../../src/lib/quota/quotaModelNaming.ts");
 const { PROVIDER_MODELS } = await import("../../open-sse/config/providerModels.ts");
 
-// Trigger migration once at module load so the schema is ready for the first
-// beforeEach without a slow per-test full migration run.
+// Trigger migration once at module load AND await it so the schema is ready
+// before the first beforeEach. getDbInstance() is sync and returns while
+// runMigrations is still in flight; without the await the first DELETE hits
+// `no such table`.
 core.getDbInstance();
+await core.awaitDbMigrations();
 
 // ---------------------------------------------------------------------------
 // Lifecycle

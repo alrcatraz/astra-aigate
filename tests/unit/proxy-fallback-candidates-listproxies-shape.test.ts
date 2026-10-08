@@ -21,6 +21,11 @@ const core = await import("../../src/lib/db/core.ts");
 const proxiesDb = await import("../../src/lib/db/proxies.ts");
 const { getProxyCandidates } = await import("../../open-sse/utils/proxyFallback.ts");
 
+// Full-async DB init: migrations now run in the background of getDbInstance(), so a test
+// that writes a row without awaiting them hits "no such table: proxy_registry".
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

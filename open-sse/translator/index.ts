@@ -210,7 +210,7 @@ export async function translateRequest(
   );
 
   // Phase 2: Apply thinking budget control before normalization
-  result = applyThinkingBudget(result);
+  result = await applyThinkingBudget(result);
   // HARDEN (2026-08-08): the thinking-budget pass must NEVER strip the conversation.
   // If it returns an object that lost `messages` (a production regression observed on
   // this deployment — chat bodies were reduced to a bare "{model}"), fall back to the

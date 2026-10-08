@@ -39,7 +39,7 @@ test("collapse fires on interleaved tree AND no [ref=eXX] anchor is lost", () =>
   // BUG B: collapse must actually fire despite interleaved noise lines.
   assert.ok(out.length < input.length, "output shorter (compressed)");
   assert.ok(
-    out.includes('items omitted by OmniRoute MCP filter'),
+    out.includes("items omitted by AI Gate MCP filter"),
     "collapse notice present (collapse fired)"
   );
 
@@ -48,7 +48,10 @@ test("collapse fires on interleaved tree AND no [ref=eXX] anchor is lost", () =>
   const outRefs = extractRefs(out);
   assert.equal(inRefs.length, 40, "sanity: 40 refs in input");
   for (const r of inRefs) {
-    assert.ok(outRefs.includes(r), `ref ${r} must survive collapse (extractRefs(input) ⊆ extractRefs(output))`);
+    assert.ok(
+      outRefs.includes(r),
+      `ref ${r} must survive collapse (extractRefs(input) ⊆ extractRefs(output))`
+    );
   }
 
   // It still compresses meaningfully.

@@ -144,16 +144,16 @@ describe("reasoningCache helpers", () => {
   });
 
   describe("cache operations", () => {
-    it("getReasoningCacheServiceStats returns expected shape", () => {
-      const stats = mod.getReasoningCacheServiceStats();
+    it("getReasoningCacheServiceStats returns expected shape", async () => {
+      const stats = await mod.getReasoningCacheServiceStats();
       assert.equal(typeof stats.hits, "number");
       assert.equal(typeof stats.misses, "number");
       assert.equal(typeof stats.replays, "number");
       assert.equal(typeof stats.memoryEntries, "number");
     });
 
-    it("clearReasoningCacheAll returns a number", () => {
-      const cleared = mod.clearReasoningCacheAll();
+    it("clearReasoningCacheAll returns a number", async () => {
+      const cleared = await mod.clearReasoningCacheAll();
       assert.equal(typeof cleared, "number");
     });
 
@@ -162,13 +162,13 @@ describe("reasoningCache helpers", () => {
       assert.equal(result, null);
     });
 
-    it("deleteReasoningCacheEntry returns 0 for unknown key", () => {
-      const result = mod.deleteReasoningCacheEntry("nonexistent-" + Date.now());
+    it("deleteReasoningCacheEntry returns 0 for unknown key", async () => {
+      const result = await mod.deleteReasoningCacheEntry("nonexistent-" + Date.now());
       assert.equal(result, 0);
     });
 
-    it("cleanupReasoningCache returns a number", () => {
-      const cleaned = mod.cleanupReasoningCache();
+    it("cleanupReasoningCache returns a number", async () => {
+      const cleaned = await mod.cleanupReasoningCache();
       assert.equal(typeof cleaned, "number");
     });
   });

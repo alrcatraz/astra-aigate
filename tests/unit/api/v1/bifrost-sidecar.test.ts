@@ -7,6 +7,10 @@ import {
   sanitizeForensicHeader,
 } from "../../../../src/app/api/v1/relay/chat/completions/relaySecurity.ts";
 import { getDbInstance } from "../../../../src/lib/db/core.ts";
+
+// Open + fully drain migrations before the first DB write.
+getDbInstance();
+await (await import("../../../../src/lib/db/core.ts")).awaitDbMigrations();
 import { getRelayLogs } from "../../../../src/lib/db/relayProxies.ts";
 
 // ─── T-12 (#3932 PR-4): bifrost sidecar proxy route ──────────────────────

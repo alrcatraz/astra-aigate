@@ -164,21 +164,21 @@ describe("classifyTask", () => {
 // ── reorderByTaskWeight ───────────────────────────────────────────────────────
 
 describe("reorderByTaskWeight", () => {
-  it("returns same reference for single-target list", () => {
+  it("returns same reference for single-target list", async () => {
     const targets = [makeTarget("anthropic/claude-haiku-4.5", 0)];
     const task = classifyTask({ messages: [{ role: "user", content: "hello" }] });
-    const out = reorderByTaskWeight(targets, task, new Set());
+    const out = await reorderByTaskWeight(targets, task, new Set());
     assert.strictEqual(out, targets);
   });
 
-  it("returns same reference for empty list", () => {
+  it("returns same reference for empty list", async () => {
     const targets: ResolvedComboTarget[] = [];
     const task = classifyTask({});
-    const out = reorderByTaskWeight(targets, task, new Set());
+    const out = await reorderByTaskWeight(targets, task, new Set());
     assert.strictEqual(out, targets);
   });
 
-  it("routes light tasks to lighter models (haiku before opus)", () => {
+  it("routes light tasks to lighter models (haiku before opus)", async () => {
     const targets = [
       makeTarget("anthropic/claude-opus-4.6", 0),
       makeTarget("anthropic/claude-haiku-4.5", 1),
@@ -187,11 +187,11 @@ describe("reorderByTaskWeight", () => {
       messages: [{ role: "user", content: "quick rewrite this sentence" }],
       max_tokens: 300,
     });
-    const out = reorderByTaskWeight(targets, task, new Set());
+    const out = await reorderByTaskWeight(targets, task, new Set());
     assert.equal(out[0].modelStr, "anthropic/claude-haiku-4.5");
   });
 
-  it("routes critical tasks to stronger models (opus before haiku)", () => {
+  it("routes critical tasks to stronger models (opus before haiku)", async () => {
     const targets = [
       makeTarget("anthropic/claude-haiku-4.5", 0),
       makeTarget("anthropic/claude-opus-4.6", 1),
@@ -207,45 +207,45 @@ describe("reorderByTaskWeight", () => {
       reasoning_effort: "high",
     });
     const required = new Set(["reasoning"]);
-    const out = reorderByTaskWeight(targets, task, required);
+    const out = await reorderByTaskWeight(targets, task, required);
     assert.equal(out[0].modelStr, "anthropic/claude-opus-4.6");
     assert.ok(
-      scoreModelForTask(out[0].modelStr, task, required) >=
-        scoreModelForTask(out[1].modelStr, task, required),
+      (await scoreModelForTask(out[0].modelStr, task, required)) >=
+        (await scoreModelForTask(out[1].modelStr, task, required)),
       "first model should score >= second"
     );
   });
 
-  it("keeps hard-cap vision model first even for light tasks", () => {
+  it("keeps hard-cap vision model first even for light tasks", async () => {
     // anthropic/claude-haiku-4.5 has vision; deepseek-chat does not
     const targets = [
       makeTarget("deepseek/deepseek-chat", 0),
       makeTarget("anthropic/claude-haiku-4.5", 1),
     ];
     const task = classifyTask({ messages: [{ role: "user", content: "what is in this image?" }] });
-    const out = reorderByTaskWeight(targets, task, new Set(["vision"]));
+    const out = await reorderByTaskWeight(targets, task, new Set(["vision"]));
     assert.equal(out[0].modelStr, "anthropic/claude-haiku-4.5");
   });
 
-  it("never drops any targets", () => {
+  it("never drops any targets", async () => {
     const targets = [
       makeTarget("anthropic/claude-opus-4.6", 0),
       makeTarget("anthropic/claude-haiku-4.5", 1),
       makeTarget("deepseek/deepseek-chat", 2),
     ];
     const task = classifyTask({ messages: [{ role: "user", content: "x".repeat(120_000) }] });
-    const out = reorderByTaskWeight(targets, task, new Set());
+    const out = await reorderByTaskWeight(targets, task, new Set());
     assert.equal(out.length, 3);
   });
 
-  it("is stable: ties preserve original order", () => {
+  it("is stable: ties preserve original order", async () => {
     // Two identical models should not swap positions
     const targets = [
       makeTarget("anthropic/claude-haiku-4.5", 0),
       makeTarget("anthropic/claude-haiku-4.5", 1),
     ];
     const task = classifyTask({});
-    const out = reorderByTaskWeight(targets, task, new Set());
+    const out = await reorderByTaskWeight(targets, task, new Set());
     assert.equal(out[0].stepId, "step-0");
     assert.equal(out[1].stepId, "step-1");
   });
@@ -419,11 +419,11 @@ describe("non-task-aware strategy guard", () => {
     }
   });
 
-  it("reorderByTaskWeight on standard task with equal-power models returns same reference", () => {
+  it("reorderByTaskWeight on standard task with equal-power models returns same reference", async () => {
     // If all scores are equal, no reordering → returns same array reference
     const targets = [makeTarget("anthropic/claude-haiku-4.5", 0)];
     const task = classifyTask({});
-    const out = reorderByTaskWeight(targets, task, new Set());
+    const out = await reorderByTaskWeight(targets, task, new Set());
     assert.strictEqual(out, targets);
   });
 });

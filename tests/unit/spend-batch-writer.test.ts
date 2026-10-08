@@ -127,7 +127,7 @@ test("recordCost buffers writes while budget checks and summaries still see pend
   costRules.recordCost("key-live", 3.5);
   costRules.recordCost("key-live", 1.0);
 
-  assert.deepEqual(domainState.loadCostEntries("key-live", 0), []);
+  assert.deepEqual(await domainState.loadCostEntries("key-live", 0), []);
   assert.equal(costRules.getDailyTotal("key-live"), 4.5);
   assert.equal(costRules.getCostSummary("key-live").dailyTotal, 4.5);
   assert.equal(costRules.checkBudget("key-live", 0).periodUsed, 4.5);
@@ -148,5 +148,5 @@ test("deleteBudget discards pending spend before it reaches the database", async
 
   const flushResult = await flushSpendBatchWriter();
   assert.equal(flushResult.flushedEntries, 0);
-  assert.deepEqual(domainState.loadCostEntries("key-drop", 0), []);
+  assert.deepEqual(await domainState.loadCostEntries("key-drop", 0), []);
 });

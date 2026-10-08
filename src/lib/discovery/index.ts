@@ -115,16 +115,16 @@ export async function scanProvider(
  * re-discovering the same endpoint updates the existing row. Returns the
  * persisted row (with its id).
  */
-export function persistDiscoveryResult(result: DiscoveryResult): DiscoveryResult {
-  return dbUpsertDiscoveryResult(result as DbDiscoveryResult) as DiscoveryResult;
+export async function persistDiscoveryResult(result: DiscoveryResult): Promise<DiscoveryResult> {
+  return (await dbUpsertDiscoveryResult(result as DbDiscoveryResult)) as DiscoveryResult;
 }
 
 /**
  * Get discovery results from the DB, optionally filtered to one provider.
  * Newest findings first.
  */
-export function getDiscoveryResults(providerId?: string): DiscoveryResult[] {
-  return dbGetDiscoveryResults(providerId) as DiscoveryResult[];
+export async function getDiscoveryResults(providerId?: string): Promise<DiscoveryResult[]> {
+  return (await dbGetDiscoveryResults(providerId)) as DiscoveryResult[];
 }
 
 // ── Config ──

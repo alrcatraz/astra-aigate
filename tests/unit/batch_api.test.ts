@@ -36,6 +36,16 @@ const filesRoute = await import("../../src/app/api/v1/files/route.ts");
 const fileByIdRoute = await import("../../src/app/api/v1/files/[id]/route.ts");
 const fileContentRoute = await import("../../src/app/api/v1/files/[id]/content/route.ts");
 
+test.before(async () => {
+  // Open the DB and fully drain migrations BEFORE the first test statement runs.
+  // getDbInstance() is sync and returns while runMigrations is still in flight;
+  // without this await every early write races a half-migrated schema and the
+  // afterEach cleanup hits `no such table`.
+  const core = await import("../../src/lib/db/core.ts");
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
+
 test.afterEach(async () => {
   stopBatchProcessor();
   await waitForAllBatches();
@@ -493,7 +503,7 @@ test("Batch API response format is spec-compliant", async () => {
     },
   });
 
-  const updatedBatch = getBatch(batch.id)!;
+  const updatedBatch = (await getBatch(batch.id))!;
 
   // Test the formatter used in API routes (simulate the route's response)
   function formatBatchResponse(batch: any) {
@@ -658,9 +668,12 @@ test("Batch cleanup honors output_expires_after for output artifacts", async () 
 
   await processPendingBatches();
 
-  assert.ok(getFile(inputFile.id), "input file should still follow completion_window retention");
-  assert.equal(getFile(outputFile.id), null);
-  assert.equal(getFile(errorFile.id), null);
+  assert.ok(
+    await getFile(inputFile.id),
+    "input file should still follow completion_window retention"
+  );
+  assert.equal(await getFile(outputFile.id), null);
+  assert.equal(await getFile(errorFile.id), null);
 });
 
 test("Batch processor recovers orphaned finalizing batches during startup recovery", async () => {
@@ -766,7 +779,7 @@ test("Files upload route stores multipart content", async () => {
 
   assert.strictEqual(response.status, 200);
   assert.ok(json.id);
-  assert.strictEqual(getFileContent(json.id)?.toString(), fileContent);
+  assert.strictEqual((await getFileContent(json.id))?.toString(), fileContent);
 });
 
 test("Files and batches routes expose explicit CORS preflight handlers", async () => {
@@ -845,13 +858,13 @@ test("Batch Cancel API", async () => {
     cancellingAt,
   });
 
-  const updatedBatch = getBatch(batch.id)!;
+  const updatedBatch = (await getBatch(batch.id))!;
   assert.strictEqual(updatedBatch.status, "cancelling");
   assert.strictEqual(updatedBatch.cancellingAt, cancellingAt);
 
   // 3. Test that it can't be cancelled if already terminal
   await updateBatch(batch.id, { status: "completed" });
-  const terminalBatch = getBatch(batch.id)!;
+  const terminalBatch = (await getBatch(batch.id))!;
   assert.strictEqual(terminalBatch.status, "completed");
 
   // In actual API this would return 400, here we just verify state logic
@@ -1156,7 +1169,7 @@ test("File metadata helpers do not load content blobs", async () => {
   assert.ok(listedFile);
   assert.equal("content" in file, false);
   assert.equal("content" in listedFile, false);
-  assert.deepEqual(getFileContent(record.id), content);
+  assert.deepEqual(await getFileContent(record.id), content);
 });
 
 test("Batch dispatches to embeddings handler for /v1/embeddings URL", async () => {

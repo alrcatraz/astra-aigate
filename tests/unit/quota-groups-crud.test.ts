@@ -146,7 +146,7 @@ test("renameGroup returns false for non-existent id", async () => {
 test("getGroupName returns updated name after renameGroup", async () => {
   const group = await groupsDb.createGroup("Before Rename");
   await groupsDb.renameGroup(group.id, "After Rename");
-  assert.equal(groupsDb.getGroupName(group.id), "After Rename");
+  assert.equal(await groupsDb.getGroupName(group.id), "After Rename");
 });
 
 // ── B2.4: deleteGroup ─────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ test("deleteGroup with no pools returns true and removes the group", async () =>
   const result = await groupsDb.deleteGroup(group.id);
 
   assert.equal(result, true, "deleteGroup should return true");
-  assert.equal(groupsDb.getGroup(group.id), null, "group should no longer exist");
+  assert.equal(await groupsDb.getGroup(group.id), null, "group should no longer exist");
 });
 
 test("deleteGroup returns false for non-existent id", async () => {
@@ -174,7 +174,7 @@ test("deleteGroup throws when a pool still references the group", async () => {
     groupId: group.id,
   });
 
-  assert.throws(
+  await assert.rejects(
     () => groupsDb.deleteGroup(group.id),
     /pools/i,
     "deleteGroup should throw a message mentioning pools"
@@ -185,8 +185,8 @@ test("deleteGroup throws when a pool still references the group", async () => {
   assert.ok(stillThere, "group should still exist after failed delete");
 });
 
-test("deleteGroup('group-demo') throws (protected seed group)", () => {
-  assert.throws(
+test("deleteGroup('group-demo') throws (protected seed group)", async () => {
+  await assert.rejects(
     () => groupsDb.deleteGroup("group-demo"),
     /group-demo/i,
     "deleteGroup should throw for the protected group-demo id"

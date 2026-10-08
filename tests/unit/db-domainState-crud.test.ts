@@ -64,13 +64,13 @@ test("loadAllFallbackChains returns all chains", async () => {
 test("deleteFallbackChain removes a chain", async () => {
   await resetStorage();
   await ds.saveFallbackChain("to-delete", [{ provider: "p", priority: 1, enabled: true }]);
-  assert.equal(ds.deleteFallbackChain("to-delete"), true);
-  assert.equal(ds.loadFallbackChain("to-delete"), null);
+  assert.equal(await ds.deleteFallbackChain("to-delete"), true);
+  assert.equal(await ds.loadFallbackChain("to-delete"), null);
 });
 
 test("deleteFallbackChain returns false when chain does not exist", async () => {
   await resetStorage();
-  assert.equal(ds.deleteFallbackChain("never-existed"), false);
+  assert.equal(await ds.deleteFallbackChain("never-existed"), false);
 });
 
 test("deleteAllFallbackChains clears everything", async () => {
@@ -78,7 +78,7 @@ test("deleteAllFallbackChains clears everything", async () => {
   await ds.saveFallbackChain("a", [{ provider: "p", priority: 1, enabled: true }]);
   await ds.saveFallbackChain("b", [{ provider: "p", priority: 1, enabled: true }]);
   await ds.deleteAllFallbackChains();
-  assert.deepEqual(ds.loadAllFallbackChains(), {});
+  assert.deepEqual(await ds.loadAllFallbackChains(), {});
 });
 
 // ──────────────── Budgets ────────────────
@@ -112,8 +112,8 @@ test("saveBudget and loadBudget round-trip", async () => {
   assert.equal(loaded.warningPeriodStart, 800);
 });
 
-test("loadBudget returns null for missing key", () => {
-  assert.equal(ds.loadBudget("no-such-key"), null);
+test("loadBudget returns null for missing key", async () => {
+  assert.equal(await ds.loadBudget("no-such-key"), null);
 });
 
 test("saveBudget with minimal fields uses defaults", async () => {
@@ -177,8 +177,8 @@ test("deleteBudget removes budget and reset logs", async () => {
     periodEnd: 1,
   });
   await ds.deleteBudget("del-key");
-  assert.equal(ds.loadBudget("del-key"), null);
-  assert.deepEqual(ds.loadBudgetResetLogs("del-key"), []);
+  assert.equal(await ds.loadBudget("del-key"), null);
+  assert.deepEqual(await ds.loadBudgetResetLogs("del-key"), []);
 });
 
 // ──────────────── Cost History ────────────────
@@ -260,7 +260,7 @@ test("deleteAllCostData wipes budgets and cost data", async () => {
   await ds.saveBudget("wipe-key", { dailyLimitUsd: 10 });
   await ds.saveCostEntry("wipe-key", 5, 100);
   await ds.deleteAllCostData();
-  assert.equal(ds.loadBudget("wipe-key"), null);
+  assert.equal(await ds.loadBudget("wipe-key"), null);
   assert.equal(ds.loadCostTotal("wipe-key", 0), 0);
 });
 
@@ -275,8 +275,8 @@ test("saveLockoutState and loadLockoutState round-trip", async () => {
   assert.equal(loaded.lockedUntil, 9999999999999);
 });
 
-test("loadLockoutState returns null for missing identifier", () => {
-  assert.equal(ds.loadLockoutState("no-such"), null);
+test("loadLockoutState returns null for missing identifier", async () => {
+  assert.equal(await ds.loadLockoutState("no-such"), null);
 });
 
 test("saveLockoutState with null lockedUntil", async () => {
@@ -292,7 +292,7 @@ test("deleteLockoutState removes state", async () => {
   await resetStorage();
   await ds.saveLockoutState("del-lock", { attempts: [1], lockedUntil: null });
   await ds.deleteLockoutState("del-lock");
-  assert.equal(ds.loadLockoutState("del-lock"), null);
+  assert.equal(await ds.loadLockoutState("del-lock"), null);
 });
 
 test("loadAllLockedIdentifiers returns only currently locked", async () => {
@@ -325,8 +325,8 @@ test("saveCircuitBreakerState and loadCircuitBreakerState round-trip", async () 
   assert.deepEqual(loaded.options, { timeout: 30000 });
 });
 
-test("loadCircuitBreakerState returns null for missing name", () => {
-  assert.equal(ds.loadCircuitBreakerState("no-such"), null);
+test("loadCircuitBreakerState returns null for missing name", async () => {
+  assert.equal(await ds.loadCircuitBreakerState("no-such"), null);
 });
 
 test("saveCircuitBreakerState without options", async () => {
@@ -371,7 +371,7 @@ test("deleteCircuitBreakerState removes state", async () => {
     lastFailureTime: 100,
   });
   await ds.deleteCircuitBreakerState("del-cb");
-  assert.equal(ds.loadCircuitBreakerState("del-cb"), null);
+  assert.equal(await ds.loadCircuitBreakerState("del-cb"), null);
 });
 
 test("deleteAllCircuitBreakerStates clears everything", async () => {
@@ -383,5 +383,5 @@ test("deleteAllCircuitBreakerStates clears everything", async () => {
     lastFailureTime: null,
   });
   await ds.deleteAllCircuitBreakerStates();
-  assert.deepEqual(ds.loadAllCircuitBreakerStates(), []);
+  assert.deepEqual(await ds.loadAllCircuitBreakerStates(), []);
 });

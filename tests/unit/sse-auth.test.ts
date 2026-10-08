@@ -1150,6 +1150,7 @@ test("markAccountUnavailable uses configured cooldowns for local 404 model locko
     "openai",
     "local-model"
   );
+  await flushWrites();
   const updated = await providersDb.getProviderConnectionById(connection.id);
 
   assert.equal(result.shouldFallback, true);

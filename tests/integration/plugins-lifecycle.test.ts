@@ -279,11 +279,11 @@ test("uninstall: removes DB row", async () => {
   activeSourceDirs.push(sourceDir);
 
   await pluginManager.install(sourceDir);
-  assert.ok(dbPlugins.getPluginByName(name), "should exist before uninstall");
+  assert.ok(await dbPlugins.getPluginByName(name), "should exist before uninstall");
 
   await pluginManager.uninstall(name);
 
-  assert.equal(dbPlugins.getPluginByName(name), null, "should be removed from DB");
+  assert.equal(await dbPlugins.getPluginByName(name), null, "should be removed from DB");
 });
 
 test("uninstall: removes plugin directory from disk", async () => {
@@ -307,13 +307,13 @@ test("uninstall: deactivates before removing if active", async () => {
   await pluginManager.activate(name);
 
   // Verify active + hook registered
-  assert.equal(dbPlugins.getPluginByName(name)!.status, "active");
+  assert.equal((await dbPlugins.getPluginByName(name))!.status, "active");
   assert.ok(hooks.getHooks("onRequest").find((r) => r.pluginName === name));
 
   await pluginManager.uninstall(name);
 
   // Plugin should be fully gone
-  assert.equal(dbPlugins.getPluginByName(name), null);
+  assert.equal(await dbPlugins.getPluginByName(name), null);
   assert.equal(
     hooks.getHooks("onRequest").find((r) => r.pluginName === name),
     undefined
@@ -333,7 +333,7 @@ test("full lifecycle: install -> activate -> hook fires -> deactivate -> uninsta
   // 1. Install
   const row = await pluginManager.install(sourceDir);
   assert.equal(row.status, "installed");
-  assert.ok(dbPlugins.getPluginByName(name), "exists in DB after install");
+  assert.ok(await dbPlugins.getPluginByName(name), "exists in DB after install");
 
   // 2. Activate
   await pluginManager.activate(name);
@@ -366,7 +366,7 @@ test("full lifecycle: install -> activate -> hook fires -> deactivate -> uninsta
 
   // 5. Uninstall
   await pluginManager.uninstall(name);
-  assert.equal(dbPlugins.getPluginByName(name), null, "removed from DB");
+  assert.equal(await dbPlugins.getPluginByName(name), null, "removed from DB");
 });
 
 // ── Tests: Multi-plugin isolation ──

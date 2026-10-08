@@ -33,7 +33,7 @@ export async function getXiaomiMimoUsage(connectionId: string) {
   }
   try {
     const { getMonthlyProviderTokensForConnection } = await import("@/lib/usage/usageStats");
-    const used = getMonthlyProviderTokensForConnection("xiaomi-mimo", connectionId);
+    const used = await getMonthlyProviderTokensForConnection("xiaomi-mimo", connectionId);
     const total = XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT;
     const now = new Date();
     const resetAt = new Date(
