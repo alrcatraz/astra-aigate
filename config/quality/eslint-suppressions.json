@@ -2097,11 +2097,6 @@
       "count": 11
     }
   },
-  "tests/unit/sidebar-visibility.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "tests/unit/signature-cache.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -2212,6 +2207,11 @@
       "count": 15
     }
   },
+  "tests/unit/tool-request-sanitization.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 12
+    }
+  },
   "tests/unit/trae-executor.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 7
@@ -2240,6 +2240,11 @@
   "tests/unit/translator-claude-to-openai.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
+    }
+  },
+  "tests/unit/translator-helper-branches.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 25
     }
   },
   "tests/unit/translator-openai-responses-req.test.ts": {
@@ -2380,16 +2385,6 @@
   "tests/unit/webhook-abort-timer-cleanup.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
-    }
-  },
-  "tests/unit/tool-request-sanitization.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 12
-    }
-  },
-  "tests/unit/translator-helper-branches.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 25
     }
   }
 }

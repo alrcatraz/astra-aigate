@@ -1489,6 +1489,10 @@ export async function closeDbInstanceDrained(options?: {
   columnBackfillsPromise = Promise.resolve();
   setDbOptimizationSettingsPromise(Promise.resolve());
   startupTasksPromise = null;
+  // Read caches outlive the SQLite singleton (sync resetDbInstance() drops them
+  // at its end). Without this the drained reset leaves cached rows/connections
+  // of the just-closed DB visible to the next instance (tests and restore).
+  invalidateDbCache();
   return closed;
 }
 
