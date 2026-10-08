@@ -17,6 +17,9 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
 // Imports after env is set up so the DB initialises with test path.
 const core = await import("../../../src/lib/db/core.ts");
+// Fully drain migrations before the first test (no-such-table guard).
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { syncServiceModels, scheduleServiceModelSync, stopServiceModelSync, getServiceModels } =
   await import("../../../src/lib/services/modelSync.ts");
 
