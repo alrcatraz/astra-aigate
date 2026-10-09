@@ -54,45 +54,47 @@ function parseRecord(value: unknown): SessionAccountAffinityRecord | null {
   }
 }
 
-function deleteAffinityKey(key: string): void {
-  getAsyncDb().prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?").run(NAMESPACE, key);
+async function deleteAffinityKey(key: string): Promise<void> {
+  await getAsyncDb()
+    .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
+    .run(NAMESPACE, key);
 }
 
-export function getSessionAccountAffinity(
+export async function getSessionAccountAffinity(
   sessionKey: string,
   provider: string,
   ttlMs = 0,
   now: number = Date.now()
-): SessionAccountAffinityRecord | null {
+): Promise<SessionAccountAffinityRecord | null> {
   if (!sessionKey || !provider || normalizePositiveTtl(ttlMs) <= 0) return null;
 
   const key = affinityKey(sessionKey, provider);
-  const row = getAsyncDb()
+  const row = (await getAsyncDb()
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(NAMESPACE, key) as { value?: unknown } | undefined;
+    .get(NAMESPACE, key)) as { value?: unknown } | undefined;
   const record = parseRecord(row?.value);
   if (!record) return null;
 
   if (Date.parse(record.expiresAt) <= now) {
-    deleteAffinityKey(key);
+    await deleteAffinityKey(key);
     return null;
   }
 
   return record;
 }
 
-export function upsertSessionAccountAffinity(
+export async function upsertSessionAccountAffinity(
   sessionKey: string,
   provider: string,
   connectionId: string,
   now: number = Date.now(),
   ttlMs = 0
-): void {
+): Promise<void> {
   const normalizedTtlMs = normalizePositiveTtl(ttlMs);
   if (!sessionKey || !provider || !connectionId || normalizedTtlMs <= 0) return;
 
   const key = affinityKey(sessionKey, provider);
-  const existing = getSessionAccountAffinity(sessionKey, provider, normalizedTtlMs, now);
+  const existing = await getSessionAccountAffinity(sessionKey, provider, normalizedTtlMs, now);
   const timestamp = isoFromMs(now);
   const record: SessionAccountAffinityRecord = {
     connectionId,
@@ -101,29 +103,38 @@ export function upsertSessionAccountAffinity(
     expiresAt: isoFromMs(now + normalizedTtlMs),
   };
 
-  getAsyncDb()
+  await getAsyncDb()
     .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
     .run(NAMESPACE, key, JSON.stringify(record));
 }
 
-export function touchSessionAccountAffinity(
+export async function touchSessionAccountAffinity(
   sessionKey: string,
   provider: string,
   now: number = Date.now(),
   ttlMs = 0
-): void {
+): Promise<void> {
   const normalizedTtlMs = normalizePositiveTtl(ttlMs);
   if (normalizedTtlMs <= 0) return;
 
-  const existing = getSessionAccountAffinity(sessionKey, provider, normalizedTtlMs, now);
+  const existing = await getSessionAccountAffinity(sessionKey, provider, normalizedTtlMs, now);
   if (!existing) return;
 
-  upsertSessionAccountAffinity(sessionKey, provider, existing.connectionId, now, normalizedTtlMs);
+  await upsertSessionAccountAffinity(
+    sessionKey,
+    provider,
+    existing.connectionId,
+    now,
+    normalizedTtlMs
+  );
 }
 
-export function deleteSessionAccountAffinity(sessionKey: string, provider: string): void {
+export async function deleteSessionAccountAffinity(
+  sessionKey: string,
+  provider: string
+): Promise<void> {
   if (!sessionKey || !provider) return;
-  deleteAffinityKey(affinityKey(sessionKey, provider));
+  await deleteAffinityKey(affinityKey(sessionKey, provider));
 }
 
 /**
@@ -141,21 +152,21 @@ export function deleteSessionAccountAffinity(sessionKey: string, provider: strin
  * guard is preserved here so a pin pointing at a different (still-healthy)
  * connection is never nuked. Returns true when a pin was evicted.
  */
-export function evictSessionAccountAffinityForConnection(
+export async function evictSessionAccountAffinityForConnection(
   sessionKey: string,
   provider: string,
   connectionId: string
-): boolean {
+): Promise<boolean> {
   if (!sessionKey || !provider || !connectionId) return false;
 
   const key = affinityKey(sessionKey, provider);
-  const row = getAsyncDb()
+  const row = (await getAsyncDb()
     .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(NAMESPACE, key) as { value?: unknown } | undefined;
+    .get(NAMESPACE, key)) as { value?: unknown } | undefined;
   const record = parseRecord(row?.value);
   if (!record || record.connectionId !== connectionId) return false;
 
-  deleteAffinityKey(key);
+  await deleteAffinityKey(key);
   return true;
 }
 

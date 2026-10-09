@@ -1367,7 +1367,7 @@ async function handleSingleModelChat(
         runtimeOptions.sessionId &&
         body?._omnirouteSkipContextRelay !== true
       ) {
-        const handoff = getHandoff(runtimeOptions.sessionId, comboName);
+        const handoff = await getHandoff(runtimeOptions.sessionId, comboName);
         if (handoff && handoff.fromAccount !== credentials.connectionId) {
           // Inject only after a real account switch. The combo loop itself cannot
           // reliably detect this because account selection happens inside auth.
@@ -1557,12 +1557,12 @@ async function handleSingleModelChat(
           }
           if (runtimeOptions.sessionAffinityKey) {
             try {
-              const affinity = getSessionAccountAffinity(
+              const affinity = await getSessionAccountAffinity(
                 runtimeOptions.sessionAffinityKey,
                 provider
               );
               if (affinity?.connectionId === credentials.connectionId) {
-                deleteSessionAccountAffinity(runtimeOptions.sessionAffinityKey, provider);
+                await deleteSessionAccountAffinity(runtimeOptions.sessionAffinityKey, provider);
               }
             } catch {
               // best-effort: selection also excludes this connection for the current retry.
@@ -1607,12 +1607,12 @@ async function handleSingleModelChat(
           }
           if (runtimeOptions.sessionAffinityKey) {
             try {
-              const affinity = getSessionAccountAffinity(
+              const affinity = await getSessionAccountAffinity(
                 runtimeOptions.sessionAffinityKey,
                 provider
               );
               if (affinity?.connectionId === credentials.connectionId) {
-                deleteSessionAccountAffinity(runtimeOptions.sessionAffinityKey, provider);
+                await deleteSessionAccountAffinity(runtimeOptions.sessionAffinityKey, provider);
               }
             } catch {
               // best-effort: selection also excludes this connection for the current retry.
@@ -1817,7 +1817,7 @@ async function handleSingleModelChat(
         // account is left intact.
         if (runtimeOptions.sessionAffinityKey) {
           try {
-            evictSessionAccountAffinityForConnection(
+            await evictSessionAccountAffinityForConnection(
               runtimeOptions.sessionAffinityKey,
               provider,
               credentials.connectionId

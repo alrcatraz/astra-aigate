@@ -1772,7 +1772,7 @@ export async function handleChatCore({
 
       // Adapt Responses `input[]` → messages so compressContext can run, then restore.
       const ctxAdapter = adaptBodyForCompression(body as Record<string, unknown>);
-      const compressionResult = compressContext(ctxAdapter.body, {
+      const compressionResult = await compressContext(ctxAdapter.body, {
         provider,
         model: effectiveModel,
         maxTokens: threshold,
@@ -1858,7 +1858,7 @@ export async function handleChatCore({
   if (finalEstimatedInputTokens >= finalContextLimit && body) {
     const lastResortTarget = Math.max(1, finalContextLimit - toolsReserve - 1);
     const lastResortAdapter = adaptBodyForCompression(body as Record<string, unknown>);
-    const lastResortResult = compressContext(lastResortAdapter.body, {
+    const lastResortResult = await compressContext(lastResortAdapter.body, {
       provider,
       model: effectiveModel,
       maxTokens: lastResortTarget,
@@ -2876,7 +2876,7 @@ export async function handleChatCore({
                 // Clear session affinity so next request won't be pinned to the failing account
                 if (codexSessionAffinityKey) {
                   try {
-                    deleteSessionAccountAffinity(codexSessionAffinityKey, "codex");
+                    await deleteSessionAccountAffinity(codexSessionAffinityKey, "codex");
                   } catch {
                     // best-effort
                   }
