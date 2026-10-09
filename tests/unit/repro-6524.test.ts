@@ -57,6 +57,8 @@ function capabilityEntry(limitContext: unknown, overrides: Record<string, unknow
 }
 
 test.before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
   await clearModelsDevCapabilities();
   // Mirrors the exact production row from the issue: limit_context and limit_output
   // both wrongly synced to 1048576 for ollama-cloud/deepseek-v4-flash, while the real

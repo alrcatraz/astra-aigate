@@ -12,6 +12,11 @@ const dbCore = await import("../../src/lib/db/core.ts");
 const { handleComboChat } = await import("../../open-sse/services/combo.ts");
 const combosDb = await import("../../src/lib/db/combos.ts");
 
+test.before(async () => {
+  dbCore.getDbInstance();
+  await dbCore.awaitDbMigrations();
+});
+
 after(async () => {
   await dbCore.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

@@ -4,6 +4,12 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const core = await import("../../src/lib/db/core.ts");
+test.before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const srcPath = resolve(__dirname, "../../open-sse/mcp-server/httpTransport.ts");
 const src = readFileSync(srcPath, "utf-8");

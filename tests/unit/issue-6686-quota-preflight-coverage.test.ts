@@ -140,3 +140,9 @@ test("#6686: getProviderCredentialsWithQuotaPreflight (now used by every credent
   core.getDbInstance();
   await core.awaitDbMigrations();
 });
+
+test.before(async () => {
+  const core = await import("../../src/lib/db/core.ts");
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});

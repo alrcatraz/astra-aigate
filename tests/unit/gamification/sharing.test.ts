@@ -1,6 +1,12 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import { transferTokens, getBalance, getHistory } from "../../../src/lib/gamification/sharing";
+
+const core = await import("../../../src/lib/db/core.ts");
+before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
 
 describe("Token Sharing", () => {
   describe("transferTokens", () => {
