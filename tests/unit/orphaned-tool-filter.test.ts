@@ -55,8 +55,8 @@ test("openaiToOpenAIResponsesRequest: filters orphaned function_call_output", as
       { role: "tool", tool_call_id: "call_valid_2", content: "files" },
     ],
   };
-  const result = openaiToOpenAIResponsesRequest("gpt-4", body, true, null);
-  const outputs = async(result as any).input.filter((i) => i.type === "function_call_output");
+  const result = await openaiToOpenAIResponsesRequest("gpt-4", body, true, null);
+  const outputs = (result as any).input.filter((i) => i.type === "function_call_output");
   assert.equal(outputs.length, 1, "should have exactly 1 function_call_output");
   assert.equal(outputs[0].call_id, "call_valid_2");
 });
@@ -73,8 +73,8 @@ test("openaiToOpenAIResponsesRequest: preserves all items when no orphans", asyn
       { role: "tool", tool_call_id: "call_a", content: "result" },
     ],
   };
-  const result = openaiToOpenAIResponsesRequest("gpt-4", body, true, null);
-  const outputs = async(result as any).input.filter((i) => i.type === "function_call_output");
+  const result = await openaiToOpenAIResponsesRequest("gpt-4", body, true, null);
+  const outputs = (result as any).input.filter((i) => i.type === "function_call_output");
   assert.equal(outputs.length, 1, "valid function_call_output should be preserved");
 });
 

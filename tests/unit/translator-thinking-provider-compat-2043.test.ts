@@ -35,8 +35,8 @@ test("deepseek: injected thinking placeholder has no signature field", async () 
       },
     ],
   };
-  const out = prepareClaudeRequest(body as any, "deepseek");
-  const assistant = async(out as any).messages.find((m: any) => m.role === "assistant");
+  const out = await prepareClaudeRequest(body as any, "deepseek");
+  const assistant = (out as any).messages.find((m: any) => m.role === "assistant");
   assert.ok(assistant, "assistant message should exist");
   assert.equal(assistant.content[0].type, "thinking", "injected block should be type=thinking");
   assert.equal(
@@ -69,8 +69,8 @@ test("deepseek: existing thinking blocks are preserved as-is (text and type unch
       },
     ],
   };
-  const out = prepareClaudeRequest(body as any, "deepseek");
-  const assistant = async(out as any).messages.find((m: any) => m.role === "assistant");
+  const out = await prepareClaudeRequest(body as any, "deepseek");
+  const assistant = (out as any).messages.find((m: any) => m.role === "assistant");
   assert.equal(assistant.content[0].type, "thinking");
   assert.equal(
     assistant.content[0].thinking,
@@ -104,8 +104,8 @@ test("deepseek: injected placeholder thinking text is non-empty dot sentinel", a
       },
     ],
   };
-  const out = prepareClaudeRequest(body as any, "deepseek");
-  const assistant = async(out as any).messages.find((m: any) => m.role === "assistant");
+  const out = await prepareClaudeRequest(body as any, "deepseek");
+  const assistant = (out as any).messages.find((m: any) => m.role === "assistant");
   assert.equal(assistant.content[0].type, "thinking");
   // Placeholder must be non-empty (DeepSeek rejects empty thinking text).
   // The value is either "." (upstream canonical) or another non-empty fallback.

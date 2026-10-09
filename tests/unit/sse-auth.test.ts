@@ -146,7 +146,7 @@ test("codex session account affinity is opt-in and honors TTL", async () => {
   assert.equal(typeof withoutAffinityA.connectionId, "string");
   assert.equal(typeof withoutAffinityB.connectionId, "string");
   assert.equal(
-    affinityDb.getSessionAccountAffinity("session-without-affinity", "codex", 60_000),
+    await affinityDb.getSessionAccountAffinity("session-without-affinity", "codex", 60_000),
     null
   );
 
@@ -161,7 +161,8 @@ test("codex session account affinity is opt-in and honors TTL", async () => {
 
   assert.equal(withAffinityB.connectionId, withAffinityA.connectionId);
   assert.equal(
-    affinityDb.getSessionAccountAffinity("session-with-affinity", "codex", 60_000)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity("session-with-affinity", "codex", 60_000))
+      ?.connectionId,
     withAffinityA.connectionId
   );
 });
@@ -170,15 +171,15 @@ test("session account affinity expires when TTL has passed", async () => {
   const affinityDb = await import("../../src/lib/db/sessionAccountAffinity.ts");
   const now = Date.now();
 
-  affinityDb.upsertSessionAccountAffinity("expiring-session", "codex", "conn-a", now, 1000);
+  await affinityDb.upsertSessionAccountAffinity("expiring-session", "codex", "conn-a", now, 1000);
 
   assert.equal(
-    affinityDb.getSessionAccountAffinity("expiring-session", "codex", 1000, now + 500)
+    (await affinityDb.getSessionAccountAffinity("expiring-session", "codex", 1000, now + 500))
       ?.connectionId,
     "conn-a"
   );
   assert.equal(
-    affinityDb.getSessionAccountAffinity("expiring-session", "codex", 1000, now + 1001),
+    await affinityDb.getSessionAccountAffinity("expiring-session", "codex", 1000, now + 1001),
     null
   );
 });

@@ -45,16 +45,13 @@ test("createBackup resolves bin/ from a foreign cwd and copies cli/ recursively 
     const backupDir = await update.createBackup();
 
     assert.ok(backupDir, "createBackup must return a path (not null)");
-    // omniroute.mjs is a real file in bin/ and must be copied
-    assert.ok(existsSync(path.join(backupDir, "omniroute.mjs")), "omniroute.mjs copied");
+    // astra-aigate.mjs is a real file in bin/ and must be copied
+    assert.ok(existsSync(path.join(backupDir, "astra-aigate.mjs")), "astra-aigate.mjs copied");
     // "cli" is a directory — it must be copied recursively, not throw EISDIR
     const cliBackup = path.join(backupDir, "cli");
     assert.ok(existsSync(cliBackup), "cli/ directory copied");
     assert.ok(statSync(cliBackup).isDirectory(), "cli/ backup is a directory");
-    assert.ok(
-      existsSync(path.join(cliBackup, "commands")),
-      "cli/ contents copied recursively"
-    );
+    assert.ok(existsSync(path.join(cliBackup, "commands")), "cli/ contents copied recursively");
   } finally {
     process.chdir(originalCwd);
     if (originalHome === undefined) delete process.env.HOME;

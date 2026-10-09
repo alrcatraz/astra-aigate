@@ -81,7 +81,7 @@ test("codex session affinity wins over a per-request reset-aware forcedConnectio
     "request 1 should pin to the scored winner A"
   );
   assert.equal(
-    affinityDb.getSessionAccountAffinity("session-S", "codex", 60_000)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity("session-S", "codex", 60_000))?.connectionId,
     connectionA.id,
     "affinity row must be created for session-S pointing at A"
   );
@@ -100,7 +100,7 @@ test("codex session affinity wins over a per-request reset-aware forcedConnectio
     "request 2 must still use the pinned connection A, not the freshly re-scored B"
   );
   assert.equal(
-    affinityDb.getSessionAccountAffinity("session-S", "codex", 60_000)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity("session-S", "codex", 60_000))?.connectionId,
     connectionA.id,
     "affinity row for session-S must remain pinned to A after re-scoring"
   );
@@ -117,14 +117,14 @@ test("codex session affinity wins over a per-request reset-aware forcedConnectio
     "a new session must honor the fresh re-scored pick"
   );
   assert.equal(
-    affinityDb.getSessionAccountAffinity("session-S2", "codex", 60_000)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity("session-S2", "codex", 60_000))?.connectionId,
     connectionB.id,
     "a new affinity row for session-S2 must be created pointing at B"
   );
 
   // Session S must remain unaffected by S2's independent pin.
   assert.equal(
-    affinityDb.getSessionAccountAffinity("session-S", "codex", 60_000)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity("session-S", "codex", 60_000))?.connectionId,
     connectionA.id,
     "session-S pin must stay isolated from session-S2"
   );

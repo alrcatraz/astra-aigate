@@ -193,7 +193,7 @@ test("handleChat generates and injects context-relay handoffs across Codex accou
   assert.equal(upstreamBodies.length >= 2, true);
   assert.match(upstreamBodies[1].serializedBody, /<context_handoff>/);
   assert.match(upstreamBodies[1].serializedBody, /Carry over the router implementation state/);
-  assert.equal(handoffDb.getHandoff(sessionId, "relay-combo"), null);
+  assert.equal(await handoffDb.getHandoff(sessionId, "relay-combo"), null);
   await new Promise((resolve) => setTimeout(resolve, 50));
 });
 
@@ -355,5 +355,5 @@ test("handleChat injects context-relay handoffs during live failover for Respons
   );
   // Delivered handoffs are one-shot: consumed (deleted) after a successful
   // injected request (src/sse/handlers/chat.ts deleteHandoff-on-success).
-  assert.equal(handoffDb.getHandoff(sessionId, "relay-live-combo"), null);
+  assert.equal(await handoffDb.getHandoff(sessionId, "relay-live-combo"), null);
 });
