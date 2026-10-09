@@ -59,7 +59,7 @@ export async function createBackup() {
     if (!existsSync(binPath)) return null;
 
     mkdirSync(backupDir, { recursive: true });
-    const files = ["omniroute.mjs", "cli", "nodeRuntimeSupport.mjs", "mcp-server.mjs"];
+    const files = ["astra-aigate.mjs", "cli", "nodeRuntimeSupport.mjs", "mcp-server.mjs"];
     for (const f of files) {
       const src = path.join(binPath, f);
       if (existsSync(src)) {

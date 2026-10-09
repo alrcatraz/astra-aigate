@@ -185,7 +185,7 @@ export async function writeTargetsJson(targets: MitmTarget[] = ALL_TARGETS): Pro
  * Plan reference: 11-agent-bridge.plan.md §4.6 + master-plan-group-A.md §3.7.
  * Hard Rule #13: no shell interpolation, file only.
  */
-export function writeBypassJson(userPatterns?: string[]): void {
+export async function writeBypassJson(userPatterns?: string[]): Promise<void> {
   const dir = path.join(resolveMitmDataDir(), "mitm");
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -195,7 +195,7 @@ export function writeBypassJson(userPatterns?: string[]): void {
   const patterns =
     Array.isArray(userPatterns) && userPatterns.length >= 0
       ? userPatterns
-      : getUserBypassPatterns();
+      : await getUserBypassPatterns();
   const payload = {
     version: 1,
     generatedAt: new Date().toISOString(),
@@ -477,7 +477,7 @@ async function startMitmInternal(
   //     route CONNECT tunnels for those hostnames without TLS decryption.
   //     Defaults (banks/gov/okta/auth0) are hard-coded in server.cjs.
   try {
-    writeBypassJson();
+    await writeBypassJson();
   } catch (err) {
     log.error({ err }, "Failed to write bypass.json (continuing)");
   }
