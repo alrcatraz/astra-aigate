@@ -12,7 +12,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getDbInstance, resetDbInstance } from "../../src/lib/db/core.ts";
+import { getDbInstance, resetDbInstance, resetDbInstanceDrained } from "../../src/lib/db/core.ts";
 import { saveCallLog } from "../../src/lib/usage/callLogs.ts";
 import { getObservedReasoning } from "../../src/lib/usage/tokenAccounting.ts";
 import { computeCostFromPricing } from "../../src/lib/usage/costCalculator.ts";
