@@ -137,7 +137,7 @@ test("combo test route marks a model healthy only when it returns assistant text
   assert.equal(fetchCalls.length, 1);
   assert.equal(fetchCalls[0].url, expectedInternalUrl("/v1/chat/completions"));
   assert.equal(fetchCalls[0].init.headers["X-Internal-Test"], "combo-health-check");
-  assert.equal(fetchCalls[0].init.headers["X-OmniRoute-No-Cache"], "true");
+  assert.equal(fetchCalls[0].init.headers["X-AI-Gate-No-Cache"], "true");
   assert.match(fetchCalls[0].init.headers["X-Request-Id"], /^combo-test-/);
   assert.equal(forwardedBody.model, "openrouter/openai/gpt-5.4");
   assert.equal(
@@ -361,8 +361,8 @@ test("combo test route preserves structured step metadata for repeated model/acc
     fetchCalls.map(({ init }) => JSON.parse(init.body).model),
     ["openai/gpt-4o-mini", "openai/gpt-4o-mini"]
   );
-  assert.equal(fetchCalls[0].init.headers["X-OmniRoute-Connection"], "conn-openai-a");
-  assert.equal(fetchCalls[1].init.headers["X-OmniRoute-Connection"], "conn-openai-b");
+  assert.equal(fetchCalls[0].init.headers["X-AI-Gate-Connection"], "conn-openai-a");
+  assert.equal(fetchCalls[1].init.headers["X-AI-Gate-Connection"], "conn-openai-b");
   assert.equal(body.results[0].connectionId, "conn-openai-a");
   assert.equal(body.results[0].label, "Account A");
   assert.equal(body.results[1].connectionId, "conn-openai-b");

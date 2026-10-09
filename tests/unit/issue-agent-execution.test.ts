@@ -35,7 +35,7 @@ test("recorded triage invokes the normal chat-completions seam with configured r
 
   assert.equal(received?.url, "http://localhost/api/v1/chat/completions");
   assert.equal(received?.method, "POST");
-  assert.equal(received?.headers.get("X-OmniRoute-Mode"), "quality");
+  assert.equal(received?.headers.get("X-AI-Gate-Mode"), "quality");
   assert.ok(received?.signal, "the chat request must carry the timeout AbortSignal");
 
   const body = (await received!.json()) as Record<string, unknown>;

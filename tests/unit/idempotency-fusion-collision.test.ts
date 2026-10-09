@@ -8,7 +8,7 @@
  * it — the client received a panel member's answer (labeled with the judge's
  * meta headers) instead of the judge synthesis. Observed live on
  * "nexa/conversation-fusion" (body = Gemini panel answer verbatim,
- * X-OmniRoute-Idempotent: true, judge "latency" ~0ms).
+ * X-AI-Gate-Idempotent: true, judge "latency" ~0ms).
  *
  * Fix: namespace the composed key by target provider/model AND a digest of the
  * request messages. Panel members differ by model; the judge differs by model

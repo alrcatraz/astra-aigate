@@ -25,6 +25,10 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const { getModelInfo } = await import("../../src/sse/services/model.ts");
 
 test.before(async () => {
+  // Canonical DB bootstrap: materialise the schema (incl. migration 113
+  // provider_nodes.icon_url) before any write.
+  core.getDbInstance();
+  await core.awaitDbMigrations();
   await providersDb.createProviderNode({
     id: "openai-compatible-2905",
     type: "openai-compatible",

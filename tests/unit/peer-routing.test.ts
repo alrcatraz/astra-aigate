@@ -44,7 +44,7 @@ test("outbound peer calls append the local instance to the existing trace", () =
   const headers: Record<string, string> = { Authorization: "Bearer test" };
   const applied = applyPeerTraceHeader(
     headers,
-    { "x-ai-gate-peer-trace": "edge,gateway-z" },
+    { "x-omniroute-peer-trace": "edge,gateway-z" },
     "http://gateway-b:20128/v1/chat/completions",
     env
   );
@@ -92,7 +92,7 @@ test("BaseExecutor adds the trace only on an allowlisted peer dispatch", async (
   };
   let capturedTrace: string | undefined;
   const server = createServer((request, response) => {
-    capturedTrace = request.headers["x-ai-gate-peer-trace"];
+    capturedTrace = request.headers["x-omniroute-peer-trace"];
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify({ choices: [] }));
   });
@@ -118,8 +118,8 @@ test("BaseExecutor adds the trace only on an allowlisted peer dispatch", async (
         apiKey: "peer-key",
         providerSpecificData: { baseUrl: peerBaseUrl },
       },
-      clientHeaders: { "x-ai-gate-peer-trace": "edge" },
-      upstreamExtraHeaders: { "x-ai-gate-peer-trace": "overridden" },
+      clientHeaders: { "x-omniroute-peer-trace": "edge" },
+      upstreamExtraHeaders: { "x-omniroute-peer-trace": "overridden" },
     });
 
     assert.equal(capturedTrace, "edge,gateway-a");

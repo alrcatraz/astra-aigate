@@ -1549,7 +1549,7 @@ test("chatCore serves a cached idempotent response without hitting the provider 
   assert.equal(first.calls.length, 1);
   assert.equal(second.calls.length, 0);
   assert.equal(second.result.success, true);
-  assert.equal(second.result.response.headers.get("X-OmniRoute-Idempotent"), "true");
+  assert.equal(second.result.response.headers.get("X-AI-Gate-Idempotent"), "true");
 
   const payload = (await second.result.response.json()) as any;
   assert.equal(payload.choices[0].message.content, "ok");
@@ -1587,9 +1587,9 @@ test("chatCore returns a semantic cache HIT for repeated deterministic requests"
   });
 
   assert.equal(first.calls.length, 1);
-  assert.equal(first.result.response.headers.get("X-OmniRoute-Cache"), "MISS");
+  assert.equal(first.result.response.headers.get("X-AI-Gate-Cache"), "MISS");
   assert.equal(second.calls.length, 0);
-  assert.equal(second.result.response.headers.get("X-OmniRoute-Cache"), "HIT");
+  assert.equal(second.result.response.headers.get("X-AI-Gate-Cache"), "HIT");
   assert.equal(upstreamHits, 1);
 
   const payload = (await second.result.response.json()) as any;
@@ -1644,8 +1644,8 @@ test("chatCore skips semantic cache when disabled in settings", async () => {
   assert.equal(first.calls.length, 1);
   assert.equal(second.calls.length, 1);
   assert.equal(upstreamHits, 2);
-  assert.equal(first.result.response.headers.get("X-OmniRoute-Cache"), "MISS");
-  assert.equal(second.result.response.headers.get("X-OmniRoute-Cache"), "MISS");
+  assert.equal(first.result.response.headers.get("X-AI-Gate-Cache"), "MISS");
+  assert.equal(second.result.response.headers.get("X-AI-Gate-Cache"), "MISS");
 
   const payload = (await second.result.response.json()) as any;
   assert.equal(payload.choices[0].message.content, "fresh-2");
@@ -1664,13 +1664,13 @@ test("chatCore attaches OmniRoute response metadata headers to non-stream respon
   });
 
   assert.equal(result.success, true);
-  assert.equal(result.response.headers.get("X-OmniRoute-Provider"), "cc");
-  assert.equal(result.response.headers.get("X-OmniRoute-Model"), "claude-sonnet-4-6");
-  assert.equal(result.response.headers.get("X-OmniRoute-Cache-Hit"), "false");
-  assert.equal(result.response.headers.get("X-OmniRoute-Tokens-In"), "12");
-  assert.equal(result.response.headers.get("X-OmniRoute-Tokens-Out"), "3");
-  assert.ok(Number(result.response.headers.get("X-OmniRoute-Latency-Ms")) >= 0);
-  assert.match(String(result.response.headers.get("X-OmniRoute-Response-Cost")), /^\d+\.\d{10}$/);
+  assert.equal(result.response.headers.get("X-AI-Gate-Provider"), "cc");
+  assert.equal(result.response.headers.get("X-AI-Gate-Model"), "claude-sonnet-4-6");
+  assert.equal(result.response.headers.get("X-AI-Gate-Cache-Hit"), "false");
+  assert.equal(result.response.headers.get("X-AI-Gate-Tokens-In"), "12");
+  assert.equal(result.response.headers.get("X-AI-Gate-Tokens-Out"), "3");
+  assert.ok(Number(result.response.headers.get("X-AI-Gate-Latency-Ms")) >= 0);
+  assert.match(String(result.response.headers.get("X-AI-Gate-Response-Cost")), /^\d+\.\d{10}$/);
 });
 
 test("chatCore does not expose provider request credentials in non-stream response headers", async () => {
@@ -1689,7 +1689,7 @@ test("chatCore does not expose provider request credentials in non-stream respon
   assert.equal(result.response.headers.get("authorization"), null);
   assert.equal(result.response.headers.get("x-api-key"), null);
   assert.equal(result.response.headers.get("Content-Type"), "application/json");
-  assert.equal(result.response.headers.get("X-OmniRoute-Cache"), "MISS");
+  assert.equal(result.response.headers.get("X-AI-Gate-Cache"), "MISS");
 });
 
 test("chatCore normalizes tool finish reasons and estimates usage when upstream omits it", async () => {
@@ -2250,7 +2250,7 @@ test("chatCore injects progress events into streaming responses when requested",
 
   const streamText = await result.response.text();
   assert.equal(result.success, true);
-  assert.equal(result.response.headers.get("X-OmniRoute-Progress"), "enabled");
+  assert.equal(result.response.headers.get("X-AI-Gate-Progress"), "enabled");
   assert.match(streamText, /event: progress/);
 });
 
@@ -2272,8 +2272,8 @@ test("chatCore emits final SSE metadata comments before [DONE] on streaming resp
   const streamText = await result.response.text();
 
   assert.equal(result.success, true);
-  assert.equal(result.response.headers.get("X-OmniRoute-Provider"), "openai");
-  assert.equal(result.response.headers.get("X-OmniRoute-Model"), "gpt-4o-mini");
+  assert.equal(result.response.headers.get("X-AI-Gate-Provider"), "openai");
+  assert.equal(result.response.headers.get("X-AI-Gate-Model"), "gpt-4o-mini");
   assert.match(streamText, /: x-omniroute-response-cost=\d+\.\d{10}/);
   assert.match(streamText, /: x-omniroute-tokens-in=\d+/);
   assert.match(streamText, /: x-omniroute-tokens-out=\d+/);
@@ -2308,7 +2308,7 @@ test("buildStreamingResponseHeaders drops upstream compression and framing heade
   assert.equal(headers.get("Content-Length"), null);
   assert.equal(headers.get("Transfer-Encoding"), null);
   assert.equal(headers.get("X-Upstream-Trace"), "trace-1");
-  assert.equal(headers.get("X-OmniRoute-Cache"), "MISS");
+  assert.equal(headers.get("X-AI-Gate-Cache"), "MISS");
 });
 
 test("chatCore strips upstream compression and length headers from streaming responses", async () => {
@@ -2342,7 +2342,7 @@ test("chatCore strips upstream compression and length headers from streaming res
   assert.equal(result.response.headers.get("Content-Type"), "text/event-stream");
   assert.equal(result.response.headers.get("Content-Length"), null);
   assert.equal(result.response.headers.get("X-Upstream-Trace"), "trace-1");
-  assert.equal(result.response.headers.get("X-OmniRoute-Cache"), "MISS");
+  assert.equal(result.response.headers.get("X-AI-Gate-Cache"), "MISS");
   await result.response.text();
 });
 
@@ -2619,7 +2619,7 @@ test("chatCore caches streaming response and serves cache HIT on repeat", async 
 
   assert.equal(upstreamHits, 1, "upstream should be called only once");
   assert.equal(second.calls.length, 0, "second request should not reach upstream");
-  assert.equal(second.result.response.headers.get("X-OmniRoute-Cache"), "HIT");
+  assert.equal(second.result.response.headers.get("X-AI-Gate-Cache"), "HIT");
 
   // #2952 — a streaming client receives the cache HIT as an SSE stream (not a
   // raw JSON body), so content + reasoning_content arrive in the streaming shape.
@@ -2674,7 +2674,7 @@ test("chatCore does not cache streaming response when temperature > 0", async ()
   assert.equal(second.calls.length, 1, "second request should reach upstream");
 });
 
-test("chatCore skips streaming cache when X-OmniRoute-No-Cache header is set", async () => {
+test("chatCore skips streaming cache when X-AI-Gate-No-Cache header is set", async () => {
   let upstreamHits = 0;
   const sharedBody = {
     model: "gpt-4o-mini",
@@ -2753,7 +2753,7 @@ test("chatCore returns cache HIT as SSE when the client requests streaming", asy
   });
 
   assert.equal(second.calls.length, 0, "cached response should prevent upstream call");
-  assert.equal(second.result.response.headers.get("X-OmniRoute-Cache"), "HIT");
+  assert.equal(second.result.response.headers.get("X-AI-Gate-Cache"), "HIT");
   // #2952 — even though the cache was populated by a non-streaming request, a
   // later streaming request gets the cached completion SSE-wrapped, so streaming
   // clients keep their streaming shape (and reasoning_content) on cache hits.

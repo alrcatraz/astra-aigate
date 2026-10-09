@@ -3,14 +3,13 @@ import assert from "node:assert/strict";
 
 // Regression guard for #6024 / #6025 / #6023 — per-request auto-combo routing controls.
 // A caller can steer an `auto` combo per request via two headers:
-//   X-OmniRoute-Mode:   fast | balanced | quality | <raw mode-pack name>   (#6024/#6025)
-//   X-OmniRoute-Budget: <max USD per request>                              (#6023)
+//   X-AI-Gate-Mode:   fast | balanced | quality | <raw mode-pack name>   (#6024/#6025)
+//   X-AI-Gate-Budget: <max USD per request>                              (#6023)
 // The pure resolvers below turn the raw header values into an override the
 // auto-combo engine already knows how to consume (config.modePack / config.budgetCap).
 
-const { resolveRequestModePack, parseRequestBudgetCap } = await import(
-  "../../open-sse/services/autoCombo/requestControls.ts"
-);
+const { resolveRequestModePack, parseRequestBudgetCap } =
+  await import("../../open-sse/services/autoCombo/requestControls.ts");
 
 test("#6024 friendly presets map to mode packs and override combo config", () => {
   assert.deepEqual(resolveRequestModePack("fast"), { override: true, modePack: "ship-fast" });

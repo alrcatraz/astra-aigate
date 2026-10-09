@@ -138,7 +138,7 @@ test("cache affinity scores expanded auto account candidates directly", async ()
 
 // #7008 follow-up: parseAutoConfig() (see combo-auto-config-split.test.ts) already
 // makes `weights` honor a combo's own STORED modePack. But resolveAutoStrategyOrder()
-// also supports a per-request `X-OmniRoute-Mode` override (relayOptions.mode) that can
+// also supports a per-request `X-AI-Gate-Mode` override (relayOptions.mode) that can
 // pick a *different* mode pack than the one stored on the combo for that single
 // request — and `weights` must track that EFFECTIVE (post-override) modePack, not the
 // stored one, so scoreAutoTargets' fallback ranking doesn't drift from the primary
@@ -229,7 +229,7 @@ const weightSensitiveDeps = (autoConfig: Record<string, unknown>, mode?: string)
     buildAutoCandidates: (async () => weightSensitiveCandidates()) as never,
   }) as never;
 
-test("per-request X-OmniRoute-Mode override changes the EFFECTIVE weights used for fallback ranking, not just selection", async () => {
+test("per-request X-AI-Gate-Mode override changes the EFFECTIVE weights used for fallback ranking, not just selection", async () => {
   // Combo's own stored modePack is "quality-first" (would rank model-alpha before
   // model-beta if the override were ignored), but the request overrides to
   // "ship-fast" for this one call.

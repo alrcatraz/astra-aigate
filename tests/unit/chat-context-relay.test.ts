@@ -279,7 +279,7 @@ test("handleChat injects context-relay handoffs during live failover for Respons
       url: "http://localhost/v1/responses",
       headers: {
         "X-Session-Id": "relay-live-session",
-        "X-OmniRoute-No-Cache": "true",
+        "X-AI-Gate-No-Cache": "true",
       },
       body: {
         model: "relay-live-combo",
@@ -311,7 +311,7 @@ test("handleChat injects context-relay handoffs during live failover for Respons
       url: "http://localhost/v1/responses",
       headers: {
         "X-Session-Id": "relay-live-session",
-        "X-OmniRoute-No-Cache": "true",
+        "X-AI-Gate-No-Cache": "true",
       },
       body: {
         model: "relay-live-combo",

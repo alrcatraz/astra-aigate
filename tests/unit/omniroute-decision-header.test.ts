@@ -8,7 +8,7 @@ import {
 import { assembleStreamingResponseHeaders } from "../../open-sse/handlers/chatCore/streamingResponseHeaders.ts";
 import { buildNonStreamingResponseHeaders } from "../../open-sse/handlers/chatCore/nonStreamingResponseHeaders.ts";
 
-// The response-meta header family was renamed X-OmniRoute-* -> X-AI-Gate-*
+// The response-meta header family was renamed X-AI-Gate-* -> X-AI-Gate-*
 // (fe247769 "legal response headers"): the literal is now resolved from the
 // exported constant so a future rename cannot silently desync this suite.
 const DECISION_HEADER = OMNIROUTE_RESPONSE_HEADERS.decision;

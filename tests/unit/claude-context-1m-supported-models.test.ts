@@ -11,7 +11,7 @@ function parseModelList(constantName: string): string[] {
   const sourceFile =
     constantName === "CONTEXT_1M_NATIVE_MODELS"
       ? "open-sse/config/claudeCodeCompatibleIdentity.ts"
-      : "open-sse/services/claudeCodeCompatible.ts";
+      : "open-sse/services/claudeCodeCompatConstants.ts";
   const src = fs.readFileSync(path.join(REPO_ROOT, sourceFile), "utf8");
   // Strip type annotations before matching to handle `const X: string[] = [...]`
   const match = src

@@ -228,7 +228,7 @@ test("does NOT mark transientRateLimited on 429 when isTokenLimitBreach is true"
   assert.equal(s.exhaustedProviders.has("test-dedup-provider"), false);
 });
 
-test("does NOT mark anything for circuit-open (X-OmniRoute-Provider-Breaker header)", () => {
+test("does NOT mark anything for circuit-open (X-AI-Gate-Provider-Breaker header)", () => {
   const s = sets();
   const exhausted = applyComboTargetExhaustion(target(), {
     ...baseOpts,

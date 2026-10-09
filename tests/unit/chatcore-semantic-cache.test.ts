@@ -215,7 +215,7 @@ test("checkSemanticCache returns a non-streaming JSON HIT with cache headers + l
   assert.ok(result, "HIT -> non-null result");
   assert.equal(result.success, true, "HIT result.success is true");
   const res = result.response as Response;
-  assert.equal(res.headers.get(OMNIROUTE_RESPONSE_HEADERS.cache), "HIT", "X-OmniRoute-Cache: HIT");
+  assert.equal(res.headers.get(OMNIROUTE_RESPONSE_HEADERS.cache), "HIT", "X-AI-Gate-Cache: HIT");
   assert.equal(
     res.headers.get(OMNIROUTE_RESPONSE_HEADERS.cacheHit),
     "true",
@@ -325,10 +325,10 @@ test("checkSemanticCache HITs even when the cached body has no usage (cost falls
 
 // ─── Cache-HIT cost reporting (PRD-2026-06-19-cache-hit-cost-reporting) ───────
 // A HIT does NOT call upstream, so the INCREMENTAL cost of serving it is ≈0. The
-// X-OmniRoute-Response-Cost must therefore be 0 (so billing consumers don't charge
-// for cache hits), while the original cost is surfaced via X-OmniRoute-Cost-Saved.
+// X-AI-Gate-Response-Cost must therefore be 0 (so billing consumers don't charge
+// for cache hits), while the original cost is surfaced via X-AI-Gate-Cost-Saved.
 
-test("checkSemanticCache HIT bills 0 incremental cost and reports the original cost in X-OmniRoute-Cost-Saved", async () => {
+test("checkSemanticCache HIT bills 0 incremental cost and reports the original cost in X-AI-Gate-Cost-Saved", async () => {
   clearCache();
   const usage = { prompt_tokens: 1000, completion_tokens: 1000, total_tokens: 2000 };
   const cached = {
@@ -374,7 +374,7 @@ test("checkSemanticCache HIT bills 0 incremental cost and reports the original c
   assert.equal(
     res.headers.get(OMNIROUTE_RESPONSE_HEADERS.costSaved),
     expectedSaved,
-    "X-OmniRoute-Cost-Saved reflects the original cost the cache avoided"
+    "X-AI-Gate-Cost-Saved reflects the original cost the cache avoided"
   );
 });
 

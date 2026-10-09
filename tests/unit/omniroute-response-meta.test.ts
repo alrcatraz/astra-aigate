@@ -41,13 +41,13 @@ test("buildOmniRouteResponseMetaHeaders formats provider alias, tokens, latency,
     costUsd: 0.00123456789,
   });
 
-  assert.equal(headers["X-OmniRoute-Provider"], "cc");
-  assert.equal(headers["X-OmniRoute-Model"], "claude-sonnet-4-6");
-  assert.equal(headers["X-OmniRoute-Cache-Hit"], "true");
-  assert.equal(headers["X-OmniRoute-Latency-Ms"], "1235");
-  assert.equal(headers["X-OmniRoute-Tokens-In"], "11");
-  assert.equal(headers["X-OmniRoute-Tokens-Out"], "7");
-  assert.equal(headers["X-OmniRoute-Response-Cost"], "0.0012345679");
+  assert.equal(headers["X-AI-Gate-Provider"], "cc");
+  assert.equal(headers["X-AI-Gate-Model"], "claude-sonnet-4-6");
+  assert.equal(headers["X-AI-Gate-Cache-Hit"], "true");
+  assert.equal(headers["X-AI-Gate-Latency-Ms"], "1235");
+  assert.equal(headers["X-AI-Gate-Tokens-In"], "11");
+  assert.equal(headers["X-AI-Gate-Tokens-Out"], "7");
+  assert.equal(headers["X-AI-Gate-Response-Cost"], "0.0012345679");
 });
 
 test("buildOmniRouteResponseMetaHeaders keeps ASCII model header values unchanged", () => {
@@ -84,7 +84,7 @@ test("buildOmniRouteResponseMetaHeaders strips control characters from string he
   assert.doesNotThrow(() => new Headers(headers));
 });
 
-test("buildOmniRouteResponseMetaHeaders always emits X-OmniRoute-Version", () => {
+test("buildOmniRouteResponseMetaHeaders always emits X-AI-Gate-Version", () => {
   const headers = buildOmniRouteResponseMetaHeaders({ provider: "openai", model: "gpt" });
   assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.version], APP_CONFIG.version);
 
@@ -93,7 +93,7 @@ test("buildOmniRouteResponseMetaHeaders always emits X-OmniRoute-Version", () =>
   assert.equal(bare[OMNIROUTE_RESPONSE_HEADERS.version], APP_CONFIG.version);
 });
 
-test("buildOmniRouteResponseMetaHeaders emits X-OmniRoute-Request-Id only when provided", () => {
+test("buildOmniRouteResponseMetaHeaders emits X-AI-Gate-Request-Id only when provided", () => {
   const withId = buildOmniRouteResponseMetaHeaders({ model: "gpt", requestId: "req-123" });
   assert.equal(withId[OMNIROUTE_RESPONSE_HEADERS.requestId], "req-123");
 
@@ -155,7 +155,7 @@ test("buildOmniRouteSseMetadataComment emits comment lines compatible with SSE",
   assert.match(comment, /^: x-omniroute-response-cost=0\.0000000000/m);
 });
 
-test("buildOmniRouteResponseMetaHeaders emits X-OmniRoute-Cost-Saved only when costSavedUsd is provided", () => {
+test("buildOmniRouteResponseMetaHeaders emits X-AI-Gate-Cost-Saved only when costSavedUsd is provided", () => {
   // Cache HIT: the incremental cost of serving the hit is 0, but the cache saved the
   // original (would-have-been) cost — surfaced via the Cost-Saved header for analytics.
   const hit = buildOmniRouteResponseMetaHeaders({
