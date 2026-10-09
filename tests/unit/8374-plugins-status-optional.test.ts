@@ -31,6 +31,8 @@ const pluginsDb = await import("../../src/lib/db/plugins.ts");
 const { GET } = await import("../../src/app/api/plugins/route.ts");
 
 before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
   await pluginsDb.insertPlugin({
     id: "test-plugin-8374",
     name: "test-plugin-8374",

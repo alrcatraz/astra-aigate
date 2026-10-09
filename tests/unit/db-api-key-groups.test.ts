@@ -1,5 +1,11 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
+
+const core = await import("../../src/lib/db/core.ts");
+before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
 
 import {
   createKeyGroup,
@@ -50,7 +56,7 @@ describe("apiKeyGroups", () => {
   it("deleteKeyGroup removes group", async () => {
     const group = await createKeyGroup(`delete-${Date.now()}`);
     await deleteKeyGroup(group.id);
-    assert.equal(getKeyGroup(group.id), undefined);
+    assert.equal(await getKeyGroup(group.id), undefined);
   });
 
   it("addGroupPermission adds permission", async () => {
@@ -67,7 +73,7 @@ describe("apiKeyGroups", () => {
     await addGroupPermission(group.id, "claude-*", "allow");
     const perms = await getGroupPermissions(group.id);
     await removeGroupPermission(perms[0].id);
-    assert.equal(getGroupPermissions(group.id).length, 0);
+    assert.equal((await getGroupPermissions(group.id)).length, 0);
   });
 
   it("addKeyToGroup returns boolean (INSERT OR IGNORE)", async () => {

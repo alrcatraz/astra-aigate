@@ -39,6 +39,11 @@ async function cleanup() {
   await core.awaitDbMigrations();
 }
 
+test.before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
+
 test.afterEach(async () => await cleanup());
 test.after(() => {
   if (fs.existsSync(TEST_DATA_DIR)) {

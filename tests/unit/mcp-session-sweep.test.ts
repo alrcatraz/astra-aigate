@@ -5,9 +5,20 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const core = await import("../../src/lib/db/core.ts");
+const mcpDb = await import("../../src/lib/db/mcpServers.ts");
+const EP_ID = "test-endpoint-sweep";
 test.before(async () => {
   core.getDbInstance();
   await core.awaitDbMigrations();
+  const existing = await mcpDb.getMcpServer(EP_ID);
+  if (!existing) {
+    await mcpDb.createMcpServer({
+      id: EP_ID,
+      name: "Sweep Test Endpoint",
+      kind: "builtin",
+      enabled: true,
+    });
+  }
 });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -76,7 +87,9 @@ test("MCP_SESSION_IDLE_MS is 5 minutes (5 * 60 * 1000)", () => {
 // ── Source-level invariant: createStreamableSession sets lastActivityAt ───────
 
 test("createStreamableSession initializes lastActivityAt to Date.now()", () => {
-  const fnBlock = src.match(/function createStreamableSession\(\)[\s\S]*?return session;\s*\}/);
+  const fnBlock = src.match(
+    /function createStreamableSession\([^)]*\)[\s\S]*?return session;\s*\}/
+  );
   assert.ok(fnBlock, "createStreamableSession function must exist");
   assert.ok(
     fnBlock[0].includes("lastActivityAt: Date.now()"),
@@ -161,7 +174,7 @@ test("sweep closes idle sessions via closeStreamableSession", () => {
   );
   assert.ok(sweepBlock, "sweep block must exist");
   assert.ok(
-    sweepBlock[1].includes("closeStreamableSession(sessionId)"),
+    sweepBlock[1].includes("closeStreamableSession(endpoint.id, sessionId)"),
     "sweep must call closeStreamableSession for idle sessions"
   );
 });
@@ -185,7 +198,7 @@ test("handleMcpStreamableHTTP rejects non-initialize request without session id"
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
   });
-  const res = await mod.handleMcpStreamableHTTP(req);
+  const res = await mod.handleMcpStreamableHTTP(req, EP_ID);
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.ok(body.error);
@@ -212,7 +225,7 @@ test("handleMcpStreamableHTTP creates a session on initialize request", async ()
       },
     }),
   });
-  const res = await mod.handleMcpStreamableHTTP(initReq);
+  const res = await mod.handleMcpStreamableHTTP(initReq, EP_ID);
   assert.ok(res.status >= 200, "should get a response");
   if (res.headers.get("mcp-session-id")) {
     assert.equal(mod.isMcpHttpActive(), true);
@@ -243,7 +256,7 @@ test("getMcpHttpStatus returns streamable-http transport when session exists", a
       },
     }),
   });
-  const res = await mod.handleMcpStreamableHTTP(initReq);
+  const res = await mod.handleMcpStreamableHTTP(initReq, EP_ID);
   const sessionId = await res.headers.get("mcp-session-id");
   if (sessionId) {
     const status = mod.getMcpHttpStatus();
@@ -273,7 +286,7 @@ test("shutdownMcpHttp removes sessions created via handleMcpStreamableHTTP", asy
       },
     }),
   });
-  const res = await mod.handleMcpStreamableHTTP(initReq);
+  const res = await mod.handleMcpStreamableHTTP(initReq, EP_ID);
   const sessionId = await res.headers.get("mcp-session-id");
   if (sessionId) {
     assert.equal(mod.isMcpHttpActive(), true);
@@ -290,7 +303,7 @@ test("shutdownMcpHttp removes sessions created via handleMcpStreamableHTTP", asy
       },
       body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 2 }),
     });
-    const staleRes = await mod.handleMcpStreamableHTTP(staleReq);
+    const staleRes = await mod.handleMcpStreamableHTTP(staleReq, EP_ID);
     // MCP spec (2025-03-26 / 2025-11-25, Session Management): a terminated/unknown
     // session id MUST return 404 Not Found so the client re-initializes (issue #5169).
     assert.equal(staleRes.status, 404);
@@ -309,7 +322,7 @@ test("handleMcpStreamableHTTP rejects request with unknown session id", async ()
     },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
   });
-  const res = await mod.handleMcpStreamableHTTP(req);
+  const res = await mod.handleMcpStreamableHTTP(req, EP_ID);
   // Per MCP spec, a present-but-unknown session id MUST yield 404 (not 400), so
   // the client knows to start a fresh session rather than hard-fail (issue #5169).
   assert.equal(res.status, 404);
@@ -330,7 +343,7 @@ test("handleMcpStreamableHTTP returns 404 (not 400) for an unknown session id", 
     },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 7 }),
   });
-  const res = await mod.handleMcpStreamableHTTP(req);
+  const res = await mod.handleMcpStreamableHTTP(req, EP_ID);
   // The 400-vs-404 distinction is the whole bug: clients only re-initialize on 404.
   assert.equal(res.status, 404);
   const body = await res.json();
@@ -348,7 +361,7 @@ test("handleMcpStreamableHTTP keeps 400 for a missing session id (non-initialize
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 8 }),
   });
-  const res = await mod.handleMcpStreamableHTTP(req);
+  const res = await mod.handleMcpStreamableHTTP(req, EP_ID);
   // Spec reserves 400 for a *missing* session id on non-initialize requests —
   // only the *present-but-unknown* case changed to 404. This must NOT regress.
   assert.equal(res.status, 400);
@@ -375,7 +388,7 @@ test("handleMcpStreamableHTTP auto-recovers when stale session id is sent with i
     }),
   });
 
-  const firstRes = await mod.handleMcpStreamableHTTP(initReq);
+  const firstRes = await mod.handleMcpStreamableHTTP(initReq, EP_ID);
   const staleSessionId = await firstRes.headers.get("mcp-session-id");
   if (!staleSessionId) {
     mod.shutdownMcpHttp();
@@ -404,7 +417,7 @@ test("handleMcpStreamableHTTP auto-recovers when stale session id is sent with i
     }),
   });
 
-  const recoveryRes = await mod.handleMcpStreamableHTTP(reinitReq);
+  const recoveryRes = await mod.handleMcpStreamableHTTP(reinitReq, EP_ID);
 
   assert.notEqual(
     recoveryRes.status,
