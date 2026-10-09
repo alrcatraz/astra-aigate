@@ -147,12 +147,12 @@ test("buildOmniRouteSseMetadataComment emits comment lines compatible with SSE",
     costUsd: formatOmniRouteCost(0),
   });
 
-  assert.match(comment, /^: x-omniroute-cache-hit=false/m);
-  assert.match(comment, /^: x-omniroute-provider=openai/m);
-  assert.match(comment, /^: x-omniroute-model=gpt-4o-mini/m);
-  assert.match(comment, /^: x-omniroute-tokens-in=4/m);
-  assert.match(comment, /^: x-omniroute-tokens-out=2/m);
-  assert.match(comment, /^: x-omniroute-response-cost=0\.0000000000/m);
+  assert.match(comment, /^: x-ai-gate-cache-hit=false/m);
+  assert.match(comment, /^: x-ai-gate-provider=openai/m);
+  assert.match(comment, /^: x-ai-gate-model=gpt-4o-mini/m);
+  assert.match(comment, /^: x-ai-gate-tokens-in=4/m);
+  assert.match(comment, /^: x-ai-gate-tokens-out=2/m);
+  assert.match(comment, /^: x-ai-gate-response-cost=0\.0000000000/m);
 });
 
 test("buildOmniRouteResponseMetaHeaders emits X-AI-Gate-Cost-Saved only when costSavedUsd is provided", () => {

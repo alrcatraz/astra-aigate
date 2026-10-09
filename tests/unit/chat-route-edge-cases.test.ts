@@ -145,7 +145,9 @@ test("Test 4: handleChat supports X-AI-Gate-Progress tracking header for streams
   const response = await handleChat(
     buildRequest({
       headers: {
-        "X-AI-Gate-Progress": "true",
+        // wantsProgress() still reads the legacy lowercase request header;
+        // the response side is the renamed X-AI-Gate-Progress.
+        "x-omniroute-progress": "true",
       },
       body: {
         model: "openai/gpt-4",
