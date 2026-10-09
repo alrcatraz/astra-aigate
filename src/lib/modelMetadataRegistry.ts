@@ -458,7 +458,7 @@ export async function enrichCatalogModelEntry<T extends JsonRecord>(
   }
 
   if (nextEntry.pricing == null) {
-    const pricing = resolveCatalogPricing(provider, model);
+    const pricing = await resolveCatalogPricing(provider, model);
     if (pricing) nextEntry.pricing = pricing;
   }
 
