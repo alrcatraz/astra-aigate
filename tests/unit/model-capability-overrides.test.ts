@@ -35,11 +35,13 @@ describe("model capability overrides", () => {
     const distinct = (withoutOverride ?? 0) + 12345;
 
     assert.equal(
-      overrides.setModelCapabilityOverride("openai/gpt-4o", "max_token", distinct),
+      await overrides.setModelCapabilityOverride("openai/gpt-4o", "max_token", distinct),
       true
     );
     assert.deepEqual(
-      overrides.listModelCapabilityOverrides().map((entry) => ({
+      await (
+        await overrides.listModelCapabilityOverrides()
+      ).map((entry) => ({
         target: entry.target,
         key: entry.key,
         value: entry.value,
@@ -59,7 +61,7 @@ describe("model capability overrides", () => {
       "override must be scoped by provider/model, not bare model id"
     );
 
-    assert.equal(overrides.removeModelCapabilityOverride("openai/gpt-4o", "max_token"), true);
+    assert.equal(await overrides.removeModelCapabilityOverride("openai/gpt-4o", "max_token"), true);
     assert.equal(
       (await caps.getResolvedModelCapabilities({ provider: "openai", model: "gpt-4o" }))
         .maxOutputTokens,
@@ -69,7 +71,7 @@ describe("model capability overrides", () => {
 
   it("applies overrides stored under provider-scoped model aliases", async () => {
     assert.equal(
-      overrides.setModelCapabilityOverride("github/claude-opus-4.5", "max_token", 77777),
+      await overrides.setModelCapabilityOverride("github/claude-opus-4.5", "max_token", 77777),
       true
     );
 
@@ -80,10 +82,16 @@ describe("model capability overrides", () => {
     );
   });
 
-  it("rejects invalid targets and non-positive values", () => {
-    assert.equal(overrides.setModelCapabilityOverride("gpt-4o", "max_token", 1000), false);
-    assert.equal(overrides.setModelCapabilityOverride("openai/gpt-4o", "max_token", 0), false);
-    assert.equal(overrides.setModelCapabilityOverride("openai/gpt-4o", "max_token", 1.5), false);
-    assert.deepEqual(overrides.listModelCapabilityOverrides(), []);
+  it("rejects invalid targets and non-positive values", async () => {
+    assert.equal(await overrides.setModelCapabilityOverride("gpt-4o", "max_token", 1000), false);
+    assert.equal(
+      await overrides.setModelCapabilityOverride("openai/gpt-4o", "max_token", 0),
+      false
+    );
+    assert.equal(
+      await overrides.setModelCapabilityOverride("openai/gpt-4o", "max_token", 1.5),
+      false
+    );
+    assert.deepEqual(await overrides.listModelCapabilityOverrides(), []);
   });
 });

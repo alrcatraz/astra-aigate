@@ -34,7 +34,10 @@
     "open-sse/translator/registry.ts",
     "open-sse/handlers/responseSanitizer.ts",
     "open-sse/handlers/responseTranslator.ts",
-    "src/lib/db/prompts.ts"
+    "src/lib/db/prompts.ts",
+    "src/lib/db/modelCapabilityOverrides.ts",
+    "src/lib/modelCapabilities.ts",
+    "src/app/api/model-capability-overrides/route.ts"
   ],
   "exclude": ["node_modules", ".next", "app.__qa_backup", "vscode-extension"]
 }

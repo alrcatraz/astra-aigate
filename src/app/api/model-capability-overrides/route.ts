@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
 
-  return NextResponse.json({ overrides: listModelCapabilityOverrides() });
+  return NextResponse.json({ overrides: await listModelCapabilityOverrides() });
 }
 
 export async function PATCH(request: Request) {
@@ -57,12 +57,12 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Invalid model capability override" }, { status: 400 });
   }
 
-  const written = setModelCapabilityOverride(target, parsed.data.key, parsed.data.value);
+  const written = await setModelCapabilityOverride(target, parsed.data.key, parsed.data.value);
   if (!written) {
     return NextResponse.json({ error: "Invalid model capability override" }, { status: 400 });
   }
 
-  return NextResponse.json({ overrides: listModelCapabilityOverrides() });
+  return NextResponse.json({ overrides: await listModelCapabilityOverrides() });
 }
 
 export async function DELETE(request: Request) {
@@ -78,6 +78,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "target and key are required" }, { status: 400 });
   }
 
-  removeModelCapabilityOverride(target, parsedKey.data as ModelCapabilityOverrideKey);
-  return NextResponse.json({ overrides: listModelCapabilityOverrides() });
+  await removeModelCapabilityOverride(target, parsedKey.data as ModelCapabilityOverrideKey);
+  return NextResponse.json({ overrides: await listModelCapabilityOverrides() });
 }

@@ -497,12 +497,12 @@ async function getMaxTokenCapabilityOverride(resolved: {
   model: string | null;
   rawModel: string | null;
 }): Promise<number | null> {
-  return (
-    getModelCapabilityOverride(resolved.provider, resolved.model, "max_token") ??
-    (resolved.rawModel && resolved.rawModel !== resolved.model
-      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_token")
-      : null)
-  );
+  const primary = await getModelCapabilityOverride(resolved.provider, resolved.model, "max_token");
+  if (primary !== null) return primary;
+  if (resolved.rawModel && resolved.rawModel !== resolved.model) {
+    return await getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_token");
+  }
+  return null;
 }
 
 export async function getExplicitModelOutputCap(input: CapabilityInput): Promise<number | null> {
@@ -755,6 +755,20 @@ export async function getModelContextLimit(
 // same cache, and the sync variant falls back to null (triggering an async warm)
 // on the very first call of a fresh process.
 const resolvedCapabilityCache = new Map<string, ResolvedModelCapabilities>();
+
+/**
+ * Drop every memoised capability resolution.
+ *
+ * `model_capability_overrides` rows are a manual escape hatch (see
+ * `src/lib/db/modelCapabilityOverrides.ts`): when an operator adds or removes
+ * one, the process-level cache must be dropped or `getResolvedModelCapabilities`
+ * keeps returning the pre-override `maxOutputTokens` until restart. Called from
+ * the override store via a dynamic import so the static dependency stays
+ * one-way (`modelCapabilities` -> `modelCapabilityOverrides`).
+ */
+export function invalidateResolvedCapabilityCache(): void {
+  resolvedCapabilityCache.clear();
+}
 
 function capabilityKey(input: CapabilityInput): string {
   if (typeof input === "string") return input.trim() || "";

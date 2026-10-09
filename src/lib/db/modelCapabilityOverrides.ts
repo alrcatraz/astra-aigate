@@ -1,5 +1,4 @@
-import { getDbInstance, getAsyncDb } from "./core";
-import type { RawSyncDb } from "./adapters/types";
+import { getAsyncDb } from "./core";
 
 export type ModelCapabilityOverrideKey = "max_token";
 
@@ -26,6 +25,22 @@ function isSupportedKey(value: unknown): value is ModelCapabilityOverrideKey {
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * Drop the process-level capability memo after an override write.
+ *
+ * `modelCapabilities.ts` imports this module, so a static import back would
+ * create a cycle; a runtime dynamic import keeps the dependency one-way.
+ */
+async function invalidateCapabilityCache(): Promise<void> {
+  try {
+    const caps = await import("../modelCapabilities");
+    caps.invalidateResolvedCapabilityCache();
+  } catch {
+    // Capability cache is optional (e.g. tree-shaken callers); a failed lookup
+    // must never block the override write itself.
+  }
 }
 
 export function parseModelOverrideTarget(
@@ -63,21 +78,21 @@ function toOverride(row: OverrideRow): ModelCapabilityOverride | null {
   };
 }
 
-export function getModelCapabilityOverride(
+export async function getModelCapabilityOverride(
   provider: string | null | undefined,
   modelId: string | null | undefined,
   key: ModelCapabilityOverrideKey
-): number | null {
+): Promise<number | null> {
   const target = parseModelOverrideTarget(`${provider || ""}/${modelId || ""}`);
   if (!target || !isSupportedKey(key)) return null;
 
   try {
-    const row = (getAsyncDb() as unknown as RawSyncDb)
+    const row = (await getAsyncDb()
       .prepare(
         "SELECT provider, model_id, override_key, override_value, refreshed_at " +
           "FROM model_capability_overrides WHERE provider = ? AND model_id = ? AND override_key = ?"
       )
-      .get(target.provider, target.modelId, key) as OverrideRow | undefined;
+      .get(target.provider, target.modelId, key)) as OverrideRow | undefined;
     const override = row ? toOverride(row) : null;
     return override?.value ?? null;
   } catch {
@@ -85,48 +100,50 @@ export function getModelCapabilityOverride(
   }
 }
 
-export function setModelCapabilityOverride(
+export async function setModelCapabilityOverride(
   target: string,
   key: ModelCapabilityOverrideKey,
   value: number
-): boolean {
+): Promise<boolean> {
   const parsedTarget = parseModelOverrideTarget(target);
   if (!parsedTarget || !isSupportedKey(key) || !isPositiveInteger(value)) return false;
 
-  getAsyncDb()
+  await getAsyncDb()
     .prepare(
       "INSERT OR REPLACE INTO model_capability_overrides " +
         "(provider, model_id, override_key, override_value, refreshed_at) " +
         "VALUES (?, ?, ?, ?, datetime('now'))"
     )
     .run(parsedTarget.provider, parsedTarget.modelId, key, JSON.stringify(value));
+  await invalidateCapabilityCache();
   return true;
 }
 
-export function removeModelCapabilityOverride(
+export async function removeModelCapabilityOverride(
   target: string,
   key: ModelCapabilityOverrideKey
-): boolean {
+): Promise<boolean> {
   const parsedTarget = parseModelOverrideTarget(target);
   if (!parsedTarget || !isSupportedKey(key)) return false;
 
-  const info = (getAsyncDb() as unknown as RawSyncDb)
+  const info = await getAsyncDb()
     .prepare(
       "DELETE FROM model_capability_overrides " +
         "WHERE provider = ? AND model_id = ? AND override_key = ?"
     )
     .run(parsedTarget.provider, parsedTarget.modelId, key);
+  if (info.changes > 0) await invalidateCapabilityCache();
   return info.changes > 0;
 }
 
-export function listModelCapabilityOverrides(): ModelCapabilityOverride[] {
+export async function listModelCapabilityOverrides(): Promise<ModelCapabilityOverride[]> {
   try {
-    const rows = (getAsyncDb() as unknown as RawSyncDb)
+    const rows = (await getAsyncDb()
       .prepare(
         "SELECT provider, model_id, override_key, override_value, refreshed_at " +
           "FROM model_capability_overrides ORDER BY refreshed_at DESC"
       )
-      .all() as OverrideRow[];
+      .all()) as OverrideRow[];
     return rows.map(toOverride).filter((entry): entry is ModelCapabilityOverride => entry !== null);
   } catch {
     return [];
