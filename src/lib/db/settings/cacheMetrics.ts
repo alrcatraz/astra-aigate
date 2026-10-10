@@ -187,6 +187,13 @@ export async function getCacheTrend(hours = 24): Promise<CacheTrendPoint[]> {
   const db = await getAsyncDb();
 
   try {
+    // usage_history.timestamp is a TEXT column holding ISO-8601 UTC strings
+    // (e.g. "2026-10-10T15:36:35.232Z"), so the comparison must stay text-vs-text.
+    // Binding an ISO cutoff keeps it that way (lexicographic order == time order),
+    // matching how compressionAnalytics/proxyLogs bind their cutoffs. The previous
+    // `datetime('now', ?)` was translated by the PG dialect to NOW() (timestamptz),
+    // producing `text >= timestamptz` → 42883 "operator does not exist".
+    const cutoffIso = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
     const rows = (await db
       .prepare(
         `
@@ -198,12 +205,12 @@ export async function getCacheTrend(hours = 24): Promise<CacheTrendPoint[]> {
           SUM(tokens_cache_read) as cachedTokens,
           SUM(tokens_cache_creation) as cacheCreationTokens
         FROM usage_history
-        WHERE timestamp >= datetime('now', ?)
+        WHERE timestamp >= ?
         GROUP BY hour
         ORDER BY hour ASC
       `
       )
-      .all(`-${hours} hours`)) as Array<{
+      .all(cutoffIso)) as Array<{
       hour: string;
       requests: number;
       cachedRequests: number;
