@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createProviderConnection } from "@/lib/db/providers";
+import * as core from "@/lib/db/core.ts";
 import {
   parseRetryAfterHeader,
   detectTestKind,
@@ -14,6 +15,13 @@ import {
 // parseRetryAfterHeader — Retry-After is either delta-seconds or an HTTP-date.
 // Regression guard for the rate-limit handling in runSingleModelTest (#3267).
 // ---------------------------------------------------------------------------
+
+test.before(async () => {
+  // Fresh isolated DATA_DIR (isolateDataDir.ts); join the migration barrier before
+  // any query or combos may lack later columns (context_cache_protection).
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
 
 test("parseRetryAfterHeader returns undefined for missing/empty/null input", () => {
   assert.equal(parseRetryAfterHeader(null), undefined);
