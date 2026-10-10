@@ -223,7 +223,7 @@ export async function getFallbackStats(
            AND requested_model != ''
            AND model IS NOT NULL
            AND model != ''
-           AND LOWER(CASE WHEN instr(requested_model, '/') > 0 THEN substr(requested_model, instr(requested_model, '/') + 1) ELSE requested_model END) != LOWER(model)
+           AND LOWER(CASE WHEN strpos(requested_model, '/') > 0 THEN substr(requested_model, strpos(requested_model, '/') + 1) ELSE requested_model END) != LOWER(model)
           THEN 1 ELSE 0 END
         ) as fallbacks
       FROM call_logs
