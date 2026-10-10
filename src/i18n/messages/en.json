@@ -1233,6 +1233,7 @@
     "groupSeparatorLabel": "Separator",
     "discovery": "Discovery",
     "discoverySubtitle": "Scan providers for free access",
+    "context": "Context",
     "contextSubtitle": "Compression overview",
     "compressionSubtitle": "Compression configuration",
     "compressionLive": "Live Compression",
@@ -3021,7 +3022,9 @@
     "copilotPasteInto": "Paste into:",
     "copilotReloadInstruction": "Then reload VS Code and set the API key in the input prompt.",
     "wireApiChatCompletions": "Chat Completions (/chat/completions)",
-    "wireApiResponses": "Responses API (/responses)"
+    "wireApiResponses": "Responses API (/responses)",
+    "hermesViaOmniRoute": "Routed via {provider}",
+    "hermesNotOmniRoute": "Not via AI Gate (via {provider})"
   },
   "combos": {
     "title": "Combos",
@@ -4841,7 +4844,16 @@
     },
     "tierFlowDiagramAlt": "AI Gate 3-tier fallback diagram",
     "apiKeyMgmt": "API Key Management",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "apiKey": "API Key",
+    "apiUrl": "API URL",
+    "capsLockOn": "Caps Lock is on",
+    "launchDashboard": "Launch Dashboard",
+    "passwordPlaceholder": "Password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "skipSecurity": "Skip security setup",
+    "testingProvider": "Testing provider connection...",
+    "testSuccess": "Connection successful"
   },
   "providers": {
     "title": "Providers",
@@ -9153,7 +9165,12 @@
     "nodeIncompatibleHint": "AI Gate requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended.",
     "signInDescription": "Enter your password to continue",
     "passwordPlaceholder": "Password",
-    "signingIn": "Signing in..."
+    "signingIn": "Signing in...",
+    "continueWithSSO": "Continue with SSO",
+    "loginError": "Invalid password",
+    "nodeIncompatibleText": "This version of astra-aigate requires a compatible Node.js runtime. Detected",
+    "setPassword": "Set your password to continue",
+    "settingUp": "Setting up..."
   },
   "landing": {
     "brandName": "Astra AI Gate",

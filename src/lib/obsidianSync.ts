@@ -27,10 +27,10 @@ export type ObsidianSyncEnableResult =
   | { success: false; error: string };
 
 export async function getObsidianSyncStatus(): Promise<ObsidianSyncStatus> {
-  const vaultPath = getObsidianVaultPath();
-  const webdavEnabled = getWebdavEnabled();
-  const webdavUsername = getWebdavUsername();
-  const webdavPassword = getWebdavPassword();
+  const vaultPath = await getObsidianVaultPath();
+  const webdavEnabled = await getWebdavEnabled();
+  const webdavUsername = await getWebdavUsername();
+  const webdavPassword = await getWebdavPassword();
 
   return { vaultPath, webdavEnabled, webdavUsername, webdavPassword };
 }
@@ -68,7 +68,7 @@ export async function enableObsidianVaultSync(
 
 export async function disableObsidianVaultSync(): Promise<{ success: boolean; error?: string }> {
   try {
-    const vaultPath = getObsidianVaultPath();
+    const vaultPath = await getObsidianVaultPath();
     if (vaultPath) {
       removeStignore(vaultPath);
     }

@@ -103,9 +103,9 @@ const quotaShareResilienceSettingsMessages = {
   resilienceComboCooldownBudgetMs: "Total wait budget",
   resilienceQuotaShareConcurrencyTitle: "Quota-share per-connection concurrency",
   resilienceQuotaShareConcurrencyDesc:
-    "For quota-share combos only: when a connection sets a Max Concurrent cap, serialize concurrent requests to that subscription account so it is never flooded past its ceiling. Excess requests wait in the queue instead of getting a 429. The cap comes from each connection's Max Concurrent field; this switch only enables or disables honoring it.",
+    "For quota-share combos only: when a connection sets a Max Concurrent cap, serialize concurrent requests to that subscription account so it is never flooded past its ceiling. Excess requests wait in the queue instead of getting a 429. The cap comes from each connection's Max Concurrent field; this switch only enables or disables honouring it.",
   resilienceQuotaShareConcurrencyToggleDesc:
-    "Quota-share combos only; honors each connection's Max Concurrent cap.",
+    "Quota-share combos only; honours each connection's Max Concurrent cap.",
 };
 
 const sourceScanSkipDirs = new Set([
