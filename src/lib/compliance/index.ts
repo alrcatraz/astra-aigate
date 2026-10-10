@@ -621,7 +621,7 @@ export async function cleanupExpiredLogs() {
     }
   }
 
-  logAuditEvent({
+  await logAuditEvent({
     action: "compliance.cleanup",
     actor: "system",
     target: "log-retention",
