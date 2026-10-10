@@ -11,7 +11,7 @@ const BIN = path.join(
   "..",
   "..",
   "bin",
-  "omniroute.mjs"
+  "astra-aigate.mjs"
 );
 
 function runCli(dataDir: string): { code: number | null; stdout: string; stderr: string } {
@@ -42,7 +42,7 @@ function runCli(dataDir: string): { code: number | null; stdout: string; stderr:
 }
 
 // #7302: Electron persists secrets to <DATA_DIR>/server.env (electron/main.js), but the CLI
-// (bin/omniroute.mjs) only ever loaded <DATA_DIR>/.env — so migrating storage.sqlite +
+// (bin/astra-aigate.mjs) only ever loaded <DATA_DIR>/.env — so migrating storage.sqlite +
 // server.env from the desktop app to the CLI silently lost STORAGE_ENCRYPTION_KEY and
 // permanently corrupted every encrypted credential. The CLI must recognize server.env as a
 // legacy/migration fallback source when .env is absent, without letting it override an
@@ -72,7 +72,8 @@ test("#7302: CLI must recognize DATA_DIR/server.env (Electron's secrets file) wh
       envContent,
       new RegExp(`STORAGE_ENCRYPTION_KEY=${electronKey}`),
       "the Electron-persisted STORAGE_ENCRYPTION_KEY from server.env must be honored " +
-        "after migrating to the CLI install — got .env content: " + JSON.stringify(envContent)
+        "after migrating to the CLI install — got .env content: " +
+        JSON.stringify(envContent)
     );
 
     assert.doesNotMatch(

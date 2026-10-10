@@ -430,6 +430,24 @@ export async function getSyncedCapability(
 }
 
 /**
+ * Drop the process-level resolved-capability memo after a synced-capability write.
+ *
+ * `modelCapabilities.ts` imports this module, so a static import back would create
+ * a cycle; a runtime dynamic import keeps the dependency one-way. Without this,
+ * `getResolvedModelCapabilities` keeps serving the pre-write memo (e.g. a static
+ * spec window) and provider-specific synced limits never reach the catalog.
+ */
+async function invalidateCapabilityCache(): Promise<void> {
+  try {
+    const caps = await import("./modelCapabilities");
+    caps.invalidateResolvedCapabilityCache();
+  } catch {
+    // Capability cache is optional (e.g. tree-shaken callers); a failed lookup
+    // must never block the synced-capability write itself.
+  }
+}
+
+/**
  * Save synced capabilities to `model_capabilities` table (full replace).
  */
 export async function saveModelsDevCapabilities(data: CapabilitiesByProvider): Promise<void> {
@@ -480,6 +498,7 @@ export async function saveModelsDevCapabilities(data: CapabilitiesByProvider): P
   backupDbFile("pre-write");
   cachedCapabilities = data;
   cachedCapabilitiesLoadedAll = true;
+  await invalidateCapabilityCache();
 }
 
 /**
@@ -492,6 +511,7 @@ export async function clearModelsDevCapabilities(): Promise<void> {
   backupDbFile("pre-write");
   cachedCapabilities = {};
   cachedCapabilitiesLoadedAll = true;
+  await invalidateCapabilityCache();
 }
 
 // ─── Main sync function ──────────────────────────────────
