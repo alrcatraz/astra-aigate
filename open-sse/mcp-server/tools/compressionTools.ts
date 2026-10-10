@@ -272,10 +272,14 @@ async function resolveCcrPrincipal(
   extra: McpToolExtraLike | undefined,
   scopes: readonly string[]
 ): Promise<string | undefined> {
-  const apiKeyPrincipal = await resolveMcpCallerApiKeyId();
-  if (apiKeyPrincipal) return apiKeyPrincipal;
+  // Per-request identity (extra.authInfo.clientId) is explicit and must win over
+  // the env/HTTP-header fallback: resolveMcpCallerApiKeyId() returns "env-key"
+  // whenever OMNIROUTE_API_KEY is set (stdio deployments), which would otherwise
+  // shadow the caller's real principal and miss every caller-isolated CCR block.
   const { callerId } = resolveCallerScopeContext(extra, scopes);
-  return callerId === "anonymous" ? undefined : callerId;
+  if (callerId !== "anonymous" && callerId) return callerId;
+  const apiKeyPrincipal = await resolveMcpCallerApiKeyId();
+  return apiKeyPrincipal;
 }
 
 export function buildCcrStoreAuditInput(args: z.infer<typeof ccrStoreInput>) {
