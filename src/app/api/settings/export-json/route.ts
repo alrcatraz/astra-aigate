@@ -98,9 +98,9 @@ export async function GET(request: Request) {
     // These tables (usage_history, domain_cost_history, domain_budgets) can contain
     // thousands of rows and make the config backup grow to many MBs.
     if (includeHistory) {
-      exportData.usageHistory = getAllUsageHistory();
-      exportData.domainCostHistory = getAllDomainCostHistory();
-      exportData.domainBudgets = getAllDomainBudgets();
+      exportData.usageHistory = await getAllUsageHistory();
+      exportData.domainCostHistory = await getAllDomainCostHistory();
+      exportData.domainBudgets = await getAllDomainBudgets();
     }
 
     return new NextResponse(JSON.stringify(exportData, null, 2), {
