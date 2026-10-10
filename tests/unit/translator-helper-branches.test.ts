@@ -655,7 +655,7 @@ test("translateRequest replays cached reasoning-only messages when interleaved f
   );
 
   assert.equal(result.messages[1].reasoning_content, "cached reasoning only");
-  assert.equal(getReasoningCacheServiceStats().replays, 1);
+  assert.equal((await getReasoningCacheServiceStats()).replays, 1);
   await clearModelsDevCapabilities();
   clearReasoningCacheAll();
 });
@@ -686,7 +686,7 @@ test("translateRequest does not replay reasoning-only messages for non-DeepSeek 
   );
 
   assert.equal(result.messages[1].reasoning_content, undefined);
-  assert.equal(getReasoningCacheServiceStats().replays, 0);
+  assert.equal((await getReasoningCacheServiceStats()).replays, 0);
   clearReasoningCacheAll();
 });
 
@@ -742,7 +742,7 @@ test("translateRequest uses Kimi Coding's empty thinking marker instead of cache
   const toolUseIdx = assistantMsg.content.findIndex((b) => b?.type === "tool_use");
   assert.ok(thinkingIdx < toolUseIdx, "thinking block should be before tool_use");
 
-  assert.equal(getReasoningCacheServiceStats().replays, 0);
+  assert.equal((await getReasoningCacheServiceStats()).replays, 0);
   clearReasoningCacheAll();
 });
 
