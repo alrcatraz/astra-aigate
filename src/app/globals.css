@@ -86,5 +86,27 @@
   --color-border: #e0e1e6;
   --color-primary: #000000;
   --color-primary-hover: #333333;
+
+  /* Accent — interactive/focus/selected colour used by ~36 components (Checkbox,
+     Select, Toggle, CommandPalette, batch wizard…) both as var(--color-accent) and
+     as Tailwind bg-/text-/ring-accent utilities. DESIGN.md §2 reserves Link Cobalt
+     (#0d74ce) as the interaction colour and forbids decorative hues, so accent maps
+     to it (was dropped by the Expo shell rewrite while the consumers stayed live). */
+  --color-accent: #0d74ce;
+  --color-accent-hover: #0b5fad;
+  --color-accent-light: #3b8add;
+
+  /* Radius scale — DESIGN.md §5: Rounded 8px for cards / feature cards / dialogs,
+     Soft 6px for inputs. rounded-card is used by Card / Modal / CoolingConnectionsPanel. */
+  --radius: 8px;
+  --radius-card: var(--radius);
   --radius-control: 8px;
+
+  /* Data-table surfaces — DataTable still renders against these (header / zebra /
+     hover / cell border / selected row); they must stay defined. */
+  --table-header-bg: rgba(249, 249, 251, 0.95);
+  --table-row-zebra: rgba(0, 0, 0, 0.02);
+  --table-row-hover: rgba(0, 0, 0, 0.04);
+  --table-cell-border: rgba(0, 0, 0, 0.04);
+  --table-row-selected: rgba(99, 102, 241, 0.1);
 }
