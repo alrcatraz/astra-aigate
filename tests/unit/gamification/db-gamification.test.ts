@@ -1,10 +1,17 @@
-import { describe, it } from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { addXp, getXp } from "../../../src/lib/db/gamification";
 import { calculateLevel } from "../../../src/lib/gamification/xp";
-import { getDbInstance } from "../../../src/lib/db/core";
+import { getDbInstance, awaitDbMigrations } from "../../../src/lib/db/core";
 
 describe("DB Gamification — addXp level computation", () => {
+  before(async () => {
+    // getDbInstance() kicks migrations off lazily; join the barrier before the
+    // first query or user_levels / xp_audit_log may not exist yet.
+    getDbInstance();
+    await awaitDbMigrations();
+  });
+
   it("sets correct level for large initial XP", async () => {
     const testKey = `test-addxp-level-${Date.now()}`;
     await addXp(testKey, "invite_redeem", 50000);
