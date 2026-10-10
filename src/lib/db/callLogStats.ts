@@ -1,4 +1,4 @@
-import { getDbInstance, getAsyncDb } from "./core";
+import { getDbInstance, getAsyncDb, getDbDriver } from "./core";
 
 /**
  * Aggregation queries over `call_logs` extracted from route handlers.
@@ -202,6 +202,11 @@ export async function getFallbackStats(
   whereClause: string,
   params: Record<string, string>
 ): Promise<FallbackStatsRow> {
+  // Position-of-substring differs by engine: SQLite has instr(), PostgreSQL has
+  // strpos() (and no instr()). Pick per driver so the query runs on both — a
+  // hard-coded strpos broke SQLite ("no such function: strpos") and a hard-coded
+  // instr broke Postgres. translateSqliteToPostgres has no mapping for either.
+  const instr = getDbDriver() === "postgres" ? "strpos" : "instr";
   const db = await getAsyncDb();
   const row = (await db
     .prepare(
@@ -223,7 +228,7 @@ export async function getFallbackStats(
            AND requested_model != ''
            AND model IS NOT NULL
            AND model != ''
-           AND LOWER(CASE WHEN strpos(requested_model, '/') > 0 THEN substr(requested_model, strpos(requested_model, '/') + 1) ELSE requested_model END) != LOWER(model)
+           AND LOWER(CASE WHEN ${instr}(requested_model, '/') > 0 THEN substr(requested_model, ${instr}(requested_model, '/') + 1) ELSE requested_model END) != LOWER(model)
           THEN 1 ELSE 0 END
         ) as fallbacks
       FROM call_logs
