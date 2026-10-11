@@ -1,5 +1,5 @@
 import { getDbInstance, rowToCamel, getAsyncDb } from "./core";
-import type { DatabaseAdapter } from "./adapters/types";
+import type { DatabaseAdapter, RawSyncDb } from "./adapters/types";
 import type { QuotaSnapshotRow, ProviderUtilizationPoint } from "@/shared/types/utilization";
 
 type JsonRecord = Record<string, unknown>;
@@ -120,6 +120,38 @@ export async function getLatestQuotaSnapshotsForConnection(
          WHERE rn = 1`
       )
       .all(connectionId);
+
+    return rows.map((row) => rowToCamel(row) as unknown as QuotaSnapshotRow);
+  } catch (err: any) {
+    if (err?.message?.includes("no such table")) {
+      return [];
+    }
+    throw err;
+  }
+}
+
+/**
+ * Synchronous variant of getLatestQuotaSnapshotsForConnection for callers that
+ * must stay sync (quotaCache.hydrate, which feeds the Array.sort comparator in
+ * auth's connection scoring — a comparator cannot await). Reads via the raw
+ * synchronous getDbInstance() handle so it returns an array, never a Promise.
+ */
+export function getLatestQuotaSnapshotsForConnectionSync(connectionId: string): QuotaSnapshotRow[] {
+  const db = getDbInstance().raw as unknown as RawSyncDb;
+
+  try {
+    const rows = db
+      .prepare(
+        `SELECT * FROM (
+           SELECT *, ROW_NUMBER() OVER (
+             PARTITION BY window_key ORDER BY created_at DESC, id DESC
+           ) AS rn
+           FROM quota_snapshots
+           WHERE connection_id = ?
+         )
+         WHERE rn = 1`
+      )
+      .all(connectionId) as unknown[];
 
     return rows.map((row) => rowToCamel(row) as unknown as QuotaSnapshotRow);
   } catch (err: any) {
