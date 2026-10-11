@@ -764,6 +764,16 @@ async function flushDeferredStartupWork(): Promise<void> {
 }
 
 /**
+ * Join the deferred startup passes (startup health-check, legacy re-encrypt)
+ * without closing the connection. A test that reopens via getDbInstance() under
+ * FORCE_DB_HEALTHCHECK=1 reads rows before the fire-and-forget repair finishes —
+ * await this (after awaitDbMigrations) to see the repaired state.
+ */
+export async function awaitDbDeferredStartupWork(): Promise<void> {
+  await flushDeferredStartupWork();
+}
+
+/**
  * Schema backfill barrier (ensure*Columns + account index). Async wrappers
  * over the sync connection — callers that must see the final schema before
  * their first statement (boot hook, call-log writers in tests) await this via
