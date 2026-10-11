@@ -21,7 +21,7 @@ async function withRecoveryEnv(fn: (dataDir: string) => Promise<void>) {
 test("countEncryptedCredentials returns 0 on fresh db", async () => {
   await withRecoveryEnv(async () => {
     const { countEncryptedCredentials } = await import("../../src/lib/db/recovery.ts");
-    const count = countEncryptedCredentials();
+    const count = await countEncryptedCredentials();
     assert.equal(count, 0);
   });
 });
@@ -34,19 +34,23 @@ test("resetEncryptedColumns dry-run returns affected count without mutating", as
     // Insert a fake encrypted row directly using the DB instance
     const { getDbInstance } = await import("../../src/lib/db/core.ts");
     const db = getDbInstance();
+    // Fresh temp DATA_DIR — await migrations so provider_connections exists
+    const core = await import("../../src/lib/db/core.ts");
+    core.getDbInstance();
+    await core.awaitDbMigrations();
     const now = new Date().toISOString();
     db.prepare(
       "INSERT INTO provider_connections (id, provider, name, api_key, created_at, updated_at) VALUES (?,?,?,?,?,?)"
     ).run("test-id", "openai", "test-conn", "enc:v1:fake-encrypted-value", now, now);
 
-    const countBefore = countEncryptedCredentials();
+    const countBefore = await countEncryptedCredentials();
     assert.equal(countBefore, 1);
 
     const { affected } = await resetEncryptedColumns({ dryRun: true });
     assert.equal(affected, 1);
 
     // Dry run should NOT have mutated
-    const countAfter = countEncryptedCredentials();
+    const countAfter = await countEncryptedCredentials();
     assert.equal(countAfter, 1);
   });
 });
@@ -55,6 +59,10 @@ test("resetEncryptedColumns force mode nulls encrypted columns", async () => {
   await withRecoveryEnv(async () => {
     const { resetEncryptedColumns } = await import("../../src/lib/db/recovery.ts");
     const { getDbInstance } = await import("../../src/lib/db/core.ts");
+    // Fresh temp DATA_DIR — await migrations so provider_connections exists
+    const core = await import("../../src/lib/db/core.ts");
+    core.getDbInstance();
+    await core.awaitDbMigrations();
 
     const db = getDbInstance();
     const now = new Date().toISOString();
@@ -65,9 +73,9 @@ test("resetEncryptedColumns force mode nulls encrypted columns", async () => {
     const { affected } = await resetEncryptedColumns({ dryRun: false });
     assert.ok(affected >= 1);
 
-    const row = db
+    const row = (await db
       .prepare("SELECT api_key, access_token FROM provider_connections WHERE id = ?")
-      .get("rec-id") as { api_key: null; access_token: null } | undefined;
+      .get("rec-id")) as { api_key: null; access_token: null } | undefined;
     assert.ok(row);
     assert.equal(row.api_key, null);
     assert.equal(row.access_token, null);

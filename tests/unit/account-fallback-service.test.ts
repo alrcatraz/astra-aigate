@@ -577,7 +577,7 @@ test("isProviderFailureCode correctly identifies provider-wide transient error c
   assert.equal(isProviderFailureCode(200), false);
 });
 
-test("recordProviderFailure tracks failures and triggers cooldown after threshold", () => {
+test("recordProviderFailure tracks failures and triggers cooldown after threshold", async () => {
   const originalNow = Date.now;
   let now = 1_700_000_000_000;
   Date.now = () => now;
@@ -609,7 +609,7 @@ test("recordProviderFailure tracks failures and triggers cooldown after threshol
     assert.ok(remaining <= 10 * 60 * 1000); // 10 minutes max
 
     // Check getProvidersInCooldown returns the provider
-    const inCooldown = getProvidersInCooldown();
+    const inCooldown = await getProvidersInCooldown();
     assert.ok(inCooldown.some((p) => p.provider === provider));
     assert.equal(inCooldown.find((p) => p.provider === provider)?.failureCount, threshold);
 
@@ -618,7 +618,7 @@ test("recordProviderFailure tracks failures and triggers cooldown after threshol
     assert.equal(isProviderInCooldown(provider), false);
     assert.equal(getProviderCooldownRemainingMs(provider), null);
     assert.equal(
-      getProvidersInCooldown().some((p) => p.provider === provider),
+      (await getProvidersInCooldown()).some((p) => p.provider === provider),
       false
     );
   } finally {
