@@ -582,7 +582,7 @@ export async function regenerateApiKey(id: string) {
   await deleteRedisAuthCacheEntries(row.key_hash, newHash);
 
   const { logAuditEvent } = await import("@/lib/compliance");
-  logAuditEvent({
+  await logAuditEvent({
     action: "apiKey.regenerate",
     target: id,
     details: { name: String(row.name || "") },
@@ -919,14 +919,14 @@ export async function updateApiKeyPermissions(
   const { logAuditEvent } = await import("@/lib/compliance");
 
   if (normalized.isBanned !== undefined) {
-    logAuditEvent({
+    await logAuditEvent({
       action: normalized.isBanned ? "apiKey.ban" : "apiKey.unban",
       target: id,
     });
   }
 
   if (normalized.isActive !== undefined) {
-    logAuditEvent({
+    await logAuditEvent({
       action: normalized.isActive ? "apiKey.activate" : "apiKey.deactivate",
       target: id,
     });
@@ -940,13 +940,13 @@ export async function updateApiKeyPermissions(
     const hadManage = previousScopes.includes("manage");
     const hasManage = nextScopes.includes("manage");
     if (!hadManage && hasManage) {
-      logAuditEvent({
+      await logAuditEvent({
         action: "apiKey.scopes.grant",
         target: id,
         details: { scopes: nextScopes, previous: previousScopes },
       });
     } else if (hadManage && !hasManage) {
-      logAuditEvent({
+      await logAuditEvent({
         action: "apiKey.scopes.revoke",
         target: id,
         details: { scopes: nextScopes, previous: previousScopes },
@@ -956,7 +956,7 @@ export async function updateApiKeyPermissions(
       previousScopes.some((s) => !nextScopes.includes(s)) ||
       nextScopes.some((s) => !previousScopes.includes(s))
     ) {
-      logAuditEvent({
+      await logAuditEvent({
         action: "apiKey.scopes.update",
         target: id,
         details: { scopes: nextScopes, previous: previousScopes },

@@ -38,6 +38,13 @@ export interface RegisteredKey {
   updatedAt: number | null;
   expiresAt: number | null;
   metadata: string;
+  provider?: string;
+  accountId?: string;
+  revokedAt?: string | null;
+  dailyBudget?: number | null;
+  hourlyBudget?: number | null;
+  dailyUsed?: number;
+  hourlyUsed?: number;
 }
 
 export interface RegisteredKeyRow {
@@ -63,6 +70,9 @@ export interface RegisteredKeyRow {
   hourly_used: number;
   last_reset_day: string;
   last_reset_hour: string;
+  provider: string;
+  account_id: string;
+  revoked_at: string | null;
 }
 
 export interface RegisteredKeyWithSecret extends RegisteredKey {
@@ -85,6 +95,8 @@ export interface ListKeysOptions {
   search?: string;
   model?: string;
   isActive?: boolean;
+  provider?: string;
+  accountId?: string;
 }
 
 // ── Register ─────────────────────────────────────────────────────────────────
@@ -158,6 +170,13 @@ function mapRow(row: unknown): RegisteredKey {
     updatedAt: r.updated_at,
     expiresAt: r.expires_at,
     metadata: r.metadata,
+    provider: r.provider,
+    accountId: r.account_id,
+    revokedAt: r.revoked_at,
+    dailyBudget: r.daily_budget,
+    hourlyBudget: r.hourly_budget,
+    dailyUsed: r.daily_used,
+    hourlyUsed: r.hourly_used,
   };
 }
 
@@ -195,6 +214,14 @@ export async function listRegisteredKeys(
   if (options.isActive !== undefined) {
     conditions.push("is_active = ?");
     params.push(options.isActive ? 1 : 0);
+  }
+  if (options.provider) {
+    conditions.push("provider = ?");
+    params.push(options.provider);
+  }
+  if (options.accountId) {
+    conditions.push("account_id = ?");
+    params.push(options.accountId);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
