@@ -15,11 +15,11 @@ function buildWhereClause(): string {
   return ENCRYPTED_COLUMNS.map((col) => `${col} LIKE '${ENCRYPTED_PATTERN}'`).join(" OR ");
 }
 
-export function countEncryptedCredentials(): number {
+export async function countEncryptedCredentials(): Promise<number> {
   const where = buildWhereClause();
-  const row = syncDb()
+  const row = (await syncDb()
     .prepare(`SELECT COUNT(*) AS cnt FROM provider_connections WHERE ${where}`)
-    .get() as { cnt: number } | undefined;
+    .get()) as { cnt: number } | undefined;
   return row?.cnt ?? 0;
 }
 
