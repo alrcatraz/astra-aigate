@@ -28,12 +28,14 @@ const proxyLogs = await import("../../src/lib/db/proxyLogs.ts");
 // ---------------------------------------------------------------------------
 
 function ensureUsageLogsTable() {
+  // Seed the real usage_history table (migration 001) — the getAutoRouting*
+  // queries read it, not a bespoke usage_logs table.
   const db = core.getDbInstance();
   db.prepare(
-    `CREATE TABLE IF NOT EXISTS usage_logs (
+    `CREATE TABLE IF NOT EXISTS usage_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      model TEXT NOT NULL,
-      provider TEXT NOT NULL,
+      provider TEXT,
+      model TEXT,
       timestamp TEXT NOT NULL
     )`
   ).run();
@@ -41,7 +43,7 @@ function ensureUsageLogsTable() {
 
 function insertUsageLog(row: { model: string; provider: string }) {
   const db = core.getDbInstance();
-  db.prepare(`INSERT INTO usage_logs (model, provider, timestamp) VALUES (?, ?, ?)`).run(
+  db.prepare(`INSERT INTO usage_history (model, provider, timestamp) VALUES (?, ?, ?)`).run(
     row.model,
     row.provider,
     new Date().toISOString()
@@ -93,9 +95,11 @@ function insertProxyLog(row: { id: string; timestamp: string; provider?: string 
 
 test.before(async () => {
   await core.resetDbInstanceDrained();
-  ensureUsageLogsTable();
   core.getDbInstance();
   await core.awaitDbMigrations();
+  // Create the custom usage_logs table AFTER the barrier — creating it before
+  // migrations lets the runner rebuild/drop it, leaving reads empty.
+  ensureUsageLogsTable();
 });
 
 test.after(async () => {

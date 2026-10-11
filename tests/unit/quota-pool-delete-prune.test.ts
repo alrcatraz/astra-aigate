@@ -172,9 +172,17 @@ test("deletePool prunes pool id from ALL keys that reference it", async () => {
 
 test("deletePool returns true for existing pool, false for non-existent", async () => {
   const pool = await poolsDb.createPool({ connectionId: "conn-ret-1", name: "Return Test" });
-  assert.equal(poolsDb.deletePool(pool.id), true, "should return true for existing pool");
-  assert.equal(poolsDb.deletePool(pool.id), false, "should return false for already-deleted pool");
-  assert.equal(poolsDb.deletePool("nonexistent-id"), false, "should return false for unknown id");
+  assert.equal(await poolsDb.deletePool(pool.id), true, "should return true for existing pool");
+  assert.equal(
+    await poolsDb.deletePool(pool.id),
+    false,
+    "should return false for already-deleted pool"
+  );
+  assert.equal(
+    await poolsDb.deletePool("nonexistent-id"),
+    false,
+    "should return false for unknown id"
+  );
 });
 
 // ── 7. Pool row and allocation rows are gone after delete (regression guard) ──
@@ -188,7 +196,7 @@ test("deletePool removes pool and allocation rows from DB", async () => {
 
   await poolsDb.deletePool(pool.id);
 
-  assert.equal(poolsDb.getPool(pool.id), null, "getPool should return null after delete");
+  assert.equal(await poolsDb.getPool(pool.id), null, "getPool should return null after delete");
   const { items: allPools } = await poolsDb.listPools();
   assert.ok(
     !allPools.some((p) => p.id === pool.id),

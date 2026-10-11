@@ -21,7 +21,13 @@ import path from "node:path";
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-combo-prefix-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
 
+// isolateDataDir isolates DATA_DIR but never runs migrations — open the handle
+// first (getDbInstance must precede awaitDbMigrations or the join is a no-op)
+// so the combos schema is materialised before the first test's read.
 const core = await import("../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const { getComboBuilderOptions } = await import("../../src/lib/combos/builderOptions.ts");
 const { parseModel } = await import("../../open-sse/services/model.ts");
 

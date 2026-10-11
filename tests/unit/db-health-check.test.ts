@@ -289,6 +289,11 @@ test("getDbInstance can auto-repair persisted broken rows when startup repair is
       process.env.OMNIROUTE_FORCE_DB_HEALTHCHECK = previousForce;
     }
   }
+  // getDbInstance fires the startup health-check as deferred work (chained
+  // behind migrations) — join migrations first, then the deferred pass, so the
+  // repair finishes before we read counts.
+  await core.awaitDbMigrations();
+  await core.awaitDbDeferredStartupWork();
 
   assert.equal((db.prepare("SELECT COUNT(*) AS count FROM quota_snapshots").get() as any).count, 0);
   assert.equal((db.prepare("SELECT COUNT(*) AS count FROM domain_budgets").get() as any).count, 0);

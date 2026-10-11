@@ -8,6 +8,12 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-batch-res
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "test-secret-123";
 
+// Open the isolated DB and wait for migrations BEFORE importing localDb —
+// localDb reads DB at import time, so a post-import barrier races (nostable).
+const core = await import("../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const {
   createFile,
   createBatch,
