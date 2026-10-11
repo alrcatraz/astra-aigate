@@ -3063,7 +3063,7 @@ test("Image edit handler: no cached match returns 400 (does not silently generat
     assert.equal((result as { status?: unknown }).status, 400);
     assert.match(
       String((result as { error?: unknown }).error),
-      /generated through this OmniRoute instance/
+      /generated through this AI Gate instance/
     );
     assert.equal(m.calls.session, 0, "no upstream calls were attempted");
     assert.equal(m.calls.conv, 0, "no chat-completion was attempted");

@@ -12,6 +12,9 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
 const core = await import("../../src/lib/db/core.ts");
 const db = core.getDbInstance();
+// isolateDataDir isolates DATA_DIR but never runs migrations — await them so the
+// fresh temp DB actually has version_manager before the seed below.
+await core.awaitDbMigrations();
 
 // Seed version_manager row so getOrCreateApiKey can read/write
 db.prepare(

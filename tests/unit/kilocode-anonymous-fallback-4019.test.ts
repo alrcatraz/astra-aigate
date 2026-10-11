@@ -30,7 +30,7 @@ test("kilocode buildHeaders sends `Bearer anonymous` + editor header when no cre
   );
   assert.equal(
     headers["X-KILOCODE-EDITORNAME"],
-    "OmniRoute",
+    "AI Gate",
     "Kilo's gateway requires the editor-name header"
   );
 });

@@ -111,7 +111,7 @@ test("listRegisteredKeys returns all keys", async () => {
   await rk.issueRegisteredKey({ name: "Key B", provider: "anthropic" });
 
   const all = await rk.listRegisteredKeys();
-  assert.equal(all.length, 2);
+  assert.equal(all.items.length, 2);
 });
 
 test("listRegisteredKeys filters by provider", async () => {
@@ -120,8 +120,8 @@ test("listRegisteredKeys filters by provider", async () => {
   await rk.issueRegisteredKey({ name: "AN", provider: "anthropic" });
 
   const filtered = await rk.listRegisteredKeys({ provider: "openai" });
-  assert.equal(filtered.length, 1);
-  assert.equal(filtered[0].name, "OA");
+  assert.equal(filtered.items.length, 1);
+  assert.equal(filtered.items[0].name, "OA");
 });
 
 test("listRegisteredKeys filters by accountId", async () => {
@@ -130,8 +130,8 @@ test("listRegisteredKeys filters by accountId", async () => {
   await rk.issueRegisteredKey({ name: "Acc2 Key", accountId: "acc-2" });
 
   const filtered = await rk.listRegisteredKeys({ accountId: "acc-1" });
-  assert.equal(filtered.length, 1);
-  assert.equal(filtered[0].name, "Acc1 Key");
+  assert.equal(filtered.items.length, 1);
+  assert.equal(filtered.items[0].name, "Acc1 Key");
 });
 
 // ──────────────── revokeRegisteredKey ────────────────

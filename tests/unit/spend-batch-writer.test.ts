@@ -23,6 +23,12 @@ function quietLogger() {
 async function resetStorage() {
   resetSpendBatchWriterForTests();
   costRules.resetCostData();
+  // resetCostData() fires domainState.deleteAllCostData() WITHOUT awaiting it
+  // (src/domain/costRules.ts), so the floating DELETE can land after the next
+  // resetDbInstanceDrained() closes the handle ("The database connection is
+  // not open" -> unhandledRejection attributed to this hook). Give it a beat
+  // to finish while the current connection is still open.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -61,6 +67,12 @@ test.beforeEach(async () => {
 test.after(async () => {
   resetSpendBatchWriterForTests();
   costRules.resetCostData();
+  // resetCostData() fires domainState.deleteAllCostData() WITHOUT awaiting it
+  // (src/domain/costRules.ts), so the floating DELETE can land after the next
+  // resetDbInstanceDrained() closes the handle ("The database connection is
+  // not open" -> unhandledRejection attributed to this hook). Give it a beat
+  // to finish while the current connection is still open.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
