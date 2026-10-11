@@ -220,8 +220,11 @@ test("MCP transport and inspection routes require management authentication", ()
     "src/app/api/mcp/tools/route.ts",
     "src/app/api/mcp/audit/route.ts",
     "src/app/api/mcp/audit/stats/route.ts",
-    "src/app/api/mcp/sse/route.ts",
-    "src/app/api/mcp/stream/route.ts",
+    // Legacy /api/mcp/sse and /api/mcp/stream are now bare 301/308 redirects
+    // (MCP Gateway Phase 3); the transport handlers — and their
+    // requireManagementAuth guard — live on the gateway routes.
+    "src/app/api/mcp/servers/[id]/sse/route.ts",
+    "src/app/api/mcp/servers/[id]/stream/route.ts",
   ];
 
   for (const routePath of routePaths) {
