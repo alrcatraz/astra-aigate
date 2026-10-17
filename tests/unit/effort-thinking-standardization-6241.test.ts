@@ -165,12 +165,12 @@ test("enrichCatalogModelEntry exposes supportsThinking + effort_tiers for a thin
     },
   });
 
-  const enriched = registry.enrichCatalogModelEntry({
+  const enriched = (await registry.enrichCatalogModelEntry({
     id: "openai/gpt-5",
     object: "model",
     owned_by: "openai",
     root: "gpt-5",
-  }) as Record<string, unknown>;
+  })) as Record<string, unknown>;
 
   const caps = enriched.capabilities as Record<string, unknown>;
   assert.ok(caps, "capabilities object present");
