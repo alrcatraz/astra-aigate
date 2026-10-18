@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = markCommandCodeAuthSessionReceived({
+  const session = await markCommandCodeAuthSessionReceived({
     stateHash: stateHashFromState(parsed.data.state),
     apiKey: parsed.data.apiKey,
     metadata: {
