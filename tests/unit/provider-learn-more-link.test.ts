@@ -14,7 +14,7 @@ const providersPage = readFileSync(
 test("provider Learn more link uses the maintained documentation entry point", () => {
   assert.match(
     providersPage,
-    /href="https:\/\/github\.com\/diegosouzapw\/OmniRoute#-documentation"/,
+    /href="https:\/\/github\.com\/diegosouzapw\/AI Gate#-documentation"/,
     "the provider help CTA should open the maintained GitHub documentation section"
   );
 });

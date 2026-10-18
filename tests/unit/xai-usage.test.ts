@@ -75,13 +75,13 @@ describe("xAI self-tracked usage", () => {
     );
   });
 
-  it("aggregates only in-window tokens for the given provider+connection", () => {
+  it("aggregates only in-window tokens for the given provider+connection", async () => {
     // 2.0M + 0.3M = 2.3M; excludes out-of-window, conn-y, and minimax rows.
-    assert.equal(getMonthlyProviderTokensForConnection("xai", "conn-x"), 2_300_000);
+    assert.equal(await getMonthlyProviderTokensForConnection("xai", "conn-x"), 2_300_000);
   });
 
-  it("returns 0 for an unknown connection (fail-open, no bleed)", () => {
-    assert.equal(getMonthlyProviderTokensForConnection("xai", "conn-none"), 0);
+  it("returns 0 for an unknown connection (fail-open, no bleed)", async () => {
+    assert.equal(await getMonthlyProviderTokensForConnection("xai", "conn-none"), 0);
   });
 
   it("getXaiUsage returns a cumulative unlimited quota scoped to the connection", async () => {

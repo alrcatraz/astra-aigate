@@ -63,7 +63,7 @@ describe("policyEngine", async () => {
     const ip = `pe-lockout-${Date.now()}`;
     // Force lockout by recording many failures
     for (let i = 0; i < 20; i++) {
-      recordFailedAttempt(ip);
+      await recordFailedAttempt(ip);
     }
 
     const verdict = await evaluateRequest({ model: "gpt-4o", clientIp: ip });
