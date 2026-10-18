@@ -120,7 +120,7 @@ interface TheOldLlmFetchDependencies {
   resolveProxy: () => Promise<TheOldLlmProxy>;
   runWithProxy: <T>(proxy: TheOldLlmProxy, request: () => Promise<T>) => Promise<T>;
   fetch: typeof fetch;
-  hasBlockingProxyAssignment?: () => boolean;
+  hasBlockingProxyAssignment?: () => Promise<boolean>;
 }
 
 class TheOldLlmProxyUnavailableError extends Error {}
@@ -164,7 +164,7 @@ export async function fetchTheOldLlmWithProviderProxy(
   }
 
   const proxy = await deps.resolveProxy();
-  if (!proxy && deps.hasBlockingProxyAssignment?.()) {
+  if (!proxy && (await deps.hasBlockingProxyAssignment?.())) {
     throw new TheOldLlmProxyUnavailableError("No active proxy is available for The Old LLM");
   }
   return deps.runWithProxy(proxy, () =>
