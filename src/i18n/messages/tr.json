@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Geçersiz dosya türü. Lütfen PNG, JPG, SVG, GIF veya WebP yükleyin.",
     "invalidFaviconFileType": "Geçersiz dosya türü. Lütfen PNG, ICO, SVG, GIF veya WebP yükleyin.",
     "failedToReadFile": "Dosya okunamadı",
-    "startOnLogin": "Girişte Başlat",
-    "startOnLoginDesc": "Sistem başlangıcında AI Gate'u otomatik olarak başlatın ve arka plan tepsisinde sessizce çalıştırın.",
     "flushCache": "Önbelleği Boşalt",
     "flushing": "Boşaltılıyor…",
     "size": "Boyut",

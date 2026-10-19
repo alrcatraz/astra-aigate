@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Tipo di file non valido. Carica un file PNG, JPG, SVG, GIF o WebP.",
     "invalidFaviconFileType": "Tipo di file non valido. Carica un file PNG, ICO, SVG, GIF o WebP.",
     "failedToReadFile": "Impossibile leggere il file",
-    "startOnLogin": "Avvia all'accesso",
-    "startOnLoginDesc": "Avvia automaticamente AI Gate all'avvio del sistema ed eseguilo in background nell'area di notifica.",
     "flushCache": "Svuota cache",
     "flushing": "Lavaggio…",
     "size": "Misurare",

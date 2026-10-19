@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Érvénytelen fájltípus. Kérjük, töltsön fel PNG, JPG, SVG, GIF vagy WebP formátumot.",
     "invalidFaviconFileType": "Érvénytelen fájltípus. Kérjük, töltsön fel PNG, ICO, SVG, GIF vagy WebP formátumot.",
     "failedToReadFile": "Nem sikerült a fájl olvasása",
-    "startOnLogin": "Indítás bejelentkezéskor",
-    "startOnLoginDesc": "Az AI Gate automatikus elindítása a rendszer indításakor, és csendes futtatás a háttérben, a tálcán.",
     "flushCache": "Öblítse ki a gyorsítótárat",
     "flushing": "Öblítés…",
     "size": "Méret",

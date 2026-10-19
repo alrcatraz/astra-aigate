@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Jenis fail tidak sah. Sila muat naik PNG, JPG, SVG, GIF, atau WebP.",
     "invalidFaviconFileType": "Jenis fail tidak sah. Sila muat naik PNG, ICO, SVG, GIF, atau WebP.",
     "failedToReadFile": "Gagal membaca fail",
-    "startOnLogin": "Mula semasa Log Masuk",
-    "startOnLoginDesc": "Lancar AI Gate secara automatik semasa permulaan sistem dan jalankan secara senyap di talam latar belakang.",
     "flushCache": "Flush Cache",
     "flushing": "Membilas…",
     "size": "Saiz",

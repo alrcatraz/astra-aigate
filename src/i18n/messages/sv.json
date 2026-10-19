@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Ogiltig filtyp. Vänligen ladda upp PNG, JPG, SVG, GIF eller WebP.",
     "invalidFaviconFileType": "Ogiltig filtyp. Vänligen ladda upp PNG, ICO, SVG, GIF eller WebP.",
     "failedToReadFile": "Misslyckades med att läsa filen",
-    "startOnLogin": "Starta vid inloggning",
-    "startOnLoginDesc": "Starta AI Gate automatiskt vid systemstart och kör tyst i systemfältet.",
     "flushCache": "Spola cachen",
     "flushing": "Spolar...",
     "size": "Storlek",

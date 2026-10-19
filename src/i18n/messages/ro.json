@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Tip de fișier nevalid. Vă rugăm să încărcați PNG, JPG, SVG, GIF sau WebP.",
     "invalidFaviconFileType": "Tip de fișier nevalid. Vă rugăm să încărcați PNG, ICO, SVG, GIF sau WebP.",
     "failedToReadFile": "Citirea fișierului a eșuat",
-    "startOnLogin": "Lansare la autentificare",
-    "startOnLoginDesc": "Lansează automat AI Gate la pornirea sistemului și rulează silențios în fundal (tray).",
     "flushCache": "Spălați memoria cache",
     "flushing": "Spălare…",
     "size": "Dimensiune",

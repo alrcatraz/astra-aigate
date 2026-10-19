@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Неверный тип файла. Пожалуйста, загрузите PNG, JPG, SVG, GIF или WebP.",
     "invalidFaviconFileType": "Неверный тип файла. Пожалуйста, загрузите PNG, ICO, SVG, GIF или WebP.",
     "failedToReadFile": "Не удалось прочитать файл",
-    "startOnLogin": "Запускать при входе в систему",
-    "startOnLoginDesc": "Автоматически запускать AI Gate при запуске системы и работать в фоновом режиме в трее.",
     "flushCache": "Очистить кэш",
     "flushing": "Очистка…",
     "size": "Размер",

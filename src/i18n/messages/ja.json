@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "無効なファイル形式です。PNG、JPG、SVG、GIF、またはWebPをアップロードしてください。",
     "invalidFaviconFileType": "無効なファイル形式です。PNG、ICO、SVG、GIF、またはWebPをアップロードしてください。",
     "failedToReadFile": "ファイルの読み込みに失敗しました",
-    "startOnLogin": "ログイン時に起動",
-    "startOnLoginDesc": "システム起動時にAI Gateを自動的に起動し、バックグラウンドのシステムトレイでサイレントに実行します。",
     "flushCache": "キャッシュのフラッシュ",
     "flushing": "フラッシング…",
     "size": "サイズ",

@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "نوع فایل نامعتبر است. لطفاً PNG، JPG، SVG، GIF یا WebP آپلود کنید.",
     "invalidFaviconFileType": "نوع فایل نامعتبر است. لطفاً PNG، ICO، SVG، GIF یا WebP آپلود کنید.",
     "failedToReadFile": "خواندن فایل ناموفق بود",
-    "startOnLogin": "اجرا هنگام ورود به سیستم",
-    "startOnLoginDesc": "راه‌اندازی خودکار AI Gate هنگام شروع به کار سیستم و اجرای بی‌صدا در سینی پس‌زمینه.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

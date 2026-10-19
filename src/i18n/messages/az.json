@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Yanlış fayl növü. Zəhmət olmasa PNG, JPG, SVG, GIF və ya WebP yükləyin.",
     "invalidFaviconFileType": "Yanlış fayl növü. Zəhmət olmasa PNG, ICO, SVG, GIF və ya WebP yükləyin.",
     "failedToReadFile": "Faylı oxumaq mümkün olmadı",
-    "startOnLogin": "Sistemə daxil olduqda başlat",
-    "startOnLoginDesc": "Sistem işə düşərkən AI Gate-u avtomatik başladın və fonda sistem treyində səssiz rejimdə işlədin.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

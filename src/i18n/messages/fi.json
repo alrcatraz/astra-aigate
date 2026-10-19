@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Virheellinen tiedostotyyppi. Lataa PNG-, JPG-, SVG-, GIF- tai WebP-tiedosto.",
     "invalidFaviconFileType": "Virheellinen tiedostotyyppi. Lataa PNG-, ICO-, SVG-, GIF- tai WebP-tiedosto.",
     "failedToReadFile": "Tiedoston lukeminen epäonnistui",
-    "startOnLogin": "Käynnistä kirjauduttaessa",
-    "startOnLoginDesc": "Käynnistä AI Gate automaattisesti järjestelmän käynnistyessä ja suorita taustalla ilmoitusalueella.",
     "flushCache": "Tyhjennä välimuisti",
     "flushing": "Huuhdellaan…",
     "size": "Koko",

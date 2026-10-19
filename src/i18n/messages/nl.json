@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Ongeldig bestandstype. Upload PNG, JPG, SVG, GIF of WebP.",
     "invalidFaviconFileType": "Ongeldig bestandstype. Upload PNG, ICO, SVG, GIF of WebP.",
     "failedToReadFile": "Lezen van bestand mislukt",
-    "startOnLogin": "Starten bij inloggen",
-    "startOnLoginDesc": "Start AI Gate automatisch op bij het opstarten van het systeem en voer het geruisloos uit in het systeemvak op de achtergrond.",
     "flushCache": "Cache leegmaken",
     "flushing": "Doorspoelen…",
     "size": "Grootte",

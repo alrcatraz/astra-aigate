@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "فائل کی قسم غلط ہے۔ براہ کرم PNG، JPG، SVG، GIF، یا WebP اپ لوڈ کریں۔",
     "invalidFaviconFileType": "فائل کی قسم غلط ہے۔ براہ کرم PNG، ICO، SVG، GIF، یا WebP اپ لوڈ کریں۔",
     "failedToReadFile": "فائل پڑھنے میں ناکامی",
-    "startOnLogin": "لاگ ان پر شروع کریں",
-    "startOnLoginDesc": "سسٹم اسٹارٹ اپ پر خود بخود AI Gate لانچ کریں اور پس منظر کی ٹرے میں خاموشی سے چلائیں۔",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

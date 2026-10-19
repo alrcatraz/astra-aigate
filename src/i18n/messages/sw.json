@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Aina ya faili si sahihi. Tafadhali pakia PNG, JPG, SVG, GIF, au WebP.",
     "invalidFaviconFileType": "Aina ya faili si sahihi. Tafadhali pakia PNG, ICO, SVG, GIF, au WebP.",
     "failedToReadFile": "Imeshindwa kusoma faili",
-    "startOnLogin": "Anza wakati wa Kuingia",
-    "startOnLoginDesc": "Anzisha AI Gate kiotomatiki wakati wa kuwasha mfumo na uendeshe kimya kimya kwenye trei ya nyuma.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",
