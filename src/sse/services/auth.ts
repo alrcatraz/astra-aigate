@@ -2114,7 +2114,7 @@ export async function markAccountUnavailable(
         effectiveProviderProfile,
         { maxCooldownMs: mlSettings.maxCooldownMs }
       );
-      updateProviderConnection(connectionId, {
+      await updateProviderConnection(connectionId, {
         lastErrorType: "forbidden",
         lastError: `Mode ${model} forbidden for this Grok account`,
         lastErrorAt: new Date().toISOString(),

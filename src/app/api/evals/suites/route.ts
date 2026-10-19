@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const suite = saveCustomEvalSuite(validation.data);
+    const suite = await saveCustomEvalSuite(validation.data);
     return NextResponse.json({ suite }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(

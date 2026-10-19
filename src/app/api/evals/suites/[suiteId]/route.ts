@@ -10,7 +10,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ suit
 
   try {
     const { suiteId } = await params;
-    const suite = getCustomEvalSuite(suiteId);
+    const suite = await getCustomEvalSuite(suiteId);
     if (!suite) {
       return NextResponse.json({ error: "Eval suite not found" }, { status: 404 });
     }
@@ -49,12 +49,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ suit
 
   try {
     const { suiteId } = await params;
-    const existing = getCustomEvalSuite(suiteId);
+    const existing = await getCustomEvalSuite(suiteId);
     if (!existing) {
       return NextResponse.json({ error: "Eval suite not found" }, { status: 404 });
     }
 
-    const suite = saveCustomEvalSuite({ ...validation.data, id: suiteId });
+    const suite = await saveCustomEvalSuite({ ...validation.data, id: suiteId });
     return NextResponse.json({ suite });
   } catch (error: any) {
     return NextResponse.json(
@@ -73,7 +73,7 @@ export async function DELETE(
 
   try {
     const { suiteId } = await params;
-    const deleted = deleteCustomEvalSuite(suiteId);
+    const deleted = await deleteCustomEvalSuite(suiteId);
     if (!deleted) {
       return NextResponse.json({ error: "Eval suite not found" }, { status: 404 });
     }
