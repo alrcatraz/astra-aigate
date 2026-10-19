@@ -62,6 +62,7 @@ export const SCHEMA_SQL = `
     base_url TEXT,
     chat_path TEXT,
     models_path TEXT,
+    icon_url TEXT,
     custom_headers_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
