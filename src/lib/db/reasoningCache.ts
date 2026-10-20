@@ -47,6 +47,25 @@ function toUnixEpochSeconds(dateMs: number): number {
 // both drivers. COALESCE keeps the "no expiry = 0 = expired" reads consistent.
 const EXPIRES_AT_EPOCH_SQL = "COALESCE(expires_at, 0)";
 
+/**
+ * Normalise a stored expiry to epoch seconds. Rows written before the epoch
+ * migration carry an ISO-8601 string; comparing that TEXT against an INTEGER
+ * in SQL is always true under SQLite's type ordering, so an expired legacy row
+ * would read as live. Normalise in JS so both drivers agree.
+ */
+function expiresAtToEpochSeconds(value: unknown): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return Math.trunc(value);
+  const text = String(value).trim();
+  if (text === "") return 0;
+  if (!/[^0-9]/.test(text)) {
+    const numeric = Number.parseInt(text, 10);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : 0;
+}
+
 function nowEpochSeconds(): number {
   return toUnixEpochSeconds(Date.now());
 }
@@ -108,13 +127,17 @@ export function getReasoningCache(
   const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
   const row = raw
     .prepare(
-      `SELECT reasoning, provider, model FROM reasoning_cache
-      WHERE tool_call_id = ? AND ${EXPIRES_AT_EPOCH_SQL} > ?`
+      `SELECT reasoning, provider, model, expires_at FROM reasoning_cache WHERE tool_call_id = ?`
     )
-    .get(toolCallId, nowEpochSeconds()) as
-    { reasoning: string; provider: string; model: string } | undefined;
+    .get(toolCallId) as
+    { reasoning: string; provider: string; model: string; expires_at: unknown } | undefined;
 
-  return row ?? null;
+  if (!row) return null;
+  // Expiry is normalised in JS: legacy rows store an ISO string, and comparing
+  // that TEXT against an INTEGER in SQL is always true under SQLite's type
+  // ordering (expired rows would read as live).
+  if (expiresAtToEpochSeconds(row.expires_at) <= nowEpochSeconds()) return null;
+  return { reasoning: row.reasoning, provider: row.provider, model: row.model };
 }
 
 /**
@@ -133,10 +156,21 @@ export async function deleteReasoningCache(toolCallId: string): Promise<number> 
  */
 export async function cleanupExpiredReasoning(): Promise<number> {
   const db = await getAsyncDb();
-  const result = await db
-    .prepare(`DELETE FROM reasoning_cache WHERE ${EXPIRES_AT_EPOCH_SQL} <= ?`)
-    .run(nowEpochSeconds());
-  return result.changes;
+  // Select candidates and evaluate expiry in JS so legacy ISO-expiry rows are
+  // pruned as well (a SQL TEXT-vs-INTEGER comparison never matches them).
+  const rows = (await db
+    .prepare(`SELECT tool_call_id, expires_at FROM reasoning_cache`)
+    .all()) as Array<{ tool_call_id: string; expires_at: unknown }>;
+  const now = nowEpochSeconds();
+  const expired = rows
+    .filter((row) => expiresAtToEpochSeconds(row.expires_at) <= now)
+    .map((row) => row.tool_call_id);
+  let removed = 0;
+  for (const id of expired) {
+    const result = await db.prepare(`DELETE FROM reasoning_cache WHERE tool_call_id = ?`).run(id);
+    removed += result.changes;
+  }
+  return removed;
 }
 
 /**

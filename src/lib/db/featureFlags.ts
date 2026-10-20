@@ -7,7 +7,7 @@
  */
 
 import { FEATURE_FLAG_DEFINITIONS } from "@/shared/constants/featureFlagDefinitions";
-import { getDbInstance, getAsyncDb } from "./core";
+import { getDbInstance, getAsyncDb, getDbDriver } from "./core";
 import type { RawSyncDb } from "./adapters/types";
 
 const NAMESPACE = "feature_flags";
@@ -36,6 +36,12 @@ export async function getFeatureFlagOverrides(): Promise<Record<string, string>>
  * SQLite mode reads the live DB via the sync handle; PostgreSQL has no
  * synchronous driver, so sync reads are unavailable there — returns
  * undefined (env fallback), matching pre-PG behaviour for non-sqlite backends.
+ *
+ * In SQLite mode a failed store read is rethrown instead of swallowed: the
+ * fail-closed guardrails (e.g. isRequireApiKeyEnabled) rely on seeing the
+ * failure, and returning undefined would silently fall through to the flag's
+ * default. PG mode keeps returning undefined because the limitation is
+ * structural (no sync driver), not an error.
  */
 export function getFeatureFlagOverride(key: string): string | undefined {
   try {
@@ -44,8 +50,9 @@ export function getFeatureFlagOverride(key: string): string | undefined {
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get(NAMESPACE, key) as { value: string } | undefined;
     return row?.value;
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (getDbDriver() === "postgres") return undefined;
+    throw error;
   }
 }
 

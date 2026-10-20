@@ -183,8 +183,12 @@ export async function setParamFilterConfig(
     models: config.models && Object.keys(config.models).length > 0 ? config.models : undefined,
   };
 
-  stmt.run(NAMESPACE, provider, JSON.stringify(normalized));
+  await stmt.run(NAMESPACE, provider, JSON.stringify(normalized));
   bumpCacheGeneration();
+  // Re-warm immediately: bumpCacheGeneration() nulls the cache, and the
+  // synchronous hot path (applyConfigFilters) skips filtering when the cache is
+  // cold — so the write would only take effect on some later request.
+  filterCache = await loadAllConfigs();
 }
 
 /**
@@ -196,8 +200,9 @@ export async function deleteParamFilterConfig(provider: string): Promise<void> {
 
   const db = await getAsyncDb();
   const stmt = await db.prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?");
-  stmt.run(NAMESPACE, provider);
+  await stmt.run(NAMESPACE, provider);
   bumpCacheGeneration();
+  filterCache = await loadAllConfigs();
 }
 
 // ── Global auto-learn flag ──────────────────────────────────────────────────

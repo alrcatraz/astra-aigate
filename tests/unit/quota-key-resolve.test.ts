@@ -47,6 +47,18 @@ async function resetStorage() {
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();
   await core.awaitDbMigrations();
+  // A pool/connection written by the previous test can survive the rmSync above:
+  // the SQLite handle may still point at the unlinked inode, so a fresh
+  // getDbInstance() can serve the old rows from an empty directory (observed:
+  // dir=[] but SELECT COUNT(*) = 1). Clear the tables deterministically through
+  // the live handle so each test starts from a known-empty state regardless.
+  for (const table of ["quota_pools", "provider_connections"]) {
+    try {
+      await core.getDbInstance().prepare(`DELETE FROM ${table}`).run();
+    } catch {
+      // Table may not exist yet in this schema revision; nothing to clear.
+    }
+  }
 }
 
 test.beforeEach(async () => {

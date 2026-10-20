@@ -25,7 +25,11 @@ import { bootstrapTranslatorRegistry } from "./bootstrap.ts";
 import { hasThinkingConfig, normalizeThinkingConfig } from "../services/provider.ts";
 import { applyThinkingBudget } from "../services/thinkingBudget.ts";
 import { applyReasoningRuleDirective } from "@/lib/reasoningRouting/policy";
-import { getResolvedModelCapabilitiesSync, supportsReasoningSync } from "@/lib/modelCapabilities";
+import {
+  getResolvedModelCapabilities,
+  getResolvedModelCapabilitiesSync,
+  supportsReasoningSync,
+} from "@/lib/modelCapabilities";
 import { normalizeRoles } from "../services/roleNormalizer.ts";
 import { hoistLeadingSystemMessage } from "./helpers/strictSystemHoist.ts";
 import {
@@ -345,10 +349,19 @@ export async function translateRequest(
     normalizedProvider,
     normalizedModel
   );
-  const resolvedCapabilities = getResolvedModelCapabilitiesSync({
-    provider: normalizedProvider,
-    model: normalizedModel,
-  });
+  // Await the async resolver: the sync variant only serves an already-warm
+  // cache (it kicks off resolution and returns null on a cold key), which made
+  // the reasoning-replay gate fall back to the provider/model heuristics and
+  // silently drop cached reasoning on the first request.
+  const resolvedCapabilities =
+    (await getResolvedModelCapabilities({
+      provider: normalizedProvider,
+      model: normalizedModel,
+    })) ??
+    getResolvedModelCapabilitiesSync({
+      provider: normalizedProvider,
+      model: normalizedModel,
+    });
   const isReasoner = requiresReasoningReplay({
     provider: normalizedProvider,
     model: normalizedModel,
