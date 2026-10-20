@@ -20,7 +20,32 @@ async function describeDialogs(page: Page): Promise<string> {
     .filter(Boolean)
     .slice(0, 20);
   const urlFields = await page.getByLabel(/url/i).count();
-  return `dialogs=${n} {${seen.join(" | ")}} urlLabelledInputs=${urlFields} buttons=${JSON.stringify(buttons)}`;
+  const dialogButtons =
+    n > 0
+      ? (await dialogs.first().getByRole("button").allInnerTexts())
+          .map((s) => s.trim().replace(/\s+/g, " "))
+          .filter(Boolean)
+      : [];
+  const dialogInputs = n > 0 ? await dialogs.first().locator("input").count() : 0;
+  const dialogLabels =
+    n > 0 ? (await dialogs.first().locator("label").allInnerTexts()).map((s) => s.trim()) : [];
+  const dialogText =
+    n > 0
+      ? (
+          await dialogs
+            .first()
+            .innerText()
+            .catch(() => "")
+        )
+          .replace(/\s+/g, " ")
+          .slice(0, 400)
+      : "";
+  return (
+    `dialogs=${n} {${seen.join(" | ")}} urlLabelledInputs=${urlFields} ` +
+    `buttons=${JSON.stringify(buttons)} dialogButtons=${JSON.stringify(dialogButtons)} ` +
+    `dialogInputs=${dialogInputs} dialogLabels=${JSON.stringify(dialogLabels)} ` +
+    `dialogText=${JSON.stringify(dialogText)}`
+  );
 }
 
 const DEFAULT_BAILIAN_URL = "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1";
@@ -122,7 +147,13 @@ test.describe("Bailian Coding Plan Provider", () => {
     // valid relative selector here and could never match anything.
     const baseUrlInput = dialog.getByLabel(/base.*url/i);
 
-    await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    try {
+      await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report (after selecting a region) ---\n${await describeDialogs(page)}`
+      );
+    }
 
     const inputValue = await baseUrlInput.inputValue();
     expect(inputValue).toBe(DEFAULT_BAILIAN_URL);
@@ -248,7 +279,13 @@ test.describe("Bailian Coding Plan Provider", () => {
     // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
     // valid relative selector here and could never match anything.
     const baseUrlInput = dialog.getByLabel(/base.*url/i);
-    await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    try {
+      await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report (after selecting a region) ---\n${await describeDialogs(page)}`
+      );
+    }
 
     const nameInput = dialog.getByLabel(/name/i).or(dialog.locator("input").first());
     await nameInput.fill("Test Invalid URL Connection");
