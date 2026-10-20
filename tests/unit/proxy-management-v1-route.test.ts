@@ -48,20 +48,37 @@ async function resetStorage() {
 async function withPrepareFailure(match, message, fn) {
   const db = core.getDbInstance();
   const originalPrepare = db.prepare.bind(db);
+  // The routes go through the async adapter, which captured the sync handle's
+  // prepare when it was created — patching only the sync instance no longer
+  // makes the request path throw. Patch both so the failure surfaces.
+  const asyncDb = core.getAsyncDb() as unknown as {
+    prepare: (sql: string, ...a: unknown[]) => unknown;
+  };
+  const originalAsyncPrepare = asyncDb.prepare.bind(asyncDb);
+
+  const shouldFail = (sql: unknown) => {
+    const sqlText = String(sql);
+    return typeof match === "function" ? match(sqlText) : sqlText.includes(match);
+  };
 
   db.prepare = (sql, ...args) => {
-    const sqlText = String(sql);
-    const matched = typeof match === "function" ? match(sqlText) : sqlText.includes(match);
-    if (matched) {
+    if (shouldFail(sql)) {
       throw new Error(message);
     }
     return originalPrepare(sql, ...args);
+  };
+  asyncDb.prepare = (sql: string, ...args: unknown[]) => {
+    if (shouldFail(sql)) {
+      throw new Error(message);
+    }
+    return originalAsyncPrepare(sql, ...args);
   };
 
   try {
     return await fn();
   } finally {
     db.prepare = originalPrepare;
+    asyncDb.prepare = originalAsyncPrepare;
   }
 }
 
@@ -330,7 +347,7 @@ test("v1 management proxies main route returns server errors when persistence fa
   await resetStorage();
 
   await withPrepareFailure(
-    "ORDER BY datetime(updated_at) DESC, name ASC",
+    "FROM proxy_registry ORDER BY updated_at DESC, name ASC",
     "list proxy failure",
     async () => {
       const response = await proxyV1Route.GET(

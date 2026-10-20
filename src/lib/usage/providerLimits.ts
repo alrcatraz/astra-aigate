@@ -878,7 +878,7 @@ export async function fetchAndPersistProviderLimits(
   // Serve the prior entry instead; only successful fetches update the cache.
   const fetchFailed = !newCache.quotas && newCache.message;
   if (fetchFailed) {
-    const previous = getProviderLimitsCache(connectionId);
+    const previous = await getProviderLimitsCache(connectionId);
     if (previous?.quotas && Object.keys(previous.quotas).length > 0) {
       const staleUsage: JsonRecord = {
         ...usage,
@@ -895,7 +895,7 @@ export async function fetchAndPersistProviderLimits(
     return { connection, usage, cache: newCache };
   }
 
-  setProviderLimitsCache(connectionId, newCache);
+  await setProviderLimitsCache(connectionId, newCache);
   return { connection, usage, cache: newCache };
 }
 
@@ -916,6 +916,9 @@ export async function syncAllProviderLimits(
     (await getProviderConnections({ isActive: true })) as unknown as ProviderConnectionLike[]
   ).filter(isSupportedUsageConnection);
   const cacheEntries: Array<{ connectionId: string; entry: ProviderLimitsCacheEntry }> = [];
+  // Prior cache per connection, preloaded in fetchOne (async) so the sync
+  // recordResult callback can fall back to it without awaiting.
+  const previousLimitsCache = new Map<string, ProviderLimitsCacheEntry | null>();
   const caches: Record<string, ProviderLimitsCacheEntry> = {};
   const errors: Record<string, string> = {};
 
@@ -927,7 +930,7 @@ export async function syncAllProviderLimits(
       const { cache } = result.value;
       // Don't persist error-only entries; show prior cache or pass through.
       if (!cache.quotas && cache.message) {
-        const previous = getProviderLimitsCache(connectionId);
+        const previous = previousLimitsCache.get(connectionId) ?? null;
         if (previous?.quotas && Object.keys(previous.quotas).length > 0) {
           caches[connectionId] = previous;
         } else {
@@ -944,7 +947,8 @@ export async function syncAllProviderLimits(
   };
 
   const fetchOne = async (connection: ProviderConnectionLike) => {
-    const existingCache = getProviderLimitsCache(connection.id);
+    const existingCache = await getProviderLimitsCache(connection.id);
+    previousLimitsCache.set(connection.id, existingCache);
     const forceRefresh =
       source === "manual" ||
       shouldRefreshProviderLimitsCache(connection, existingCache || undefined);

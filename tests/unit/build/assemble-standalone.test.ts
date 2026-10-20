@@ -11,7 +11,11 @@ import {
 } from "../../../scripts/build/assembleStandalone.mjs";
 
 /** Recursively list relative file paths under dir (forward-slash normalised). */
-async function listFiles(dir: string, rootDir: string = dir, out: string[] = []): string[] {
+async function listFiles(
+  dir: string,
+  rootDir: string = dir,
+  out: string[] = []
+): Promise<string[]> {
   let entries: string[] = [];
   try {
     entries = fs.readdirSync(dir);
@@ -149,7 +153,7 @@ test("async and sync sidecar copy paths produce identical bundle trees", async (
   const asyncTree = await listFiles(outAsync);
   // The sync path also copies the standalone server.js + patches package.json; compare only
   // the sidecar files the two paths share (drop server.js which is unique to assembleStandalone).
-  const syncTree = listFiles(outSync).filter((f) => f !== "server.js");
+  const syncTree = (await listFiles(outSync)).filter((f) => f !== "server.js");
 
   assert.deepEqual(
     syncTree,
