@@ -272,7 +272,9 @@ test.describe("Providers management", () => {
     // and shows a Close button. Dismiss it before interacting with the connection list.
     const importDialog = page.getByRole("dialog");
     // The Modal renders two "Close" elements (header X + footer button) — use .first()
-    await expect(importDialog.getByRole("button", { name: "Close" }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(importDialog.getByRole("button", { name: "Close" }).first()).toBeVisible({
+      timeout: 15_000,
+    });
     await importDialog.getByRole("button", { name: "Close" }).first().click();
     await expect(importDialog).not.toBeVisible();
 
@@ -312,10 +314,14 @@ test.describe("Providers management", () => {
       ).__providersTestState.forceInvalidValidation = false;
     });
 
-    page.once("dialog", async (dialog) => {
-      await dialog.accept();
-    });
+    // Delete is gated behind an in-app ConfirmModal ("Delete this connection?"),
+    // not window.confirm — accept it inside the dialog.
     await page.getByTitle(/^delete$/i).click();
+    await expect(page.getByRole("dialog").getByText(/delete this connection/i)).toBeVisible();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /^delete$/i })
+      .click();
 
     await expect.poll(async () => (await readProviderMockState(page)).deleteCalls).toBe(1);
     await expect(page.getByText("Primary OpenAI Edited")).toHaveCount(0);

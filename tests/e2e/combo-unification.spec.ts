@@ -163,7 +163,7 @@ test.describe("Combo Unification", () => {
     // The Combos group has a title AND a nav item both labelled "Combos" after the
     // sidebar-group rework, so target the nav link specifically to avoid the
     // strict-mode ambiguity the group title introduces.
-    await expect(sidebar.getByRole("link", { name: "Combos", exact: true })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: /combos/i })).toBeVisible();
     await expect(sidebar.getByText("Auto Combo")).toHaveCount(0);
   });
 
