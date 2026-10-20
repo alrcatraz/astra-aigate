@@ -59,9 +59,7 @@ test.describe("Group B — Activity Feed", () => {
     await gotoDashboardRoute(page, "/dashboard/activity");
 
     // The page header should be visible (h1 or title element)
-    const heading = page
-      .locator("h1, [data-testid='activity-title']")
-      .first();
+    const heading = page.locator("h1, [data-testid='activity-title']").first();
     await expect(heading).toBeVisible({ timeout: 15000 });
 
     // ActivityFeed renders <div role="status"> (empty state) or a
@@ -72,7 +70,7 @@ test.describe("Group B — Activity Feed", () => {
     // the dashboard redirected to login without rendering the feed.
     const feedContainer = page.locator(
       "[data-testid='activity-feed'], [data-testid='activity-empty-state']," +
-      " .activity-feed, [role='status'], [role='list'], ul.divide-y, div.divide-y"
+        " .activity-feed, [role='status'], [role='list'], ul.divide-y, div.divide-y"
     );
     await expect(feedContainer.first()).toBeVisible({ timeout: 15000 });
   });
@@ -90,7 +88,12 @@ test.describe("Group B — Activity Feed", () => {
     await gotoDashboardRoute(page, "/dashboard/activity");
 
     const pageContent = await page.content();
-    // Stack traces should never appear in the UI (Hard Rule #12)
-    expect(pageContent).not.toMatch(/\s+at\s+\//);
+    // Stack traces should never appear in the UI (Hard Rule #12). The check has
+    // to identify a real V8 frame, not the loose sequence " at /" — the page
+    // payload legitimately contains prose like "…chat completions endpoint at
+    // /api/v1/chat/completions" from the provider registry descriptions, which a
+    // naive pattern flags as a stack trace.
+    expect(pageContent).not.toMatch(/\n\s+at\s+[\w.<>[\]-]+\s+\(.+:\d+:\d+\)/);
+    expect(pageContent).not.toMatch(/ReferenceError|TypeError:|SqliteError:/);
   });
 });
