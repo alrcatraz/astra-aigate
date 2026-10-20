@@ -77,12 +77,17 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    const dialog = page.getByRole("dialog").first();
+    // Identify the credential modal by its accessible title ("Add Alibaba Token Plan
+    // API Key") rather than by position: the providers page can carry other
+    // role=dialog nodes, and .first() then bound every following assertion to the
+    // wrong dialog — the base URL field was reported missing although it is rendered.
+    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
     await expect(dialog).toBeVisible({ timeout: 10000 });
 
-    const baseUrlInput = dialog
-      .getByLabel(/base.*url/i)
-      .or(dialog.locator("input").filter({ has: page.locator("..").getByText(/base.*url/i) }));
+    // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
+    // is exact. The old `.or(…)` branch hopped with `locator("..")`, which is not a
+    // valid relative selector here and could never match anything.
+    const baseUrlInput = dialog.getByLabel(/base.*url/i);
 
     await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
 
@@ -188,12 +193,17 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    const dialog = page.getByRole("dialog").first();
+    // Identify the credential modal by its accessible title ("Add Alibaba Token Plan
+    // API Key") rather than by position: the providers page can carry other
+    // role=dialog nodes, and .first() then bound every following assertion to the
+    // wrong dialog — the base URL field was reported missing although it is rendered.
+    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
     await expect(dialog).toBeVisible({ timeout: 10000 });
 
-    const baseUrlInput = dialog
-      .getByLabel(/base.*url/i)
-      .or(dialog.locator("input").filter({ has: page.locator("..").getByText(/base.*url/i) }));
+    // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
+    // is exact. The old `.or(…)` branch hopped with `locator("..")`, which is not a
+    // valid relative selector here and could never match anything.
+    const baseUrlInput = dialog.getByLabel(/base.*url/i);
     await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
 
     const nameInput = dialog.getByLabel(/name/i).or(dialog.locator("input").first());
