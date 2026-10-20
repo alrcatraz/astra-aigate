@@ -1,5 +1,27 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { gotoDashboardRoute } from "./helpers/dashboardAuth";
+
+// When the credential modal does not appear, a bare "element(s) not found" is
+// undiagnosable from CI: it could be a different accessible name, a different
+// dialog, or the click having opened nothing at all. Report what the page
+// actually offers so one CI log is enough to fix the locator.
+async function describeDialogs(page: Page): Promise<string> {
+  const dialogs = page.getByRole("dialog");
+  const n = await dialogs.count();
+  const seen: string[] = [];
+  for (let i = 0; i < Math.min(n, 5); i++) {
+    const d = dialogs.nth(i);
+    const label = await d.getAttribute("aria-label").catch(() => null);
+    const text = (await d.innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+    seen.push(`[${i}] ariaLabel=${JSON.stringify(label)} text=${JSON.stringify(text)}`);
+  }
+  const buttons = (await page.getByRole("button").allInnerTexts())
+    .map((s) => s.trim().replace(/\s+/g, " "))
+    .filter(Boolean)
+    .slice(0, 20);
+  const urlFields = await page.getByLabel(/url/i).count();
+  return `dialogs=${n} {${seen.join(" | ")}} urlLabelledInputs=${urlFields} buttons=${JSON.stringify(buttons)}`;
+}
 
 const DEFAULT_BAILIAN_URL = "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1";
 
@@ -77,15 +99,26 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    // Identify the credential modal by its accessible title ("Add Alibaba Token Plan
-    // API Key") rather than by position: the providers page can carry other
-    // role=dialog nodes, and .first() then bound every following assertion to the
-    // wrong dialog — the base URL field was reported missing although it is rendered.
-    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
-    await expect(dialog).toBeVisible({ timeout: 10000 });
+    // The modal's accessible name is "Add Connection · Alibaba Token Plan" (read off
+    // the rendered dialog in jsdom, not inferred from the title helper), and the page
+    // can carry other role=dialog nodes, so locate it by name rather than by position.
+    const dialog = page.getByRole("dialog", { name: /add connection/i });
+    try {
+      await expect(dialog).toBeVisible({ timeout: 10000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report ---\n${await describeDialogs(page)}`
+      );
+    }
+
+    // This provider opens on Alibaba's region chooser; the credential fields (Name,
+    // API Key, Validation Model, Priority, Base URL) only render once a region is
+    // picked — asserting them straight after opening is what failed, with no field in
+    // the DOM yet. Singapore is the international endpoint the default URL points at.
+    await dialog.getByRole("button", { name: /singapore/i }).click();
 
     // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
-    // is exact. The old `.or(…)` branch hopped with `locator("..")`, which is not a
+    // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
     // valid relative selector here and could never match anything.
     const baseUrlInput = dialog.getByLabel(/base.*url/i);
 
@@ -193,15 +226,26 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    // Identify the credential modal by its accessible title ("Add Alibaba Token Plan
-    // API Key") rather than by position: the providers page can carry other
-    // role=dialog nodes, and .first() then bound every following assertion to the
-    // wrong dialog — the base URL field was reported missing although it is rendered.
-    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
-    await expect(dialog).toBeVisible({ timeout: 10000 });
+    // The modal's accessible name is "Add Connection · Alibaba Token Plan" (read off
+    // the rendered dialog in jsdom, not inferred from the title helper), and the page
+    // can carry other role=dialog nodes, so locate it by name rather than by position.
+    const dialog = page.getByRole("dialog", { name: /add connection/i });
+    try {
+      await expect(dialog).toBeVisible({ timeout: 10000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report ---\n${await describeDialogs(page)}`
+      );
+    }
+
+    // This provider opens on Alibaba's region chooser; the credential fields (Name,
+    // API Key, Validation Model, Priority, Base URL) only render once a region is
+    // picked — asserting them straight after opening is what failed, with no field in
+    // the DOM yet. Singapore is the international endpoint the default URL points at.
+    await dialog.getByRole("button", { name: /singapore/i }).click();
 
     // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
-    // is exact. The old `.or(…)` branch hopped with `locator("..")`, which is not a
+    // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
     // valid relative selector here and could never match anything.
     const baseUrlInput = dialog.getByLabel(/base.*url/i);
     await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
