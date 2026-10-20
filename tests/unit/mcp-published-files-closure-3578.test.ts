@@ -129,20 +129,35 @@ function packedFilePaths(): string[] {
     stderr = (error as { stderr?: string })?.stderr ?? "";
   }
 
-  // npm may prefix the JSON with notices/progress lines depending on version and
-  // loglevel; parse from the first bracket that yields an array.
+  // npm's pack --json payload has changed shape across versions: an array of
+  // entries (npm ≤ 10), a flat file array, and — as of npm 12 — an object keyed
+  // by package name. Accept all three, and tolerate notice lines before the JSON.
   let parsed: unknown = null;
-  for (let i = out.indexOf("["); i !== -1; i = out.indexOf("[", i + 1)) {
-    try {
-      parsed = JSON.parse(out.slice(i));
-      break;
-    } catch {
-      /* keep scanning */
+  for (const open of ["[", "{"]) {
+    for (let i = out.indexOf(open); i !== -1; i = out.indexOf(open, i + 1)) {
+      try {
+        parsed = JSON.parse(out.slice(i));
+        break;
+      } catch {
+        /* keep scanning */
+      }
     }
+    if (parsed !== null) break;
   }
-  const entry = Array.isArray(parsed)
-    ? (parsed[0] as { files?: Array<{ path: string }> })
-    : undefined;
+
+  let entry: { files?: Array<{ path: string }> } | undefined;
+  if (Array.isArray(parsed)) {
+    const first = parsed[0] as unknown;
+    entry =
+      first && typeof first === "object" && "path" in (first as object)
+        ? { files: parsed as Array<{ path: string }> }
+        : (first as { files?: Array<{ path: string }> } | undefined);
+  } else if (parsed && typeof parsed === "object") {
+    const keyed = Object.values(parsed as Record<string, unknown>).find(
+      (v) => v && typeof v === "object" && Array.isArray((v as { files?: unknown }).files)
+    );
+    entry = keyed as { files?: Array<{ path: string }> } | undefined;
+  }
   assert.ok(
     entry?.files?.length,
     `npm pack --dry-run returned no files\n` +
