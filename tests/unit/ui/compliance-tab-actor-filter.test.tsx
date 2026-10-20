@@ -1,17 +1,10 @@
 // @vitest-environment jsdom
+// Faithful next-intl double: resolves the real English copy from src/i18n/messages/en.json.
+// Must be the first import so the mock is registered before the component is evaluated.
+import "../../_setup/nextIntlDouble";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-// Minimal i18n stub — returns key as-is so assertions are stable.
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: Record<string, unknown>) => {
-    if (values && typeof values.count !== "undefined" && typeof values.total !== "undefined") {
-      return `${values.count}/${values.total} ${key}`;
-    }
-    return key;
-  },
-}));
 
 // Stub fetch before importing the component.
 const fetchCalls: string[] = [];
@@ -37,7 +30,10 @@ async function waitForCondition(fn: () => boolean, timeoutMs = 5000) {
   const start = Date.now();
   while (!fn()) {
     if (Date.now() - start > timeoutMs) throw new Error("waitForCondition timed out");
-    await new Promise((r) => setTimeout(r, 20));
+    // Yield inside act so React can flush the pending fetch → setState chain.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
   }
 }
 
@@ -81,8 +77,8 @@ describe("ComplianceTab — actor filter", { timeout: 30000 }, () => {
     // Wait until fetch resolves and the component re-renders with the filter grid.
     await waitForCondition(() => el.querySelector('input[list="compliance-actors"]') !== null);
 
-    // The actor label text should appear (i18n stub returns key as-is).
-    expect(el.textContent).toContain("actor");
+    // The actor label text should appear (real copy from the `compliance` namespace).
+    expect(el.textContent).toContain("Actor");
 
     // An input with list="compliance-actors" must exist.
     const actorInput = el.querySelector('input[list="compliance-actors"]');
@@ -114,17 +110,17 @@ describe("ComplianceTab — actor filter", { timeout: 30000 }, () => {
     ) as HTMLInputElement | null;
     expect(actorInput).toBeTruthy();
 
-    // Simulate React controlled input change via nativeInputValueSetter + dispatchEvent.
-    act(async () => {
-      if (actorInput) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-          window.HTMLInputElement.prototype,
-          "value"
-        )?.set;
-        nativeInputValueSetter?.call(actorInput, "admin");
-        await actorInput.dispatchEvent(new Event("input", { bubbles: true }));
-        await actorInput.dispatchEvent(new Event("change", { bubbles: true }));
-      }
+    // Simulate a React controlled input change via nativeInputValueSetter + dispatchEvent.
+    // The act() must be awaited: leaving it pending interleaves act scopes and makes the
+    // *next* test's render never settle (that was the old flake in the clearFilters case).
+    await act(async () => {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      nativeInputValueSetter?.call(actorInput, "admin");
+      await actorInput!.dispatchEvent(new Event("input", { bubbles: true }));
+      await actorInput!.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     // Wait for a new fetch triggered by the actor state change.
@@ -140,17 +136,18 @@ describe("ComplianceTab — actor filter", { timeout: 30000 }, () => {
     const el = renderTab();
     await waitForCondition(() => el.querySelector('input[list="compliance-actors"]') !== null);
 
-    // Find the clearFilters button (i18n stub returns key "clearFilters").
+    // Find the clear-filters button by its real copy.
     const clearBtn = Array.from(el.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("clearFilters")
+      b.textContent?.includes("Clear filters")
     );
     expect(clearBtn).toBeTruthy();
 
     // Clicking the button should not throw.
-    expect(() => {
-      act(async () => {
-        await clearBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-    }).not.toThrow();
+    await act(async () => {
+      await clearBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    // Resetting must not tear down the filter controls.
+    expect(el.querySelector('input[list="compliance-actors"]')).toBeTruthy();
   });
 });

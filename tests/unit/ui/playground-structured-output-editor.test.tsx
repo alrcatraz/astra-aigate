@@ -10,14 +10,17 @@ const { useStructuredOutput } =
 const { default: StructuredOutputEditor } =
   await import("../../../src/app/(dashboard)/dashboard/playground/components/StructuredOutputEditor");
 
-async function setInputValue(el: HTMLTextAreaElement | HTMLInputElement, value: string): void {
+// Keep this synchronous: a thenable handed to a sync `act()` opens an async act
+// scope that is never awaited, after which every later act() in the file queues
+// without flushing (empty DOM, null selectors).
+function setInputValue(el: HTMLTextAreaElement | HTMLInputElement, value: string): void {
   const nativeSetter =
     el instanceof HTMLTextAreaElement
       ? Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
       : Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
   nativeSetter?.call(el, value);
-  await el.dispatchEvent(new Event("input", { bubbles: true }));
-  await el.dispatchEvent(new Event("change", { bubbles: true }));
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function StructuredOutputEditorWrapper({

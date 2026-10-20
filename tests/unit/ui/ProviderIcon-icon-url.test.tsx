@@ -28,25 +28,28 @@ const { default: ProviderIcon } = await import("@/shared/components/ProviderIcon
 // (thesvg.org → generic icon). Never reaches the local SVG or @lobehub tiers.
 const UNKNOWN_PROVIDER_ID = "openai-compatible-test-node-xyz";
 
-const containers: HTMLElement[] = [];
+const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
 
 function renderIcon(props: Record<string, unknown>): HTMLElement {
   const container = document.createElement("div");
   document.body.appendChild(container);
-  containers.push(container);
 
   const root = createRoot(container);
   act(() => {
     root.render(<ProviderIcon providerId={UNKNOWN_PROVIDER_ID} {...props} />);
   });
+  containers.push({ root, el: container });
   return container;
 }
 
 function fireImgError(container: HTMLElement) {
   const img = container.querySelector("img");
   if (!img) throw new Error("expected an <img> element to fire error on");
-  act(async () => {
-    await img.dispatchEvent(new Event("error"));
+  // Synchronous act(): an un-awaited `act(async ...)` leaves the act scope open,
+  // so the fallback state update never commits and every later render in the
+  // file comes back empty.
+  act(() => {
+    img.dispatchEvent(new Event("error"));
   });
 }
 
@@ -57,8 +60,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  while (containers.length > 0) {
-    containers.pop()?.remove();
+  for (const { root, el } of containers.splice(0)) {
+    act(() => root.unmount());
+    el.remove();
   }
   document.body.innerHTML = "";
 });

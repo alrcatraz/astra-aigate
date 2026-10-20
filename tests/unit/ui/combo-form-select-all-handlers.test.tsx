@@ -50,7 +50,8 @@ describe("ComboFormModal Select all / Unselect all handlers (real implementation
       []
     );
     expect(addedAny).toBe(true);
-    expect(next).toEqual([{ model: "openai/gpt-4o", providerId: "openai", weight: 0 }]);
+    // Newly batch-added steps get the builder's default weight of 1.
+    expect(next).toEqual([{ model: "openai/gpt-4o", providerId: "openai", weight: 1 }]);
   });
 
   it("is a no-op when nothing is selected", () => {

@@ -3,15 +3,11 @@
 // POSTs to /api/settings/database/vacuum and surfaces the result. This guards that the
 // button is rendered and wired to the vacuum endpoint (the only net-new runtime behavior
 // in the PR beyond the structurally-tested settings-shell redirect).
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-  useLocale: () => "en",
-}));
 
 import SystemStorageTab from "@/app/(dashboard)/dashboard/settings/components/SystemStorageTab";
 
@@ -20,6 +16,9 @@ let root: Root;
 const fetchCalls: Array<{ url: string; method: string }> = [];
 
 beforeEach(() => {
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   fetchCalls.length = 0;
   vi.stubGlobal(
     "fetch",

@@ -7,6 +7,7 @@
  * asserted in tests/unit/kimi-partner-aff-links.test.ts.
  */
 import "../../_setup/nextIntlDouble";
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -16,6 +17,10 @@ import ProviderPageHeader from "@/app/(dashboard)/dashboard/providers/[id]/compo
 // No `.has` method — providerText() falls back to the hardcoded English
 // default, matching the pattern used in providerCardKimiPartnerAccent.test.tsx.
 const t = (key: string) => key;
+
+// The note is brand copy: compare against the real en.json message so the
+// component's fallback literal can never silently drift from the catalogue.
+const PARTNER_LINK_NOTE = resolveMessage("providers", "kimiPartnerLinkNote")!;
 
 describe("ProviderPageHeader — Kimi partner-link note", () => {
   let container: HTMLDivElement | null = null;
@@ -58,13 +63,9 @@ describe("ProviderPageHeader — Kimi partner-link note", () => {
     // first <a> in the tree.
     const link = el.querySelector(`a[href="${website}"]`);
     expect(link).not.toBeNull();
-    expect(link?.getAttribute("title")).toBe(
-      "Partner link — supports OmniRoute at no extra cost to you"
-    );
-    expect(link?.getAttribute("aria-label")).toBe(
-      `${name} — Partner link — supports OmniRoute at no extra cost to you`
-    );
-    expect(el.textContent).toContain("Partner link — supports OmniRoute at no extra cost to you");
+    expect(link?.getAttribute("title")).toBe(PARTNER_LINK_NOTE);
+    expect(link?.getAttribute("aria-label")).toBe(`${name} — ${PARTNER_LINK_NOTE}`);
+    expect(el.textContent).toContain(PARTNER_LINK_NOTE);
   });
 
   it("does NOT flag an unrelated provider's website link as a partner link", () => {

@@ -4,9 +4,58 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
+type Translator = ((key: string, values?: Record<string, unknown>) => string) & {
+  has: (key: string) => boolean;
+  rich: (key: string, values?: Record<string, unknown>) => string;
+  markup: (key: string, values?: Record<string, unknown>) => string;
+  raw: (key: string) => string;
+};
+
+// Local next-intl double: same contract as tests/_setup/nextIntlDouble (stable
+// translator per namespace, real English copy from en.json) but it also splits
+// a DOTTED namespace ("playground.build") into path segments. The shared double
+// looks the namespace up as one literal key, so BuildWizard — the only consumer
+// of a nested namespace — rendered raw keys ("step1Label", "nextButton").
+vi.mock("next-intl", async () => {
+  const messages = (await import("../../../src/i18n/messages/en.json")).default as Record<
+    string,
+    unknown
+  >;
+
+  function resolve(namespace: string, key: string): string | undefined {
+    let node: unknown = messages;
+    for (const part of [...namespace.split("."), ...key.split(".")].filter(Boolean)) {
+      if (node && typeof node === "object" && part in (node as Record<string, unknown>)) {
+        node = (node as Record<string, unknown>)[part];
+      } else {
+        return undefined;
+      }
+    }
+    return typeof node === "string" ? node : undefined;
+  }
+
+  const translators = new Map<string, Translator>();
+
+  function translatorFor(namespace: string): Translator {
+    const cached = translators.get(namespace);
+    if (cached) return cached;
+    const t = ((key: string, values?: Record<string, unknown>) => {
+      const message = resolve(namespace, key) ?? key;
+      if (!values) return message;
+      return message.replace(/\{(\w+)\}/g, (match, name: string) =>
+        name in values ? String(values[name]) : match
+      );
+    }) as Translator;
+    t.has = (key: string) => resolve(namespace, key) !== undefined;
+    t.rich = (key: string, values?: Record<string, unknown>) => t(key, values);
+    t.markup = (key: string, values?: Record<string, unknown>) => t(key, values);
+    t.raw = (key: string) => resolve(namespace, key) ?? key;
+    translators.set(namespace, t);
+    return t;
+  }
+
+  return { useTranslations: (namespace = "") => translatorFor(namespace), useLocale: () => "en" };
+});
 
 vi.mock("remark-gfm", () => ({ default: () => {} }));
 vi.mock("react-markdown", () => ({
@@ -15,14 +64,17 @@ vi.mock("react-markdown", () => ({
   ),
 }));
 
-async function setInputValue(el: HTMLTextAreaElement | HTMLInputElement, value: string): void {
+// Synchronous on purpose: a thenable handed to a sync `act()` opens an async act
+// scope that is never awaited, after which later act() calls queue without
+// flushing (empty DOM, null selectors).
+function setInputValue(el: HTMLTextAreaElement | HTMLInputElement, value: string): void {
   const nativeSetter =
     el instanceof HTMLTextAreaElement
       ? Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
       : Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
   nativeSetter?.call(el, value);
-  await el.dispatchEvent(new Event("input", { bubbles: true }));
-  await el.dispatchEvent(new Event("change", { bubbles: true }));
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 const { DEFAULT_PARAMS } =
@@ -66,14 +118,16 @@ function renderBuildTab(config = BASE_CONFIG): HTMLDivElement {
 //   step 2 — configure tools and/or the JSON schema, depending on the mode
 //   step 3 — run + toolbar badges + prompt textarea
 //
-// next-intl is mocked as a key pass-through above, so every translated label
-// renders as its raw i18n key (e.g. "nextButton", "modeToolsTitle").
+// Labels are asserted as the real English copy resolved from en.json ("Next",
+// "Run", "Tools + JSON", ...).
 
 type BuildMode = "tools" | "json" | "both";
 
 function clickNext(el: HTMLDivElement): void {
+  // The button renders "Next" plus a material-symbols icon glyph, so match on
+  // substring rather than the trimmed label.
   const nextBtn = Array.from(el.querySelectorAll("button")).find((b) =>
-    b.textContent?.includes("nextButton")
+    b.textContent?.includes("Next")
   ) as HTMLButtonElement;
   act(() => {
     nextBtn.click();
@@ -84,9 +138,11 @@ function selectMode(el: HTMLDivElement, mode: BuildMode): void {
   // Step 1's default mode is already "tools" — only click a mode card when a
   // different mode is required.
   if (mode === "tools") return;
-  const key = mode === "json" ? "modeJsonTitle" : "modeBothTitle";
+  const title = mode === "json" ? "JSON" : "Tools + JSON";
+  // Mode cards render their title in its own <span>; match that exactly so
+  // "JSON" does not also pick the "Tools + JSON" card.
   const card = Array.from(el.querySelectorAll("button")).find((b) =>
-    b.textContent?.includes(key)
+    Array.from(b.querySelectorAll("span")).some((sp) => sp.textContent?.trim() === title)
   ) as HTMLButtonElement;
   act(() => {
     card.click();
@@ -119,7 +175,7 @@ describe("BuildTab", () => {
     const el = renderBuildTab();
     goToStep3(el);
     const runBtn = Array.from(el.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("runButton")
+      b.textContent?.includes("Run")
     );
     expect(runBtn).not.toBeUndefined();
   });
@@ -127,14 +183,14 @@ describe("BuildTab", () => {
   it("renders Function calling section", () => {
     const el = renderBuildTab();
     goToStep2(el, "tools");
-    expect(el.textContent).toContain("toolsLabel");
+    expect(el.textContent).toContain("Tools");
     expect(el.textContent).toContain("Add tool");
   });
 
   it("renders Structured output section", () => {
     const el = renderBuildTab();
     goToStep2(el, "json");
-    expect(el.textContent).toContain("structuredOutputLabel");
+    expect(el.textContent).toContain("Structured Output");
     expect(el.textContent).toContain("JSON mode");
   });
 
@@ -260,10 +316,10 @@ describe("BuildTab", () => {
     const promptTextarea = el.querySelector("textarea") as HTMLTextAreaElement;
     act(() => setInputValue(promptTextarea, "Run this tool"));
 
-    // Click Run (label is "runButton" via mocked t())
+    // Click Run
     const runBtns = el.querySelectorAll("button");
     const runBtn = Array.from(runBtns).find((b) =>
-      b.textContent?.includes("runButton")
+      b.textContent?.includes("Run")
     ) as HTMLButtonElement;
     await act(async () => {
       runBtn.click();

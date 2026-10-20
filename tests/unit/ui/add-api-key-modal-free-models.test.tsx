@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
+// Faithful next-intl double: resolves the real English copy from src/i18n/messages/en.json.
+// Must be the first import so the mock is registered before the component is evaluated.
+import "../../_setup/nextIntlDouble";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// next-intl: return the key so we can assert on stable strings.
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
-
 const { default: AddApiKeyModal } =
   await import("../../../src/app/(dashboard)/dashboard/providers/[id]/components/modals/AddApiKeyModal");
 
-const FREE_TOGGLE = 'button[role="switch"][aria-label="importFreeModelsOnlyLabel"]';
+// Real copy from the `providers` namespace of src/i18n/messages/en.json.
+const FREE_TOGGLE = 'button[role="switch"][aria-label="Import only free models"]';
+const NAME_PLACEHOLDER = "Production Key";
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
@@ -33,19 +33,37 @@ function render(props: Record<string, unknown>) {
   return el;
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
+async function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(async () => {
+  // act() must be awaited: a pending async act interleaves act scopes, so the
+  // controlled input's state update is not flushed before the next interaction.
+  await act(async () => {
     setter.call(input, value);
     await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
-async function waitFor(fn: () => boolean, timeoutMs = 2000) {
+async function click(el: Element) {
+  await act(async () => {
+    await el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function saveButton(el: HTMLElement) {
+  const btn = Array.from(el.querySelectorAll("button")).find(
+    (b) => b.textContent?.trim() === "Save"
+  );
+  if (!btn) throw new Error("save button not rendered");
+  return btn;
+}
+
+async function waitFor(fn: () => boolean, timeoutMs = 3000) {
   const start = Date.now();
   while (!fn()) {
     if (Date.now() - start > timeoutMs) throw new Error("waitFor timed out");
-    await new Promise((r) => setTimeout(r, 20));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
   }
 }
 
@@ -75,6 +93,8 @@ describe("AddApiKeyModal — import only free models", () => {
 
   it("hides the free-only toggle for a provider without free models", () => {
     const el = render({ provider: "anthropic", providerName: "Anthropic" });
+    // The form still renders; only the free-models toggle is absent.
+    expect(el.querySelector(`input[placeholder="${NAME_PLACEHOLDER}"]`)).toBeTruthy();
     expect(el.querySelector(FREE_TOGGLE)).toBeNull();
   });
 
@@ -82,22 +102,18 @@ describe("AddApiKeyModal — import only free models", () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const el = render({ provider: "openrouter", providerName: "OpenRouter", onSave });
 
-    const nameInput = el.querySelector<HTMLInputElement>('input[placeholder="productionKey"]')!;
+    const nameInput = el.querySelector<HTMLInputElement>(
+      `input[placeholder="${NAME_PLACEHOLDER}"]`
+    )!;
     const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
-    setInputValue(nameInput, "My OpenRouter");
-    setInputValue(apiKeyInput, "sk-or-test-key");
+    await setInputValue(nameInput, "My OpenRouter");
+    await setInputValue(apiKeyInput, "test-openrouter-credential");
 
     const toggle = el.querySelector<HTMLButtonElement>(FREE_TOGGLE)!;
-    act(async () => {
-      await toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(toggle);
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
 
-    const saveBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "save"
-    )!;
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];
@@ -110,23 +126,23 @@ describe("AddApiKeyModal — quota scraping fields", () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const el = render({ provider: "opencode-go", providerName: "OpenCode Go", onSave });
 
-    const nameInput = el.querySelector<HTMLInputElement>('input[placeholder="productionKey"]')!;
+    const nameInput = el.querySelector<HTMLInputElement>(
+      `input[placeholder="${NAME_PLACEHOLDER}"]`
+    )!;
     const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
     const workspaceInput = el.querySelector<HTMLInputElement>(
       'input[name="opencodeGoWorkspaceId"]'
-    )!;
-    const cookieInput = el.querySelector<HTMLInputElement>('input[name="opencodeGoAuthCookie"]')!;
-    setInputValue(nameInput, "OpenCode Go");
-    setInputValue(apiKeyInput, "sk-opencode-go-test");
-    setInputValue(workspaceInput, "workspace-123");
-    setInputValue(cookieInput, "auth=opencode-cookie");
+    );
+    const cookieInput = el.querySelector<HTMLInputElement>('input[name="opencodeGoAuthCookie"]');
+    expect(workspaceInput).toBeTruthy();
+    expect(cookieInput).toBeTruthy();
 
-    const saveBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "save"
-    )!;
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await setInputValue(nameInput, "OpenCode Go");
+    await setInputValue(apiKeyInput, "test-opencode-go-credential");
+    await setInputValue(workspaceInput!, "workspace-123");
+    await setInputValue(cookieInput!, "auth=opencode-cookie");
+
+    await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];
@@ -138,19 +154,18 @@ describe("AddApiKeyModal — quota scraping fields", () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const el = render({ provider: "ollama-cloud", providerName: "Ollama Cloud", onSave });
 
-    const nameInput = el.querySelector<HTMLInputElement>('input[placeholder="productionKey"]')!;
-    const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
-    const cookieInput = el.querySelector<HTMLInputElement>('input[name="ollamaCloudUsageCookie"]')!;
-    setInputValue(nameInput, "Ollama Cloud");
-    setInputValue(apiKeyInput, "ollama-key");
-    setInputValue(cookieInput, "__Secure-session=ollama-cookie");
-
-    const saveBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "save"
+    const nameInput = el.querySelector<HTMLInputElement>(
+      `input[placeholder="${NAME_PLACEHOLDER}"]`
     )!;
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
+    const cookieInput = el.querySelector<HTMLInputElement>('input[name="ollamaCloudUsageCookie"]');
+    expect(cookieInput).toBeTruthy();
+
+    await setInputValue(nameInput, "Ollama Cloud");
+    await setInputValue(apiKeyInput, "ollama-key");
+    await setInputValue(cookieInput!, "__Secure-session=ollama-cookie");
+
+    await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];

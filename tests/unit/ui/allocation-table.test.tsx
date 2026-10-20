@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
-
-const { default: AllocationTable } = await import(
-  "../../../src/app/(dashboard)/dashboard/costs/quota-share/components/AllocationTable"
-);
+const { default: AllocationTable } =
+  await import("../../../src/app/(dashboard)/dashboard/costs/quota-share/components/AllocationTable");
 
 const ALLOCATIONS = [
   { apiKeyId: "key_1", weight: 60, policy: "hard" as const },
@@ -23,8 +19,9 @@ let container: HTMLDivElement | null = null;
 let root: ReturnType<typeof createRoot> | null = null;
 
 async function render(props: Parameters<typeof AllocationTable>[0]) {
-  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-    true;
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement("div");
   document.body.appendChild(container);
   await act(async () => {
@@ -43,7 +40,7 @@ describe("AllocationTable", { timeout: 10000 }, () => {
 
   it("renders empty state when no allocations", async () => {
     await render({ allocations: [], usage: null, keyLabels: {} });
-    expect(document.body.innerHTML).toContain("noAllocations");
+    expect(document.body.innerHTML).toContain("No keys allocated yet");
   });
 
   it("renders key labels", async () => {
@@ -84,6 +81,6 @@ describe("AllocationTable", { timeout: 10000 }, () => {
     expect(document.body.innerHTML).toContain("300");
     expect(document.body.innerHTML).toContain("100");
     // borrowing indicator for key_2
-    expect(document.body.innerHTML).toContain("borrowingIndicator");
+    expect(document.body.innerHTML).toContain("borrowing");
   });
 });

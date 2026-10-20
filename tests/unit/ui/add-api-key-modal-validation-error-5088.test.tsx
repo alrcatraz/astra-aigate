@@ -46,9 +46,12 @@ function render(props: Record<string, unknown>) {
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(async () => {
+  // Synchronous act(): an un-awaited `act(async ...)` leaves the act scope open,
+  // so the click below queues without flushing and the validation result never
+  // reaches the DOM.
+  act(() => {
     setter.call(input, value);
-    await input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -103,8 +106,8 @@ describe("AddApiKeyModal — surfaces the detailed validation error (#5088)", ()
       (b) => (apiKeyInput.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
     )!;
     expect(checkBtn).toBeTruthy();
-    act(async () => {
-      await checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // The full reason must reach the DOM — a bare "invalid" badge is not enough.

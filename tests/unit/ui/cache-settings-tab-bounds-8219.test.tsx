@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,10 +9,6 @@ import CacheSettingsTab from "@/app/(dashboard)/dashboard/settings/components/Ca
 // bounds (MIN_TTL_MS=100, MAX_TTL_MS=60000) gate the Save button and surface
 // a validation message. This test proves those bounds actually work end to
 // end against the (now-fixed) /api/settings/cache-config route.
-
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
 
 const roots: Array<{ root: Root; el: HTMLDivElement }> = [];
 
@@ -34,21 +31,20 @@ function getInput(container: HTMLDivElement): HTMLInputElement {
 
 function getSaveButton(container: HTMLDivElement): HTMLButtonElement {
   const buttons = Array.from(container.querySelectorAll("button"));
-  const button = buttons.find((b) => b.textContent?.includes("modelCatalogCacheTtlSave"));
+  const button = buttons.find((b) => b.textContent?.trim() === "Save");
   if (!button) throw new Error("Save button not found");
   return button as HTMLButtonElement;
 }
 
-async function setInputValue(container: HTMLDivElement, value: string) {
+function setInputValue(container: HTMLDivElement, value: string) {
   const input = getInput(container);
-  // NOTE: this must be a *synchronous* act() — wrapping the dispatchEvent in
-  // `act(async () => { ... })` silently no-ops the value change here (the
-  // event fires but React's commit doesn't flush before the callback
-  // resolves), leaving the input showing its pre-dispatch value.
-  act(async () => {
+  // Must be a synchronous act(): handing a thenable to act() opens an async act
+  // scope that is never awaited, and every later act()/render in the file then
+  // queues without flushing — which surfaced here as "TTL input not found".
+  act(() => {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
     setter?.call(input, value);
-    await input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -107,7 +103,7 @@ describe("CacheSettingsTab TTL bounds", () => {
 
     await setInputValue(container, "50");
     await waitFor(
-      () => container.textContent?.includes("modelCatalogTtlMinimumError") ?? false,
+      () => container.textContent?.includes("Minimum is 100 ms") ?? false,
       "minimum bound error to render"
     );
 
@@ -120,7 +116,7 @@ describe("CacheSettingsTab TTL bounds", () => {
 
     await setInputValue(container, "70000");
     await waitFor(
-      () => container.textContent?.includes("modelCatalogTtlMaximumError") ?? false,
+      () => container.textContent?.includes("Maximum is 60000 ms") ?? false,
       "maximum bound error to render"
     );
 

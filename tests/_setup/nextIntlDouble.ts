@@ -28,7 +28,10 @@ type Messages = Record<string, unknown>;
 type Values = Record<string, unknown>;
 
 export function resolveMessage(namespace: string, key: string): string | undefined {
-  const parts = [namespace, ...key.split(".")].filter(Boolean);
+  // Namespaces themselves can be dotted (`playground.build` for BuildWizard), so
+  // the namespace is split too — treating it as one literal key silently returns
+  // undefined and the component then renders raw keys.
+  const parts = [...namespace.split("."), ...key.split(".")].filter(Boolean);
   let node: unknown = en as Messages;
   for (const part of parts) {
     if (node && typeof node === "object" && part in (node as Messages)) {

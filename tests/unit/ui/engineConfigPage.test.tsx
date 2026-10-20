@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import "../../_setup/nextIntlDouble";
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -104,6 +105,11 @@ const SETTINGS_PAYLOAD = {
   },
 };
 
+// EngineConfigPage localises schema field labels through the
+// compressionEngineConfig namespace (falling back to the schema's own label),
+// so assert the real English copy rather than the engine's raw `label`.
+const MIN_ROWS_LABEL = resolveMessage("compressionEngineConfig", "fields.minRows.label")!;
+
 function setupFetchMock() {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
     const url = input.toString();
@@ -202,8 +208,8 @@ describe("EngineConfigPage", () => {
       await Promise.resolve();
     });
 
-    // EngineConfigForm should render the "Min rows" field label from the schema
-    expect(container.textContent).toContain("Min rows");
+    // EngineConfigForm should render the localised "Min rows" field label from the schema
+    expect(container.textContent).toContain(MIN_ROWS_LABEL);
   });
 
   it("keeps detailed config but renders no engine enable checkbox", async () => {
@@ -223,7 +229,7 @@ describe("EngineConfigPage", () => {
     // The on/off enable toggle (a checkbox with data-toggle="enable") is gone; the
     // detailed config form (the schema fields minus `enabled`) still renders.
     expect(container.querySelector("input[type='checkbox'][data-toggle='enable']")).toBeNull();
-    expect(container.textContent).toContain("Min rows");
+    expect(container.textContent).toContain(MIN_ROWS_LABEL);
     expect(container.textContent).toContain("Configuration");
   });
 

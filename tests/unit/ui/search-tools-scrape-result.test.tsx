@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -6,18 +7,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
+// Translation comes from the shared next-intl double imported above: it resolves
+// the real `search.*` English copy (including `{size}` interpolation and the
+// "Close raw content modal" accessible name). A local key-echoing stub used to
+// live here and left the interpolation/tag text out of the DOM.
 
 // Lazy import of MarkdownMessage via ScrapeResult's dynamic import — mock it
-vi.mock(
-  "../../../src/app/(dashboard)/dashboard/playground/components/MarkdownMessage",
-  () => ({
-    default: ({ content }: { content: string }) =>
-      React.createElement("div", { "data-testid": "markdown-render" }, content),
-  }),
-);
+vi.mock("../../../src/app/(dashboard)/dashboard/playground/components/MarkdownMessage", () => ({
+  default: ({ content }: { content: string }) =>
+    React.createElement("div", { "data-testid": "markdown-render" }, content),
+}));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -38,9 +37,8 @@ function makeScrapeResult(content: string) {
 
 // ── Import component after mocks ──────────────────────────────────────────────
 
-const { default: ScrapeResult } = await import(
-  "../../../src/app/(dashboard)/dashboard/search-tools/components/ScrapeResult"
-);
+const { default: ScrapeResult } =
+  await import("../../../src/app/(dashboard)/dashboard/search-tools/components/ScrapeResult");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -52,7 +50,7 @@ function renderScrapeResult(content: string, latencyMs?: number): HTMLDivElement
   const root = createRoot(el);
   act(() => {
     root.render(
-      React.createElement(ScrapeResult, { result: makeScrapeResult(content), latencyMs }),
+      React.createElement(ScrapeResult, { result: makeScrapeResult(content), latencyMs })
     );
   });
   containers.push({ root, el });
@@ -63,7 +61,9 @@ function renderScrapeResult(content: string, latencyMs?: number): HTMLDivElement
 
 describe("ScrapeResult", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(() => {
@@ -178,7 +178,9 @@ describe("ScrapeResult", () => {
     act(() => {
       viewRawBtn.click();
     });
-    const rawModalContent = el.querySelector("[data-testid='raw-modal-content']") as HTMLTextAreaElement;
+    const rawModalContent = el.querySelector(
+      "[data-testid='raw-modal-content']"
+    ) as HTMLTextAreaElement;
     expect(rawModalContent).toBeTruthy();
     // Full content is in the modal
     expect(rawModalContent.value.length).toBe(longContent.length);

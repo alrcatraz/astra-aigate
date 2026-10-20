@@ -1,14 +1,11 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
-
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) =>
@@ -121,15 +118,13 @@ describe("ScrapeTab", () => {
     });
     const errorEl = el.querySelector("[data-testid='url-error']");
     expect(errorEl).toBeTruthy();
-    // next-intl is mocked as a key pass-through above (per repo convention), so the
-    // rendered text is the raw i18n key, not the translated "URL is required" copy.
-    expect(errorEl?.textContent).toContain("scrapeUrlRequired");
+    expect(errorEl?.textContent).toContain("URL is required");
   });
 
-  it("shows error for invalid URL", () => {
+  it("shows error for invalid URL", async () => {
     const el = renderScrapeTab();
     const input = el.querySelector("[data-testid='url-input']") as HTMLInputElement;
-    act(async () => {
+    await act(async () => {
       input.value = INVALID_URL;
       await input.dispatchEvent(new Event("input", { bubbles: true }));
       // Trigger React onChange via a proper event
@@ -162,7 +157,7 @@ describe("ScrapeTab", () => {
     const input = el.querySelector("[data-testid='url-input']") as HTMLInputElement;
 
     // Set value via React-like approach
-    act(async () => {
+    await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         "value"
@@ -199,7 +194,7 @@ describe("ScrapeTab", () => {
     const input = el.querySelector("[data-testid='url-input']") as HTMLInputElement;
 
     // Use React's onChange event to update state
-    act(async () => {
+    await act(async () => {
       const event = Object.create(Event.prototype, {
         target: { value: { value: input, writable: false, enumerable: true } },
         currentTarget: { value: { value: input, writable: false, enumerable: true } },
@@ -246,7 +241,7 @@ describe("ScrapeTab", () => {
     const el = renderScrapeTab();
     const input = el.querySelector("[data-testid='url-input']") as HTMLInputElement;
 
-    act(async () => {
+    await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         "value"
@@ -277,11 +272,11 @@ describe("ScrapeTab", () => {
     expect(link).toBeTruthy();
   });
 
-  it("FTP URL is rejected as invalid URL", () => {
+  it("FTP URL is rejected as invalid URL", async () => {
     const el = renderScrapeTab();
     const input = el.querySelector("[data-testid='url-input']") as HTMLInputElement;
 
-    act(async () => {
+    await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         "value"

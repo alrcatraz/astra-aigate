@@ -93,7 +93,10 @@ function renderCompareTab(config = BASE_CONFIG): HTMLDivElement {
   return el;
 }
 
-async function setInputValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+// Synchronous on purpose: `act(() => setInputValue(...))` must not receive a
+// thenable — React treats that as an un-awaited async act scope and every later
+// act() in the file then queues without flushing (empty DOM, null selectors).
+function setInputValue(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
   const nativeSetter = Object.getOwnPropertyDescriptor(
     el instanceof HTMLTextAreaElement
       ? window.HTMLTextAreaElement.prototype
@@ -101,8 +104,8 @@ async function setInputValue(el: HTMLInputElement | HTMLTextAreaElement, value: 
     "value"
   )?.set;
   nativeSetter?.call(el, value);
-  await el.dispatchEvent(new Event("input", { bubbles: true }));
-  await el.dispatchEvent(new Event("change", { bubbles: true }));
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 afterEach(() => {

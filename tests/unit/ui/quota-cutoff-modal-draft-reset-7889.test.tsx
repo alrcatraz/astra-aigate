@@ -35,9 +35,12 @@ function props(connectionId: string, persisted: number) {
 
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(async () => {
+  // Synchronous act(): an un-awaited `act(async ...)` keeps the act scope open,
+  // so the later root.render() calls queue without flushing and the modal keeps
+  // rendering the previous connection's props (looked like a draft-reset bug).
+  act(() => {
     setter.call(input, value);
-    await input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 

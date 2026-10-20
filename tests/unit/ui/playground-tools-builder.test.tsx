@@ -18,14 +18,17 @@ if (typeof Element.prototype.scrollIntoView === "undefined") {
   });
 }
 
-async function setInputValue(el: HTMLTextAreaElement | HTMLInputElement, value: string): void {
+// Synchronous on purpose: an async helper returned a promise out of `act()`,
+// which left React's act queue pending and made every later render in this file
+// commit nothing (empty container → null button queries).
+function setInputValue(el: HTMLTextAreaElement | HTMLInputElement, value: string): void {
   const nativeSetter =
     el instanceof HTMLTextAreaElement
       ? Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
       : Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
   nativeSetter?.call(el, value);
-  await el.dispatchEvent(new Event("input", { bubbles: true }));
-  await el.dispatchEvent(new Event("change", { bubbles: true }));
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 // Wrapper component to expose the useToolsBuilder hook

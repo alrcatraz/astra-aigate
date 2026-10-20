@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import "../../_setup/nextIntlDouble";
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -9,6 +9,47 @@ const { DEFAULT_PARAMS } =
   await import("../../../src/app/(dashboard)/dashboard/playground/components/ParamSliders");
 const { default: ImprovePromptButton } =
   await import("../../../src/app/(dashboard)/dashboard/playground/components/ImprovePromptButton");
+
+// The shared next-intl double returns `t.rich()` as plain text, so the `<model>`
+// tag in `improvePromptDescription` comes out as an empty element and the
+// configured model name never reaches the DOM. The component renders the model
+// through that tag, so give this file's (cached, stable) translator the same
+// `<tag>…</tag>` handling real next-intl provides.
+type RichValues = Record<string, unknown>;
+type PlaygroundTranslator = ((key: string) => string) & {
+  raw: (key: string) => string;
+  rich: (key: string, values?: RichValues) => React.ReactNode;
+};
+
+// Built straight from the message catalogue rather than by calling the hook at
+// module scope: `useTranslations` is a React hook, and invoking it outside a
+// component is both a lint error and a false claim about how the component
+// resolves its copy.
+const playgroundT = ((key: string) =>
+  resolveMessage("playground", key) ?? key) as PlaygroundTranslator;
+playgroundT.raw = (key: string) => resolveMessage("playground", key) ?? key;
+playgroundT.rich = (key, values = {}) => {
+  const template = playgroundT.raw(key);
+  const nodes: React.ReactNode[] = [];
+  const tagRe = /<(\w+)>([\s\S]*?)<\/\1>/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null = null;
+
+  while ((match = tagRe.exec(template)) !== null) {
+    if (match.index > cursor) nodes.push(template.slice(cursor, match.index));
+    const renderTag = values[match[1]];
+    const inner = match[2] || undefined;
+    nodes.push(
+      typeof renderTag === "function"
+        ? (renderTag as (children?: React.ReactNode) => React.ReactNode)(inner)
+        : inner
+    );
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < template.length) nodes.push(template.slice(cursor));
+
+  return React.createElement(React.Fragment, null, ...nodes);
+};
 
 const BASE_CONFIG = {
   endpoint: "chat.completions" as const,
