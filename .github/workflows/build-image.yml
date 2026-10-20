@@ -49,6 +49,12 @@ env:
 
 jobs:
   build:
+    # Observation-only environment (no branch/tag restrictions, no reviewers):
+    # records each publish as a deployment on the Environments page. The
+    # release-only gate stays in the workflow layer — the `on.push.tags`
+    # trigger and the Resolve-image-tags step — because that is reviewable
+    # in code and must keep allowing manual workflow_dispatch builds.
+    environment: production
     runs-on: ubuntu-latest
     # GHCR publishing is GitHub-Actions-only by design (2026-09-25): a
     # non-GitHub runner cannot authenticate to ghcr.io (its workflow JWT is
