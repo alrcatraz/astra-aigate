@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 // #2166 — ProviderIcon custom remote icon URL (`src` prop) support.
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";

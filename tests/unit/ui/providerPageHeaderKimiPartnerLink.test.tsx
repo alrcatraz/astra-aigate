@@ -6,6 +6,7 @@
  * featuredProviders.ts (isKimiPartnerProviderId) and the aff-link URLs
  * asserted in tests/unit/kimi-partner-aff-links.test.ts.
  */
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";

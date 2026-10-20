@@ -3,6 +3,7 @@
 // UI test for the opt-in Claude Code auto-permission classifier compat toggle.
 // Verifies it reads the current mode from GET /api/settings, renders "off" by
 // default, and cycles off → auto → always by PATCHing /api/settings.
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -44,9 +45,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const { default: ClaudeClassifierCompatToggle } = await import(
-  "@/app/(dashboard)/dashboard/cli-code/components/ClaudeClassifierCompatToggle"
-);
+const { default: ClaudeClassifierCompatToggle } =
+  await import("@/app/(dashboard)/dashboard/cli-code/components/ClaudeClassifierCompatToggle");
 
 async function renderToggle() {
   const container = document.createElement("div");

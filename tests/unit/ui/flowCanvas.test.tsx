@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import React, { act } from "react";

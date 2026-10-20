@@ -1,3 +1,4 @@
+import "../../_setup/nextIntlDouble";
 import { describe, expect, it } from "vitest";
 
 import {

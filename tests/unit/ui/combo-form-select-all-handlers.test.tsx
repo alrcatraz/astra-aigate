@@ -7,6 +7,7 @@
 // tests/unit/combo-select-all-batch-8526.test.ts (this file's location,
 // tests/unit/ui/*.test.tsx, is only collected by the advisory
 // `test:vitest:ui` — see CONTRIBUTING.md "Both test runners must pass").
+import "../../_setup/nextIntlDouble";
 import { describe, expect, it } from "vitest";
 import {
   computeBatchAddModelSteps,

@@ -6,6 +6,7 @@
  * ProviderIcon-icon-url.test.tsx; the lmarena/lma THEMED_SVGS pair is the
  * existing precedent this follows.
  */
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
