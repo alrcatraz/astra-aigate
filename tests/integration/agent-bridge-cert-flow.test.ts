@@ -80,11 +80,15 @@ test("GET /cert: error response does not leak stack trace", async () => {
 // ── POST /cert (trust — mocked OS) ────────────────────────────────────────
 
 test("POST /cert: returns 404 when no cert file", async () => {
+  // A non-empty password keeps the sudo gate (src/mitm/sudoGate.ts) from
+  // short-circuiting with 400 "Missing sudoPassword" on a non-root Linux
+  // runner — otherwise this asserts the platform's sudo configuration instead
+  // of the missing-certificate path it is named for.
   const res = await certRoute.POST(
     new Request("http://localhost/", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sudoPassword: "" }),
+      body: JSON.stringify({ sudoPassword: "test-sudo-password" }),
     })
   );
   assert.equal(res.status, 404);
