@@ -110,3 +110,17 @@
   --table-cell-border: rgba(0, 0, 0, 0.04);
   --table-row-selected: rgba(99, 102, 241, 0.1);
 }
+
+/* React Flow loads its component stylesheet after this global file in some
+   bundles, so direct background/fill declarations can lose to its shorthand
+   rules. Override the supported theme variables on our canvas instead.
+   (Dropped by the Expo shell rewrite while FlowCanvas kept rendering the
+   `omniroute-flow` hook — restored so the Controls stop falling back to
+   React Flow's own palette.) */
+.react-flow.omniroute-flow {
+  --xy-controls-button-background-color: var(--color-surface);
+  --xy-controls-button-background-color-hover: var(--color-bg-subtle);
+  --xy-controls-button-color: var(--color-text-main);
+  --xy-controls-button-color-hover: var(--color-text-main);
+  --xy-controls-button-border-color: var(--color-border);
+}
