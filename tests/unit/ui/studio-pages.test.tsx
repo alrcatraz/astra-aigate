@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import CompressionStudioPage from "@/app/(dashboard)/dashboard/compression/studio/page";
 import ComboLiveStudioPage from "@/app/(dashboard)/dashboard/combos/live/page";
+import { NextIntlClientProvider } from "next-intl";
+import enMessages from "../../../src/i18n/messages/en.json";
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -29,7 +31,13 @@ function mount(ui: React.ReactElement): HTMLElement {
   containers.push(container);
   const root = createRoot(container);
   act(() => {
-    root.render(ui);
+    // Both pages read copy through next-intl; the app shell that normally
+    // provides it does not exist under jsdom.
+    root.render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        {ui}
+      </NextIntlClientProvider>
+    );
   });
   return container;
 }
