@@ -70,7 +70,7 @@ test("reasoning_effort low maps to thinkingBudget 1024", async () => {
 test("reasoning_effort medium falls back to the model default budget (>=1024)", async () => {
   const r = (await openaiToGeminiRequest(
     "custom-model",
-    { ...base({ reasoning_effort: "medium" }), model: "custom-model" },
+    { ...(await base({ reasoning_effort: "medium" })), model: "custom-model" },
     false
   )) as GeminiReq;
   assert.ok((r.generationConfig?.thinkingConfig?.thinkingBudget ?? 0) >= 1024);

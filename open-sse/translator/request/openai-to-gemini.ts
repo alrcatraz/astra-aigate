@@ -247,7 +247,7 @@ async function openaiToGeminiBase(
       const budgetMap: Record<string, number> = {
         none: 0,
         low: await capThinkingBudget(model, 1024),
-        medium: await capThinkingBudget(model, getDefaultThinkingBudget(model) || 8192),
+        medium: await capThinkingBudget(model, (await getDefaultThinkingBudget(model)) || 8192),
         high: highBudget,
         auto: highBudget,
         max: highBudget,
@@ -255,7 +255,7 @@ async function openaiToGeminiBase(
       };
       const budget =
         budgetMap[body.reasoning_effort as string] ??
-        (await capThinkingBudget(model, getDefaultThinkingBudget(model) ?? 8192));
+        (await capThinkingBudget(model, (await getDefaultThinkingBudget(model)) ?? 8192));
       // Always send thinkingConfig on this path — including for models with
       // thinkingBudgetCap:0 (e.g. gemini-3-flash), where the cap collapses the
       // requested budget down to 0. Omitting thinkingConfig entirely here regressed
@@ -316,7 +316,8 @@ async function openaiToGeminiBase(
       getModelSpec(model)?.thinkingBudgetCap !== 0
     ) {
       result.generationConfig.thinkingConfig = {
-        thinkingBudget: getDefaultThinkingBudget(model) || (await capThinkingBudget(model, 24576)),
+        thinkingBudget:
+          (await getDefaultThinkingBudget(model)) || (await capThinkingBudget(model, 24576)),
         includeThoughts: true,
       };
     }

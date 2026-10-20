@@ -161,19 +161,24 @@ test("getModelLatencyStats aggregates success rate and latency percentiles", asy
 });
 
 test("getModelLatencyStats falls back to all latencies when successful sample count is too small", async () => {
+  // Distinct timestamps: the usage-history dedup guard keys on
+  // timestamp+provider+model+connection+apiKey+tokens (not success/latency), so
+  // two writes inside the same millisecond collapse into one row and the
+  // "too few successful samples" branch never sees 2 requests.
+  const now = Date.now();
   await usageHistory.saveRequestUsage({
     provider: "fallback-provider",
     model: "fallback-model",
     success: true,
     latencyMs: 100,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date(now - 2000).toISOString(),
   });
   await usageHistory.saveRequestUsage({
     provider: "fallback-provider",
     model: "fallback-model",
     success: false,
     latencyMs: 500,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date(now - 1000).toISOString(),
   });
 
   const stats = await usageHistory.getModelLatencyStats({
