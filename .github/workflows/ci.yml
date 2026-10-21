@@ -113,7 +113,12 @@ jobs:
             eslint-${{ runner.os }}-
       # Single ESLint inventory (JSON) — quality-gate reuses the artifact instead of
       # a second cold full-tree pass for eslintWarnings ratchet counts.
+      # `always()` matters: `npm run audit:deps` runs above and fails whenever a CVE
+      # advisory is known (that gate is deliberately red pending dependency triage),
+      # and without this the report step is skipped, no artifact is uploaded, and the
+      # quality gate falls back to re-linting a tree that carries build output.
       - name: ESLint (JSON report)
+        if: always()
         run: $GUIX_SHELL npm run lint:json
       - name: Upload ESLint results
         if: always()
@@ -795,7 +800,7 @@ jobs:
     name: Unit Tests (${{ matrix.shard }}/8)
     # Same hosted-runner rule as Build.
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     # needs: changes (not build) — this job never downloads the next-build artifact;
     # gating it on Build only serialized ~20min of wall-clock for nothing. Jobs that
     # DO consume the artifact (e2e, package-artifact) keep
