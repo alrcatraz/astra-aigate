@@ -178,7 +178,12 @@ describe("PresetPicker", () => {
 
     // Enter name
     const nameInput = el.querySelector("input[type='text']") as HTMLInputElement;
-    act(() => setInputValue(nameInput, "Test preset"));
+    // setInputValue() is async: an un-awaited sync act() here left React's act
+    // scope open, so the NEXT test's renders queued forever and its save-modal
+    // submit button read back as null.
+    await act(async () => {
+      await setInputValue(nameInput, "Test preset");
+    });
 
     // Submit
     const submitBtn = el.querySelector("[role='dialog'] button:last-child") as HTMLButtonElement;

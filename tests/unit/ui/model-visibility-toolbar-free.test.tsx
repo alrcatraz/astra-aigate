@@ -12,11 +12,11 @@ const t: any = Object.assign((k: string) => k, { has: () => false });
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
-function render(extra: Record<string, unknown>) {
+async function render(extra: Record<string, unknown>) {
   const el = document.createElement("div");
   document.body.appendChild(el);
   const root = createRoot(el);
-  act(() => {
+  await act(async () => {
     root.render(
       <ModelVisibilityToolbar
         t={t}
@@ -48,38 +48,38 @@ afterEach(() => {
 });
 
 describe("ModelVisibilityToolbar — free filter & sort", () => {
-  it("does not render free-filter or sort controls when their props are absent", () => {
-    const el = render({});
+  it("does not render free-filter or sort controls when their props are absent", async () => {
+    const el = await render({});
     expect(byText(el, "Free only")).toBeUndefined();
     expect(byTextIncludes(el, "Free first")).toBeUndefined();
   });
 
-  it("renders All / Free only / Paid only when freeFilter props are provided", () => {
-    const el = render({ freeFilter: "all", onFreeFilterChange: () => {} });
+  it("renders All / Free only / Paid only when freeFilter props are provided", async () => {
+    const el = await render({ freeFilter: "all", onFreeFilterChange: () => {} });
     expect(byText(el, "Free only")).toBeTruthy();
     expect(byText(el, "Paid only")).toBeTruthy();
   });
 
-  it("fires onFreeFilterChange with the chosen filter", () => {
+  it("fires onFreeFilterChange with the chosen filter", async () => {
     const onFreeFilterChange = vi.fn();
-    const el = render({ freeFilter: "all", onFreeFilterChange });
-    act(async () => {
-      await byText(el, "Free only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const el = await render({ freeFilter: "all", onFreeFilterChange });
+    await act(async () => {
+      byText(el, "Free only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onFreeFilterChange).toHaveBeenCalledWith("free");
-    act(async () => {
-      await byText(el, "Paid only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      byText(el, "Paid only")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onFreeFilterChange).toHaveBeenCalledWith("paid");
   });
 
-  it("toggles sort free-first", () => {
+  it("toggles sort free-first", async () => {
     const onSortFreeFirstChange = vi.fn();
-    const el = render({ sortFreeFirst: false, onSortFreeFirstChange });
+    const el = await render({ sortFreeFirst: false, onSortFreeFirstChange });
     const btn = byTextIncludes(el, "Free first")!;
     expect(btn.getAttribute("aria-pressed")).toBe("false");
-    act(async () => {
-      await btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onSortFreeFirstChange).toHaveBeenCalledWith(true);
   });

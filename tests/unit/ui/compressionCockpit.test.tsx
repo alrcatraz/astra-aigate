@@ -57,8 +57,10 @@ function mount(ui: React.ReactElement): HTMLElement {
 }
 
 function click(el: Element | null): void {
-  act(async () => {
-    await el?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  // Keep act() synchronous — an un-awaited async act leaves React's act queue open,
+  // so the queued re-render (the view switch) never flushes before we assert.
+  act(() => {
+    el?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 

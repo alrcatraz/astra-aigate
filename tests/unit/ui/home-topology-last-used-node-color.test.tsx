@@ -48,9 +48,8 @@ vi.mock("@xyflow/react", () => ({
   Position: { Top: "top", Bottom: "bottom", Left: "left", Right: "right" },
 }));
 
-const ProviderTopology = (
-  await import("../../../src/app/(dashboard)/home/ProviderTopology")
-).default;
+const ProviderTopology = (await import("../../../src/app/(dashboard)/home/ProviderTopology"))
+  .default;
 
 // jsdom normalises inline hex colours to `rgb(...)`, so compare in that space.
 const rgb = (hex: string) => {
@@ -60,6 +59,9 @@ const rgb = (hex: string) => {
 const GREEN = rgb(FLOW_EDGE_COLORS.active);
 const AMBER = rgb(FLOW_EDGE_COLORS.last);
 const RED = rgb(FLOW_EDGE_COLORS.error);
+// Idle nodes use the Expo design-language surface stroke (a literal, so jsdom computes
+// it to rgb); the tokenised `var(--color-border)` was replaced in 93f7cbe1.
+const IDLE_GREY = rgb("#e0e1e6");
 
 let container: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
@@ -120,7 +122,7 @@ it("keeps the connected border on the last-routed provider and marks recency on 
 
 it("still greys out a provider that is genuinely idle", () => {
   render([{ id: "a", provider: "kimi-coding", name: "Kimi", status: "idle" }]);
-  expect(box("kimi-coding").style.borderColor).toBe("var(--color-border)");
+  expect(box("kimi-coding").style.borderColor).toBe(IDLE_GREY);
   expect(dot("kimi-coding")).toBeNull();
 });
 

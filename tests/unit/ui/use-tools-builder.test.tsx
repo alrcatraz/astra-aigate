@@ -5,13 +5,19 @@
 import "../../_setup/nextIntlDouble";
 import React, { act, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { useToolsBuilder } from "../../../src/app/(dashboard)/dashboard/playground/hooks/useToolsBuilder";
 import type { ToolDefinition } from "../../../src/lib/playground/codeExport";
 
 // ─── Minimal hook test harness ────────────────────────────────────────────────
 
 type HookResult<T> = { current: T };
+
+beforeEach(() => {
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 function mountHook<T>(useHook: () => T): {
   hookRef: HookResult<T>;
@@ -192,10 +198,10 @@ describe("useToolsBuilder", () => {
       unmount();
     });
 
-    it("re-indexes errors after remove", () => {
+    it("re-indexes errors after remove", async () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
-      act(async () => {
+      await act(async () => {
         result.current.add(VALID_TOOL);
         result.current.add(VALID_TOOL_2);
         // Trigger an error on index 1 via update with invalid tool
@@ -220,7 +226,7 @@ describe("useToolsBuilder", () => {
   });
 
   describe("update()", () => {
-    it("updates a tool at given index after validation", () => {
+    it("updates a tool at given index after validation", async () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
       act(() => {
@@ -233,7 +239,7 @@ describe("useToolsBuilder", () => {
       };
 
       let outcome: ReturnType<typeof result.current.update> | undefined;
-      act(async () => {
+      await act(async () => {
         outcome = await result.current.update(0, updated);
       });
 
@@ -243,7 +249,7 @@ describe("useToolsBuilder", () => {
       unmount();
     });
 
-    it("returns { ok: false, error } and stores error when validation fails", () => {
+    it("returns { ok: false, error } and stores error when validation fails", async () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
       act(() => {
@@ -251,7 +257,7 @@ describe("useToolsBuilder", () => {
       });
 
       let outcome: ReturnType<typeof result.current.update> | undefined;
-      act(async () => {
+      await act(async () => {
         outcome = await result.current.update(0, {
           type: "function",
           function: { name: "", parameters: {} },
@@ -265,10 +271,10 @@ describe("useToolsBuilder", () => {
       unmount();
     });
 
-    it("clears error for that index on successful update", () => {
+    it("clears error for that index on successful update", async () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
-      act(async () => {
+      await act(async () => {
         result.current.add(VALID_TOOL);
         await result.current.update(0, {
           type: "function",
@@ -277,7 +283,7 @@ describe("useToolsBuilder", () => {
       });
       expect(result.current.errors.has(0)).toBe(true);
 
-      act(async () => {
+      await act(async () => {
         await result.current.update(0, VALID_TOOL_2);
       });
       expect(result.current.errors.has(0)).toBe(false);
@@ -286,10 +292,10 @@ describe("useToolsBuilder", () => {
   });
 
   describe("clear()", () => {
-    it("removes all tools and clears all errors", () => {
+    it("removes all tools and clears all errors", async () => {
       const { hookRef: result, unmount } = mountHook(() => useToolsBuilder());
 
-      act(async () => {
+      await act(async () => {
         result.current.add(VALID_TOOL);
         result.current.add(VALID_TOOL_2);
         await result.current.update(0, {

@@ -29,7 +29,13 @@ const playgroundT = ((key: string) =>
   resolveMessage("playground", key) ?? key) as PlaygroundTranslator;
 playgroundT.raw = (key: string) => resolveMessage("playground", key) ?? key;
 playgroundT.rich = (key, values = {}) => {
-  const template = playgroundT.raw(key);
+  // Interpolate scalars first: the catalogue stores the confirmation as
+  // "… <model>{model}</model> …", so without this the tag renders its own
+  // placeholder text instead of the configured model name.
+  const template = (playgroundT.raw(key) ?? key).replace(/\{(\w+)\}/g, (whole, name: string) => {
+    const value = values[name];
+    return typeof value === "string" || typeof value === "number" ? String(value) : whole;
+  });
   const nodes: React.ReactNode[] = [];
   const tagRe = /<(\w+)>([\s\S]*?)<\/\1>/g;
   let cursor = 0;

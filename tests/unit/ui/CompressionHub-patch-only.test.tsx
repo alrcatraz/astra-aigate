@@ -41,7 +41,7 @@ const mockFetch = vi.fn().mockImplementation((url: string, init: RequestInit) =>
 vi.stubGlobal("fetch", mockFetch);
 
 // Import after mocks are in place
-import CompressionHub from "../../../src/app/(dashboard)/dashboard/context/combos/CompressionHub";
+import CompressionHub from "../../../src/app/(dashboard)/dashboard/context/CompressionHub";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

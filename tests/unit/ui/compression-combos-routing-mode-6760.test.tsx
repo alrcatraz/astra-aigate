@@ -112,10 +112,11 @@ describe("CompressionCombosPageClient — routing-combo compression mode selecto
     expect(container.textContent).toContain("Routing Bravo");
     const selects = Array.from(container.querySelectorAll("select")) as HTMLSelectElement[];
     // one per routing combo (2) — the shared ComboCompressionModeSelect renders exactly
-    // the 6-option Default/Off/Lite/Standard/Aggressive/Ultra set.
+    // the Default/Off/Lite/Standard/Aggressive/Ultra/Responses set.
+    const MODE_OPTIONS = ",off,lite,standard,aggressive,ultra,codex-responses";
     const modeSelects = selects.filter((s) => {
       const values = Array.from(s.options).map((o) => o.value);
-      return values.join(",") === ",off,lite,standard,aggressive,ultra";
+      return values.join(",") === MODE_OPTIONS;
     });
     expect(modeSelects).toHaveLength(2);
     expect(modeSelects[0].value).toBe("lite");
@@ -128,7 +129,7 @@ describe("CompressionCombosPageClient — routing-combo compression mode selecto
     const selects = Array.from(container.querySelectorAll("select")) as HTMLSelectElement[];
     const modeSelects = selects.filter((s) => {
       const values = Array.from(s.options).map((o) => o.value);
-      return values.join(",") === ",off,lite,standard,aggressive,ultra";
+      return values.join(",") === ",off,lite,standard,aggressive,ultra,codex-responses";
     });
     await act(async () => {
       modeSelects[0].value = "ultra";

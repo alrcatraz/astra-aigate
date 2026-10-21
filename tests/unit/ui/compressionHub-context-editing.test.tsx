@@ -138,7 +138,7 @@ describe("CompressionHub — Context Editing", () => {
   it("renders the delegated-compression section with the Context Editing toggle", async () => {
     setupFetchMock({ contextEditingEnabled: false });
     const { default: CompressionHub } =
-      await import("../../../src/app/(dashboard)/dashboard/context/combos/CompressionHub");
+      await import("../../../src/app/(dashboard)/dashboard/context/CompressionHub");
 
     let container!: HTMLElement;
     await act(async () => {
@@ -157,7 +157,7 @@ describe("CompressionHub — Context Editing", () => {
   it("renders the Claude-only delegated note", async () => {
     setupFetchMock({ contextEditingEnabled: false });
     const { default: CompressionHub } =
-      await import("../../../src/app/(dashboard)/dashboard/context/combos/CompressionHub");
+      await import("../../../src/app/(dashboard)/dashboard/context/CompressionHub");
 
     let container!: HTMLElement;
     await act(async () => {
@@ -173,7 +173,7 @@ describe("CompressionHub — Context Editing", () => {
   it("PUTs contextEditing: { enabled: true } when the toggle is flipped on", async () => {
     const calls = setupFetchMock({ contextEditingEnabled: false });
     const { default: CompressionHub } =
-      await import("../../../src/app/(dashboard)/dashboard/context/combos/CompressionHub");
+      await import("../../../src/app/(dashboard)/dashboard/context/CompressionHub");
 
     let container!: HTMLElement;
     await act(async () => {

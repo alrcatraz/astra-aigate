@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
-
+// next-intl comes from the shared double: the pane's labels, placeholder and
+// collapse/expand aria-labels are REAL `playground.*` copy, and the identity
+// key mock rendered `configPane`/`collapseConfig` instead (no such aria-label).
 vi.mock("@/lib/playground/codeExport", () => ({
   endpointToPath: (ep: string) => `/v1/${ep}`,
 }));
@@ -80,7 +80,7 @@ describe("StudioConfigPane", () => {
     const config = makeConfig();
     const el = renderPane(config, vi.fn());
     // Config label should be visible
-    expect(el.textContent).toContain("Config");
+    expect(el.textContent).toContain(resolveMessage("playground", "configPane"));
   });
 
   it("renders system prompt textarea", () => {
@@ -91,7 +91,7 @@ describe("StudioConfigPane", () => {
     expect(textarea?.value).toBe("You are a helpful assistant.");
   });
 
-  it("calls setConfigState when model input changes", () => {
+  it("calls setConfigState when model input changes", async () => {
     const config = makeConfig();
     const setConfigState = vi.fn();
     const el = renderPane(config, setConfigState);
@@ -103,7 +103,10 @@ describe("StudioConfigPane", () => {
 
     expect(modelInput).toBeTruthy();
     if (modelInput) {
-      act(async () => {
+      // MUST be awaited: an un-awaited `act(async …)` leaves React's act scope
+      // open, so every later render in the file is queued and never flushed
+      // (the DOM then reads back empty).
+      await act(async () => {
         // React 19 requires nativeInputValueSetter for synthetic event simulation
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
           window.HTMLInputElement.prototype,
@@ -167,7 +170,7 @@ describe("StudioConfigPane", () => {
     expect(sliders.length).toBeGreaterThan(0);
   });
 
-  it("calls setConfigState with updated params when slider changes", () => {
+  it("calls setConfigState with updated params when slider changes", async () => {
     const config = makeConfig();
     const setConfigState = vi.fn();
     const el = renderPane(config, setConfigState);
@@ -175,7 +178,7 @@ describe("StudioConfigPane", () => {
     const rangeInputs = el.querySelectorAll("input[type='range']");
     expect(rangeInputs.length).toBeGreaterThan(0);
 
-    act(async () => {
+    await act(async () => {
       const slider = rangeInputs[0] as HTMLInputElement;
       // Use nativeInputValueSetter for React 19 synthetic event simulation
       const nativeRangeValueSetter = Object.getOwnPropertyDescriptor(

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -20,22 +21,9 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => {
-    const messages: Record<string, string> = {
-      "card.detected": "Detected",
-      "card.notDetected": "Not detected",
-      "card.configure": "Configure →",
-      "card.howToInstall": "How to install →",
-      "card.baseUrlPartial": "Partial Base URL",
-      "card.alsoAcp": "also ACP",
-      "card.connectProviderHint": "Connect a provider in Providers",
-    };
-    return (key: string) => messages[key] ?? key;
-  },
-  useLocale: () => "en",
-}));
-
+// next-intl comes from the shared double (../../_setup/nextIntlDouble), which
+// resolves the REAL `cliCommon.card.*` copy — a hand-maintained key map drifts
+// and silently renders `card.versionNotFound` as literal text.
 // Stub CliStatusBadge so it doesn't need next-intl internals
 vi.mock("@/app/(dashboard)/dashboard/cli-code/components/CliStatusBadge", () => ({
   default: ({
@@ -146,7 +134,7 @@ describe("CliToolCard", () => {
       detection: { installed: false, runnable: false, version: undefined },
     });
     const container = renderCard(makeTool(), status, "/detail", true);
-    expect(container.textContent).toContain("not found");
+    expect(container.textContent).toContain(resolveMessage("cliCommon", "card.versionNotFound"));
   });
 
   it("shows configure footer when installed", () => {
@@ -185,7 +173,7 @@ describe("CliToolCard", () => {
     });
     const tool = makeTool({ configType: "custom" });
     const container = renderCard(tool, status, "/detail", true);
-    expect(container.textContent).toContain("Manual config");
+    expect(container.textContent).toContain(resolveMessage("cliCommon", "card.manualConfig"));
     expect(container.textContent).toContain("Install");
   });
 
@@ -201,6 +189,6 @@ describe("CliToolCard", () => {
   it("renders gracefully with null batchStatus", () => {
     const container = renderCard(makeTool(), null, "/detail", true);
     expect(container.textContent).toContain("Claude Code");
-    expect(container.textContent).toContain("not found");
+    expect(container.textContent).toContain(resolveMessage("cliCommon", "card.versionNotFound"));
   });
 });

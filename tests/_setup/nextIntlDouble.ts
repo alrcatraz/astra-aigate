@@ -21,6 +21,7 @@
  *    assert on English strings and accessible names derived from them, not on
  *    `namespace.key` placeholders.
  */
+import React from "react";
 import { vi } from "vitest";
 import en from "../../src/i18n/messages/en.json";
 
@@ -70,10 +71,33 @@ function translatorFor(namespace: string) {
   }) as Translator;
 
   t.has = (key: string) => resolveMessage(namespace, key) !== undefined;
-  // `t.rich`/`t.markup` take React nodes or tag renderers for rich text. jsdom
-  // assertions here only look at the resulting text, so returning the plain
-  // interpolated string is faithful enough (and keeps the fixture small).
-  t.rich = (key: string, values?: Values) => t(key, values);
+  // `t.rich` must actually render the tags: catalogue copy such as
+  // "send this to <model></model> to improve it" pairs the tag with a renderer
+  // supplied by the component, and returning the raw string would drop that
+  // content entirely (the model name never reaches the DOM).
+  t.rich = (key: string, values?: Values) => {
+    const template = interpolate(resolveMessage(namespace, key) ?? key, values);
+    const nodes: React.ReactNode[] = [];
+    const tagRe = /<(\w+)>([\s\S]*?)<\/\1>/g;
+    let cursor = 0;
+    let match: RegExpExecArray | null = null;
+    let index = 0;
+    while ((match = tagRe.exec(template)) !== null) {
+      if (match.index > cursor) nodes.push(template.slice(cursor, match.index));
+      const renderer = values?.[match[1]];
+      const inner = match[2] || undefined;
+      nodes.push(
+        typeof renderer === "function"
+          ? (renderer as (children?: React.ReactNode) => React.ReactNode)(inner)
+          : (renderer ?? inner)
+      );
+      cursor = match.index + match[0].length;
+      index++;
+    }
+    if (cursor < template.length) nodes.push(template.slice(cursor));
+    if (nodes.length === 0) return template;
+    return React.createElement(React.Fragment, { key: index }, ...nodes);
+  };
   t.markup = (key: string, values?: Values) => t(key, values);
   t.raw = (key: string) => resolveMessage(namespace, key) ?? key;
   translators.set(namespace, t);

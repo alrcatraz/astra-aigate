@@ -4,17 +4,18 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { EngineConfigField } from "@omniroute/open-sse/services/compression/engines/types";
+import { EngineConfigForm } from "../../../src/shared/components/compression/EngineConfigForm";
 
 const containers: HTMLElement[] = [];
 const roots: Array<{ unmount: () => void }> = [];
 
-function mount(ui: React.ReactElement): HTMLElement {
+async function mount(ui: React.ReactElement): Promise<HTMLElement> {
   const container = document.createElement("div");
   document.body.appendChild(container);
   containers.push(container);
   const root = createRoot(container);
   roots.push(root);
-  act(() => {
+  await act(async () => {
     root.render(ui);
   });
   return container;
@@ -96,10 +97,8 @@ const INITIAL_VALUE: Record<string, unknown> = {
 
 describe("EngineConfigForm", () => {
   it("renders a checkbox for the boolean field", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -114,10 +113,8 @@ describe("EngineConfigForm", () => {
   });
 
   it("renders a number input with min/max for the number field", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -129,10 +126,8 @@ describe("EngineConfigForm", () => {
   });
 
   it("renders a text input for the string field", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -143,10 +138,8 @@ describe("EngineConfigForm", () => {
   });
 
   it("renders a select with 2 options for the select field", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -160,10 +153,8 @@ describe("EngineConfigForm", () => {
   });
 
   it("renders 2 checkboxes for the multiselect field", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -176,10 +167,8 @@ describe("EngineConfigForm", () => {
   });
 
   it("calls onChange with flipped boolean when checkbox is toggled", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -190,18 +179,16 @@ describe("EngineConfigForm", () => {
     // React listens to the native "click" event for checkboxes; setting
     // .checked + dispatching a MouseEvent("click") is what triggers the
     // synthetic onChange handler in jsdom.
-    act(async () => {
-      await checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onChange).toHaveBeenCalledWith({ ...INITIAL_VALUE, enabled: true });
   });
 
   it("calls onChange with new number when number input changes", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -213,19 +200,19 @@ describe("EngineConfigForm", () => {
       "value"
     )?.set;
 
-    act(async () => {
+    // React's onChange for text-like inputs (including type=number) is wired to
+    // the native "input" event, not "change".
+    await act(async () => {
       nativeSetter?.call(numInput, "2048");
-      await numInput.dispatchEvent(new Event("change", { bubbles: true }));
+      numInput.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
     expect(onChange).toHaveBeenCalledWith({ ...INITIAL_VALUE, maxTokens: 2048 });
   });
 
   it("calls onChange with updated array when a multiselect option is checked", async () => {
-    const { EngineConfigForm } =
-      await import("../../../src/shared/components/compression/EngineConfigForm");
     const onChange = vi.fn();
-    const container = mount(
+    const container = await mount(
       <EngineConfigForm schema={SCHEMA} value={INITIAL_VALUE} onChange={onChange} />
     );
 
@@ -238,8 +225,8 @@ describe("EngineConfigForm", () => {
     expect(stripCommentsCheckbox).toBeTruthy();
 
     // React listens to native "click" for checkboxes to trigger synthetic onChange.
-    act(async () => {
-      await stripCommentsCheckbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      stripCommentsCheckbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onChange).toHaveBeenCalledWith({

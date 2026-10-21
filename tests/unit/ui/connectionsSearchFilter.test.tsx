@@ -24,7 +24,14 @@ import {
   matchesAccountQuery,
   filterConnectionsByQuery,
 } from "@/app/(dashboard)/dashboard/providers/[id]/connectionsSearchFilter";
+import { useProviderConnections } from "@/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections";
 import type { ConnectionRowConnection } from "@/app/(dashboard)/dashboard/providers/[id]/components/ConnectionRow";
+
+// Static import: the hook pulls in the whole provider-page module graph, and doing
+// that inside a test body charged the transform to the 5000ms per-test timeout
+// (flaky under parallel load). vitest hoists the vi.mock() calls below above this
+// import, so the hook still sees the mocked next/navigation, next-intl and store.
+type HookResult = ReturnType<typeof useProviderConnections>;
 
 // ---------------------------------------------------------------------------
 // matchesAccountQuery / filterConnectionsByQuery — pure logic
@@ -134,11 +141,6 @@ describe("useProviderConnections — accountSearch (#7937)", () => {
   });
 
   it("defaults accountSearch to empty string and exposes setAccountSearch", async () => {
-    const { useProviderConnections } = await import(
-      "@/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections"
-    );
-
-    type HookResult = ReturnType<typeof useProviderConnections>;
     let result: HookResult | null = null;
 
     function TestWrapper() {
@@ -158,11 +160,6 @@ describe("useProviderConnections — accountSearch (#7937)", () => {
   });
 
   it("resets page to 0 when the search query changes", async () => {
-    const { useProviderConnections } = await import(
-      "@/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections"
-    );
-
-    type HookResult = ReturnType<typeof useProviderConnections>;
     let result: HookResult | null = null;
 
     function TestWrapper() {

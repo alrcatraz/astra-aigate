@@ -99,7 +99,7 @@ async function setSelectValue(select: HTMLSelectElement, value: string) {
 describe("CompressionHub — active-profile selector", () => {
   async function render() {
     const { default: CompressionHub } =
-      await import("../../../src/app/(dashboard)/dashboard/context/combos/CompressionHub");
+      await import("../../../src/app/(dashboard)/dashboard/context/CompressionHub");
     let container!: HTMLElement;
     await act(async () => {
       container = mount(<CompressionHub />);

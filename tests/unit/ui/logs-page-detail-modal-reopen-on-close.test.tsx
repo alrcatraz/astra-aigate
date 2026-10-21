@@ -59,17 +59,14 @@ vi.mock("@/store/emailPrivacyStore", () => ({
 // real logger (the component under test) and stub the unrelated ConfirmModal
 // so the test doesn't drag the whole barrel into jsdom.
 vi.mock("@/shared/components", async () => {
-  const { default: RequestLoggerV2 } = await import(
-    "../../../src/shared/components/RequestLoggerV2.tsx"
-  );
+  const { default: RequestLoggerV2 } =
+    await import("../../../src/shared/components/RequestLoggerV2.tsx");
   const ConfirmModal = ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="confirm-modal" /> : null;
   return { RequestLoggerV2, ConfirmModal };
 });
 
-const { default: LogsPage } = await import(
-  "../../../src/app/(dashboard)/dashboard/logs/page.tsx"
-);
+const { default: LogsPage } = await import("../../../src/app/(dashboard)/dashboard/logs/page.tsx");
 
 // Stands in for the App Router segment root: router.replace() re-renders the
 // whole page tree, which is exactly what re-evaluates LogsPage's initialId.
@@ -84,10 +81,17 @@ function Harness() {
   return <LogsPage />;
 }
 
-function commitPendingUrl() {
+async function commitPendingUrl() {
   if (routerControl.pendingUrl != null) {
     window.history.replaceState(null, "", routerControl.pendingUrl);
     routerControl.pendingUrl = null;
+    // The App Router re-renders once the navigation commits too: useSearchParams
+    // reads the *committed* URL, so the page must re-render here as well —
+    // otherwise the page keeps a stale param set until some unrelated update
+    // and the harness invents an ordering Next.js never produces.
+    await act(async () => {
+      routerControl.bumpPageRender();
+    });
   }
 }
 
@@ -177,7 +181,8 @@ describe("LogsPage detail modal — first-close reopen regression", () => {
     });
     await settle();
     // Navigation commits after the render: URL now carries ?id=log-1.
-    commitPendingUrl();
+    await commitPendingUrl();
+    await settle();
     expect(window.location.search).toContain("id=log-1");
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
 

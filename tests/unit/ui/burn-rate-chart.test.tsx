@@ -1,28 +1,30 @@
 // @vitest-environment jsdom
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
+// The shell is a thin wrapper that `dynamic()`-imports BurnRateChartInner, so
+// the double must render the REAL inner component: a null stub erases the
+// component under test (empty <div>) and resolving asynchronously leaves the
+// no-data branch unrendered when act() settles.
+vi.mock("next/dynamic", async () => {
+  const inner =
+    await import("../../../src/app/(dashboard)/dashboard/costs/quota-share/components/BurnRateChartInner");
+  return { default: () => inner.default };
+});
 
-// Stub next/dynamic — returns null component (recharts not needed in tests)
-vi.mock("next/dynamic", () => ({
-  default: () => () => null,
-}));
-
-const { default: BurnRateChart } = await import(
-  "../../../src/app/(dashboard)/dashboard/costs/quota-share/components/BurnRateChart"
-);
+const { default: BurnRateChart } =
+  await import("../../../src/app/(dashboard)/dashboard/costs/quota-share/components/BurnRateChart");
 
 let container: HTMLDivElement | null = null;
 let root: ReturnType<typeof createRoot> | null = null;
 
 async function render(props: Parameters<typeof BurnRateChart>[0]) {
-  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-    true;
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement("div");
   document.body.appendChild(container);
   await act(async () => {
@@ -41,7 +43,7 @@ describe("BurnRateChart", { timeout: 10000 }, () => {
 
   it("renders no-data state when usage is null", async () => {
     await render({ usage: null });
-    expect(document.body.innerHTML).toContain("burnRateTitle");
+    expect(document.body.innerHTML).toContain(resolveMessage("quotaShare", "burnRateTitle"));
     expect(document.body.innerHTML).toContain("no data");
   });
 
@@ -65,6 +67,6 @@ describe("BurnRateChart", { timeout: 10000 }, () => {
     // Should not show no-data message
     expect(document.body.innerHTML).not.toContain("no data yet");
     // Should show exhaustion label
-    expect(document.body.innerHTML).toContain("burnRateExhaustsIn");
+    expect(document.body.innerHTML).toContain(resolveMessage("quotaShare", "burnRateExhaustsIn"));
   });
 });

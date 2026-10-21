@@ -19,11 +19,11 @@ const { default: AddApiKeyModal } =
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
-function render(props: Record<string, unknown>) {
+async function render(props: Record<string, unknown>) {
   const el = document.createElement("div");
   document.body.appendChild(el);
   const root = createRoot(el);
-  act(() => {
+  await act(async () => {
     root.render(
       <AddApiKeyModal
         isOpen
@@ -37,11 +37,11 @@ function render(props: Record<string, unknown>) {
   return el;
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
+async function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(async () => {
+  await act(async () => {
     setter.call(input, value);
-    await input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
@@ -85,18 +85,18 @@ afterEach(() => {
 
 describe("AddApiKeyModal — 'validation not supported' is a non-blocking warning (#5565/#5567)", () => {
   it("does not show unsupported validator responses as red save errors after Check cookie", async () => {
-    const el = render({ provider: "lmarena", providerName: "LMArena" });
+    const el = await render({ provider: "lmarena", providerName: "LMArena" });
 
     const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
     expect(apiKeyInput).toBeTruthy();
-    setInputValue(apiKeyInput, "arena-auth-prod-v1.0=abc; arena-auth-prod-v1.1=def");
+    await setInputValue(apiKeyInput, "arena-auth-prod-v1.0=abc; arena-auth-prod-v1.1=def");
 
     const checkBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "Check cookie"
     )!;
     expect(checkBtn).toBeTruthy();
-    act(async () => {
-      await checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      checkBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     await waitFor(() => el.textContent?.includes("N/A") ?? false);
@@ -105,20 +105,20 @@ describe("AddApiKeyModal — 'validation not supported' is a non-blocking warnin
 
   it("still calls onSave when /validate returns unsupported=true", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
-    const el = render({ provider: "piapi", providerName: "PiAPI", onSave });
+    const el = await render({ provider: "piapi", providerName: "PiAPI", onSave });
 
     const nameInput = el.querySelector<HTMLInputElement>('input[placeholder="productionKey"]')!;
     const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
     expect(apiKeyInput).toBeTruthy();
-    setInputValue(nameInput, "My PiAPI");
-    setInputValue(apiKeyInput, "piapi-secret-key");
+    await setInputValue(nameInput, "My PiAPI");
+    await setInputValue(apiKeyInput, "piapi-secret-key");
 
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "save"
     )!;
     expect(saveBtn).toBeTruthy();
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     // RED on pre-fix code: the modal ignored `unsupported`, set a save error and
