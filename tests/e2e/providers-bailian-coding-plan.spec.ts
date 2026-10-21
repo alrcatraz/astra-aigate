@@ -124,10 +124,12 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    // The modal's accessible name is "Add Connection · Alibaba Token Plan" (read off
-    // the rendered dialog in jsdom, not inferred from the title helper), and the page
-    // can carry other role=dialog nodes, so locate it by name rather than by position.
-    const dialog = page.getByRole("dialog", { name: /add connection/i });
+    // Accessible name in the running app: "Add Alibaba Token Plan API Key". The jsdom
+    // render of AddApiKeyModal in isolation produces "Add Connection · Alibaba Token
+    // Plan" instead, because the page composes the dialog differently from the bare
+    // component; the in-browser report is the authority. Match on the api-key wording
+    // so a provider-name change does not break the locator.
+    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
     try {
       await expect(dialog).toBeVisible({ timeout: 10000 });
     } catch (err) {
@@ -136,11 +138,9 @@ test.describe("Bailian Coding Plan Provider", () => {
       );
     }
 
-    // This provider opens on Alibaba's region chooser; the credential fields (Name,
-    // API Key, Validation Model, Priority, Base URL) only render once a region is
-    // picked — asserting them straight after opening is what failed, with no field in
-    // the DOM yet. Singapore is the international endpoint the default URL points at.
-    await dialog.getByRole("button", { name: /singapore/i }).click();
+    // No region chooser in this dialog: the browser report lists Name, API Key,
+    // Validation Model, Priority and Base URL on the first paint (the chooser exists
+    // on a different entry point), so the fields are asserted directly.
 
     // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
     // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
@@ -151,7 +151,7 @@ test.describe("Bailian Coding Plan Provider", () => {
       await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
     } catch (err) {
       throw new Error(
-        `${(err as Error).message}\n--- page report (after selecting a region) ---\n${await describeDialogs(page)}`
+        `${(err as Error).message}\n--- page report (first paint) ---\n${await describeDialogs(page)}`
       );
     }
 
@@ -257,10 +257,12 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    // The modal's accessible name is "Add Connection · Alibaba Token Plan" (read off
-    // the rendered dialog in jsdom, not inferred from the title helper), and the page
-    // can carry other role=dialog nodes, so locate it by name rather than by position.
-    const dialog = page.getByRole("dialog", { name: /add connection/i });
+    // Accessible name in the running app: "Add Alibaba Token Plan API Key". The jsdom
+    // render of AddApiKeyModal in isolation produces "Add Connection · Alibaba Token
+    // Plan" instead, because the page composes the dialog differently from the bare
+    // component; the in-browser report is the authority. Match on the api-key wording
+    // so a provider-name change does not break the locator.
+    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
     try {
       await expect(dialog).toBeVisible({ timeout: 10000 });
     } catch (err) {
@@ -269,11 +271,9 @@ test.describe("Bailian Coding Plan Provider", () => {
       );
     }
 
-    // This provider opens on Alibaba's region chooser; the credential fields (Name,
-    // API Key, Validation Model, Priority, Base URL) only render once a region is
-    // picked — asserting them straight after opening is what failed, with no field in
-    // the DOM yet. Singapore is the international endpoint the default URL points at.
-    await dialog.getByRole("button", { name: /singapore/i }).click();
+    // No region chooser in this dialog: the browser report lists Name, API Key,
+    // Validation Model, Priority and Base URL on the first paint (the chooser exists
+    // on a different entry point), so the fields are asserted directly.
 
     // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
     // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
@@ -283,7 +283,7 @@ test.describe("Bailian Coding Plan Provider", () => {
       await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
     } catch (err) {
       throw new Error(
-        `${(err as Error).message}\n--- page report (after selecting a region) ---\n${await describeDialogs(page)}`
+        `${(err as Error).message}\n--- page report (first paint) ---\n${await describeDialogs(page)}`
       );
     }
 
