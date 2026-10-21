@@ -6,6 +6,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
+// The three tab bodies are `next/dynamic({ ssr: false })` imports. This file tests
+// the studio shell — tab selection, pane layout — not the tab bodies, and the real
+// BuildTab pulls in a large module graph (useToolsBuilder -> playground schemas)
+// whose resolution lands after teardown, which Vitest reports as an
+// EnvironmentTeardownError for the whole run. Stub them so the shell is exercised
+// without that race.
+vi.mock("@/app/(dashboard)/dashboard/playground/components/tabs/BuildTab", () => ({
+  default: () => null,
+}));
+vi.mock("@/app/(dashboard)/dashboard/playground/components/tabs/ChatTab", () => ({
+  default: () => null,
+}));
+vi.mock("@/app/(dashboard)/dashboard/playground/components/tabs/ApiTab", () => ({
+  default: () => null,
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, params?: Record<string, unknown>) =>
     params ? `${key}(${JSON.stringify(params)})` : key,
