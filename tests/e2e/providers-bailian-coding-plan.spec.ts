@@ -124,12 +124,12 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    // Accessible name in the running app: "Add Alibaba Token Plan API Key". The jsdom
-    // render of AddApiKeyModal in isolation produces "Add Connection · Alibaba Token
-    // Plan" instead, because the page composes the dialog differently from the bare
-    // component; the in-browser report is the authority. Match on the api-key wording
-    // so a provider-name change does not break the locator.
-    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
+    // This modal carries no aria-label and its heading changes as it advances, so the
+    // accessible name is not a stable handle: the browser reports
+    // "Add Connection · Alibaba Token Plan" on the region step and
+    // "Add Alibaba Token Plan API Key" once a region is chosen. Address the role and
+    // assert on content, which is what the user does.
+    const dialog = page.getByRole("dialog").last();
     try {
       await expect(dialog).toBeVisible({ timeout: 10000 });
     } catch (err) {
@@ -138,9 +138,14 @@ test.describe("Bailian Coding Plan Provider", () => {
       );
     }
 
-    // No region chooser in this dialog: the browser report lists Name, API Key,
-    // Validation Model, Priority and Base URL on the first paint (the chooser exists
-    // on a different entry point), so the fields are asserted directly.
+    // Step 1 — region chooser ("Which region are you using?"). Choosing a region
+    // swaps the same dialog over to the credential form; Singapore is the
+    // international endpoint the default URL points at. Tolerate an entry point that
+    // already shows the form so the spec does not encode one route as the only one.
+    const singapore = dialog.getByRole("button", { name: /singapore/i });
+    if ((await singapore.count()) > 0) {
+      await singapore.click();
+    }
 
     // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
     // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
@@ -257,12 +262,12 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    // Accessible name in the running app: "Add Alibaba Token Plan API Key". The jsdom
-    // render of AddApiKeyModal in isolation produces "Add Connection · Alibaba Token
-    // Plan" instead, because the page composes the dialog differently from the bare
-    // component; the in-browser report is the authority. Match on the api-key wording
-    // so a provider-name change does not break the locator.
-    const dialog = page.getByRole("dialog", { name: /add .*api key/i });
+    // This modal carries no aria-label and its heading changes as it advances, so the
+    // accessible name is not a stable handle: the browser reports
+    // "Add Connection · Alibaba Token Plan" on the region step and
+    // "Add Alibaba Token Plan API Key" once a region is chosen. Address the role and
+    // assert on content, which is what the user does.
+    const dialog = page.getByRole("dialog").last();
     try {
       await expect(dialog).toBeVisible({ timeout: 10000 });
     } catch (err) {
@@ -271,9 +276,14 @@ test.describe("Bailian Coding Plan Provider", () => {
       );
     }
 
-    // No region chooser in this dialog: the browser report lists Name, API Key,
-    // Validation Model, Priority and Base URL on the first paint (the chooser exists
-    // on a different entry point), so the fields are asserted directly.
+    // Step 1 — region chooser ("Which region are you using?"). Choosing a region
+    // swaps the same dialog over to the credential form; Singapore is the
+    // international endpoint the default URL points at. Tolerate an entry point that
+    // already shows the form so the spec does not encode one route as the only one.
+    const singapore = dialog.getByRole("button", { name: /singapore/i });
+    if ((await singapore.count()) > 0) {
+      await singapore.click();
+    }
 
     // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
     // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
