@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, Button, Input, Badge } from "@/shared/components";
 import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ export default function CloudAgentsPage() {
   const locale = useLocale();
   const [activeTab, setActiveTab] = useState<TabId>("tasks");
   const t = useTranslations("cloudAgents");
+  const router = useRouter();
 
   // ── Tasks state ──────────────────────────────────────────────────────────
 
@@ -816,7 +818,7 @@ export default function CloudAgentsPage() {
                     variant="secondary"
                     size="sm"
                     onClick={() => {
-                      window.location.href = "/dashboard/providers?section=cloudagent";
+                      router.push("/dashboard/providers?section=cloudagent");
                     }}
                   >
                     <span className="material-symbols-outlined text-[14px] mr-1">settings</span>

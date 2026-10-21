@@ -73,7 +73,10 @@ export default function LoginPage() {
         setError(t("loginError") || "Invalid password");
         return;
       }
-      window.location.href = "/dashboard";
+      // Client-side navigation, matching every other redirect in this file: the
+      // session cookie is already set server-side and the router re-renders the
+      // server components on the route change.
+      router.push("/dashboard");
     } catch {
       setError("Network error");
     } finally {
