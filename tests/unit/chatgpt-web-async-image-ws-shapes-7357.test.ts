@@ -2,12 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 
-const { ChatGptWebExecutor, __resetChatGptWebCachesForTesting } = await import(
-  "../../open-sse/executors/chatgpt-web.ts"
-);
-const { __setTlsFetchOverrideForTesting } = await import(
-  "../../open-sse/services/chatgptTlsClient.ts"
-);
+const { ChatGptWebExecutor, __resetChatGptWebCachesForTesting } =
+  await import("../../open-sse/executors/chatgpt-web.ts");
+const { __setTlsFetchOverrideForTesting } =
+  await import("../../open-sse/services/chatgptTlsClient.ts");
 
 function makeHeaders(map: Record<string, string> = {}) {
   const h = new Headers();
@@ -96,7 +94,13 @@ class FakeWebSocket extends EventEmitter {
             },
           },
         };
-        this.onmessage?.({ data: JSON.stringify(frame) });
+        // Deliver the frame more than once. The executor assigns `ws.onmessage`
+        // asynchronously and chatgpt.com repeats frames in practice; a single 5 ms
+        // burst was lost often enough to make this case flaky (2 of 3 runs). Repeats
+        // are idempotent — the collector dedupes pointers by asset_pointer.
+        const emit = () => this.onmessage?.({ data: JSON.stringify(frame) });
+        emit();
+        for (const delay of [10, 30, 60, 120]) setTimeout(emit, delay);
       }, 5);
     }, 5);
   }
