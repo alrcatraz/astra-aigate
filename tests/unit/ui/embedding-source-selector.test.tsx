@@ -19,11 +19,26 @@ function makeContainer(): HTMLElement {
 
 describe("EmbeddingSourceSelector", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-      true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
+  // Every root has to be unmounted inside act before its container leaves the DOM.
+  // Detaching a live root instead leaves React's scheduler with work queued against
+  // a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+  // react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+  // it fails the whole Vitest run rather than any one case. A test that renders twice
+  // also needs every root tracked, not just the newest container.
+
+  const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
     while (cleanupCallbacks.length > 0) cleanupCallbacks.pop()?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -39,18 +54,18 @@ describe("EmbeddingSourceSelector", () => {
   };
 
   it("renders all 4 source options", async () => {
-    const { default: EmbeddingSourceSelector } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector"
-    );
+    const { default: EmbeddingSourceSelector } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(
         <EmbeddingSourceSelector
           settings={defaultSettings}
           providers={[]}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     expect(container.querySelector("[data-testid='embedding-source-auto']")).toBeTruthy();
@@ -60,9 +75,8 @@ describe("EmbeddingSourceSelector", () => {
   });
 
   it("shows only providers with hasKey=true in remote dropdown", async () => {
-    const { default: EmbeddingSourceSelector } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector"
-    );
+    const { default: EmbeddingSourceSelector } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector");
     const providers = [
       {
         provider: "openai",
@@ -83,13 +97,14 @@ describe("EmbeddingSourceSelector", () => {
     ];
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(
         <EmbeddingSourceSelector
           settings={{ ...defaultSettings, embeddingSource: "remote" }}
           providers={providers}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     // openai should be visible (hasKey=true)
@@ -99,59 +114,55 @@ describe("EmbeddingSourceSelector", () => {
   });
 
   it("shows no-provider warning when remote selected but no providers with key", async () => {
-    const { default: EmbeddingSourceSelector } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector"
-    );
+    const { default: EmbeddingSourceSelector } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(
         <EmbeddingSourceSelector
           settings={{ ...defaultSettings, embeddingSource: "remote" }}
           providers={[{ provider: "cohere", hasKey: false, models: [] }]}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     expect(container.textContent).toContain("embedding.noRemoteProviders");
   });
 
   it("shows transformers warning when transformers source selected", async () => {
-    const { default: EmbeddingSourceSelector } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector"
-    );
+    const { default: EmbeddingSourceSelector } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(
         <EmbeddingSourceSelector
           settings={{ ...defaultSettings, embeddingSource: "transformers" }}
           providers={[]}
           onSave={vi.fn().mockResolvedValue(true)}
-        />,
+        />
       );
     });
     expect(container.textContent).toContain("embedding.transformersWarning");
   });
 
   it("toggle-static-enabled calls onSave", async () => {
-    const { default: EmbeddingSourceSelector } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector"
-    );
+    const { default: EmbeddingSourceSelector } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector");
     const onSave = vi.fn().mockResolvedValue(true);
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(
-        <EmbeddingSourceSelector
-          settings={defaultSettings}
-          providers={[]}
-          onSave={onSave}
-        />,
+        <EmbeddingSourceSelector settings={defaultSettings} providers={[]} onSave={onSave} />
       );
     });
     const toggleBtn = container.querySelector(
-      "[data-testid='toggle-static-enabled']",
+      "[data-testid='toggle-static-enabled']"
     ) as HTMLButtonElement | null;
     expect(toggleBtn).toBeTruthy();
     await act(async () => {
@@ -161,23 +172,19 @@ describe("EmbeddingSourceSelector", () => {
   });
 
   it("toggle-transformers-enabled calls onSave", async () => {
-    const { default: EmbeddingSourceSelector } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector"
-    );
+    const { default: EmbeddingSourceSelector } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/EmbeddingSourceSelector");
     const onSave = vi.fn().mockResolvedValue(true);
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(
-        <EmbeddingSourceSelector
-          settings={defaultSettings}
-          providers={[]}
-          onSave={onSave}
-        />,
+        <EmbeddingSourceSelector settings={defaultSettings} providers={[]} onSave={onSave} />
       );
     });
     const toggleBtn = container.querySelector(
-      "[data-testid='toggle-transformers-enabled']",
+      "[data-testid='toggle-transformers-enabled']"
     ) as HTMLButtonElement | null;
     expect(toggleBtn).toBeTruthy();
     await act(async () => {

@@ -27,12 +27,20 @@ vi.mock("@/shared/components", () => ({
   ModelSelectModal: () => <div data-testid="ModelSelectModal" />,
 }));
 
-const { default: HermesAgentToolCard } = await import(
-  "@/app/(dashboard)/dashboard/cli-code/components/HermesAgentToolCard"
-);
+const { default: HermesAgentToolCard } =
+  await import("@/app/(dashboard)/dashboard/cli-code/components/HermesAgentToolCard");
 
 const SETTINGS_ENDPOINT = "/api/cli-tools/hermes-agent-settings";
 const containers: HTMLElement[] = [];
+
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
 let settingsCalls = 0;
 
 beforeEach(() => {
@@ -73,6 +81,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => {
+    for (const { root } of mounted) root.unmount();
+  });
+  for (const { el } of mounted) el.remove();
+  mounted.length = 0;
   while (containers.length > 0) {
     containers.pop()?.remove();
   }
@@ -86,6 +99,7 @@ function renderExpandedCard() {
   containers.push(container);
 
   const root = createRoot(container);
+  mounted.push({ root, el: container });
   act(() => {
     root.render(
       <HermesAgentToolCard

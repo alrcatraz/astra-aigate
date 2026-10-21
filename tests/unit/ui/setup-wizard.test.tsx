@@ -21,6 +21,14 @@ function makeContainer(): HTMLElement {
   return container;
 }
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
 const mockTarget = {
   id: "kiro" as const,
   name: "Kiro",
@@ -46,6 +54,11 @@ describe("SetupWizard", { timeout: 30000 }, () => {
   });
 
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
     while (cleanupCallbacks.length > 0) cleanupCallbacks.pop()?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -58,6 +71,7 @@ describe("SetupWizard", { timeout: 30000 }, () => {
     const container = makeContainer();
     await act(async () => {
       const root = createRoot(container);
+      mounted.push({ root, el: container });
       root.render(
         React.createElement(SetupWizard, {
           target: mockTarget,
@@ -81,6 +95,7 @@ describe("SetupWizard", { timeout: 30000 }, () => {
     const container = makeContainer();
     await act(async () => {
       const root = createRoot(container);
+      mounted.push({ root, el: container });
       root.render(
         React.createElement(SetupWizard, {
           target: mockTarget,
@@ -113,6 +128,7 @@ describe("SetupWizard", { timeout: 30000 }, () => {
 
     await act(async () => {
       const root = createRoot(container);
+      mounted.push({ root, el: container });
       root.render(
         React.createElement(SetupWizard, {
           target: mockTarget,
@@ -160,6 +176,7 @@ describe("SetupWizard", { timeout: 30000 }, () => {
 
     await act(async () => {
       const root = createRoot(container);
+      mounted.push({ root, el: container });
       root.render(
         React.createElement(SetupWizard, {
           target: mockTarget,

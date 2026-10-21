@@ -14,11 +14,20 @@ const { WaterfallInspector } =
 
 const containers: HTMLElement[] = [];
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
 function mount(ui: React.ReactElement): HTMLElement {
   const container = document.createElement("div");
   document.body.appendChild(container);
   containers.push(container);
   const root = createRoot(container);
+  mounted.push({ root, el: container });
   act(() => {
     root.render(ui);
   });
@@ -32,6 +41,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => {
+    for (const { root } of mounted) root.unmount();
+  });
+  for (const { el } of mounted) el.remove();
+  mounted.length = 0;
   while (containers.length > 0) {
     containers.pop()?.remove();
   }

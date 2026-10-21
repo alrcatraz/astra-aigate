@@ -8,18 +8,35 @@ import type { CompressionStats } from "@omniroute/open-sse/services/compression/
 
 let container: HTMLDivElement;
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
 });
 
 afterEach(() => {
-  document.body.removeChild(container);
+  act(() => {
+    for (const { root } of mounted) root.unmount();
+  });
+  for (const { el } of mounted) el.remove();
+  mounted.length = 0;
+  // The tracked el.remove() above already detached the container; plain remove()
+  // is idempotent where removeChild() would now throw NotFoundError.
+  container.remove();
 });
 
 function render(ui: React.ReactElement) {
+  const root = createRoot(container);
+  mounted.push({ root, el: container });
   act(() => {
-    createRoot(container).render(ui);
+    root.render(ui);
   });
 }
 

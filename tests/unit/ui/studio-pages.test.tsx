@@ -23,6 +23,14 @@ beforeAll(() => {
   } as unknown as typeof WebSocket;
 });
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
+
 const containers: HTMLElement[] = [];
 
 function mount(ui: React.ReactElement): HTMLElement {
@@ -30,6 +38,7 @@ function mount(ui: React.ReactElement): HTMLElement {
   document.body.appendChild(container);
   containers.push(container);
   const root = createRoot(container);
+  mounted.push({ root, el: container });
   act(() => {
     // Both pages read copy through next-intl; the app shell that normally
     // provides it does not exist under jsdom.
@@ -49,6 +58,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => {
+    for (const { root } of mounted) root.unmount();
+  });
+  for (const { el } of mounted) el.remove();
+  mounted.length = 0;
   while (containers.length > 0) containers.pop()?.remove();
   document.body.innerHTML = "";
 });

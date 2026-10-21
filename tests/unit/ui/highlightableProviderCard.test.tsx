@@ -51,10 +51,19 @@ if (typeof Element.prototype.animate === "undefined") {
   });
 }
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
+
 function renderCards(...providerIds: string[]) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
+  mounted.push({ root, el: container });
   act(() => {
     root.render(
       <>
@@ -78,12 +87,19 @@ describe("HighlightableProviderCard", () => {
   let container: HTMLDivElement | null = null;
 
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
     vi.restoreAllMocks();
     window.history.replaceState(null, "");
     if (container) {
       document.body.removeChild(container);
       container = null;
     }
+    // el.remove() runs after the tracked-container cleanup above: it is a no-op
+    // on an already-detached element, whereas removeChild would throw.
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
   });
 
   it("scrolls and highlights on mount when history.state.providerId matches", () => {
