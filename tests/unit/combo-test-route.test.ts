@@ -259,8 +259,20 @@ test("combo test route launches model probes concurrently while preserving combo
       resolvers.push(resolve);
     });
 
-  const responsePromise = await route.POST(makeRequest());
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  // NOTE: do NOT await route.POST here — the route only resolves once every
+  // probe's fetch settles, and the fetch stub below is resolved by this test
+  // *after* it observes the concurrent launches. Awaiting here deadlocks the
+  // test until the route's 20s abort timer fires (and the run then dies with
+  // "Promise resolution is still pending but the event loop has already
+  // resolved", cancelling the rest of the file).
+  const responsePromise = route.POST(makeRequest());
+
+  // Let the handler progress through its awaited auth/DB lookups until all
+  // three probes are in flight concurrently.
+  const launchDeadline = Date.now() + 2000;
+  while (fetchCalls.length < 3 && Date.now() < launchDeadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
 
   assert.equal(fetchCalls.length, 3);
   assert.deepEqual(

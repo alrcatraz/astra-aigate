@@ -12,6 +12,23 @@ function reset() {
   __setTlsFetchOverrideForTesting(null);
 }
 
+/**
+ * Hermetic stand-in for the live organization-discovery GET to
+ * https://claude.ai/api/organizations. The fake session cookies used in these
+ * tests are rejected by the real host with 401, which drives the executor down
+ * the exact same "session rejected" branch — without a live TLS call (CI
+ * runners have no egress, so the native TLS client would wait out its full
+ * fetch timeout).
+ */
+function stubOrgDiscoveryRejected() {
+  __setTlsFetchOverrideForTesting(async () => ({
+    status: 401,
+    headers: new Headers(),
+    text: "",
+    body: null,
+  }));
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 test("A: ClaudeWebExecutor is registered in executor index", () => {
@@ -86,6 +103,7 @@ test("H: ClaudeWebExecutor handles missing credentials gracefully", async () => 
 
 test("I: ClaudeWebExecutor handles invalid messages parameter", async () => {
   reset();
+  stubOrgDiscoveryRejected();
   const executor = new ClaudeWebExecutor();
 
   try {
@@ -132,6 +150,7 @@ test("J: tlsFetchOverride can be installed and mocked", async () => {
 
 test("K: ClaudeWebExecutor execute returns response object with required fields", async () => {
   reset();
+  stubOrgDiscoveryRejected();
   const executor = new ClaudeWebExecutor();
 
   try {
@@ -155,6 +174,7 @@ test("K: ClaudeWebExecutor execute returns response object with required fields"
 
 test("L: ClaudeWebExecutor processes streaming requests", async () => {
   reset();
+  stubOrgDiscoveryRejected();
   const executor = new ClaudeWebExecutor();
 
   try {
@@ -177,6 +197,7 @@ test("L: ClaudeWebExecutor processes streaming requests", async () => {
 
 test("M: ClaudeWebExecutor includes required fields in execute result", async () => {
   reset();
+  stubOrgDiscoveryRejected();
   const executor = new ClaudeWebExecutor();
 
   try {
