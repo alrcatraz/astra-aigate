@@ -216,7 +216,7 @@ describe("getGlmUsage team quota parsing", () => {
       new Response(
         JSON.stringify({
           code: 500,
-          msg: "当前用户不存在coding plan",
+          msg: "当前用户团队套餐信息异常",
           success: false,
         }),
         { status: 200 }
@@ -303,7 +303,7 @@ describe("getGlmUsage team quota parsing", () => {
       new Response(
         JSON.stringify({
           code: 500,
-          msg: "当前用户不存在coding plan",
+          msg: "团队编码套餐额度查询失败",
           success: false,
         }),
         { status: 200 }
@@ -312,6 +312,28 @@ describe("getGlmUsage team quota parsing", () => {
     try {
       const usage = await getGlmUsage("glm-cn-key", { apiRegion: "china" });
       assert.match(String(usage.message), /team plan/i);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("returns upstream message for pay-as-you accounts without a coding plan", async () => {
+    // 按量账户文案（d3988f76）：不是「缺 Org/Project 配置」，应原样返回上游消息而不是 hint。
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          code: 500,
+          msg: "当前用户不存在coding plan",
+          success: false,
+        }),
+        { status: 200 }
+      );
+
+    try {
+      const usage = await getGlmUsage("glm-cn-key", { apiRegion: "china" });
+      assert.equal(usage.message, "当前用户不存在coding plan");
+      assert.doesNotMatch(String(usage.message), /Organization ID and Project ID/i);
     } finally {
       globalThis.fetch = originalFetch;
     }

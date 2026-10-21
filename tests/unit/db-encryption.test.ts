@@ -110,7 +110,7 @@ test("decrypt returns null when the value is malformed or the key is wrong", asy
 test("legacy encryption migration parses ciphertext in canonical payload order", async () => {
   process.env.STORAGE_ENCRYPTION_KEY = "task-304-legacy-secret";
   const encryption = await importFresh("src/lib/db/encryption.ts");
-  const legacyCiphertext = encryptWithLegacyDynamicSalt(
+  const legacyCiphertext = await encryptWithLegacyDynamicSalt(
     process.env.STORAGE_ENCRYPTION_KEY,
     "legacy-provider-token"
   );

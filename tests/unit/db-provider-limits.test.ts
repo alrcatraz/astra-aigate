@@ -27,10 +27,10 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("providerLimits cache returns empty defaults before any writes", () => {
-  assert.equal(providerLimitsDb.getProviderLimitsCache("conn-1"), null);
-  assert.deepEqual(providerLimitsDb.getAllProviderLimitsCache(), {});
-  assert.equal(providerLimitsDb.setProviderLimitsCacheBatch([]), 0);
+test("providerLimits cache returns empty defaults before any writes", async () => {
+  assert.equal(await providerLimitsDb.getProviderLimitsCache("conn-1"), null);
+  assert.deepEqual(await providerLimitsDb.getAllProviderLimitsCache(), {});
+  assert.equal(await providerLimitsDb.setProviderLimitsCacheBatch([]), 0);
 });
 
 test("providerLimits cache preserves Codex banked reset credits", async () => {
@@ -44,8 +44,14 @@ test("providerLimits cache preserves Codex banked reset credits", async () => {
   });
 
   assert.equal(entry.bankedResetCredits, 3);
-  assert.equal(providerLimitsDb.getProviderLimitsCache("codex-conn")?.bankedResetCredits, 3);
-  assert.equal(providerLimitsDb.getAllProviderLimitsCache()["codex-conn"]?.bankedResetCredits, 3);
+  assert.equal(
+    (await providerLimitsDb.getProviderLimitsCache("codex-conn"))?.bankedResetCredits,
+    3
+  );
+  assert.equal(
+    (await providerLimitsDb.getAllProviderLimitsCache())["codex-conn"]?.bankedResetCredits,
+    3
+  );
 });
 
 test("providerLimits cache supports single writes, batch writes and deletions", async () => {
@@ -58,7 +64,7 @@ test("providerLimits cache supports single writes, batch writes and deletions", 
   });
 
   assert.equal(first.plan, "pro");
-  assert.deepEqual(providerLimitsDb.getProviderLimitsCache("conn-1"), first);
+  assert.deepEqual(await providerLimitsDb.getProviderLimitsCache("conn-1"), first);
 
   const inserted = await providerLimitsDb.setProviderLimitsCacheBatch([
     {
@@ -82,13 +88,13 @@ test("providerLimits cache supports single writes, batch writes and deletions", 
   ]);
 
   assert.equal(inserted, 2);
-  assert.equal(Object.keys(providerLimitsDb.getAllProviderLimitsCache()).length, 3);
+  assert.equal(Object.keys(await providerLimitsDb.getAllProviderLimitsCache()).length, 3);
 
   await providerLimitsDb.deleteProviderLimitsCache("conn-2");
-  assert.equal(providerLimitsDb.getProviderLimitsCache("conn-2"), null);
+  assert.equal(await providerLimitsDb.getProviderLimitsCache("conn-2"), null);
 });
 
-test("providerLimits cache ignores malformed stored values", () => {
+test("providerLimits cache ignores malformed stored values", async () => {
   const db = coreDb.getDbInstance();
   db.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
     "providerLimitsCache",
@@ -101,7 +107,7 @@ test("providerLimits cache ignores malformed stored values", () => {
     JSON.stringify({ quotas: { remaining: 5 } })
   );
 
-  assert.equal(providerLimitsDb.getProviderLimitsCache("broken-json"), null);
-  assert.equal(providerLimitsDb.getProviderLimitsCache("missing-fetched-at"), null);
-  assert.deepEqual(providerLimitsDb.getAllProviderLimitsCache(), {});
+  assert.equal(await providerLimitsDb.getProviderLimitsCache("broken-json"), null);
+  assert.equal(await providerLimitsDb.getProviderLimitsCache("missing-fetched-at"), null);
+  assert.deepEqual(await providerLimitsDb.getAllProviderLimitsCache(), {});
 });

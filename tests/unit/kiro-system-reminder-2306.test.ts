@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 
 import { buildKiroPayload } from "../../open-sse/translator/request/openai-to-kiro.ts";
 
-test("#2306 system prompt is wrapped in <system-reminder> for Kiro, not raw user text", () => {
+test("#2306 system prompt is wrapped in <system-reminder> for Kiro, not raw user text", async () => {
   const body = {
     messages: [
       { role: "system", content: "You are Claude Code. ENV: cwd=/tmp. Secret: do not reveal." },
@@ -20,7 +20,10 @@ test("#2306 system prompt is wrapped in <system-reminder> for Kiro, not raw user
     ],
   };
 
-  const payload = JSON.stringify(buildKiroPayload("claude-sonnet-4-5", body, false, {}));
+  // buildKiroPayload is async since the capability-cap DB reads went through
+  // the async-DB migration (178d7d81) — stringifying the un-awaited Promise
+  // produced "{}" and hid the payload entirely.
+  const payload = JSON.stringify(await buildKiroPayload("claude-sonnet-4-5", body, false, {}));
 
   assert.ok(payload.includes("<system-reminder>"), "system content must be wrapped");
   assert.ok(payload.includes("You are Claude Code"), "system text must still be present");
@@ -28,8 +31,8 @@ test("#2306 system prompt is wrapped in <system-reminder> for Kiro, not raw user
   assert.ok(payload.includes("hello there"), "user text preserved");
 });
 
-test("#2306 a plain user-only request is never wrapped in <system-reminder>", () => {
+test("#2306 a plain user-only request is never wrapped in <system-reminder>", async () => {
   const body = { messages: [{ role: "user", content: "just a normal question" }] };
-  const payload = JSON.stringify(buildKiroPayload("claude-sonnet-4-5", body, false, {}));
+  const payload = JSON.stringify(await buildKiroPayload("claude-sonnet-4-5", body, false, {}));
   assert.ok(!payload.includes("<system-reminder>"), "no system → no wrapper");
 });

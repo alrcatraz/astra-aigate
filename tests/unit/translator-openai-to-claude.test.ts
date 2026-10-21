@@ -556,7 +556,7 @@ test("OpenAI -> Claude can disable OAuth prefixes and Antigravity strips Claude-
     "read_file"
   );
 
-  const antigravity = openaiToClaudeRequestForAntigravity("claude-4-sonnet", baseBody, false);
+  const antigravity = await openaiToClaudeRequestForAntigravity("claude-4-sonnet", baseBody, false);
   assert.equal(
     antigravity.system.some((block) => String(block.text).includes("Claude Code")),
     false

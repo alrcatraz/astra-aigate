@@ -83,7 +83,7 @@ test("POST writes the shared V4 contract and preserves unrelated credentials", a
   assert.equal(settings.modelProviders.openai.length, 2);
   assert.deepEqual(settings.modelProviders.openai[1], {
     id: "qwen/qwen3.8-max-preview",
-    name: "qwen/qwen3.8-max-preview (OmniRoute)",
+    name: "qwen/qwen3.8-max-preview (AI Gate)",
     envKey: "OMNIROUTE_API_KEY",
     baseUrl: "http://localhost:20128/v1",
   });

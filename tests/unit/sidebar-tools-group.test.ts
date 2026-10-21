@@ -10,7 +10,9 @@ function getToolsGroup() {
   assert.ok(omniProxySection, "expected omni-proxy section to exist");
 
   const toolsGroup = omniProxySection.children.find(
-    (child): child is (typeof sidebarVisibility.SIDEBAR_SECTIONS)[number]["children"][number] & {
+    (
+      child
+    ): child is (typeof sidebarVisibility.SIDEBAR_SECTIONS)[number]["children"][number] & {
       type: "group";
     } =>
       "type" in child &&
@@ -25,29 +27,34 @@ function getToolsGroup() {
   };
 }
 
-test("TOOLS_GROUP items follow plan 14 order: cli-code → cli-agents → acp-agents → cloud-agents → agent-bridge → traffic-inspector → discovery", () => {
+test("TOOLS_GROUP items follow the sidebar rework order: cli-agents → acp-agents → cloud-agents → agent-bridge → traffic-inspector → discovery", () => {
   const toolsGroup = getToolsGroup();
   const itemIds = toolsGroup.items.map((item) => item.id);
-  // cli-code/cli-agents/acp-agents/cloud-agents from plan 14 (#2839); agent-bridge/traffic-inspector from plans 11/12 (#2858); discovery from #5939.
+  // cli-code moved out of TOOLS_GROUP into the AI Gate section in Phase 3 (ecf1201c);
+  // agent-bridge/traffic-inspector from plans 11/12 (#2858); discovery from #5939.
+  // Remaining items keep plan 14 (#2839) relative order.
   assert.deepEqual(
     itemIds,
-    [
-      "cli-code",
-      "cli-agents",
-      "acp-agents",
-      "cloud-agents",
-      "agent-bridge",
-      "traffic-inspector",
-      "discovery",
-    ],
-    "TOOLS_GROUP items order must be cli-code, cli-agents, acp-agents, cloud-agents, agent-bridge, traffic-inspector, discovery"
+    ["cli-agents", "acp-agents", "cloud-agents", "agent-bridge", "traffic-inspector", "discovery"],
+    "TOOLS_GROUP items order must be cli-agents, acp-agents, cloud-agents, agent-bridge, traffic-inspector, discovery (cli-code lives in the AI Gate section)"
   );
 });
 
-test("TOOLS_GROUP cli-code item has correct href and i18nKey", () => {
+test("TOOLS_GROUP no longer contains cli-code; the cli-code item lives in the AI Gate section with correct href and i18nKey", () => {
   const toolsGroup = getToolsGroup();
-  const cliCode = toolsGroup.items.find((item) => item.id === "cli-code");
-  assert.ok(cliCode, "expected cli-code in TOOLS_GROUP");
+  assert.ok(
+    !toolsGroup.items.some((item) => item.id === "cli-code"),
+    "cli-code must not be in TOOLS_GROUP (moved to the AI Gate section)"
+  );
+
+  const aiGateSection = sidebarVisibility.SIDEBAR_SECTIONS.find(
+    (section) => section.id === "ai-gate"
+  );
+  assert.ok(aiGateSection, "expected ai-gate section to exist");
+  const cliCode = aiGateSection.children.find(
+    (child) => "id" in child && child.id === "cli-code"
+  ) as { id: string; href: string; i18nKey: string } | undefined;
+  assert.ok(cliCode, "expected cli-code in the AI Gate section");
   assert.equal(cliCode.href, "/dashboard/cli-code");
   assert.equal(cliCode.i18nKey, "cliCode");
 });
