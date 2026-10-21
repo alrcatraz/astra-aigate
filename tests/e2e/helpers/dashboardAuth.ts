@@ -6,7 +6,13 @@ type GotoDashboardRouteOptions = {
 };
 
 const DEFAULT_TIMEOUT_MS = 300_000;
-const APP_ROUTE_PATTERN = /\/(login|dashboard)(\/[^?#]*)?([?#].*)?$/;
+// `/home` is the canonical dashboard home (src/app/(dashboard)/dashboard/page.tsx
+// redirects there; the authz pipeline classifies /home as a dashboard path), so it
+// counts as an "app route" alongside /login and /dashboard. Without it, a navigation
+// that legitimately lands on /home (e.g. the re-goto in gotoDashboardRoute when the
+// client-side /dashboard -> /home redirect has not committed yet) can never satisfy
+// waitForURL and the helper hangs until the test timeout.
+const APP_ROUTE_PATTERN = /\/(login|dashboard|home)(\/[^?#]*)?([?#].*)?$/;
 const E2E_PASSWORD =
   process.env.OMNIROUTE_E2E_PASSWORD || process.env.INITIAL_PASSWORD || "omniroute-e2e-password";
 
