@@ -13,6 +13,9 @@ let cachedRawId: string | null = null;
  * Resets the cached machine ID.  Used primarily for testing so each
  * test case starts with a clean cache.
  */
+export function resetMachineIdCache(): void {
+  cachedRawId = null;
+}
 
 /**
  * Get raw machine ID using OS-specific methods.
@@ -180,8 +183,20 @@ export async function getConsistentMachineId(salt = null) {
  * Get raw machine ID without hashing (for debugging purposes)
  * @returns {Promise<string>} Raw machine ID
  */
+export async function getRawMachineId() {
+  try {
+    return getMachineIdRaw();
+  } catch (error) {
+    console.log("Error getting raw machine ID:", error);
+    // Fallback to random ID if node-machine-id fails
+    return getRandomMachineFallbackId();
+  }
+}
 
 /**
  * Check if we're running in browser or server environment
  * @returns {boolean} True if in browser, false if in server
  */
+export function isBrowser() {
+  return typeof window !== "undefined";
+}
