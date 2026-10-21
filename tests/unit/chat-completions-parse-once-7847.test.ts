@@ -15,6 +15,12 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-chat-pars
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
+// Migration barrier: getDbInstance() kicks the versioned migration run off on a
+// macrotask, so a DB read issued before joining awaitDbMigrations() can hit a
+// half-migrated schema (e.g. `combos` without context_cache_protection, added by
+// migration 005). Establish the barrier BEFORE importing/using DB-touching modules.
+core.getDbInstance();
+await core.awaitDbMigrations();
 const chatRoute = await import("../../src/app/api/v1/chat/completions/route.ts");
 const { resolveChatRequestBody } = await import("../../src/sse/handlers/requestBody.ts");
 

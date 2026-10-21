@@ -234,7 +234,7 @@ test("bifrost route: records relay usage after SSE stream completion", async () 
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("X-Routed-By"), "bifrost");
   assert.equal(forwardedRequestId, "bifrost-sse-lifecycle-test");
-  assert.equal(getRelayLogs(relayToken.id, 10).length, 0);
+  assert.equal((await getRelayLogs(relayToken.id, 10)).length, 0);
 
   assert.match(await res.text(), /delta/);
 

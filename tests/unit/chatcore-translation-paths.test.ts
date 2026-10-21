@@ -2274,12 +2274,10 @@ test("chatCore emits final SSE metadata comments before [DONE] on streaming resp
   assert.equal(result.success, true);
   assert.equal(result.response.headers.get("X-AI-Gate-Provider"), "openai");
   assert.equal(result.response.headers.get("X-AI-Gate-Model"), "gpt-4o-mini");
-  assert.match(streamText, /: x-omniroute-response-cost=\d+\.\d{10}/);
-  assert.match(streamText, /: x-omniroute-tokens-in=\d+/);
-  assert.match(streamText, /: x-omniroute-tokens-out=\d+/);
-  assert.ok(
-    streamText.indexOf(": x-omniroute-response-cost=") < streamText.indexOf("data: [DONE]")
-  );
+  assert.match(streamText, /: x-ai-gate-response-cost=\d+\.\d{10}/);
+  assert.match(streamText, /: x-ai-gate-tokens-in=\d+/);
+  assert.match(streamText, /: x-ai-gate-tokens-out=\d+/);
+  assert.ok(streamText.indexOf(": x-ai-gate-response-cost=") < streamText.indexOf("data: [DONE]"));
 });
 
 test("buildStreamingResponseHeaders drops upstream compression and framing headers", () => {
