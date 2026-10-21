@@ -74,6 +74,9 @@ runs:
           1.3.14)
             EXPECTED_HEX=951ee2aee855f08595aeec6225226a298d3fea83a3dcd6465c09cbccdf7e848f
             ;;
+          1.4.2)
+            EXPECTED_HEX=36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913
+            ;;
           *)
             echo "FATAL: no in-file digest for bun v$BUN_VERSION — add it during the bump"
             echo "       (EXPECTED_HEX = the bun-linux-x64.zip line in the release's"
