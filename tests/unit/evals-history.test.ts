@@ -210,8 +210,8 @@ test("custom eval suites persist cases and support update/delete", async () => {
   const listed = await evalsDb.listCustomEvalSuites();
   assert.equal(listed.length, 1);
   assert.equal(listed[0]?.id, created.id);
-  assert.equal(evalsDb.getCustomEvalSuite(created.id)?.cases.length, 2);
+  assert.equal((await evalsDb.getCustomEvalSuite(created.id))?.cases.length, 2);
 
-  assert.equal(evalsDb.deleteCustomEvalSuite(created.id), true);
-  assert.equal(evalsDb.getCustomEvalSuite(created.id), null);
+  assert.equal(await evalsDb.deleteCustomEvalSuite(created.id), true);
+  assert.equal(await evalsDb.getCustomEvalSuite(created.id), null);
 });

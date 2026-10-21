@@ -56,9 +56,11 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("migrations 073-075 create all expected tables and indexes on first init", () => {
-  // First initialization: runs all migrations
+test("migrations 073-075 create all expected tables and indexes on first init", async () => {
+  // First initialization: runs all migrations. runMigrations is deferred
+  // behind setTimeout(0) in core.ts — join it before asserting schema.
   const _db = core.getDbInstance();
+  await core.awaitDbMigrations();
 
   const tables = listSqliteMaster("table");
   const indexes = listSqliteMaster("index");

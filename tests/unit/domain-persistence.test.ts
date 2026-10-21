@@ -155,12 +155,12 @@ describe("costRules persistence", () => {
 
     resetCostData();
 
-    setBudget("key1", { dailyLimitUsd: 10 });
-    const budget = getBudget("key1");
+    await setBudget("key1", { dailyLimitUsd: 10 });
+    const budget = await getBudget("key1");
     assert.equal(budget.dailyLimitUsd, 10);
     assert.equal(budget.warningThreshold, 0.8);
 
-    const check = checkBudget("key1");
+    const check = await checkBudget("key1");
     assert.ok(check.allowed);
     assert.equal(check.dailyLimit, 10);
 
@@ -173,19 +173,19 @@ describe("costRules persistence", () => {
 
     resetCostData();
 
-    setBudget("key2", { dailyLimitUsd: 5 });
+    await setBudget("key2", { dailyLimitUsd: 5 });
     recordCost("key2", 3.5);
     recordCost("key2", 1.0);
 
-    const total = getDailyTotal("key2");
+    const total = await getDailyTotal("key2");
     assertAlmostEqual(total, 4.5, 1e-9, `daily total ${total} should equal 4.5 (3.5 + 1.0)`);
 
     // Should still be allowed
-    const check = checkBudget("key2", 0);
+    const check = await checkBudget("key2", 0);
     assert.ok(check.allowed);
 
     // Should be denied with additional cost
-    const checkOver = checkBudget("key2", 1.0);
+    const checkOver = await checkBudget("key2", 1.0);
     assert.ok(!checkOver.allowed);
 
     resetCostData();
@@ -196,7 +196,7 @@ describe("costRules persistence", () => {
 
     resetCostData();
 
-    const check = checkBudget("no-budget-key");
+    const check = await checkBudget("no-budget-key");
     assert.ok(check.allowed);
     assert.equal(check.dailyLimit, 0);
 
@@ -209,11 +209,11 @@ describe("costRules persistence", () => {
 
     resetCostData();
 
-    setBudget("key3", { dailyLimitUsd: 100 });
+    await setBudget("key3", { dailyLimitUsd: 100 });
     recordCost("key3", 1.5);
     recordCost("key3", 2.5);
 
-    const summary = getCostSummary("key3");
+    const summary = await getCostSummary("key3");
     assertAlmostEqual(
       summary.dailyTotal,
       4.0,

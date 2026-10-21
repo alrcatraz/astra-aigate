@@ -481,7 +481,7 @@ test("enforceApiKeyPolicy rejects disallowed models and exhausted budgets", asyn
   assert.match(await readErrorMessage(disallowed.rejection), /not allowed/);
 
   const budgetMeta = await apiKeysDb.getApiKeyMetadata(budgetedKey.key);
-  costRules.setBudget(budgetMeta.id, { dailyLimitUsd: 1, warningThreshold: 0.5 });
+  await costRules.setBudget(budgetMeta.id, { dailyLimitUsd: 1, warningThreshold: 0.5 });
   costRules.recordCost(budgetMeta.id, 2);
 
   const overBudget = await policy.enforceApiKeyPolicy(

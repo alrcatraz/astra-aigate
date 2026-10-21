@@ -14,7 +14,7 @@ async function importFresh(modulePath) {
   return import(`${url}?test=${Date.now()}-${Math.random().toString(16).slice(2)}`);
 }
 
-function withMockedMigrationFs(files, fn) {
+async function withMockedMigrationFs(files, fn) {
   const originalExistsSync = fs.existsSync;
   const originalReaddirSync = fs.readdirSync;
   const originalReadFileSync = fs.readFileSync;
@@ -54,7 +54,7 @@ function withMockedMigrationFs(files, fn) {
   };
 
   try {
-    return fn();
+    return await fn();
   } finally {
     fs.existsSync = originalExistsSync;
     fs.readdirSync = originalReaddirSync;
@@ -62,20 +62,24 @@ function withMockedMigrationFs(files, fn) {
   }
 }
 
-function createDb() {
-  return new Database(":memory:");
+async function createDb() {
+  // runMigrations drives db.transaction(async ...) — better-sqlite3's raw
+  // transaction() rejects async callbacks, so wrap with the same async adapter
+  // production uses (mirrors db-migration-runner.test.ts).
+  const core = await import("../../src/lib/db/core.ts");
+  return core.sqliteAsyncAdapter(new Database(":memory:"));
 }
 
 test("migration 127 backfills account snapshots for historical rows", async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const db = createDb();
+  const db = await createDb();
   const migrationSql = fs.readFileSync(
     "src/lib/db/migrations/127_usage_history_account_identity.sql",
     "utf8"
   );
 
   try {
-    db.exec(`
+    await db.exec(`
       CREATE TABLE provider_connections (
         id TEXT PRIMARY KEY,
         provider TEXT,
@@ -101,11 +105,11 @@ test("migration 127 backfills account snapshots for historical rows", async () =
       VALUES ('codex', 'orphan-id'), ('', 'empty-provider');
     `);
 
-    const count = withMockedMigrationFs(
+    const count = await withMockedMigrationFs(
       { "127_usage_history_account_identity.sql": migrationSql },
       () => runner.runMigrations(db)
     );
-    const rows = db
+    const rows = await db
       .prepare("SELECT account_key, account_label FROM usage_history ORDER BY id")
       .all();
 
@@ -127,13 +131,13 @@ test("migration 127 backfills account snapshots for historical rows", async () =
       },
     ]);
   } finally {
-    db.close();
+    await db.close();
   }
 });
 
 test("migration 128 promotes only user-proven snapshots after a fresh 127 backfill", async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const db = createDb();
+  const db = await createDb();
   const migration127 = fs.readFileSync(
     "src/lib/db/migrations/127_usage_history_account_identity.sql",
     "utf8"
@@ -219,7 +223,7 @@ test("migration 128 promotes only user-proven snapshots after a fresh 127 backfi
   };
 
   try {
-    db.exec(`
+    await db.exec(`
       CREATE TABLE provider_connections (
         id TEXT PRIMARY KEY,
         provider TEXT,
@@ -277,7 +281,7 @@ test("migration 128 promotes only user-proven snapshots after a fresh 127 backfi
     // Fresh installs run the original shipped 127 first, then 128. The 127
     // backfill only touches rows without a snapshot, so the historical keys
     // above survive unchanged into 128.
-    const applied = withMockedMigrationFs(
+    const applied = await withMockedMigrationFs(
       {
         "127_usage_history_account_identity.sql": migration127,
         "129_usage_history_codex_strong_identity.sql": migration128,
@@ -286,7 +290,7 @@ test("migration 128 promotes only user-proven snapshots after a fresh 127 backfi
     );
     assert.equal(applied, 2);
 
-    const rows = db
+    const rows = await db
       .prepare("SELECT connection_id, account_key, account_label FROM usage_history ORDER BY id")
       .all();
 
@@ -353,30 +357,30 @@ test("migration 128 promotes only user-proven snapshots after a fresh 127 backfi
     ]);
 
     // Rerunning 128 on an up-to-date database must not rewrite anything.
-    const rerun = withMockedMigrationFs(
+    const rerun = await withMockedMigrationFs(
       { "129_usage_history_codex_strong_identity.sql": migration128 },
       () => runner.runMigrations(db)
     );
     assert.equal(rerun, 0);
     assert.deepEqual(
-      db.prepare("SELECT account_key FROM usage_history ORDER BY id").all(),
+      await db.prepare("SELECT account_key FROM usage_history ORDER BY id").all(),
       rows.map(({ account_key }) => ({ account_key }))
     );
   } finally {
-    db.close();
+    await db.close();
   }
 });
 
 test("migration 127 preserves exact dedup identity and ignores non-string JSON scalars", async () => {
   const runner = await importFresh("src/lib/db/migrationRunner.ts");
-  const db = createDb();
+  const db = await createDb();
   const sql = fs.readFileSync(
     "src/lib/db/migrations/127_usage_history_account_identity.sql",
     "utf8"
   );
 
   try {
-    db.exec(`
+    await db.exec(`
       CREATE TABLE provider_connections (
         id TEXT PRIMARY KEY,
         provider TEXT,
@@ -413,10 +417,11 @@ test("migration 127 preserves exact dedup identity and ignores non-string JSON s
         ('', '');
     `);
 
-    const count = withMockedMigrationFs({ "127_usage_history_account_identity.sql": sql }, () =>
-      runner.runMigrations(db)
+    const count = await withMockedMigrationFs(
+      { "127_usage_history_account_identity.sql": sql },
+      () => runner.runMigrations(db)
     );
-    const rows = db
+    const rows = await db
       .prepare("SELECT connection_id, account_key FROM usage_history ORDER BY id")
       .all();
 
@@ -476,6 +481,6 @@ test("migration 127 preserves exact dedup identity and ignores non-string JSON s
       },
     ]);
   } finally {
-    db.close();
+    await db.close();
   }
 });

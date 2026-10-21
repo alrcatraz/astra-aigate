@@ -220,20 +220,20 @@ test("cleanupDbBackups honors retentionDays for older backups", async () => {
 // Regression for #3834: the "Keep latest backups" value did not persist — it always
 // snapped back to 20 because getDbBackupMaxFiles() only read the env var (no setter,
 // no stored value). It now round-trips through a dedicated key_value store.
-test("getDbBackupMaxFiles defaults to 20 when nothing is stored (#3834)", () => {
+test("getDbBackupMaxFiles defaults to 20 when nothing is stored (#3834)", async () => {
   delete process.env.DB_BACKUP_MAX_FILES;
   core.getDbInstance(); // ensure the DB + key_value table exist
-  assert.equal(backupDb.getDbBackupMaxFiles(), 20);
+  assert.equal(await backupDb.getDbBackupMaxFiles(), 20);
 });
 
 test("setDbBackupMaxFiles persists and getDbBackupMaxFiles reflects it (#3834)", async () => {
   delete process.env.DB_BACKUP_MAX_FILES;
   core.getDbInstance();
   await backupDb.setDbBackupMaxFiles(5);
-  assert.equal(backupDb.getDbBackupMaxFiles(), 5);
+  assert.equal(await backupDb.getDbBackupMaxFiles(), 5);
   // A second value overwrites the first (operator changes the setting again).
   await backupDb.setDbBackupMaxFiles(12);
-  assert.equal(backupDb.getDbBackupMaxFiles(), 12);
+  assert.equal(await backupDb.getDbBackupMaxFiles(), 12);
 });
 
 test("DB_BACKUP_MAX_FILES env override wins over the persisted value (#3834)", async () => {
@@ -241,36 +241,36 @@ test("DB_BACKUP_MAX_FILES env override wins over the persisted value (#3834)", a
   await backupDb.setDbBackupMaxFiles(5);
   process.env.DB_BACKUP_MAX_FILES = "7";
   try {
-    assert.equal(backupDb.getDbBackupMaxFiles(), 7);
+    assert.equal(await backupDb.getDbBackupMaxFiles(), 7);
   } finally {
     delete process.env.DB_BACKUP_MAX_FILES;
   }
 });
 
-test("getDbBackupRetentionDays defaults to 0 when nothing is stored", () => {
+test("getDbBackupRetentionDays defaults to 0 when nothing is stored", async () => {
   delete process.env.DB_BACKUP_RETENTION_DAYS;
   core.getDbInstance();
-  assert.equal(backupDb.getDbBackupRetentionDays(), 0);
+  assert.equal(await backupDb.getDbBackupRetentionDays(), 0);
 });
 
 test("setDbBackupRetentionDays persists zero and positive values", async () => {
   delete process.env.DB_BACKUP_RETENTION_DAYS;
   core.getDbInstance();
   await backupDb.setDbBackupRetentionDays(0);
-  assert.equal(backupDb.getDbBackupRetentionDays(), 0);
+  assert.equal(await backupDb.getDbBackupRetentionDays(), 0);
 
   await backupDb.setDbBackupRetentionDays(14);
-  assert.equal(backupDb.getDbBackupRetentionDays(), 14);
+  assert.equal(await backupDb.getDbBackupRetentionDays(), 14);
 });
 
-test("stored backup retention values must be JSON integers", () => {
+test("stored backup retention values must be JSON integers", async () => {
   delete process.env.DB_BACKUP_RETENTION_DAYS;
   core
     .getDbInstance()
     .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
     .run("dbBackup", "retentionDays", JSON.stringify([14, 2]));
 
-  assert.equal(backupDb.getDbBackupRetentionDays(), 0);
+  assert.equal(await backupDb.getDbBackupRetentionDays(), 0);
 });
 
 test("DB_BACKUP_RETENTION_DAYS env override wins over the persisted value", async () => {
@@ -278,7 +278,7 @@ test("DB_BACKUP_RETENTION_DAYS env override wins over the persisted value", asyn
   await backupDb.setDbBackupRetentionDays(14);
   process.env.DB_BACKUP_RETENTION_DAYS = "3";
   try {
-    assert.equal(backupDb.getDbBackupRetentionDays(), 3);
+    assert.equal(await backupDb.getDbBackupRetentionDays(), 3);
   } finally {
     delete process.env.DB_BACKUP_RETENTION_DAYS;
   }
@@ -303,8 +303,8 @@ test("PATCH /api/db-backups persists retention controls without cleanup", async 
   assert.equal(body.saved, true);
   assert.equal(body.keepLatest, 9);
   assert.equal(body.retentionDays, 5);
-  assert.equal(backupDb.getDbBackupMaxFiles(), 9);
-  assert.equal(backupDb.getDbBackupRetentionDays(), 5);
+  assert.equal(await backupDb.getDbBackupMaxFiles(), 9);
+  assert.equal(await backupDb.getDbBackupRetentionDays(), 5);
   assert.equal(fs.existsSync(oldBackup), true);
 });
 
@@ -320,6 +320,6 @@ test("DELETE /api/db-backups persists both retention controls", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.keepLatest, 11);
   assert.equal(body.retentionDays, 17);
-  assert.equal(backupDb.getDbBackupMaxFiles(), 11);
-  assert.equal(backupDb.getDbBackupRetentionDays(), 17);
+  assert.equal(await backupDb.getDbBackupMaxFiles(), 11);
+  assert.equal(await backupDb.getDbBackupRetentionDays(), 17);
 });

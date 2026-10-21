@@ -72,6 +72,13 @@ test.beforeEach(async () => {
   clearSessions();
   await cleanupTestDataDir();
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  // Recreating DATA_DIR opens a fresh DB whose versioned migrations run
+  // fire-and-forget (async-DB migration). Join the barrier before the test
+  // body queries session_model_history, or getLastSessionModel hits
+  // "no such table" — the server does the same at boot
+  // (src/instrumentation-node.ts awaits awaitDbMigrations before serving).
+  core.getDbInstance();
+  await core.awaitDbMigrations();
 });
 
 test.after(async () => {

@@ -47,7 +47,7 @@ test("Codex provider window costs use the weekly reset window and API key USD li
   });
 
   const key = await apiKeys.createApiKey("Codex Key", "machine-codex-window");
-  costRules.setBudget(key.id, {
+  await costRules.setBudget(key.id, {
     dailyLimitUsd: 0,
     weeklyLimitUsd: 40,
     resetInterval: "weekly",
@@ -121,7 +121,7 @@ test("Claude provider window costs split spending across API keys from the curre
 
   const heavyKey = await apiKeys.createApiKey("Claude Heavy", "machine-claude-heavy");
   const lightKey = await apiKeys.createApiKey("Claude Light", "machine-claude-light");
-  costRules.setBudget(heavyKey.id, {
+  await costRules.setBudget(heavyKey.id, {
     dailyLimitUsd: 0,
     weeklyLimitUsd: 20,
     resetInterval: "weekly",

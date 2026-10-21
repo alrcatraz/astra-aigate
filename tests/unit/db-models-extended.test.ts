@@ -110,7 +110,7 @@ test("getModelCompatOverrides returns empty array for unknown provider", async (
 
 test("getModelIsHidden returns false for unknown model", async () => {
   await resetStorage();
-  assert.equal(models.getModelIsHidden("unknown", "unknown-model"), false);
+  assert.equal(await models.getModelIsHidden("unknown", "unknown-model"), false);
 });
 
 test("getModelNormalizeToolCallId returns boolean or undefined", async () => {

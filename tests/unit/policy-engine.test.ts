@@ -50,7 +50,7 @@ describe("policyEngine", async () => {
 
   test("denies when budget is exceeded", async () => {
     const keyId = `pe-budget-${Date.now()}`;
-    setBudget(keyId, { dailyLimitUsd: 0.001 });
+    await setBudget(keyId, { dailyLimitUsd: 0.001 });
     recordCost(keyId, 100);
 
     const verdict = await evaluateRequest({ model: "gpt-4o", apiKeyId: keyId });
@@ -79,7 +79,7 @@ describe("policyEngine", async () => {
 
   test("evaluateFirstAllowed returns null when all denied", async () => {
     const keyId = `pe-all-denied-${Date.now()}`;
-    setBudget(keyId, { dailyLimitUsd: 0.001 });
+    await setBudget(keyId, { dailyLimitUsd: 0.001 });
     recordCost(keyId, 100);
 
     const result = await evaluateFirstAllowed(["model-a", "model-b"], { apiKeyId: keyId });

@@ -398,7 +398,7 @@ test("policyEngine evaluates lockout, budget, fallback chains and policy class a
 
   await lockoutPolicy.recordSuccess("10.0.0.1");
   Date.now = originalDateNow;
-  costRules.setBudget("key-budget", { dailyLimitUsd: 5, warningThreshold: 0.5 });
+  await costRules.setBudget("key-budget", { dailyLimitUsd: 5, warningThreshold: 0.5 });
   costRules.recordCost("key-budget", 6);
 
   const overBudget = await policyEngineModule.evaluateRequest({
