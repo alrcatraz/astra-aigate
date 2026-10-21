@@ -131,6 +131,7 @@
     "update-notifier",
     "uuid",
     "vitest",
+    "vite",
     "wait-on",
     "wreq-js",
     "ws",
