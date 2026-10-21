@@ -20,13 +20,15 @@ export async function GET(request: Request) {
     const keys = await getApiKeys();
     const budgets: Record<
       string,
-      ReturnType<typeof getCostSummary> & { budgetCheck: ReturnType<typeof checkBudget> }
+      Awaited<ReturnType<typeof getCostSummary>> & {
+        budgetCheck: Awaited<ReturnType<typeof checkBudget>>;
+      }
     > = {};
     for (const k of keys) {
       const id = (k as { id?: string }).id;
       if (typeof id !== "string" || !id) continue;
-      const summary = getCostSummary(id);
-      budgets[id] = { ...summary, budgetCheck: checkBudget(id) };
+      const summary = await getCostSummary(id);
+      budgets[id] = { ...summary, budgetCheck: await checkBudget(id) };
     }
     return NextResponse.json({ budgets });
   } catch (error) {

@@ -62,7 +62,7 @@ export async function evaluateRequest(request: PolicyRequest): Promise<PolicyVer
 
   // ── 2. Budget Policy ───────────────────────────────
   if (apiKeyId) {
-    const budget = checkBudget(apiKeyId);
+    const budget = await checkBudget(apiKeyId);
     if (budget && !budget.allowed) {
       return {
         allowed: false,

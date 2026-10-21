@@ -23,15 +23,21 @@ async function readOptionalJsonBody(request: NextRequest | Request): Promise<unk
   }
 }
 
-function persistDbBackupRetentionSettings(input: { keepLatest?: number; retentionDays?: number }) {
-  const keepLatest = input.keepLatest ?? getDbBackupMaxFiles();
-  const retentionDays = input.retentionDays ?? getDbBackupRetentionDays();
+async function persistDbBackupRetentionSettings(input: {
+  keepLatest?: number;
+  retentionDays?: number;
+}) {
+  // getDbBackupMaxFiles/getDbBackupRetentionDays and their setters are async
+  // since the async-DB migration — await them so the response carries numbers,
+  // not Promises.
+  const keepLatest = input.keepLatest ?? (await getDbBackupMaxFiles());
+  const retentionDays = input.retentionDays ?? (await getDbBackupRetentionDays());
 
   if (input.keepLatest !== undefined) {
-    setDbBackupMaxFiles(input.keepLatest);
+    await setDbBackupMaxFiles(input.keepLatest);
   }
   if (input.retentionDays !== undefined) {
-    setDbBackupRetentionDays(input.retentionDays);
+    await setDbBackupRetentionDays(input.retentionDays);
   }
 
   return { keepLatest, retentionDays };
@@ -146,9 +152,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
+    const persisted = await persistDbBackupRetentionSettings(validation.data);
     return NextResponse.json({
       saved: true,
-      ...persistDbBackupRetentionSettings(validation.data),
+      ...persisted,
     });
   } catch (error) {
     console.error("[API] Error saving DB backup retention settings:", error);
@@ -186,7 +193,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const { keepLatest, retentionDays } = persistDbBackupRetentionSettings(validation.data);
+    const { keepLatest, retentionDays } = await persistDbBackupRetentionSettings(validation.data);
     const result = cleanupDbBackups({ maxFiles: keepLatest, retentionDays });
     return NextResponse.json({
       cleaned: true,

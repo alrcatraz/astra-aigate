@@ -45,8 +45,8 @@ export async function GET() {
             proxyLogs: getProxyLogsTableMaxRows(),
           },
           backupRetention: {
-            maxFiles: getDbBackupMaxFiles(),
-            days: getDbBackupRetentionDays(),
+            maxFiles: await getDbBackupMaxFiles(),
+            days: await getDbBackupRetentionDays(),
           },
           dataDir: "postgres",
         });
@@ -60,7 +60,10 @@ export async function GET() {
           backupCount: 0,
           retentionDays: { app: 7, call: 7 },
           tableMaxRows: { callLogs: 0, proxyLogs: 0 },
-          backupRetention: { maxFiles: getDbBackupMaxFiles(), days: getDbBackupRetentionDays() },
+          backupRetention: {
+            maxFiles: await getDbBackupMaxFiles(),
+            days: await getDbBackupRetentionDays(),
+          },
           dataDir: "postgres",
         });
       }
@@ -122,8 +125,8 @@ export async function GET() {
         proxyLogs: getProxyLogsTableMaxRows(),
       },
       backupRetention: {
-        maxFiles: getDbBackupMaxFiles(),
-        days: getDbBackupRetentionDays(),
+        maxFiles: await getDbBackupMaxFiles(),
+        days: await getDbBackupRetentionDays(),
       },
       dataDir: dataDir.startsWith(homeDir) ? "~" + dataDir.slice(homeDir.length) : dataDir,
     });

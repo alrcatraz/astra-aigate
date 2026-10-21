@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { DEFAULT_OMNIROUTE_BASE_URL } from "@/shared/utils/resolveOmniRouteBaseUrl";
+import { DEFAULT_OMNIROUTE_BASE_URL } from "../../shared/utils/resolveOmniRouteBaseUrl";
 import { getCurrentHermesAgentRoles } from "./config-generator/hermes-agent";
 import {
   getLookupEnv,

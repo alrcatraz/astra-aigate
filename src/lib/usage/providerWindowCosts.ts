@@ -12,7 +12,11 @@ const RECORDED_COST_MATCH_TOLERANCE_MS = 30_000;
 // Sync view of the shared DB singleton (see featureFlags.ts for the same
 // pattern). This reader sits in the synchronous call stack.
 function syncDb(): RawSyncDb {
-  return getAsyncDb() as unknown as RawSyncDb;
+  // .raw is the underlying synchronous handle. The adapter's own statement
+  // methods return Promises, so casting the adapter itself (rather than
+  // .raw) made `.all()` a Promise — `for (const row of rows)` then threw and
+  // the catch swallowed it, so recorded-cost history was never matched.
+  return getAsyncDb().raw as RawSyncDb;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -182,8 +186,8 @@ async function selectWeeklyWindow(
   windowStartSource: ProviderWindowCostBreakdown["windowStartSource"];
 }> {
   const cacheEntries = connectionId
-    ? [[connectionId, getProviderLimitsCache(connectionId)] as const]
-    : Object.entries(getAllProviderLimitsCache());
+    ? [[connectionId, await getProviderLimitsCache(connectionId)] as const]
+    : Object.entries(await getAllProviderLimitsCache());
 
   let selected: {
     score: number;

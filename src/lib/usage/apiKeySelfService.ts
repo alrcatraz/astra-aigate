@@ -387,7 +387,7 @@ export async function buildApiKeySelfServiceStatus(
 
   const resolvedDeps = await normalizeDeps(deps);
   const summary = await resolvedDeps.getCostSummary(metadata.id);
-  resolvedDeps.checkBudget(metadata.id);
+  await resolvedDeps.checkBudget(metadata.id);
 
   const cost = await buildCostStatus(summary, resolvedDeps.now());
   const tokens = aggregateTokens(

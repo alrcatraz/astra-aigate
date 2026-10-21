@@ -428,38 +428,42 @@ export async function listDbBackups() {
       .reverse();
 
     const { tryOpenSync } = await import("@/lib/db/adapters/driverFactory");
-    return entries.map((filename) => {
-      const filePath = path.join(backupDir, filename);
-      const stat = fs.statSync(filePath);
-      const match = filename.match(/^db_(.+?)_([^.]+)\.sqlite$/);
-      const reason = match ? match[2] : "unknown";
+    // The adapter returned by tryOpenSync is async — an un-awaited .get()
+    // yields a Promise, so connectionCount would read 0 forever.
+    return await Promise.all(
+      entries.map(async (filename) => {
+        const filePath = path.join(backupDir, filename);
+        const stat = fs.statSync(filePath);
+        const match = filename.match(/^db_(.+?)_([^.]+)\.sqlite$/);
+        const reason = match ? match[2] : "unknown";
 
-      let connectionCount = 0;
-      try {
-        const backupDb = tryOpenSync(filePath, { readonly: true });
-        if (backupDb) {
-          try {
-            const row = backupDb
-              .prepare("SELECT COUNT(*) as cnt FROM provider_connections")
-              .get() as CountRow | undefined;
-            connectionCount = Number(row?.cnt ?? 0);
-          } finally {
-            backupDb.close();
+        let connectionCount = 0;
+        try {
+          const backupDb = tryOpenSync(filePath, { readonly: true });
+          if (backupDb) {
+            try {
+              const row = (await backupDb
+                .prepare("SELECT COUNT(*) as cnt FROM provider_connections")
+                .get()) as CountRow | undefined;
+              connectionCount = Number(row?.cnt ?? 0);
+            } finally {
+              await backupDb.close();
+            }
           }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
-      }
 
-      return {
-        id: filename,
-        filename,
-        createdAt: stat.mtime.toISOString(),
-        size: stat.size,
-        reason,
-        connectionCount,
-      };
-    });
+        return {
+          id: filename,
+          filename,
+          createdAt: stat.mtime.toISOString(),
+          size: stat.size,
+          reason,
+          connectionCount,
+        };
+      })
+    );
   } catch {
     return [];
   }
