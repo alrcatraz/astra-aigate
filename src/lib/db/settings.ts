@@ -825,10 +825,9 @@ export {
   resetAllPricing,
 } from "./settings/pricing";
 
-export { type LKGPRecord, getLKGP, setLKGP, clearAllLKGP } from "./settings/lkgp";
+export { getLKGP, setLKGP, clearAllLKGP } from "./settings/lkgp";
 
 export {
-  type CacheTrendPoint,
   getCacheMetrics,
   updateCacheMetrics,
   getCacheTrend,

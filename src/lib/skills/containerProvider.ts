@@ -454,9 +454,6 @@ export async function resolveProvider(): Promise<ContainerProvider> {
 }
 
 /** Exposed for tests — forces a fresh detection pass. */
-export function _resetProviderCacheForTests(): void {
-  clearDetectionCache();
-}
 
 /**
  * Returns the kill command for the given provider, parameterised with the

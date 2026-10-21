@@ -125,9 +125,6 @@ export function extractKimiAccessToken(rawValue: string): string {
 }
 
 /** @deprecated Use extractKimiAccessToken; retained for existing imports. */
-export function extractKimiJwt(rawValue: string): string {
-  return extractKimiAccessToken(rawValue);
-}
 
 export function normalizeSessionCookieHeaders(
   rawValues: Array<string | null | undefined>,

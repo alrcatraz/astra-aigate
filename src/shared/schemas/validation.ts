@@ -138,17 +138,3 @@ export const chatCompletionSchema = z.object({
  * @param {unknown} data
  * @returns {{ success: true, data: T } | { success: false, errors: Array<{ path: string, message: string }> }}
  */
-export function validateSchema(schema, data) {
-  const result = schema.safeParse(data);
-  if (result.success) {
-    return { success: true, data: result.data };
-  }
-
-  return {
-    success: false,
-    errors: result.error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    })),
-  };
-}

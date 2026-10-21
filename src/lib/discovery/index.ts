@@ -59,25 +59,6 @@ export const DEFAULT_DISCOVERY_CONFIG: DiscoveryConfig = {
 /**
  * Probe a single URL for API availability.
  */
-export async function probeEndpoint(
-  url: string,
-  signal?: AbortSignal
-): Promise<{ accessible: boolean; status?: number; hasModels?: boolean }> {
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { "User-Agent": "AI Gate-Discovery/1.0" },
-      signal,
-    });
-    return {
-      accessible: res.ok,
-      status: res.status,
-      hasModels: res.ok && url.includes("/models"),
-    };
-  } catch {
-    return { accessible: false };
-  }
-}
 
 // ── Scan ──
 
@@ -132,6 +113,3 @@ export async function getDiscoveryResults(providerId?: string): Promise<Discover
 /**
  * Check if discovery service is enabled.
  */
-export function isDiscoveryEnabled(): boolean {
-  return DEFAULT_DISCOVERY_CONFIG.enabled;
-}

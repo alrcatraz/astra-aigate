@@ -319,32 +319,6 @@ export function getSyncToken(): string | null {
   }
 }
 
-export async function setSyncToken(token: string | null): Promise<void> {
-  try {
-    const db = getAsyncDb();
-    if (token === null) {
-      await db
-        .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
-        .run("sync", SYNC_TOKEN_KEY);
-    } else {
-      const existing = await db
-        .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-        .get("sync", SYNC_TOKEN_KEY);
-      if (existing) {
-        await db
-          .prepare("UPDATE key_value SET value = ? WHERE namespace = ? AND key = ?")
-          .run(JSON.stringify(token), "sync", SYNC_TOKEN_KEY);
-      } else {
-        await db
-          .prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
-          .run("sync", SYNC_TOKEN_KEY, JSON.stringify(token));
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
 export interface SyncServerStatus {
   running: boolean;
   uptime: number;

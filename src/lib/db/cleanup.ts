@@ -767,9 +767,3 @@ export function startCleanupScheduler(): void {
 /**
  * Stop the background cleanup scheduler (for tests).
  */
-export function stopCleanupScheduler(): void {
-  if (_cleanupSchedulerTimer) {
-    clearInterval(_cleanupSchedulerTimer);
-    _cleanupSchedulerTimer = null;
-  }
-}

@@ -1,5 +1,1 @@
-export {
-  extractJsonZip as extractClaudeAuthZip,
-  type ExtractedZipFile,
-  type ExtractZipOptions,
-} from "@/lib/oauth/utils/jsonZipExtract";
+export { extractJsonZip as extractClaudeAuthZip } from "@/lib/oauth/utils/jsonZipExtract";

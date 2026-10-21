@@ -1,13 +1,7 @@
 // Identificador estável dos formatos suportados (1:1 com FORMAT_META em exampleTemplates.tsx).
 // Mantém compatibilidade com strings já no backend (open-sse/translator/formats.ts).
 export type FormatId =
-  | "openai"
-  | "openai-responses"
-  | "claude"
-  | "gemini"
-  | "antigravity"
-  | "kiro"
-  | "cursor";
+  "openai" | "openai-responses" | "claude" | "gemini" | "antigravity" | "kiro" | "cursor";
 
 // Tabs no shell de 2 abas.
 export type TranslatorTab = "translate" | "monitor";
@@ -16,12 +10,7 @@ export type TranslatorTab = "translate" | "monitor";
 export type TranslateMode = "preview" | "send";
 
 // Slugs canônicos dos accordions Advanced (deep-link).
-export type AdvancedSlug =
-  | "rawjson"
-  | "pipeline"
-  | "streamtransform"
-  | "testbench"
-  | "compression";
+export type AdvancedSlug = "rawjson" | "pipeline" | "streamtransform" | "testbench" | "compression";
 
 // Estado do deep-link parseado a partir da querystring (hook useTranslateDeepLink).
 export interface TranslateDeepLink {
@@ -59,10 +48,3 @@ export interface AdvancedAccordionProps {
 // Templates retornados por getExampleTemplates(t) — espelha o shape de exampleTemplates.tsx.
 // exampleTemplates.tsx não exporta este type, então definimos inline aqui.
 // NÃO duplicar os dados — importar apenas getExampleTemplates/FORMAT_META/FORMAT_OPTIONS do módulo.
-export interface ExampleTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  formats: Partial<Record<FormatId, Record<string, unknown>>>;
-}

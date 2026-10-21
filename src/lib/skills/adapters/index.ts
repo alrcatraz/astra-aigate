@@ -46,9 +46,6 @@ const FACTORIES = new Map<SkillSourceKind, (inst: SkillSourceInstance) => SkillS
 ]);
 
 /** 可多实例化的源类型。 */
-export function isMultiInstanceKind(kind: SkillSourceKind): boolean {
-  return FACTORIES.has(kind);
-}
 
 /** 按用户登记的源实例构建 adapter（多实例源）。 */
 export function buildAdapterFromInstance(
@@ -64,21 +61,7 @@ export function getSourceAdapter(kind: SkillSourceKind): SkillSourceAdapter | un
 }
 
 /** 列出所有已注册的单实例 adapter。 */
-export function listSourceAdapters(): SkillSourceAdapter[] {
-  return [...SINGLETONS];
-}
 
 /** 是否已有该源类型的 adapter（单实例或可多实例）。 */
-export function hasSourceAdapter(kind: SkillSourceKind): boolean {
-  return byKind.has(kind) || FACTORIES.has(kind);
-}
 
 /** 动态登记单实例 adapter（供后续里程碑 / 插件注册新源）。 */
-export function registerSourceAdapter(adapter: SkillSourceAdapter): SkillSourceAdapter | undefined {
-  const prev = byKind.get(adapter.kind);
-  byKind.set(adapter.kind, adapter);
-  const existing = SINGLETONS.findIndex((a) => a.kind === adapter.kind);
-  if (existing >= 0) SINGLETONS[existing] = adapter;
-  else SINGLETONS.push(adapter);
-  return prev;
-}

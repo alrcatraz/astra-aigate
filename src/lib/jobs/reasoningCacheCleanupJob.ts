@@ -31,10 +31,3 @@ export function startReasoningCacheCleanupJob() {
   timer.unref?.();
   return timer;
 }
-
-export function stopReasoningCacheCleanupJob() {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
-}

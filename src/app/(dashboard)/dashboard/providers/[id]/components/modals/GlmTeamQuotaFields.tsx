@@ -4,7 +4,6 @@ import { Input } from "@/shared/components";
 import { providerText, type ProviderMessageTranslator } from "../../providerPageHelpers";
 import type { GlmTeamQuotaFieldValues } from "./glmTeamQuotaProviderData";
 
-export type { GlmTeamQuotaFieldValues };
 export {
   EMPTY_GLM_TEAM_QUOTA_FIELDS,
   assignGlmTeamQuotaProviderData,

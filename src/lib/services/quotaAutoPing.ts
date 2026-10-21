@@ -55,17 +55,12 @@ export interface QuotaAutoPingConnection {
 
 export interface QuotaAutoPingDeps {
   getSettings: () => Promise<JsonRecord>;
-  getProviderConnections: (
-    filter: JsonRecord
-  ) => Promise<QuotaAutoPingConnection[]>;
+  getProviderConnections: (filter: JsonRecord) => Promise<QuotaAutoPingConnection[]>;
   updateProviderConnection: (id: string, data: JsonRecord) => Promise<unknown>;
   refreshAndUpdateCredentials: (
     connection: QuotaAutoPingConnection
   ) => Promise<{ connection: QuotaAutoPingConnection }>;
-  getCodexUsage: (
-    accessToken?: string,
-    providerSpecificData?: JsonRecord
-  ) => Promise<JsonRecord>;
+  getCodexUsage: (accessToken?: string, providerSpecificData?: JsonRecord) => Promise<JsonRecord>;
   getExecutor: (provider: string) => { execute: (input: JsonRecord) => Promise<JsonRecord> };
   canExecuteProvider: (provider: string) => boolean;
 }
@@ -148,11 +143,7 @@ function wasPingedRecently(
   return Number.isFinite(lastPingAtMs) && nowMs - lastPingAtMs < intervalMs;
 }
 
-function shouldSkipAfterFailure(
-  state: QuotaAutoPingState,
-  key: string,
-  nowMs: number
-): boolean {
+function shouldSkipAfterFailure(state: QuotaAutoPingState, key: string, nowMs: number): boolean {
   const failedAt = state.failureCache[key];
   return Boolean(failedAt) && nowMs - failedAt < QUOTA_AUTOPING_FAILURE_COOLDOWN_MS;
 }
@@ -267,8 +258,8 @@ function isPingCandidateBlocked(
   // resetAt — the guard is preserved here for that case.
   return Boolean(
     !providerConfig.pingWhenResetAtSlides &&
-      cachedReset &&
-      nowMs < new Date(cachedReset).getTime() - QUOTA_AUTOPING_REFRESH_AHEAD_MS
+    cachedReset &&
+    nowMs < new Date(cachedReset).getTime() - QUOTA_AUTOPING_REFRESH_AHEAD_MS
   );
 }
 
@@ -326,7 +317,18 @@ async function pingConnection(
 ): Promise<void> {
   const key = cacheKey(provider, connection.id);
   const cachedReset = state.resetCache[key];
-  if (isPingCandidateBlocked(connection, provider, providerConfig, deps, state, key, cachedReset, nowMs)) {
+  if (
+    isPingCandidateBlocked(
+      connection,
+      provider,
+      providerConfig,
+      deps,
+      state,
+      key,
+      cachedReset,
+      nowMs
+    )
+  ) {
     return;
   }
 
@@ -341,7 +343,9 @@ async function pingConnection(
   state.resetCache[key] = resetAt;
 
   const resetKey = normalizeResetKey(resetAt);
-  if (!shouldSendPing(providerConfig, quotas, quota, cachedReset, resetAt, current, resetKey, nowMs)) {
+  if (
+    !shouldSendPing(providerConfig, quotas, quota, cachedReset, resetAt, current, resetKey, nowMs)
+  ) {
     return;
   }
 
@@ -366,8 +370,7 @@ function getEnabledConnectionIds(
 ): Record<string, boolean> {
   return (
     ((settings[providerConfig.settingsKey] as JsonRecord | undefined)?.connections as
-      | Record<string, boolean>
-      | undefined) || {}
+      Record<string, boolean> | undefined) || {}
   );
 }
 
@@ -445,9 +448,3 @@ export function startQuotaAutoPing(): void {
 }
 
 /** Stop the in-process scheduler. Idempotent — a second call is a no-op. */
-export function stopQuotaAutoPing(): void {
-  if (!schedulerInterval) return;
-  clearInterval(schedulerInterval);
-  schedulerInterval = null;
-  log.info("scheduler stopped");
-}

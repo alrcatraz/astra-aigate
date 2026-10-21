@@ -361,7 +361,6 @@ export function createPostgresAdapter(config: PostgresAdapterConfig = {}): Datab
      */
     get raw(): unknown {
       if (!scratchRaw) {
-         
         console.warn(
           "[DB] PostgreSQL has no synchronous driver — returning in-memory SQLite scratch handle. " +
             "Sync .raw call sites hold scratch-only data that will NOT persist to PG."
@@ -379,4 +378,3 @@ export function createPostgresAdapter(config: PostgresAdapterConfig = {}): Datab
 }
 
 /** Re-export for callers that want to run raw SQLite-master-like queries. */
-export { sqliteMasterToQuery };

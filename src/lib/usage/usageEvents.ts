@@ -60,32 +60,9 @@ const statsListeners: Record<StatsEventKey, Set<() => void>> = {
 };
 
 /** Register a debounced stats listener. Returns an unsubscribe fn. */
-export function onStatsEvent(event: StatsEventKey, listener: () => void): () => void {
-  statsListeners[event].add(listener);
-  return () => {
-    statsListeners[event].delete(listener);
-  };
-}
 
 /**
  * Schedule a stats event emission after `delayMs`, collapsing rapid bursts
  * into a single notification. Safe to call from hot paths — subsequent calls
  * within the same window are no-ops.
  */
-export function scheduleStatsEvent(event: StatsEventKey, delayMs = 200): void {
-  if (statsEmitTimers[event] != null) return;
-  statsEmitTimers[event] = setTimeout(() => {
-    statsEmitTimers[event] = null;
-    for (const listener of statsListeners[event]) {
-      try {
-        listener();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn(`[usageEvents] stats listener (${event}) failed: ${message}`);
-      }
-    }
-  }, delayMs);
-  // Allow Node.js to exit naturally even if the timer is still pending
-  // (avoids keeping the event loop alive for a stray stats notification).
-  (statsEmitTimers[event] as any)?.unref?.();
-}

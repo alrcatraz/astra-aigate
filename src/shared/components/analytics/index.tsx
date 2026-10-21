@@ -16,7 +16,6 @@ export {
   ApiKeyTable,
   MostActiveDay7d,
   WeeklySquares7d,
-  UsageDetail,
   ProviderTable,
   ServiceTierBreakdown,
 } from "./charts";

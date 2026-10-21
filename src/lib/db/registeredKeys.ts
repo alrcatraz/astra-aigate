@@ -101,57 +101,6 @@ export interface ListKeysOptions {
 
 // ── Register ─────────────────────────────────────────────────────────────────
 
-export async function createRegisteredKey(input: CreateKeyInput): Promise<RegisteredKeyWithSecret> {
-  const db = await getAsyncDb();
-  const id = uuidv4();
-  const now = Math.floor(Date.now() / 1000);
-
-  const rawKey = "astra-" + randomBytes(24).toString("hex");
-  const keyHash = await createHash("sha256").update(rawKey).digest("hex");
-  const keyPrefix = rawKey.substring(0, 14);
-
-  await db
-    .prepare(
-      `INSERT INTO registered_keys
-        (id, name, key_hash, key_prefix, model, endpoints, params, is_active, is_disabled,
-         created_by_ip, last_used_at, created_at, updated_at, expires_at, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?, NULL, ?, ?, ?, ?)`
-    )
-    .run(
-      id,
-      input.name,
-      keyHash,
-      keyPrefix,
-      input.model || "all",
-      input.endpoints ? JSON.stringify(input.endpoints) : null,
-      JSON.stringify(input.params || {}),
-      input.createdByIp || null,
-      now,
-      now,
-      input.expiresAt || null,
-      JSON.stringify(input.metadata || {})
-    );
-
-  return {
-    id,
-    name: input.name,
-    keyHash,
-    keyPrefix,
-    model: input.model || "all",
-    endpoints: input.endpoints ? JSON.stringify(input.endpoints) : null,
-    params: JSON.stringify(input.params || {}),
-    isActive: true,
-    isDisabled: false,
-    createdByIp: input.createdByIp || null,
-    lastUsedAt: null,
-    createdAt: now,
-    updatedAt: now,
-    expiresAt: input.expiresAt || null,
-    metadata: JSON.stringify(input.metadata || {}),
-    rawKey,
-  };
-}
-
 function mapRow(row: unknown): RegisteredKey {
   const r = row as RegisteredKeyRow;
   return {
@@ -249,108 +198,9 @@ export async function getRegisteredKey(id: string): Promise<RegisteredKey | null
   return row ? mapRow(row) : null;
 }
 
-export async function getRegisteredKeyByHash(keyHash: string): Promise<RegisteredKey | null> {
-  const db = await getAsyncDb();
-  const row = (await db
-    .prepare("SELECT * FROM registered_keys WHERE key_hash = ?")
-    .get(keyHash)) as RegisteredKeyRow | undefined;
-  return row ? mapRow(row) : null;
-}
-
 // ── Update ───────────────────────────────────────────────────────────────────
 
-export async function updateRegisteredKey(
-  id: string,
-  updates: Partial<{
-    name: string;
-    model: string;
-    endpoints: string[];
-    params: Record<string, unknown>;
-    expiresAt: number | null;
-    isActive: boolean;
-    isDisabled: boolean;
-    metadata: Record<string, unknown>;
-  }>
-): Promise<RegisteredKey | null> {
-  const existing = await getRegisteredKey(id);
-  if (!existing) return null;
-
-  const db = await getAsyncDb();
-  const now = Math.floor(Date.now() / 1000);
-
-  const sets: string[] = [];
-  const params: unknown[] = [];
-
-  if (updates.name !== undefined) {
-    sets.push("name = ?");
-    params.push(updates.name);
-  }
-  if (updates.model !== undefined) {
-    sets.push("model = ?");
-    params.push(updates.model);
-  }
-  if (updates.endpoints !== undefined) {
-    sets.push("endpoints = ?");
-    params.push(JSON.stringify(updates.endpoints));
-  }
-  if (updates.params !== undefined) {
-    sets.push("params = ?");
-    params.push(JSON.stringify(updates.params));
-  }
-  if (updates.expiresAt !== undefined) {
-    sets.push("expires_at = ?");
-    params.push(updates.expiresAt);
-  }
-  if (updates.isActive !== undefined) {
-    sets.push("is_active = ?");
-    params.push(updates.isActive ? 1 : 0);
-  }
-  if (updates.isDisabled !== undefined) {
-    sets.push("is_disabled = ?");
-    params.push(updates.isDisabled ? 1 : 0);
-  }
-  if (updates.metadata !== undefined) {
-    sets.push("metadata = ?");
-    params.push(JSON.stringify(updates.metadata));
-  }
-
-  if (sets.length === 0) return existing;
-
-  sets.push("updated_at = ?");
-  params.push(now);
-  params.push(id);
-
-  await db.prepare(`UPDATE registered_keys SET ${sets.join(", ")} WHERE id = ?`).run(...params);
-  return getRegisteredKey(id);
-}
-
-export async function toggleRegisteredKey(
-  id: string,
-  isActive: boolean
-): Promise<RegisteredKey | null> {
-  const db = await getAsyncDb();
-  const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare("UPDATE registered_keys SET is_active = ?, updated_at = ? WHERE id = ?")
-    .run(isActive ? 1 : 0, now, id);
-  return getRegisteredKey(id);
-}
-
-export async function deleteRegisteredKey(id: string): Promise<boolean> {
-  const db = await getAsyncDb();
-  const result = await db.prepare("DELETE FROM registered_keys WHERE id = ?").run(id);
-  return (result.changes ?? 0) > 0;
-}
-
 // ── Usage tracking ───────────────────────────────────────────────────────────
-
-export async function recordRegisteredKeyUsage(keyHash: string): Promise<void> {
-  const db = await getAsyncDb();
-  const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare("UPDATE registered_keys SET last_used_at = ? WHERE key_hash = ?")
-    .run(now, keyHash);
-}
 
 // ── Summary ──────────────────────────────────────────────────────────────────
 
@@ -359,33 +209,6 @@ export interface RegisteredKeySummary {
   active: number;
   inactive: number;
   usedThisWeek: number;
-}
-
-export async function getRegisteredKeySummary(): Promise<RegisteredKeySummary> {
-  const db = await getAsyncDb();
-  const oneWeekAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
-
-  const totalRow = (await db.prepare("SELECT count(*) as cnt FROM registered_keys").get()) as {
-    cnt: number;
-  };
-  const activeRow = (await db
-    .prepare("SELECT count(*) as cnt FROM registered_keys WHERE is_active = 1")
-    .get()) as { cnt: number };
-  const inactiveRow = (await db
-    .prepare("SELECT count(*) as cnt FROM registered_keys WHERE is_active = 0")
-    .get()) as { cnt: number };
-  const usedRow = (await db
-    .prepare(
-      "SELECT count(*) as cnt FROM registered_keys WHERE last_used_at IS NOT NULL AND last_used_at > ?"
-    )
-    .get(oneWeekAgo)) as { cnt: number };
-
-  return {
-    total: totalRow?.cnt || 0,
-    active: activeRow?.cnt || 0,
-    inactive: inactiveRow?.cnt || 0,
-    usedThisWeek: usedRow?.cnt || 0,
-  };
 }
 
 // ── [recovered] Legacy registered-key API (restored from HEAD; task-1 rewrite dropped it) ──

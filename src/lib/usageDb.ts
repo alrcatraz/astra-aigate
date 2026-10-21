@@ -20,10 +20,6 @@ import "./usage/migrations";
 // Re-export everything for backward compatibility
 export {
   trackPendingRequest,
-  updatePendingRequest,
-  updatePendingRequestStreamChunks,
-  finalizePendingRequest,
-  getUsageDb,
   saveRequestUsage,
   getUsageHistory,
   getModelLatencyStats,
@@ -35,4 +31,4 @@ export { calculateCost } from "./usage/costCalculator";
 
 export { getUsageStats } from "./usage/usageStats";
 
-export { saveCallLog, rotateCallLogs, getCallLogs, getCallLogById } from "./usage/callLogs";
+export { saveCallLog, getCallLogs, getCallLogById } from "./usage/callLogs";

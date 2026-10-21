@@ -26,7 +26,6 @@ export interface OpenApiEndpoint {
 }
 
 export const OPENAPI_VERSION = "3.8.35";
-export const OPENAPI_TITLE = "AI Gate API";
 
 export const OPENAPI_ENDPOINTS: OpenApiEndpoint[] = [
   {

@@ -21,12 +21,7 @@ import type {
   RetrievePreviewResolution,
   RetrievePreviewBundle,
 } from "./retrievalTypes.ts";
-export type {
-  RetrievalOptions,
-  RetrievePreviewItem,
-  RetrievePreviewResolution,
-  RetrievePreviewBundle,
-} from "./retrievalTypes.ts";
+export type { RetrievalOptions, RetrievePreviewBundle } from "./retrievalTypes.ts";
 export { estimateTokens } from "./retrieval/scoring";
 
 // ──────────────── Helpers ────────────────

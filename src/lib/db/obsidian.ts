@@ -75,17 +75,6 @@ export async function setObsidianBaseUrl(url: string): Promise<void> {
   }
 }
 
-export async function clearObsidianBaseUrl(): Promise<void> {
-  try {
-    const db = getAsyncDb();
-    await db
-      .prepare("DELETE FROM key_value WHERE namespace = ? AND key = ?")
-      .run(OBSIDIAN_NAMESPACE, "base_url");
-  } catch {
-    // Non-fatal.
-  }
-}
-
 export async function getObsidianVaultPath(): Promise<string | null> {
   try {
     const db = getAsyncDb();

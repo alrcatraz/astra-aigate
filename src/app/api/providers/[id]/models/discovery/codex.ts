@@ -4,11 +4,7 @@ import {
 } from "@omniroute/open-sse/config/codexClient.ts";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 
-export {
-  CODEX_DISCOVERY_EXCLUDED_IDS,
-  CODEX_DISCOVERY_EXCLUDED_ID_PREFIXES,
-  isCodexDiscoveryModelExcluded,
-} from "@/shared/services/codexDiscoveryPolicy";
+export { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 
 export const CODEX_MODELS_URL = "https://chatgpt.com/backend-api/codex/models";
 export const CODEX_GITHUB_MODELS_URL =

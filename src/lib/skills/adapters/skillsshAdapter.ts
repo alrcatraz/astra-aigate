@@ -42,6 +42,3 @@ export const skillsshAdapter: SkillSourceAdapter = {
 };
 
 /** 类型守卫：确认 skillssh 属受控源枚举。 */
-export function isSkillsshKind(kind: unknown): boolean {
-  return kind === SKILL_SOURCE_KINDS[0];
-}

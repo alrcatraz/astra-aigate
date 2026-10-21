@@ -258,13 +258,6 @@ export async function updateSubscription(
   return getSubscriptionById(id);
 }
 
-export async function setSubscriptionEnabled(
-  id: string,
-  enabled: boolean
-): Promise<ProxySubscriptionRecord | null> {
-  return updateSubscription(id, { enabled });
-}
-
 export async function deleteSubscription(id: string): Promise<boolean> {
   await unapplySubscription(id);
   // Remove subscription-sourced proxy rows (force-clears their assignments).
@@ -751,12 +744,4 @@ export function startSubscriptionScheduler(): void {
   // Check every minute; each subscription self-throttles by its interval.
   schedulerTimer = setInterval(tick, 60_000);
   if (typeof schedulerTimer.unref === "function") schedulerTimer.unref();
-}
-
-export function stopSubscriptionScheduler(): void {
-  if (schedulerTimer) {
-    clearInterval(schedulerTimer);
-    schedulerTimer = null;
-  }
-  schedulerStarted = false;
 }

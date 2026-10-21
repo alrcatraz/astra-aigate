@@ -54,105 +54,10 @@ export async function listServers(): Promise<ServerConnection[]> {
  * Sync leaderboard with a community server.
  * Fetches remote scores and merges into local leaderboard.
  */
-export async function syncLeaderboard(
-  serverId: string
-): Promise<{ synced: number; errors: string[] }> {
-  const db = (await import("../db/core")).getAsyncDb();
-
-  const server = (await db
-    .prepare(
-      "SELECT url, api_key_hash FROM community_servers WHERE id = ? AND status = 'connected'"
-    )
-    .get(serverId)) as { url: string; api_key_hash: string } | undefined;
-
-  if (!server) {
-    return { synced: 0, errors: ["Server not found or not connected"] };
-  }
-
-  try {
-    // Fetch remote leaderboard
-    const response = await fetch(`${server.url}/api/gamification/federation/leaderboard`, {
-      headers: { Authorization: `Bearer ${server.api_key_hash}` },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      entries: Array<{ apiKeyId: string; score: number }>;
-    };
-
-    // Overwrite local scores with remote scores (not additive)
-    const db2 = (await import("../db/core")).getAsyncDb();
-    for (const entry of data.entries) {
-      db2
-        .prepare(
-          `INSERT INTO leaderboard (api_key_id, scope, score, updated_at)
-         VALUES (?, 'global', ?, datetime('now'))
-         ON CONFLICT(api_key_id, scope) DO UPDATE SET score = excluded.score, updated_at = excluded.updated_at`
-        )
-        .run(entry.apiKeyId, entry.score);
-    }
-
-    // Update last sync time
-    await db
-      .prepare(
-        "UPDATE community_servers SET last_sync_at = datetime('now'), error_message = NULL WHERE id = ?"
-      )
-      .run(serverId);
-
-    return { synced: data.entries.length, errors: [] };
-  } catch (err: any) {
-    await db
-      .prepare("UPDATE community_servers SET status = 'error', error_message = ? WHERE id = ?")
-      .run(err.message, serverId);
-
-    return { synced: 0, errors: [err.message] };
-  }
-}
 
 /**
  * Push local scores to a community server.
  */
-export async function pushScore(
-  serverId: string,
-  apiKeyId: string,
-  score: number
-): Promise<{ success: boolean; error?: string }> {
-  const db = (await import("../db/core")).getAsyncDb();
-
-  const server = (await db
-    .prepare(
-      "SELECT url, api_key_hash FROM community_servers WHERE id = ? AND status = 'connected'"
-    )
-    .get(serverId)) as { url: string; api_key_hash: string } | undefined;
-
-  if (!server) {
-    return { success: false, error: "Server not found or not connected" };
-  }
-
-  try {
-    const response = await fetch(`${server.url}/api/gamification/federation/score`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${server.api_key_hash}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ apiKeyId, score }),
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
-}
 
 /**
  * Health check a server connection.

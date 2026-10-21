@@ -22,15 +22,7 @@ import {
 // public API is unchanged.
 export type {
   RequestQueueSettings,
-  ConnectionCooldownProfileSettings,
-  ProviderBreakerProfileSettings,
-  WaitForCooldownSettings,
   ComboCooldownWaitSettings,
-  QuotaShareConcurrencyLimitSettings,
-  ProviderCooldownSettings,
-  QuotaPreflightSettings,
-  StreamRecoverySettings,
-  ProviderQuotaOverrideSettings,
   ResilienceSettings,
   ResilienceSettingsPatch,
 } from "./settings/types";
