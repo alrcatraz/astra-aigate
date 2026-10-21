@@ -151,7 +151,11 @@ export async function listSubscriptions(): Promise<ProxySubscriptionRecord[]> {
 
 export async function getSubscriptionById(id: string): Promise<ProxySubscriptionRecord | null> {
   const db = await getAsyncDb();
-  const row = db
+  // The async adapter's `.get()` returns a Promise — consuming it un-awaited
+  // fed mapSubscriptionRow a Promise object: every field defaulted (`mode` →
+  // "global", `enabled` → true), so rule-mode subscriptions silently bound the
+  // global scope and updates wrote empty name/url.
+  const row = await db
     .prepare(
       "SELECT id, name, url, enabled, mode, rule_providers, local_core_endpoint, update_interval_minutes, last_fetched_at, status, error, last_nodes, last_error_at, consecutive_failures, created_at, updated_at FROM proxy_subscriptions WHERE id = ?"
     )
@@ -653,7 +657,7 @@ export async function unapplySubscription(id: string): Promise<void> {
   const ids = rows.map((r) => r.id);
   if (ids.length > 0) {
     const placeholders = ids.map(() => "?").join(",");
-    const res = db
+    const res = await db
       .prepare(`DELETE FROM proxy_assignments WHERE proxy_id IN (${placeholders})`)
       .run(...ids);
     if (res.changes > 0) {
@@ -669,7 +673,7 @@ export async function unapplySubscription(id: string): Promise<void> {
 
 async function hasNonSubscriptionGlobalProxy(): Promise<boolean> {
   const db = await getAsyncDb();
-  const row = db
+  const row = await db
     .prepare(
       "SELECT 1 FROM proxy_assignments a JOIN proxy_registry p ON p.id = a.proxy_id WHERE a.scope = 'global' AND (p.subscription_id IS NULL OR p.subscription_id = '') LIMIT 1"
     )
@@ -685,7 +689,9 @@ async function recomputeProxyEnabled(): Promise<void> {
   // permanently stuck on `true` after an unapply/disable cycle even though
   // nothing is bound anymore (resolveProxyForConnectionFromRegistry correctly
   // returns null, but the operator-facing proxyEnabled flag would lie).
-  const enabledSubWithBoundProxy = db
+  // Awaited: the async adapter's `.get()` is a Promise, and an un-awaited one
+  // is always truthy — the flag could never recompute back to false.
+  const enabledSubWithBoundProxy = await db
     .prepare(
       `SELECT 1 FROM proxy_subscriptions s
        JOIN proxy_registry p ON p.subscription_id = s.id

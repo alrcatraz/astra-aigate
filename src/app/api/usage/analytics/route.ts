@@ -415,7 +415,7 @@ export async function GET(request: Request) {
 
     const weeklyRows = (await getWeeklyPatternRows(unifiedSource, unifiedParams)) as UsageRows;
 
-    const fallbackRow = getFallbackStats(whereClause, params) as Record<string, unknown>;
+    const fallbackRow = (await getFallbackStats(whereClause, params)) as Record<string, unknown>;
 
     const summary = {
       totalRequests: Number(summaryRow?.totalRequests || 0),

@@ -378,7 +378,10 @@ export async function PATCH(request) {
     for (const modelId of modelIds) {
       const updatedModel = await updateCustomModel(provider, modelId, { isHidden: body.isHidden });
       if (!updatedModel) {
-        mergeModelCompatOverride(provider, modelId, { isHidden: body.isHidden });
+        // Awaited: mergeModelCompatOverride does a read-modify-write of the
+        // provider's override list; unawaited bulk calls race each other and
+        // the last writer wins, silently dropping sibling models' overrides.
+        await mergeModelCompatOverride(provider, modelId, { isHidden: body.isHidden });
       }
     }
 
@@ -397,7 +400,7 @@ export async function PATCH(request) {
       updated: modelIds.length,
       aliasChanges,
       models: await getCustomModels(provider),
-      modelCompatOverrides: getModelCompatOverrides(provider),
+      modelCompatOverrides: await getModelCompatOverrides(provider),
     });
   } catch (error) {
     console.error("Error patching provider models:", error);
@@ -472,7 +475,7 @@ export async function DELETE(request) {
       // filter keys on `isDeleted` (not `isHidden`), which is what lets an
       // eye/visibility-hidden model (`isHidden` only) survive a re-sync while a
       // deleted one stays dropped.
-      mergeModelCompatOverride(provider, modelId, { isDeleted: true, isHidden: true });
+      await mergeModelCompatOverride(provider, modelId, { isDeleted: true, isHidden: true });
     }
     const removed = removedCustom || removedSynced;
     const removedAliases = await deleteManagedAvailableModelAliases(provider, [modelId]);
