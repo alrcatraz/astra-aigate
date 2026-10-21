@@ -28,19 +28,27 @@ vi.mock("@/shared/components/ProviderTestSlideOver", () => ({ default: () => nul
 vi.mock("@/shared/components/ProviderIcon", () => ({ default: () => null }));
 
 describe("ProviderCard — Kimi (Moonshot AI) founding-friend accent", () => {
-  let container: HTMLDivElement | null = null;
+  // Every root has to be unmounted inside act before its container leaves the DOM.
+  // Detaching a live root instead leaves React's scheduler with work queued against
+  // a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+  // react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+  // it fails the whole Vitest run rather than any one case. A test that renders twice
+  // also needs every root tracked, not just the newest container.
+  const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
   afterEach(() => {
-    if (container) {
-      document.body.removeChild(container);
-      container = null;
-    }
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
   });
 
   function renderCard(providerId: string, name: string) {
-    container = document.createElement("div");
+    const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     act(() => {
       root.render(
         <ProviderCard
