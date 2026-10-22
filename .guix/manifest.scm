@@ -63,6 +63,17 @@
   ;; above warns about; verified by loading the module in image v0.2.2
   ;; (package-version gnu-make -> 4.4.1).
        (@ (gnu packages base) gnu-make)
+  ;; lsof — resolvePortPid() spawns `lsof -ti :<port>` to decide which process
+  ;; holds a supervisor's port; without lsof the spawn errors, the function
+  ;; returns null, and ServiceSupervisor's adoption test failed on the executor
+  ;; image (no lsof there) while passing on any host that ships one. The module
+  ;; is (gnu packages lsof), NOT (gnu packages admin): probing bindings with
+  ;; module-variable showed lsof "bound" in admin and linux too, but those are
+  ;; unexported internals and `(@ …)` only resolves the public interface — the
+  ;; manifest load failed with "lsof: unbound variable" and named the right
+  ;; module. Verified by evaluating the symbol after use-modules in image v0.2.2
+  ;; (package-version lsof -> 4.99.6).
+       (@ (gnu packages lsof) lsof)
   ;; Version control, search and data tools the gates shell out to.
        (@ (gnu packages version-control) git)
        (@ (gnu packages rust-apps) ripgrep)

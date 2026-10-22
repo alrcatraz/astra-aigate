@@ -149,15 +149,20 @@ test("a log directory removed at runtime is recreated and logging recovers (#818
 
 test("the log-unavailable notice is emitted at most once, to the real stderr", () => {
   const r = runChild([
-    `const { rmSync, mkdirSync, chmodSync } = await import("node:fs");`,
+    `const { rmSync, writeFileSync } = await import("node:fs");`,
     `const { dirname } = await import("node:path");`,
     `M.initConsoleInterceptor();`,
-    // Make the directory unrecreatable so the retry fails and the notice path is exercised.
-    `const parent = dirname(dirname(LOG_FILE));`,
-    `rmSync(dirname(LOG_FILE), { recursive: true, force: true });`,
-    `chmodSync(parent, 0o500);`,
+    // Make the directory unrecreatable so the retry fails and the notice path is
+    // exercised. The obstacle is a FILE occupying the directory path, which fails
+    // for every uid (EEXIST/ENOTDIR). The previous obstacle — a chmod 0o500 parent
+    // — is bypassed by root: under the root CI executor container the write
+    // succeeded, no notice fired and this test failed (expected 1, got 0), while
+    // passing for every unprivileged developer machine.
+    `const dir = dirname(LOG_FILE);`,
+    `rmSync(dir, { recursive: true, force: true });`,
+    `writeFileSync(dir, "occupied");`,
     `for (let i = 0; i < 5; i++) console.error("unwritable " + i);`,
-    `chmodSync(parent, 0o700);`,
+    `rmSync(dir, { force: true });`,
     `setTimeout(() => process.exit(0), 200);`,
   ]);
 
