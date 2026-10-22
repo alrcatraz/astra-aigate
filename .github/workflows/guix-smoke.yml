@@ -43,6 +43,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     steps:
       # Executor-container PATH bootstrap (same as ci.yml): the image keeps
       # guix under /run/current-system/profile/bin, not on its default PATH.
@@ -207,6 +219,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 30
     continue-on-error: true
     steps:

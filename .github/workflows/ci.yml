@@ -112,6 +112,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -254,6 +266,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     # needs lint so eslint-results artifact is available (same inventory as the
     # blocking lint step). Allow lint failure so other ratchets still run.
     needs: [changes, test-coverage, lint]
@@ -407,6 +431,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -565,6 +601,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -630,6 +678,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -702,6 +762,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -761,6 +833,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && (needs.changes.outputs.i18n == 'true' || needs.changes.outputs.code == 'true')) }}
     steps:
@@ -808,6 +892,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     steps:
       # Executor-container PATH bootstrap: the CI image keeps its Guix
       # toolchain under /run/current-system/profile/bin (not on the image's
@@ -869,6 +965,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
@@ -950,6 +1058,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: build
     env:
       JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
@@ -1021,6 +1141,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 60
     # needs: changes (not build) — this job never downloads the next-build artifact;
     # gating it on Build only serialized ~20min of wall-clock for nothing. Jobs that
@@ -1109,6 +1241,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 25
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
@@ -1167,6 +1311,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 30
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
@@ -1231,6 +1387,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     # 10min was sized before #7114 added the lcov reporter (Codecov/Sonar need it);
     # merging 8 shard JSONs + text+json+lcov now takes ~10-12min — three consecutive
     # release-tip runs died at exactly 10m as job-timeout "cancelled" (2026-07-15/16).
@@ -1571,6 +1739,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 30
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
@@ -1635,6 +1815,18 @@ jobs:
       # alternative (a custom seccomp profile file) is unreachable here because
       # containers start before any step can place a file on the runner.
       options: --security-opt seccomp=unconfined
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
