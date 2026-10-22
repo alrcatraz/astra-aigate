@@ -42,13 +42,25 @@ name: guix toolchain
 #       path: ~/.cache/guix
 #       key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
 #
-# Cost honesty: first run after a bump pays installer download + incremental
-# git fetch + store re-download (~5-13 min); a warm run should land near
-# 2-4 minutes (installer tarball + substitutes for store drift only).
+# Execution modes (2026-10): declaring jobs run in the CI executor container
+# (ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2 — public,
+# no registry login), whose GuixSD system profile carries `guix` under
+# /run/current-system/profile/bin. The detect step below finds it, puts it on
+# PATH and skips the installer; on bare ubuntu-latest nothing preinstalled is
+# found and the historical install path runs unchanged. In BOTH modes the
+# environment resolves through `guix time-machine -C <repo pin>` — the
+# container supplies the binary only, never the channel identity, so
+# .guix/channels.scm + .guix/manifest.scm remain the single source of truth.
+#
+# Cost honesty: a container run pays no installer download — first run after
+# a bump = incremental git fetch + store re-download (~5-13 min cold); a warm
+# run should land near 2-4 minutes (substitutes for store drift only). The
+# Ubuntu fallback still pays the installer download + systemd bring-up on top.
 
 description: >-
-  Install the pinned node dist (image parity) and Guix, verify the repo pin,
-  cache the checkout, export $GUIX_SHELL
+  Pin the node dist (image parity), reuse a preinstalled Guix (executor
+  container) or install it (bare Ubuntu), verify the repo pin, cache the
+  checkout, export $GUIX_SHELL
 author: alrcatraz
 branding:
   icon: box
@@ -74,7 +86,37 @@ inputs:
 runs:
   using: composite
   steps:
-    # First: the image-identical node runtime. It is guix-agnostic (works on
+    # FIRST: detect a preinstalled Guix. The executor container keeps its
+    # GuixSD system profile at /run/current-system/profile/bin, which is NOT
+    # on the image's default PATH: prepend it (export for this step,
+    # GITHUB_PATH for every later step — idempotent) so node-dist's curl and
+    # every consumer resolve through it, and mark whether the install step
+    # below must run. On bare ubuntu-latest the directory does not exist
+    # (a nonexistent PATH entry is silently skipped) and no guix is found,
+    # so the historical install path runs unchanged.
+    - name: Detect preinstalled Guix (executor container)
+      id: detect
+      shell: bash
+      run: |
+        set -eu
+        PROFILE_BIN=/run/current-system/profile/bin
+        if [ -d "$PROFILE_BIN" ]; then
+          case ":$PATH:" in
+            *":$PROFILE_BIN:"*) : ;;                          # already on PATH
+            *) echo "$PROFILE_BIN" >> "$GITHUB_PATH"; export PATH="$PROFILE_BIN:$PATH" ;;
+          esac
+        fi
+        GUIX_BIN=$(command -v guix || true)
+        if [ -n "$GUIX_BIN" ]; then
+          echo "preinstalled=true" >> "$GITHUB_OUTPUT"
+          echo "executor container: guix at $GUIX_BIN ($("$GUIX_BIN" --version | head -1))"
+          echo "the BINARY is a bootstrap only — the environment still resolves from .guix/channels.scm"
+        else
+          echo "preinstalled=false" >> "$GITHUB_OUTPUT"
+          echo "no preinstalled guix — using the bare-runner install path below"
+        fi
+
+    # The image-identical node runtime. It is guix-agnostic (works on
     # a bare runner), fails fast before the expensive installer runs, and
     # exports NODE_DIST_* plus a PATH whose head holds the dist's bin — the
     # wrapper below inherits it, so `$GUIX_SHELL node` resolves to the dist
@@ -98,7 +140,11 @@ runs:
     # Per guix-to-work.md 定案 1 the tarball is only a bootstrap, so a release
     # binary boots the identical pinned env as nightly. Drop-in reversible:
     # restore the `uses:` line above to go back upstream.
-    - name: Install Guix (Berkeley mirror)
+    # Bare-Ubuntu fallback only: the executor container already carries guix
+    # (detect step above) and this script assumes sudo + systemd — neither
+    # exists in a job container.
+    - name: Install Guix (Berkeley mirror, bare-Ubuntu fallback)
+      if: steps.detect.outputs.preinstalled != 'true'
       shell: bash
       env:
         GUIX_TARBALL_URL: "https://mirrors.ocf.berkeley.edu/gnu/guix/guix-binary-1.5.0.x86_64-linux.tar.xz"
@@ -166,6 +212,62 @@ runs:
         echo "$GUIX_PATH/bin" >> "$GITHUB_PATH"
         echo "guix installed from Berkeley mirror"
 
+    # Executor-container leg of the same contract: the image ships no running
+    # daemon (its entrypoint is `tail -f /dev/null`, no init) and writes no
+    # substitute trust (/etc/guix does not exist until authorized) — both are
+    # the systemd unit's job on the Ubuntu path. `guix gc --list-roots` is
+    # the daemon health probe (this Guix build exposes no `guix store ping`
+    # subcommand — measured locally in image v0.2.2). A daemon started here
+    # survives across steps: each step is a fresh `exec` into the SAME
+    # container.
+    - name: Authorize substitutes + start guix-daemon (executor container)
+      id: daemon
+      if: steps.detect.outputs.preinstalled == 'true'
+      shell: bash
+      run: |
+        set -eu
+        for F in /run/current-system/profile/share/guix/*.pub; do
+          guix archive --authorize < "$F"
+        done
+        if guix gc --list-roots >/dev/null 2>&1; then
+          echo "guix-daemon already responding"
+          exit 0
+        fi
+        echo "no daemon in this container — starting guix-daemon"
+        guix-daemon --build-users-group=guixbuild --discover=no >"$RUNNER_TEMP/guix-daemon.log" 2>&1 &
+        for i in $(seq 1 30); do
+          if guix gc --list-roots >/dev/null 2>&1; then
+            echo "guix-daemon up after ${i}s"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "FATAL: guix-daemon did not respond within 30s — log:"
+        cat "$RUNNER_TEMP/guix-daemon.log" || true
+        exit 1
+
+    # Canary for the one container-side risk a local probe COULD confirm but
+    # not fix unilaterally (2026-10-22, image v0.2.2): `guix time-machine`
+    # sets personality(ADDR_NO_RANDOMIZE) and refuses to run if that fails
+    # ("ADDR_NO_RANDOMIZE appears blocked … --allow-aslr was not passed").
+    # Docker's default seccomp profile allows personality only for
+    # {0, 8, 131072, 131080, 4294967295} (moby profiles/seccomp/default.json,
+    # v27.5.1) — 0x40000 is not among them, so the first $GUIX_SHELL step is
+    # expected to fail until the owner picks a fix (options in the ci.yml
+    # header): A container.options seccomp=unconfined (runtime, preferred) /
+    # B --allow-aslr (weakens reproducibility — not applied without
+    # sign-off) / C derived image with an adjusted profile. Warning only —
+    # whether the runner's docker actually blocks it is a CI fact.
+    - name: ASLR/personality canary (container seccomp)
+      if: steps.detect.outputs.preinstalled == 'true'
+      shell: bash
+      run: |
+        if python3 -c 'import ctypes,sys; sys.exit(0 if ctypes.CDLL("libc.so.6",use_errno=True).personality(0x40000)!=-1 else 1)' 2>/dev/null; then
+          echo "personality(ADDR_NO_RANDOMIZE) OK — seccomp does not block it on this runner"
+        else
+          echo "::warning title=ADDR_NO_RANDOMIZE blocked by container seccomp::guix time-machine will refuse at the first \$GUIX_SHELL step ('ADDR_NO_RANDOMIZE appears blocked ... was not passed'). Options: A=container.options --security-opt seccomp=unconfined (runtime fix, preferred); B=--allow-aslr (weakens reproducibility, needs sign-off); C=derived image with adjusted seccomp profile. See the ci.yml header note."
+        fi
+
     - name: Verify the repository channel pin
       id: pin
       shell: bash
@@ -192,6 +294,9 @@ runs:
         } >> "$GITHUB_ENV"
         echo "channel pin: $CHANNELS_FILE (cache key …$pin_hash)"
 
+    # In the executor container HOME points at the runner-provided home
+    # mount, so `~/.cache/guix` resolves the same way there; the key stays
+    # derived from the scm pin — no key change for the container migration.
     # The channel checkout under ~/.cache/guix is owned by the runner user
     # (measured, run 36863496262: runner:runner, 571M) — unlike /gnu/store,
     # which is root-owned and whose absolute-path restore fails outright (the

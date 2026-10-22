@@ -13,8 +13,9 @@ name: guix bump anchor (advisory)
 # What it reports at that moment:
 #   - latest upstream release tags vs the repo pin (release = reminder,
 #     never gate),
-#   - the channel's node catalogue under the pin (node parity with
-#     production is an explicit bump event),
+#   - the channel's node catalogue from the checkout the drift resolve
+#     just created (node parity with production is an explicit bump
+#     event),
 #   - the nightly drift probe: SAME manifest under the LATEST nightly
 #     identity, so upstream renames surface here before they would
 #     block a bump.
@@ -30,6 +31,13 @@ name: guix bump anchor (advisory)
 #
 # The job must never gate anything: continue-on-error, and a failure is a
 # report, not a red merge.
+
+# Runs in the CI executor container (ghcr.io/zhen-linhuo/reproducible-
+# executors/executor-guixsd:v0.2.2) like the guix lanes in ci.yml: the image
+# supplies only the guix BINARY; the nightly identity is resolved from the
+# channel's master HEAD below, never from the image's own guix revision.
+# ("ADDR_NO_RANDOMIZE appears blocked" = the container-seccomp issue
+# documented in the ci.yml header — options A/B/C there, owner decision.)
 
 on:
   workflow_dispatch:
@@ -51,11 +59,25 @@ jobs:
   anchor:
     name: Release anchor + drift probe
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     timeout-minutes: 45
     # Advisory by design — see header. The conclusion that matters is the
     # job's own pass/fail, not the workflow's red/green badge.
     continue-on-error: true
     steps:
+      # Executor-container PATH bootstrap (same as ci.yml): the image keeps
+      # guix under /run/current-system/profile/bin, not on its default PATH —
+      # git (needed below for ls-remote) resolves through it too.
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -76,23 +98,93 @@ jobs:
             echo "- latest release tags: $(echo "$tags" | tr '\n' ' ')"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # NOTE: the node-catalogue probe belongs AFTER Install Guix — it calls
-      # `guix time-machine`, and until this run the call sat BEFORE the
-      # installer (a `2>/dev/null | awk | sed` pipeline masked the
-      # command-not-found, so the step died later on an empty checkout
-      # instead of at the real cause).
-
-      - name: Install Guix (latest nightly identity)
-        id: guix
-        uses: PromyLOPh/guix-install-action@v1.6
-        with:
-          pullAfterInstall: "false"
-
-      - name: Node catalogue under the repo pin
+      # Was PromyLOPh/guix-install-action@v1.6 (download the latest nightly
+      # tarball, sudo/systemd bring-up, `guix describe` for its identity): a
+      # job container has no systemd and the executor image already carries a
+      # guix binary, so the installer had exactly one job left here —
+      # producing the nightly IDENTITY for the drift leg. That identity is
+      # master HEAD of the guix channel; write it in the repo pin's own file
+      # shape (sed rewrites ONLY the commit line, so the introduction is
+      # copied verbatim from .guix/channels.scm), and keep the same grep
+      # contract the old `guix describe` output had to satisfy. Producing it
+      # needs no daemon and no pull — the resolve step below pays the real
+      # resolution cost either way.
+      - name: Resolve the latest nightly identity (channel master HEAD)
+        id: nightly
         run: |
           set -eu
-          # Catalogue read straight from the PINNED SOURCE FILE — no guix
-          # invocation (the old `package --show=node-lts` form failed with
+          master=$(git ls-remote https://git.guix.gnu.org/guix.git refs/heads/master | cut -f1)
+          printf '%s' "$master" | grep -qE '^[0-9a-f]{40}$' \
+            || { echo "FATAL: ls-remote gave no 40-hex master SHA: '$master'"; exit 1; }
+          F="$RUNNER_TEMP/channels-drift.scm"
+          sed -E "s/\(commit \"[0-9a-f]{40}\"\)/(commit \"$master\")/" .guix/channels.scm > "$F"
+          grep -qE '\(commit "[0-9a-f]{40}"\)' "$F" || { echo "FATAL: nightly identity carries no 40-hex commit"; exit 1; }
+          grep -q 'introduction' "$F" || { echo "FATAL: nightly identity is unauthenticated"; exit 1; }
+          grep -qF "(commit \"$master\")" "$F" || { echo "FATAL: sed did not substitute the master commit"; exit 1; }
+          echo "nightly commit: ${master:0:8}"
+          # Visible in the run summary for the bump decision.
+          echo "DRIFT-NIGHTLY-COMMIT: ${master:0:8}" >> "$GITHUB_STEP_SUMMARY"
+          echo "channels-file=$F" >> "$GITHUB_OUTPUT"
+
+      # The drift leg resolves through `guix time-machine`, so it needs a
+      # daemon: same bring-up as the shared guix-toolchain action's step
+      # (this workflow deliberately does NOT use that action — see header;
+      # keep the two shapes in sync when either changes). The old installer
+      # did this via systemd; a job container has no init.
+      - name: Authorize substitutes + start guix-daemon (executor container)
+        run: |
+          set -eu
+          for F in /run/current-system/profile/share/guix/*.pub; do
+            guix archive --authorize < "$F"
+          done
+          if guix gc --list-roots >/dev/null 2>&1; then
+            echo "guix-daemon already responding"
+            exit 0
+          fi
+          echo "no daemon in this container — starting guix-daemon"
+          guix-daemon --build-users-group=guixbuild --discover=no >"$RUNNER_TEMP/guix-daemon.log" 2>&1 &
+          for i in $(seq 1 30); do
+            if guix gc --list-roots >/dev/null 2>&1; then
+              echo "guix-daemon up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "FATAL: guix-daemon did not respond within 30s — log:"
+          cat "$RUNNER_TEMP/guix-daemon.log" || true
+          exit 1
+
+      - name: Resolve the repository manifest under the nightly identity
+        shell: bash
+        run: |
+          set -eu
+          SUBS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
+          guix time-machine -C "${{ steps.nightly.outputs.channels-file }}" \
+            --substitute-urls="$SUBS" \
+            -- shell -m .guix/manifest.scm --substitute-urls="$SUBS" -- \
+            sh -c '
+              set -eu
+              # No node here by design: the runtime comes from the Dockerfile
+              # ARG pinned by node-dist (the manifest is support tools only).
+              git --version
+              rg --version | head -1
+              jq --version
+              python3 --version
+            '
+          echo "drift smoke OK — manifest still resolves against the latest nightly"
+
+      # Reads the channel checkout the resolve step above just created
+      # (find walks ~/.cache/guix/checkouts — under this workflow that is the
+      # NIGHTLY identity's clone, i.e. the drift candidate's node catalogue:
+      # exactly the datum a bump reviewer needs; the repo pin's own node
+      # version is asserted by guix-smoke/CI). Position matters: before the
+      # resolve there is no checkout and this step can only report "<none>".
+      - name: Node catalogue (channel checkout after the nightly resolve)
+        run: |
+          set -eu
+          # Catalogue read straight from the CHANNEL SOURCE FILE in the
+          # checkout cache — no guix invocation (the old
+          # `package --show=node-lts` form failed with
           # "package not found": the CLI resolves NAME-field strings, and a
           # version-variant variable's name field is not necessarily its
           # variable name; time-machine also rebuilds guix itself for every
@@ -113,42 +205,6 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           echo "catalogue from: ${checkout:-<none>}"
-
-      - name: Write the nightly channel file
-        shell: bash
-        run: |
-          set -eu
-          F="$RUNNER_TEMP/channels-drift.scm"
-          cat > "$F" <<EOF
-          ${{ steps.guix.outputs.channels }}
-          EOF
-          grep -qE '\(commit "[0-9a-f]{40}"\)' "$F" || { echo "FATAL: nightly identity carries no 40-hex commit"; exit 1; }
-          grep -q 'introduction' "$F" || { echo "FATAL: nightly identity is unauthenticated"; exit 1; }
-          commit=$(grep -oE '\(commit "[0-9a-f]{40}"\)' "$F" | grep -oE '[0-9a-f]{40}')
-          echo "nightly commit: ${commit:0:8}"
-          # Visible in the run summary for the bump decision.
-          echo "DRIFT-NIGHTLY-COMMIT: ${commit:0:8}" >> "$GITHUB_STEP_SUMMARY"
-          echo "channels-file=$F" >> "$GITHUB_OUTPUT"
-        id: chan
-
-      - name: Resolve the repository manifest under the nightly identity
-        shell: bash
-        run: |
-          set -eu
-          SUBS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
-          guix time-machine -C "${{ steps.chan.outputs.channels-file }}" \
-            --substitute-urls="$SUBS" \
-            -- shell -m .guix/manifest.scm --substitute-urls="$SUBS" -- \
-            sh -c '
-              set -eu
-              # No node here by design: the runtime comes from the Dockerfile
-              # ARG pinned by node-dist (the manifest is support tools only).
-              git --version
-              rg --version | head -1
-              jq --version
-              python3 --version
-            '
-          echo "drift smoke OK — manifest still resolves against the latest nightly"
 
       - name: Report comparison with the repo pin
         if: always()

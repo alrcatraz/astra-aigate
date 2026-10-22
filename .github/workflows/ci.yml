@@ -24,6 +24,42 @@ env:
   # ARG NPM_VERSION are the single source, delivered by the node-dist action
   # (embedded in guix-toolchain; also used standalone by the non-guix jobs).
 
+# Guix lanes run in the CI executor container (2026-10): every job that
+# activates ./.github/actions/guix-toolchain declares
+#   container: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+# — a PUBLIC GHCR image (no registry login exists or is needed) that supplies
+# only the Guix binary + base userland. The environment still resolves from
+# .guix/channels.scm via `guix time-machine -C` inside the action, so the scm
+# stays the single source of truth; the tag is pinned (never `latest`) because
+# the image must not silently become the toolchain source. Jobs WITHOUT a
+# container key (changes, sonarqube, coverage-pr-comment, test-e2e,
+# ci-summary) never touch Guix and stay on bare ubuntu-latest.
+#
+# OPEN DECISION — ADDR_NO_RANDOMIZE vs container seccomp (probed 2026-10-22,
+# image v0.2.2): `guix time-machine` calls personality(ADDR_NO_RANDOMIZE) for
+# reproducible builds and REFUSES to run when the call fails ("ADDR_NO_
+# RANDOMIZE appears blocked … --allow-aslr was not passed"). Docker's default
+# seccomp profile (moby profiles/seccomp/default.json, verified v27.5.1:
+# defaultAction SCMP_ACT_ERRNO; personality allowed only for arg values
+# {0, 8, 131072, 131080, 4294967295}) does NOT include 0x40000 — so container
+# jobs are expected to fail at their first $GUIX_SHELL step with exactly that
+# message (locally reproduced: rootless podman default profile fails, the
+# same container with seccomp=unconfined succeeds). The guix-toolchain action
+# emits a matching ::warning canary on job start so the failure is
+# self-explanatory.
+#
+# RESOLVED (owner-approved change, decided A over B and C):
+#   A) applied — `options: --security-opt seccomp=unconfined` on all 19
+#      container jobs. A keeps guix's guarantee: with the syscall permitted
+#      guix really does disable ASLR, so builds stay reproducible, whereas
+#      B (`--allow-aslr`) is guix itself saying it accepts non-reproducible
+#      builds — the opposite of this executor's purpose. C was not available:
+#      a seccomp profile is runtime input, not image content, and
+#      `--security-opt seccomp=<file>` would need the file on the runner
+#      before the container starts, which is before any step can write one.
+#   Cost recorded: those jobs lose seccomp mediation. Accepted because they
+#   run the repo's own test suite on an ephemeral GitHub-hosted VM.
+
 jobs:
   changes:
     name: Change Classification
@@ -67,6 +103,15 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -80,6 +125,12 @@ jobs:
       API_KEY_SECRET: ci-lint-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -149,11 +200,24 @@ jobs:
       - run: $GUIX_SHELL npm run check:route-guard-membership
       - run: $GUIX_SHELL npm run check:test-discovery
       - run: $GUIX_SHELL npm run check:tracked-artifacts
-      # WS1.7 (v3.8.49 plan): Dockerfile lint (hadolint, pinned by digest).
+      # WS1.7 (v3.8.49 plan): Dockerfile lint (hadolint, pinned by SHA-256).
       # failure-threshold=error keeps the 5 pre-existing warnings (DL3008/DL3003/
       # DL3016 version pinning / WORKDIR) visible without blocking; any ERROR fails.
+      # Container note: this job runs INSIDE the executor container, where there is
+      # no Docker daemon — so `docker run hadolint/hadolint@sha256:…` is replaced
+      # by the official static binary pinned by in-file digest (the node-dist
+      # layer-1 pattern; hadolint publishes no SHASUMS file to cross-check).
+      # Verified to execute inside image v0.2.2 (hadolint 2.12.0).
       - name: hadolint (Dockerfile)
-        run: docker run --rm -i hadolint/hadolint@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e hadolint --failure-threshold error - < Dockerfile
+        run: |
+          set -euo pipefail
+          HADOLINT_VERSION=2.12.0
+          EXPECTED_HEX=56de6d5e5ec427e17b74fa48d51271c7fc0d61244bf5c90e828aab8362d55010
+          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o /tmp/hadolint
+          echo "$EXPECTED_HEX  /tmp/hadolint" | sha256sum --check --quiet \
+            || { echo "FATAL: hadolint bytes != in-file digest $EXPECTED_HEX"; exit 1; }
+          chmod +x /tmp/hadolint
+          /tmp/hadolint --failure-threshold error Dockerfile
       - run: $GUIX_SHELL npm run check:lockfile
       - run: $GUIX_SHELL npm run check:licenses
       # check:docs-all runs in the docs-sync-strict job (renamed gate — the
@@ -181,6 +245,15 @@ jobs:
   quality-gate:
     name: Quality Ratchet
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     # needs lint so eslint-results artifact is available (same inventory as the
     # blocking lint step). Allow lint failure so other ratchets still run.
     needs: [changes, test-coverage, lint]
@@ -200,6 +273,12 @@ jobs:
       contents: read
       security-events: read
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -319,12 +398,27 @@ jobs:
   quality-extended:
     name: Quality Gates (Extended)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
     # Path filter: code-only (scanners/ratchets target production surface).
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'hotfix') && (github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.code == 'true')) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       # fetch-depth: 0 — the OpenAPI breaking-change gate (oasdiff) reads the base
       # spec via `git show <base_ref>:docs/openapi.yaml`; a shallow clone
       # would lack the base ref and the gate would self-skip (base-unresolved).
@@ -384,6 +478,18 @@ jobs:
         run: |
           set +e
           mkdir -p "$HOME/.local/bin"
+          # gh — preinstalled on GitHub runner IMAGES, but not in the executor
+          # container; bootstrap the official binary (pinned by in-file SHA-256,
+          # same layer-1 pattern as node-dist) so the `gh release download`
+          # calls below keep their authenticated rate limit via GH_TOKEN.
+          # Verified to execute inside image v0.2.2.
+          GH_VERSION=2.103.0
+          GH_HEX=fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION#v}_linux_amd64.tar.gz" -o /tmp/gh.tgz
+          echo "$GH_HEX  /tmp/gh.tgz" | sha256sum --check --quiet || echo "WARNING: gh tarball digest mismatch — scanners below will self-skip"
+          tar -xzf /tmp/gh.tgz -C /tmp
+          cp "/tmp/gh_${GH_VERSION#v}_linux_amd64/bin/gh" "$HOME/.local/bin/gh"
+          gh --version || true
           # gitleaks — download latest linux x64 tarball via gh (authed), extract binary
           rm -rf /tmp/gl && mkdir -p /tmp/gl
           gh release download --repo gitleaks/gitleaks --pattern '*linux_x64.tar.gz' --dir /tmp/gl
@@ -450,12 +556,27 @@ jobs:
   docs-sync-strict:
     name: Docs Sync (Strict)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
     # Run when docs OR code change: API/route code can break doc/OpenAPI contract gates.
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && (needs.changes.outputs.docs == 'true' || needs.changes.outputs.code == 'true')) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -500,6 +621,15 @@ jobs:
   docs-lint:
     name: Docs Lint (prose — advisory)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -509,6 +639,12 @@ jobs:
     # existing doc corpus is brought up to style. Promote to blocking once it converges.
     continue-on-error: true
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -516,7 +652,8 @@ jobs:
       # Scope here: prose lint shells out to `git` (markdownlint-cli2 gitignores
       # via it), and `npx` must not silently fall back to the runner's node —
       # the whole npx fetch+run is pinned to the node dist (26.7.0) + its npm.
-      # Vale below is a Docker composite action and keeps its own toolchain by
+      # Vale below is a node action (using: node24) that installs its own
+      # vale binary and keeps its own toolchain by
       # design; this job never runs npm ci, so there is no native-addon ABI
       # surface to clash. (No setup-node step: node-dist — embedded in the
       # guix-toolchain action below — provides the runtime, and this job runs
@@ -556,6 +693,15 @@ jobs:
   i18n-ui-coverage:
     name: i18n UI Coverage
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -565,6 +711,12 @@ jobs:
       # fetch-depth: 0 — the value-drift gate diffs en.json against the merge base to
       # find rewritten English strings. On a shallow clone the base ref is missing and
       # the gate self-skips (base-unresolved), so it would never actually run.
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -600,9 +752,24 @@ jobs:
   i18n-glossary-zhcn:
     name: i18n Glossary (zh-CN)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && (needs.changes.outputs.i18n == 'true' || needs.changes.outputs.code == 'true')) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -632,7 +799,22 @@ jobs:
     name: PR Test Policy
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -678,9 +860,24 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -744,10 +941,25 @@ jobs:
   package-artifact:
     name: Package Artifact
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     needs: build
     env:
       JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -800,6 +1012,15 @@ jobs:
     name: Unit Tests (${{ matrix.shard }}/8)
     # Same hosted-runner rule as Build.
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     timeout-minutes: 60
     # needs: changes (not build) — this job never downloads the next-build artifact;
     # gating it on Build only serialized ~20min of wall-clock for nothing. Jobs that
@@ -817,6 +1038,12 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -873,10 +1100,25 @@ jobs:
   test-bun-sqlite:
     name: Bun SQLite Compatibility
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     timeout-minutes: 25
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -916,6 +1158,15 @@ jobs:
     name: Vitest (MCP / autoCombo / UI components)
     # Same hosted-runner rule as Build.
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     timeout-minutes: 30
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
@@ -925,6 +1176,12 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -965,6 +1222,15 @@ jobs:
   test-coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     # 10min was sized before #7114 added the lcov reporter (Codecov/Sonar need it);
     # merging 8 shard JSONs + text+json+lcov now takes ~10-12min — three consecutive
     # release-tip runs died at exactly 10m as job-timeout "cancelled" (2026-07-15/16).
@@ -975,6 +1241,12 @@ jobs:
       JWT_SECRET: ci-test-secret-with-sufficient-length-for-validation
       API_KEY_SECRET: ci-test-api-key-secret-long
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -1290,6 +1562,15 @@ jobs:
   test-integration:
     name: Integration Tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     timeout-minutes: 30
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
@@ -1305,6 +1586,12 @@ jobs:
       DATA_DIR: /tmp/astra-aigate-ci-${{ matrix.shard }}
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -1339,6 +1626,15 @@ jobs:
   test-security:
     name: Security Tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
+      # ASLR (it would silently weaken reproducibility), and the runner's default
+      # seccomp allowlists personality args without 0x40000. Permitting the runtime
+      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
+      # alternative (a custom seccomp profile file) is unreachable here because
+      # containers start before any step can place a file on the runner.
+      options: --security-opt seccomp=unconfined
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
@@ -1347,6 +1643,12 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
