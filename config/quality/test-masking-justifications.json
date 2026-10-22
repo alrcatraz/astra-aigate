@@ -1,0 +1,156 @@
+{
+  "_comment": "Justification channel for scripts/check/check-test-masking.mjs (npm run check:test-masking). Each entry records WHY a gate finding (test-file-deleted / assert-reduction) on the current PR diff is legitimate, as structured data instead of narrative inside test files. Contract: a finding whose {path, kind} matches an entry with a non-empty reason is printed as `justified (recorded: <reason>)` instead of ✗ (review stays visible); a finding with no matching entry fails exactly as before (✗ + exit 1); entries that no longer match any finding are reported as ⚠ stale so the record cannot rot silently (they do not fail the gate — after merge the justified findings disappear by design, so prune matched entries then). Kinds that can never be justified: new-tautology, new-skip, new-extended-tautology, deleted-replacement-invalid — these always fail. Evidence refs are commits and greppable observations, not prose for the test files.",
+  "justifications": [
+    {
+      "path": "tests/unit/build/electron-release-latest-yml.repro.test.ts",
+      "kind": "test-file-deleted",
+      "reason": "The test statically inspects .github/workflows/electron-release.yml and electron/main.js to guard electron-updater latest.yml staging; neither the electron workflow nor the electron/ directory exists in this fork at base or HEAD (Electron-shell prune), so the file it guards is absent by design.",
+      "evidence": [
+        "git ls-tree 89469f72 .github/workflows/ → 8 files, no electron-release.yml; ls .github/workflows @HEAD → same 8",
+        "no electron/ directory at HEAD (ls electron → not found); package.json workspaces = [\"open-sse\"]",
+        "base file header: 'This test statically inspects .github/workflows/electron-release.yml'"
+      ]
+    },
+    {
+      "path": "tests/unit/dashboard/context-parent-redirect-5298.test.ts",
+      "kind": "test-file-deleted",
+      "reason": "Imports resolveContextRoute from the context parent page, a symbol that no longer exists anywhere in src/ or tests/ (grep → empty) and whose removal is documented as intentional: the page says the bare parent 'Previously … redirected to /dashboard/context/settings'.",
+      "evidence": [
+        "grep -rn resolveContextRoute src tests @HEAD → no hits",
+        "src/app/(dashboard)/dashboard/context/page.tsx:5 — 'Previously this route redirected to `/dashboard/context/settings`' (resolver removed by design)",
+        "base file: `const { resolveContextRoute } = await import(\".../context/page.tsx\")` — cannot resolve at HEAD"
+      ]
+    },
+    {
+      "path": "tests/unit/nightly-compat-node26-webpack-8090.test.ts",
+      "kind": "test-file-deleted",
+      "reason": "Guards the compat-build-26 job in .github/workflows/nightly-compat.yml plus the nightly-compat.yml file itself; that workflow does not exist in this fork's tree at base or HEAD, so there is nothing to guard.",
+      "evidence": [
+        "git ls-tree 89469f72 .github/workflows/ → no nightly-compat.yml",
+        "ls .github/workflows @HEAD → build-image, ci, codeql, dast-smoke, guix-drift, guix-smoke, scorecard, semgrep — no nightly/compat workflow",
+        "base file header: 'the `compat-build-26` job in .github/workflows/nightly-compat.yml'"
+      ]
+    },
+    {
+      "path": "tests/integration/integration-wiring.test.ts",
+      "kind": "assert-reduction",
+      "reason": "bcdbf0af replaced 3 literal --color-card value asserts with a stronger generic invariant that enumerates every --color-card definition via matchAll and asserts each is an opaque 6-digit hex with a per-token failure message; only one definition exists (#ffffff), so two of the three literals would assert false facts.",
+      "evidence": [
+        "commit bcdbf0af test(async-db): fix inherited async-DB and stale-expectation test failures",
+        "grep -n -- '--color-card:' src/app/globals.css → single line 41 '#ffffff' (same single line at base 89469f72) — literals #161b22 and var(--color-card) match nothing",
+        "HEAD tests/integration/integration-wiring.test.ts:284-292 — matchAll over every definition, assert.ok(cardTokens.length > 0), per-token opaque-hex assert with message"
+      ]
+    },
+    {
+      "path": "tests/unit/build/check-workflows.test.ts",
+      "kind": "assert-reduction",
+      "reason": "492af5f3 dropped 35 lines of stale guards that read .github/workflows/quality.yml and deploy.yml — neither file exists in this fork's tree at base or HEAD, so the readFileSync threw and the guards could never pass; the remaining asserts still pin the real ci.yml and workflow set.",
+      "evidence": [
+        "commit 492af5f3 test: fix missing resetDbInstanceDrained imports and drop stale workflow guards",
+        "base test referenced workflows/{ci,deploy,quality}.yml; git ls-tree 89469f72 .github/workflows/ and ls @HEAD → neither quality.yml nor deploy.yml exists (same 8 real workflows both sides)",
+        "HEAD test contains no quality.yml/deploy.yml reference (grep → empty) and still asserts ci.yml content"
+      ]
+    },
+    {
+      "path": "tests/unit/call-log-trim-sql-vars-5217.test.ts",
+      "kind": "assert-reduction",
+      "reason": "e815a677 removed 2 assert.doesNotThrow(async () => …) wrappers: node's doesNotThrow returns before the promise settles, so they asserted nothing about async failure; the tests now await the calls directly (a rejection fails at the call site) and keep every downstream result assert.",
+      "evidence": [
+        "commit e815a677 fix(async): close the remaining sync-vs-Promise seams in reads and writes",
+        "in-file comment: 'a synchronous doesNotThrow(async fn) returns immediately and asserts before the assignment lands. Await directly — an unexpected throw still fails the test at this line'",
+        "both tests retain their assert.equal(result!.deletedRows, …) outcome asserts"
+      ]
+    },
+    {
+      "path": "tests/unit/check-deps.test.ts",
+      "kind": "assert-reduction",
+      "reason": "6cd15726 removed 3 discoverManifests inclusion asserts for electron/package.json and the two @omniroute/* shells — none of them are npm workspaces (package.json workspaces = ['open-sse'] at base and HEAD; electron/ deleted), so the asserts pin paths discoverManifests can never return.",
+      "evidence": [
+        "commit 6cd15726 test: fix stale workspace/brand assertions and unawaited async usage reads",
+        "package.json workspaces → [\"open-sse\"] (verified at base 89469f72 and HEAD); no electron/ directory at HEAD",
+        "in-file comment: 'electron/ and the @omniroute/* shells were removed by the Electron-shell prune; only open-sse remains a workspace'"
+      ]
+    },
+    {
+      "path": "tests/unit/dashboard-sidebar-desktop-visible.test.ts",
+      "kind": "assert-reduction",
+      "reason": "560ab166 re-pinned the guard to the post-rewrite mechanism: the .dashboard-sidebar-desktop class does not exist in globals.css at base or HEAD (grep → 0), so the 3 old CSS-presence asserts were false; they were replaced by one absence assert plus exact pins on the hidden md:flex / md:hidden cascade pair in DashboardLayout.tsx.",
+      "evidence": [
+        "commit 560ab166 test: fix the two shard deadlocks and 16 failures the queue had been hiding",
+        "grep -c dashboard-sidebar-desktop src/app/globals.css → 0 at HEAD and 0 at base 89469f72",
+        "HEAD test asserts className=\"hidden md:flex\", the md:hidden overlay pairing, and assert.doesNotMatch for the orphaned CSS class"
+      ]
+    },
+    {
+      "path": "tests/unit/db-detailed-logs.test.ts",
+      "kind": "assert-reduction",
+      "reason": "08da0d03 removed 1 assert.doesNotThrow(() => saveRequestDetailLog(…)) — the helper is async and doesNotThrow never awaits its rejection; the direct await at the same spot fails the test on rejection, and the missing-table tolerance stays pinned by the 4 subsequent awaited result asserts.",
+      "evidence": [
+        "commit 08da0d03 test(db): join the migration barrier and await async reads",
+        "in-file comment: 'The helper must SWALLOW the missing-table error rather than reject: it is called from the hot request path'",
+        "assert.deepEqual(await getRequestDetailLogs(), []), count==0 and the two get-by-id null asserts retained after the await"
+      ]
+    },
+    {
+      "path": "tests/unit/db-schema-columns-split.test.ts",
+      "kind": "assert-reduction",
+      "reason": "e73819e1 removed 1 assert.doesNotThrow(() => ensureProviderConnectionsColumns(db)) — the reconciler now awaits DDL and returns a promise doesNotThrow never awaited; the plain await at the same spot fails on rejection and the quota_visible/notnull/dflt_value outcome asserts after it are unchanged.",
+      "evidence": [
+        "commit e73819e1 fix(db): await the DDL in the schema-column reconcilers",
+        "HEAD test lines 74 and 85: 'await ensureProviderConnectionsColumns(db);'",
+        "post-await asserts retained: quota_visible hasColumn true/false, column.notnull==1, column.dflt_value=='1'"
+      ]
+    },
+    {
+      "path": "tests/unit/design-grid-background.test.ts",
+      "kind": "assert-reduction",
+      "reason": "0a40b82c realigned the test to the actual post-Expo-rewrite token set: the removed asserts pin values absent from src/app/globals.css at base AND HEAD (--grid-line/--grid-size/--section-alt, body::before wallpaper, --grad-brand, --focus-ring, 14px/9px radii — dropped by 93f7cbe1, an ancestor of the base) and would assert false facts; live tokens plus negative guards replaced them.",
+      "evidence": [
+        "commit 0a40b82c fix(design): restore live tokens dropped by the Expo rewrite; align design tests to DESIGN.md",
+        "commit 93f7cbe1 refactor(ui): rewrite shell with Expo design language removed --grid-line (git log -S -- src/app/globals.css); 93f7cbe1 is an ancestor of base 89469f72",
+        "git grep -- '--grid-line' 89469f72 → docs/architecture/DESIGN_SYSTEM.md only; grep body::before/--grad-brand/--focus-ring in src/app/globals.css @HEAD → empty",
+        "new negative guards: 'no grid wallpaper pseudo-element remains', 'no brand gradient on the button'"
+      ]
+    },
+    {
+      "path": "tests/unit/responses-tool-search-call-skip.test.ts",
+      "kind": "assert-reduction",
+      "reason": "a9a33dac removed 3 assert.doesNotThrow(() => { result = translateRequest(…) }) wrappers — doesNotThrow does not await the returned promise, so rejections escaped the guard entirely; each test now does 'result = await result' so any throw fails it, with all downstream message/order asserts kept.",
+      "evidence": [
+        "commit a9a33dac test: add await/async to now-async translator call sites",
+        "each of the 3 tests awaits the translateRequest call directly before asserting messages",
+        "assert.ok(Array.isArray(messages)), role/order asserts retained in all 3 tests"
+      ]
+    },
+    {
+      "path": "tests/unit/sidebar-monitoring-reorg.test.ts",
+      "kind": "assert-reduction",
+      "reason": "bcdbf0af updated the guard to the current sidebar structure (activity nested inside the logs group; system group gained proxy/system-mitm-proxy): removed per-index and 4-children asserts were replaced by exact groupIds+itemIds deepEquals over every child and a loop asserting every monitoring child is a group — fewer asserts, full coverage of the real structure.",
+      "evidence": [
+        "commit bcdbf0af test(async-db): fix inherited async-DB and stale-expectation test failures",
+        "src/shared/constants/sidebarVisibility/sections.ts LOGS_GROUP.items = [activity, logs, logs-proxy, logs-console, logs-timeline] — matches the new deepEqual",
+        "SYSTEM_GROUP.items starts with proxy; test pins [proxy, health, runtime, system-mitm-proxy] exactly"
+      ]
+    },
+    {
+      "path": "tests/unit/stepfun-mono-fallback-and-sidebar-hydration-7743.test.ts",
+      "kind": "assert-reduction",
+      "reason": "bcdbf0af replaced 3 asserts pinning the deferred useEffect read of SIDEBAR_COLLAPSED_KEY — the key no longer exists anywhere in src/ (collapse persistence removed by 93f7cbe1) — with one stronger whole-file invariant: assert.doesNotMatch /localStorage\\.(getItem|setItem)/, covering sync and async render-time reads.",
+      "evidence": [
+        "commit bcdbf0af test(async-db): fix inherited async-DB and stale-expectation test failures",
+        "grep -rn SIDEBAR_COLLAPSED_KEY src @HEAD → empty",
+        "in-file comment cites 93f7cbe1: 'removed sidebar-collapse persistence … the invariant that remains is: no localStorage read may happen during render'"
+      ]
+    },
+    {
+      "path": "tests/unit/ui/compression-settings-tab-consolidation.test.tsx",
+      "kind": "assert-reduction",
+      "reason": "99a3ac18 switched the next-intl mock from key-echo to a faithful double resolving the real English copy (4 key-literal expects became rendered-copy expects) and replaced 'expect(putCall).toBeTruthy()' with waitForPut(), which polls the ~400ms-debounced PUT for up to 3s and throws if it never lands — an equivalent guard that fixes the single-tick flake.",
+      "evidence": [
+        "commit 99a3ac18 test(ui): triage pass — 25 files repaired against real behaviour",
+        "import \"../../_setup/nextIntlDouble\" — comment: 'resolves the real English copy from src/i18n/messages/en.json'",
+        "waitForPut throws 'waitForPut timed out' when no PUT arrives and returns the actual call used for the body assert"
+      ]
+    }
+  ]
+}

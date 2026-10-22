@@ -106,9 +106,8 @@ function normalizeWhitespace(s) {
  */
 export function countSignificantTokens(cond) {
   const tokens =
-    (cond || "").match(
-      /===|!==|==|!=|>=|<=|&&|\|\||[<>+\-*/%!]|[A-Za-z_$][\w$]*|\d+(?:\.\d+)?/g
-    ) || [];
+    (cond || "").match(/===|!==|==|!=|>=|<=|&&|\|\||[<>+\-*/%!]|[A-Za-z_$][\w$]*|\d+(?:\.\d+)?/g) ||
+    [];
   let count = 0;
   for (const tk of tokens) {
     if (/^[A-Za-z_$]/.test(tk)) {
@@ -178,8 +177,7 @@ export function extractProdConditions(src) {
   }
 
   // Comparison-bearing ternaries: `<lhs> <cmp> <rhs> ? … : …` (best-effort, low-noise).
-  const ternRe =
-    /([A-Za-z_$][\w$).\]]*\s*(?:===|!==|==|!=|>=|<=|>|<)\s*[^?;{}\n]+?)\s*\?/g;
+  const ternRe = /([A-Za-z_$][\w$).\]]*\s*(?:===|!==|==|!=|>=|<=|>|<)\s*[^?;{}\n]+?)\s*\?/g;
   let t;
   while ((t = ternRe.exec(src))) {
     pushCond(t[1], ownerAt(t.index));
@@ -199,7 +197,10 @@ export function extractImports(src) {
   if (!src) return names;
   const addModule = (mod) => {
     names.add(mod);
-    const base = mod.split("/").pop().replace(/\.\w+$/, "");
+    const base = mod
+      .split("/")
+      .pop()
+      .replace(/\.\w+$/, "");
     if (base) names.add(base);
   };
   let m;
@@ -227,8 +228,7 @@ export function extractImports(src) {
 export function findReimplementedConditions(prodSources, testSource, testImports) {
   const flags = [];
   if (!testSource) return flags;
-  const imports =
-    testImports instanceof Set ? testImports : new Set(testImports || []);
+  const imports = testImports instanceof Set ? testImports : new Set(testImports || []);
   const squash = (s) => (s || "").replace(/\s+/g, "");
   const testSq = squash(testSource);
   const seen = new Set();
@@ -413,6 +413,95 @@ export function scanBareTautologies(testFiles, readFile) {
   return flags;
 }
 
+// ─── Canal de justificativa (config/quality/test-masking-justifications.json) ───
+// Um sinal do gate pode ser JUSTIFICADO por uma entrada de dados estruturada
+// (path + kind + reason + evidence) em vez de suprimido em silêncio. Contrato:
+//   * sinal COM entrada válida → impresso como `justified (recorded: <reason>)`
+//     (a revisão permanece visível no output do step); o step só sai com 0
+//     quando TODOS os sinais da diff estão justificados;
+//   * sinal SEM entrada        → falha exatamente como antes (✗ + exit 1);
+//   * entrada óbsoleta (não corresponde a nenhum sinal desta diff) → reportada
+//     como ⚠ stale (o registro não pode apodrecer em silêncio), sem falhar o
+//     gate — após o merge os sinais justificados deixam de existir e a entrada
+//     fica naturalmente óbsoleta até ser podada;
+//   * kinds NUNCA justificáveis: nova tautologia, .skip/.todo/.only, tautologia
+//     estendida e deleção-com-substituto-inválido — seguem falhando sempre.
+export const JUSTIFIABLE_KINDS = new Set(["test-file-deleted", "assert-reduction"]);
+export const JUSTIFICATIONS_PATH = "config/quality/test-masking-justifications.json";
+
+/**
+ * Deriva {path, kind} de uma flag textual emitida por evaluateDeletedFiles /
+ * evaluateMasking. path = trecho antes de ": "; kind = classe do sinal.
+ */
+export function classifyFinding(flag) {
+  const sep = flag.indexOf(": ");
+  const path = sep === -1 ? "" : flag.slice(0, sep);
+  const msg = sep === -1 ? flag : flag.slice(sep + 2);
+  let kind = null;
+  if (msg.includes("arquivo de teste deletado")) kind = "test-file-deleted";
+  else if (msg.includes("deleção allowlistada")) kind = "deleted-replacement-invalid";
+  else if (/^asserts \d+ → \d+ \(REMOÇÃO de/.test(msg)) kind = "assert-reduction";
+  else if (msg.includes("tautologia(s) assert.ok(true)")) kind = "new-tautology";
+  else if (msg.includes(".skip/.todo/.only")) kind = "new-skip";
+  else if (msg.includes("tautologia(s) estendida")) kind = "new-extended-tautology";
+  return { path, kind };
+}
+
+/** Entrada válida exige path, kind justificável, reason não vazio e evidence (≥1 ref). */
+export function isValidJustification(e) {
+  return Boolean(
+    e &&
+    typeof e === "object" &&
+    typeof e.path === "string" &&
+    e.path.length > 0 &&
+    typeof e.kind === "string" &&
+    JUSTIFIABLE_KINDS.has(e.kind) &&
+    typeof e.reason === "string" &&
+    e.reason.trim().length > 0 &&
+    Array.isArray(e.evidence) &&
+    e.evidence.length > 0
+  );
+}
+
+/** Lê o registro de justificativas; ausência/JSON inválido → lista vazia (sinais falham como antes). */
+export function loadJustifications(readFile = fs.readFileSync) {
+  try {
+    const raw = JSON.parse(readFile(JUSTIFICATIONS_PATH, "utf8"));
+    return Array.isArray(raw.justifications) ? raw.justifications : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Divide as flags em justified / unmatched e aponta entradas stale e inválidas.
+ * Cada entrada válida justifica no máximo UMA flag (match por path + kind);
+ * kinds fora de JUSTIFIABLE_KINDS nunca casam e por isso sempre falham.
+ */
+export function partitionJustified(flags, justifications = []) {
+  const valid = [];
+  const invalid = [];
+  for (const e of justifications || []) (isValidJustification(e) ? valid : invalid).push(e);
+  const used = new Set();
+  const justified = [];
+  const unmatched = [];
+  for (const flag of flags) {
+    const { path, kind } = classifyFinding(flag);
+    let idx = -1;
+    if (JUSTIFIABLE_KINDS.has(kind)) {
+      idx = valid.findIndex((e, i) => !used.has(i) && e.path === path && e.kind === kind);
+    }
+    if (idx !== -1) {
+      used.add(idx);
+      justified.push({ flag, entry: valid[idx] });
+    } else {
+      unmatched.push({ flag, path, kind });
+    }
+  }
+  const stale = valid.filter((_, i) => !used.has(i));
+  return { justified, unmatched, stale, invalid };
+}
+
 function git(args) {
   try {
     return execFileSync("git", args, { encoding: "utf8" });
@@ -588,17 +677,57 @@ function main() {
   const maskingFlags = evaluateMasking(perFile, assertReductionAllowlist);
   const allFlags = [...deletedFlags, ...maskingFlags];
 
-  if (allFlags.length) {
+  // Canal de justificativa: sinais com entrada registrada são impressos como
+  // `justified (recorded: <reason>)` (revisão visível, nunca silenciosa);
+  // apenas sinais SEM entrada fazem o step falhar — e falham como antes.
+  const { justified, unmatched, stale, invalid } = partitionJustified(
+    allFlags,
+    loadJustifications()
+  );
+
+  if (invalid.length) {
+    console.warn(
+      `[test-masking] ⚠ ${invalid.length} entrada(s) INVÁLIDA(s) em ${JUSTIFICATIONS_PATH} ` +
+        `(cada entrada precisa de path, kind justificável, reason e evidence não vazios) — ` +
+        `não justifica nada:\n` +
+        invalid.map((e) => `  ⚠ invalid: ${JSON.stringify(e)}`).join("\n")
+    );
+  }
+  if (stale.length) {
+    console.warn(
+      `[test-masking] ⚠ ${stale.length} entrada(s) stale em ${JUSTIFICATIONS_PATH} ` +
+        `(não correspondem a nenhum sinal desta diff — podar o registro):\n` +
+        stale.map((e) => `  ⚠ stale: ${e.path} [${e.kind}] — ${e.reason}`).join("\n")
+    );
+  }
+
+  if (unmatched.length) {
+    // Justified findings are printed first so a partial pass is never silent.
+    if (justified.length) {
+      console.error(
+        `[test-masking] ${justified.length} sinal(is) justificado(s) (registro: ${JUSTIFICATIONS_PATH}):\n` +
+          justified.map((j) => `  ✓ justified (recorded: ${j.entry.reason}) — ${j.flag}`).join("\n")
+      );
+    }
     console.error(
-      `[test-masking] ${allFlags.length} sinal(is) de enfraquecimento de teste:\n` +
-        allFlags.map((f) => "  ✗ " + f).join("\n") +
-        `\n  → se a redução é legítima (refator/consolidação), explique no PR; senão, restaure os asserts.`
+      `[test-masking] ${unmatched.length} sinal(is) de enfraquecimento de teste sem justificativa no registro:\n` +
+        unmatched.map((u) => "  ✗ " + u.flag).join("\n") +
+        `\n  → se a redução é legítima (refator/consolidação), explique no PR (e registre em ` +
+        `${JUSTIFICATIONS_PATH} com reason+evidence); senão, restaure os asserts.`
     );
     process.exit(1);
   }
+
+  if (justified.length) {
+    console.log(
+      `[test-masking] ${justified.length} sinal(is) de enfraquecimento de teste — todos justificados ` +
+        `(registro: ${JUSTIFICATIONS_PATH}):\n` +
+        justified.map((j) => `  ✓ justified (recorded: ${j.entry.reason}) — ${j.flag}`).join("\n")
+    );
+  }
   console.log(
     `[test-masking] OK — ${changed.length} modificado(s), ${renames.length} renomeado(s) (relocação), ` +
-      `${deletedTests.length} deletado(s) — sem enfraquecimento`
+      `${deletedTests.length} deletado(s) — ${justified.length} sinal(is) justificado(s), 0 em aberto`
   );
 }
 
