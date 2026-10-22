@@ -243,12 +243,18 @@ runs:
           echo "::warning title=generate-key failed::rc=$? — daemon has no signing keypair"
         fi
 
-        # Same list, same order as the wrapper step: the private cache leads
-        # because Guix queries in sequence and stops at the first hit, the public
-        # mirrors fall back. (Reachability caveat for a home-served cache is
-        # documented in guix/ci/guix-to-work.md — GitHub-hosted runners have no
-        # IPv6 egress.)
-        PUBLIC_URLS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
+        # Public list = astra-guix `common/substitute-urls.scm`
+        # %image-substitute-urls-base, kept verbatim (single source, no local
+        # reordering): domestic mirrors first because a substitute lookup is
+        # HASH-KEYED, so a stale mirror can only miss — never serve an old
+        # artifact — and the official side sits behind them as the authority;
+        # last-resort fallback last. Measured on the fleet: SJTUG 0.23 s vs
+        # ci.guix.gnu.org 6.3 s. Private entries never appear in this file —
+        # the repository is public — they arrive only via the cache-url input
+        # (secret), in fleet order: internal relay first, then cache01.
+        # Same list, same order as the wrapper step: the daemon and the client
+        # must agree, and the wrapper reuses this step's /tmp/guix-subs.txt.
+        PUBLIC_URLS="https://mirrors.sjtug.sjtu.edu.cn/guix https://mirror.sjtu.edu.cn/guix/ https://hydra-guix-129.guix.gnu.org https://bordeaux.guix.gnu.org https://ci.guix.gnu.org https://mirrors.sjtug.sjtu.edu.cn/guix-bordeaux"
         if [ -n "${CACHE_URL:-}" ]; then SUBS="$CACHE_URL $PUBLIC_URLS"; else SUBS="$PUBLIC_URLS"; fi
         printf '%s' "$SUBS" > /tmp/guix-subs.txt
 
@@ -379,13 +385,21 @@ runs:
         # Reachability note: a home-served cache is typically IPv6-only, while
         # GitHub-hosted runners have no IPv6 egress — see
         # guix/ci/guix-to-work.md before expecting a private URL to work here.
-        PUBLIC_URLS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
-        if [ -n "${CACHE_URL:-}" ]; then
+        # Fallback list — same canonical base as the daemon step (keep the two
+        # literals identical; both derive from substitute-urls.scm).
+        PUBLIC_URLS="https://mirrors.sjtug.sjtu.edu.cn/guix https://mirror.sjtu.edu.cn/guix/ https://hydra-guix-129.guix.gnu.org https://bordeaux.guix.gnu.org https://ci.guix.gnu.org https://mirrors.sjtug.sjtu.edu.cn/guix-bordeaux"
+        if [ -f /tmp/guix-subs.txt ]; then
+          # Container path: reuse the exact list the daemon step wrote, cache
+          # entries included, so client and daemon can never disagree about
+          # sources — and the public literal below is never re-derived here.
+          SUBS="$(cat /tmp/guix-subs.txt)"
+          echo "substitute sources: reused /tmp/guix-subs.txt ($(printf '%s' "$SUBS" | wc -w) entries)"
+        elif [ -n "${CACHE_URL:-}" ]; then
           SUBS="$CACHE_URL $PUBLIC_URLS"
-          echo "substitute sources: private cache first, then public mirrors"
+          echo "substitute sources: cache first, then public mirrors"
         else
           SUBS="$PUBLIC_URLS"
-          echo "NOTE: no cache secret configured — substituting from public mirrors only."
+          echo "NOTE: no cache configured — public mirrors only."
         fi
 
         # `--substitute-urls` carries a WHITESPACE-separated list, so the
