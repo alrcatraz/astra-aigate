@@ -54,7 +54,7 @@ function getFunctionDeclarationParameters(parameters: unknown) {
   };
 }
 
-test("OpenAI -> Gemini helper converts text, images and files into Gemini parts", () => {
+test("OpenAI -> Gemini helper converts text, images and files into Gemini parts", async () => {
   const parts = convertOpenAIContentToParts([
     { type: "text", text: "Hello" },
     { type: "image_url", image_url: { url: "data:image/png;base64,abc" } },
@@ -78,8 +78,8 @@ test("OpenAI -> Gemini helper converts text, images and files into Gemini parts"
   assert.deepEqual(convertOpenAIContentToParts("raw text"), [{ text: "raw text" }]);
 });
 
-test("OpenAI -> Gemini does not inject default maxOutputTokens for unknown caps", () => {
-  const withoutRequestLimit = openaiToGeminiRequest(
+test("OpenAI -> Gemini does not inject default maxOutputTokens for unknown caps", async () => {
+  const withoutRequestLimit = await openaiToGeminiRequest(
     "gemini-2.5-pro",
     { messages: [{ role: "user", content: "Hello" }] },
     false
@@ -89,7 +89,7 @@ test("OpenAI -> Gemini does not inject default maxOutputTokens for unknown caps"
     undefined
   );
 
-  const withRequestLimit = openaiToGeminiRequest(
+  const withRequestLimit = await openaiToGeminiRequest(
     "gemini-2.5-pro",
     { messages: [{ role: "user", content: "Hello" }], max_tokens: 32000 },
     false
@@ -100,7 +100,7 @@ test("OpenAI -> Gemini does not inject default maxOutputTokens for unknown caps"
   );
 });
 
-test("OpenAI -> Gemini helper cleans complex JSON Schema structures for Gemini compatibility", () => {
+test("OpenAI -> Gemini helper cleans complex JSON Schema structures for Gemini compatibility", async () => {
   const cleaned = cleanJSONSchemaForAntigravity({
     type: "object",
     title: "Root schema",
@@ -156,7 +156,7 @@ test("OpenAI -> Gemini helper cleans complex JSON Schema structures for Gemini c
   assert.equal(cleaned.properties.emptyObject.properties.reason.type, "string");
 });
 
-test("OpenAI -> Gemini helper inlines local refs and preserves only additionalProperties=true", () => {
+test("OpenAI -> Gemini helper inlines local refs and preserves only additionalProperties=true", async () => {
   const cleaned = cleanJSONSchemaForAntigravity({
     type: "object",
     $defs: {
@@ -193,8 +193,8 @@ test("OpenAI -> Gemini helper inlines local refs and preserves only additionalPr
   assert.equal(cleaned.properties.options.additionalProperties, undefined);
 });
 
-test("OpenAI -> Gemini request maps messages, merged system instructions, tools and response schema", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini request maps messages, merged system instructions, tools and response schema", async () => {
+  const result = await openaiToGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [
@@ -316,10 +316,10 @@ test("OpenAI -> Gemini request maps messages, merged system instructions, tools 
   assert.deepEqual(result.safetySettings, DEFAULT_SAFETY_SETTINGS);
 });
 
-test("OpenAI -> Gemini request preserves custom safety settings and handles system-only requests", () => {
+test("OpenAI -> Gemini request preserves custom safety settings and handles system-only requests", async () => {
   const customSafety = [{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" }];
 
-  const result = openaiToGeminiRequest(
+  const result = await openaiToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "system", content: "Only rules" }],
@@ -335,8 +335,8 @@ test("OpenAI -> Gemini request preserves custom safety settings and handles syst
   assert.deepEqual(result.contents[0].parts, [{ text: "Only rules" }]);
 });
 
-test("OpenAI -> Cloud Code Gemini adds thinking config and normalizes namespaced tool names", () => {
-  const result = openaiToCloudCodeGeminiRequest(
+test("OpenAI -> Cloud Code Gemini adds thinking config and normalizes namespaced tool names", async () => {
+  const result = await openaiToCloudCodeGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [
@@ -387,10 +387,10 @@ test("OpenAI -> Cloud Code Gemini adds thinking config and normalizes namespaced
   assert.equal(getFunctionResponse(responseTurn.parts[0]).name, "weather");
 });
 
-test("OpenAI -> Gemini request sanitizes long MCP tool names and strips unsupported schema fields", () => {
+test("OpenAI -> Gemini request sanitizes long MCP tool names and strips unsupported schema fields", async () => {
   const longToolName =
     "mcp__filesystem__read_multiple_files_with_validation_and_metadata_bundle_v2";
-  const result = openaiToGeminiRequest(
+  const result = await openaiToGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [
@@ -463,8 +463,8 @@ test("OpenAI -> Gemini request sanitizes long MCP tool names and strips unsuppor
   assert.equal(longToolParameters.properties?.paths?.items?.["x-ui"], undefined);
 });
 
-test("OpenAI -> Gemini request gives googleSearch precedence over function tools", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini request gives googleSearch precedence over function tools", async () => {
+  const result = await openaiToGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: "Search the web" }],
@@ -486,8 +486,8 @@ test("OpenAI -> Gemini request gives googleSearch precedence over function tools
   assert.deepEqual((result as any).tools, [{ googleSearch: {} }]);
 });
 
-test("OpenAI -> Antigravity keeps googleSearch without function calling config", () => {
-  const result = openaiToAntigravityRequest(
+test("OpenAI -> Antigravity keeps googleSearch without function calling config", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: "Search the web" }],
@@ -510,15 +510,15 @@ test("OpenAI -> Antigravity keeps googleSearch without function calling config",
   assert.equal(result.request.toolConfig, undefined);
 });
 
-test("OpenAI -> Gemini helper IDs and JSON parsing stay in the expected format", () => {
+test("OpenAI -> Gemini helper IDs and JSON parsing stay in the expected format", async () => {
   assert.match(generateRequestId(), /^agent-/);
   assert.match(generateSessionId(), /^-\d+$/);
   assert.deepEqual(tryParseJSON('{"ok":true}'), { ok: true });
   assert.equal(tryParseJSON("not-json"), null as any);
 });
 
-test("OpenAI -> Cloud Code Gemini emits native functionResponse result", () => {
-  const request = openaiToCloudCodeGeminiRequest(
+test("OpenAI -> Cloud Code Gemini emits native functionResponse result", async () => {
+  const request = (await openaiToCloudCodeGeminiRequest(
     "gemini-3-flash-preview",
     {
       messages: [
@@ -541,7 +541,7 @@ test("OpenAI -> Cloud Code Gemini emits native functionResponse result", () => {
       ],
     },
     true
-  ) as any;
+  )) as any;
 
   const toolTurn = request.contents.find(
     (content) => content.role === "user" && content.parts.some((part) => part.functionResponse)
@@ -554,8 +554,8 @@ test("OpenAI -> Cloud Code Gemini emits native functionResponse result", () => {
   });
 });
 
-test("OpenAI -> Antigravity wraps Gemini requests in a Cloud Code envelope", () => {
-  const result = openaiToAntigravityRequest(
+test("OpenAI -> Antigravity wraps Gemini requests in a Cloud Code envelope", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: "Hello" }],
@@ -599,8 +599,8 @@ test("OpenAI -> Antigravity wraps Gemini requests in a Cloud Code envelope", () 
   });
 });
 
-test("OpenAI -> Antigravity Gemini omits signature-less historical tool calls and keeps response context", () => {
-  const result = openaiToAntigravityRequest(
+test("OpenAI -> Antigravity Gemini omits signature-less historical tool calls and keeps response context", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-3.5-flash-low",
     {
       messages: [
@@ -678,8 +678,8 @@ test("OpenAI -> Antigravity Gemini omits signature-less historical tool calls an
   );
 });
 
-test("OpenAI -> Antigravity preserves multiple signature-less historical tool responses as context", () => {
-  const result = openaiToAntigravityRequest(
+test("OpenAI -> Antigravity preserves multiple signature-less historical tool responses as context", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-3.5-flash-low",
     {
       messages: [
@@ -740,7 +740,7 @@ test("OpenAI -> Antigravity preserves signed Gemini tool calls in native form", 
   const toolId = "call_signed_history";
   storeGeminiThoughtSignature(buildGeminiThoughtSignatureKey(ns, toolId), "SIG_AG_SIGNED_XYZ");
 
-  const result = openaiToAntigravityRequest(
+  const result = await openaiToAntigravityRequest(
     "gemini-3.5-flash-low",
     {
       messages: [
@@ -779,8 +779,8 @@ test("OpenAI -> Antigravity preserves signed Gemini tool calls in native form", 
   );
 });
 
-test("OpenAI -> Antigravity escapes signature-less tool response context content", () => {
-  const result = openaiToAntigravityRequest(
+test("OpenAI -> Antigravity escapes signature-less tool response context content", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-3.5-flash-low",
     {
       messages: [
@@ -814,8 +814,8 @@ test("OpenAI -> Antigravity escapes signature-less tool response context content
   assert.ok(toolResponseTurn, "expected native functionResponse turn");
 });
 
-test("OpenAI -> Antigravity maps Claude-family models to Gemini-compatible schema", () => {
-  const result = openaiToAntigravityRequest(
+test("OpenAI -> Antigravity maps Claude-family models to Gemini-compatible schema", async () => {
+  const result = await openaiToAntigravityRequest(
     "claude-3-7-sonnet",
     {
       messages: [
@@ -884,10 +884,10 @@ test("OpenAI -> Antigravity maps Claude-family models to Gemini-compatible schem
   assert.equal((result as any).request?.tools[0].functionDeclarations[0].name, "read_file");
 });
 
-test("OpenAI -> Antigravity Claude path sanitizes tool names for Gemini schema", () => {
+test("OpenAI -> Antigravity Claude path sanitizes tool names for Gemini schema", async () => {
   const longToolName =
     "ns:mcp__filesystem__read_multiple_files_with_validation_and_metadata_bundle";
-  const result = openaiToAntigravityRequest(
+  const result = await openaiToAntigravityRequest(
     "claude-3-7-sonnet",
     {
       messages: [
@@ -950,12 +950,12 @@ test("OpenAI -> Antigravity Claude path sanitizes tool names for Gemini schema",
   assert.deepEqual(toolResultBlock.response, { result: { ok: true } });
 });
 
-test("OpenAI -> Antigravity Claude path applies output cap and strips thinkingConfig", () => {
+test("OpenAI -> Antigravity Claude path applies output cap and strips thinkingConfig", async () => {
   // For Claude on Antigravity, applyAntigravityGenerationDefaults must bump
   // maxOutputTokens to thinkingBudget+1 BEFORE the envelope strips thinkingConfig
   // (because Claude on Cloud Code does not understand Gemini's thinkingConfig
   // shape but still benefits from the larger output cap derived from it).
-  const result = openaiToAntigravityRequest(
+  const result = await openaiToAntigravityRequest(
     "claude-3-7-sonnet",
     {
       messages: [{ role: "user", content: "Summarize this" }],
@@ -974,8 +974,8 @@ test("OpenAI -> Antigravity Claude path applies output cap and strips thinkingCo
   assert.equal((result as any).request?.thinking, undefined);
 });
 
-test("OpenAI -> Antigravity Claude path preserves lower requested output and strips thinkingConfig", () => {
-  const result = openaiToAntigravityRequest(
+test("OpenAI -> Antigravity Claude path preserves lower requested output and strips thinkingConfig", async () => {
+  const result = await openaiToAntigravityRequest(
     "claude-3-7-sonnet",
     {
       messages: [{ role: "user", content: "Short answer" }],
@@ -992,11 +992,11 @@ test("OpenAI -> Antigravity Claude path preserves lower requested output and str
   assert.equal((result as any).request?.thinking, undefined);
 });
 
-test("OpenAI -> Antigravity Gemini path preserves thinkingConfig (only Claude is stripped)", () => {
+test("OpenAI -> Antigravity Gemini path preserves thinkingConfig (only Claude is stripped)", async () => {
   // Negative-control for the Claude-thinkingConfig-strip behavior. Gemini models
   // on Antigravity must still receive thinkingConfig — only Claude needs it removed
   // (Cloud Code Claude endpoint does not understand the Gemini-shape field).
-  const result = openaiToAntigravityRequest(
+  const result = await openaiToAntigravityRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: "Summarize this" }],
@@ -1020,8 +1020,8 @@ test("OpenAI -> Antigravity Gemini path preserves thinkingConfig (only Claude is
 // Regression for #2480: when projectId is stored in providerSpecificData rather than at
 // the top level of the credential record, the Antigravity Cloud Code envelope must still
 // pick it up — otherwise the /v1beta path 422s with "Missing Google projectId".
-test("openaiToAntigravityRequest falls back to providerSpecificData.projectId (#2480)", () => {
-  const result = openaiToAntigravityRequest(
+test("openaiToAntigravityRequest falls back to providerSpecificData.projectId (#2480)", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-3.1-flash-lite",
     { messages: [{ role: "user", content: "Hello" }] },
     false,
@@ -1030,8 +1030,8 @@ test("openaiToAntigravityRequest falls back to providerSpecificData.projectId (#
   assert.equal(result.project, "proj-from-psd");
 });
 
-test("openaiToAntigravityRequest prefers top-level projectId over providerSpecificData (#2480)", () => {
-  const result = openaiToAntigravityRequest(
+test("openaiToAntigravityRequest prefers top-level projectId over providerSpecificData (#2480)", async () => {
+  const result = await openaiToAntigravityRequest(
     "gemini-3.1-flash-lite",
     { messages: [{ role: "user", content: "Hello" }] },
     false,
@@ -1042,7 +1042,7 @@ test("openaiToAntigravityRequest prefers top-level projectId over providerSpecif
 
 // Regression for #2515: a PDF sent in the Responses-API `input_file` shape must reach
 // Gemini as inlineData instead of being silently dropped.
-test("convertOpenAIContentToParts handles input_file file_data (#2515)", () => {
+test("convertOpenAIContentToParts handles input_file file_data (#2515)", async () => {
   const parts = convertOpenAIContentToParts([
     { type: "input_file", file_data: "JVBERi0xLjcKJ", filename: "doc.pdf" },
   ]);
@@ -1051,7 +1051,7 @@ test("convertOpenAIContentToParts handles input_file file_data (#2515)", () => {
   assert.equal((inline as any).inlineData.data, "JVBERi0xLjcKJ");
 });
 
-test("convertOpenAIContentToParts handles input_file file_url data URI (#2515)", () => {
+test("convertOpenAIContentToParts handles input_file file_url data URI (#2515)", async () => {
   const parts = convertOpenAIContentToParts([
     { type: "input_file", file_url: "data:application/pdf;base64,QUJD", filename: "d.pdf" },
   ]);
@@ -1061,7 +1061,7 @@ test("convertOpenAIContentToParts handles input_file file_url data URI (#2515)",
   assert.equal((inline as any).inlineData.mimeType, "application/pdf");
 });
 
-test("convertOpenAIContentToParts handles rec.image with nested {url} as base64 data URI (#2807)", () => {
+test("convertOpenAIContentToParts handles rec.image with nested {url} as base64 data URI (#2807)", async () => {
   const parts = convertOpenAIContentToParts([
     { type: "text", text: "What's this?" },
     { type: "image", image: { url: "data:image/png;base64,iVBORw0KGgo=" } },
@@ -1075,7 +1075,7 @@ test("convertOpenAIContentToParts handles rec.image with nested {url} as base64 
   assert.equal((inline as any).inlineData.mimeType, "image/png");
 });
 
-test("convertOpenAIContentToParts passes remote http(s) image_url URLs through as fileData (#4373; was warn-and-drop #2807)", () => {
+test("convertOpenAIContentToParts passes remote http(s) image_url URLs through as fileData (#4373; was warn-and-drop #2807)", async () => {
   const parts = convertOpenAIContentToParts([
     { type: "image_url", image_url: { url: "https://example.com/cat.png" } },
   ]);
@@ -1092,7 +1092,7 @@ test("convertOpenAIContentToParts passes remote http(s) image_url URLs through a
   ]);
 });
 
-test("convertOpenAIContentToParts passes remote rec.image http(s) URLs through as fileData (#4373; was warn-and-drop #2807)", () => {
+test("convertOpenAIContentToParts passes remote rec.image http(s) URLs through as fileData (#4373; was warn-and-drop #2807)", async () => {
   // rec.image is the alternative content shape emitted by MCP tool wrappers and
   // LangChain shim layers. Remote URLs in this shape now also pass through as
   // Gemini `fileData: { fileUri }` (#4373) instead of being dropped.
@@ -1118,7 +1118,7 @@ test("openaiToGeminiRequest re-attaches cached thoughtSignature for FORMATS.GEMI
   const toolId = "call_2504_abc";
   storeGeminiThoughtSignature(buildGeminiThoughtSignatureKey(ns, toolId), "SIG_2504_XYZ");
 
-  const result: any = openaiToGeminiRequest(
+  const result: any = await openaiToGeminiRequest(
     "gemini-2.5-pro-preview",
     {
       messages: [
@@ -1142,8 +1142,8 @@ test("openaiToGeminiRequest re-attaches cached thoughtSignature for FORMATS.GEMI
     "cached thoughtSignature must be re-attached to the functionCall"
   );
 });
-test("OpenAI -> Gemini request maps reasoning_effort to thinkingConfig", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini request maps reasoning_effort to thinkingConfig", async () => {
+  const result = await openaiToGeminiRequest(
     "gemini-2.0-flash-thinking",
     {
       messages: [{ role: "user", content: "Solve this complex puzzle" }],
@@ -1163,22 +1163,22 @@ test("OpenAI -> Gemini request maps reasoning_effort to thinkingConfig", () => {
 // thinking-budget cap. gemini-2.5-flash's true upstream max is 24576; sending 32768
 // makes the upstream return HTTP 400. The modelSpecs thinkingBudgetCap now clamps it
 // at the capThinkingBudget chokepoint, matching the thinkingLevel=high path (24576).
-test("OpenAI -> Gemini reasoning_effort=high stays within gemini-2.5-flash cap (#3842)", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini reasoning_effort=high stays within gemini-2.5-flash cap (#3842)", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: "Solve this complex puzzle" }],
       reasoning_effort: "high",
     },
     false
-  ) as any;
+  )) as any;
   const budget = result.generationConfig.thinkingConfig.thinkingBudget;
   assert.ok(budget <= 24576, `expected <= 24576 (real cap), got ${budget}`);
   assert.equal(budget, 24576);
 });
 
-test("OpenAI -> Gemini request maps google_search tool", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini request maps google_search tool", async () => {
+  const result = await openaiToGeminiRequest(
     "gemini-2.0-flash",
     {
       messages: [{ role: "user", content: "What happened today?" }],
@@ -1196,8 +1196,8 @@ test("OpenAI -> Gemini request maps google_search tool", () => {
 
 // Regression: historical tool-call text must use compact [tool_history_call:] format,
 // not the old multi-line "Historical tool-call record only..." that leaked into output.
-test("text-mode assistant tool_calls produce [tool_history_call:] format, not the old leaky text", () => {
-  const result = openaiToGeminiRequest(
+test("text-mode assistant tool_calls produce [tool_history_call:] format, not the old leaky text", async () => {
+  const result = await openaiToGeminiRequest(
     "gemini-2.0-flash",
     {
       messages: [
@@ -1247,8 +1247,8 @@ test("text-mode assistant tool_calls produce [tool_history_call:] format, not th
   );
 });
 
-test("text-mode tool calls without credentials produce compact format, no thoughtSignature derail", () => {
-  const result = openaiToGeminiRequest(
+test("text-mode tool calls without credentials produce compact format, no thoughtSignature derail", async () => {
+  const result = await openaiToGeminiRequest(
     "gemini-2.0-flash",
     {
       messages: [
@@ -1285,8 +1285,8 @@ test("text-mode tool calls without credentials produce compact format, no though
   );
 });
 
-test("native-mode assistant tool_calls produce functionCall parts, not text labels", () => {
-  const result = openaiToGeminiRequest(
+test("native-mode assistant tool_calls produce functionCall parts, not text labels", async () => {
+  const result = await openaiToGeminiRequest(
     "gemini-2.0-flash",
     {
       messages: [
@@ -1333,12 +1333,12 @@ test("native-mode assistant tool_calls produce functionCall parts, not text labe
 // as context text so the standard Gemini API does not return HTTP 400.
 // For a SIGNED call (signature in store) native parts must still be emitted — see
 // the "keeps native functionCall+thoughtSignature when signature is present" test.
-test("registered OPENAI->GEMINI translator uses context-mode for signature-less tool calls, not text labels or native bare functionCall", () => {
+test("registered OPENAI->GEMINI translator uses context-mode for signature-less tool calls, not text labels or native bare functionCall", async () => {
   const translate = getRequestTranslator(FORMATS.OPENAI, FORMATS.GEMINI);
   assert.ok(typeof translate === "function", "registered translator must be a function");
 
   // No signature in store (cleared by beforeEach) — context-mode fallback applies.
-  const result = translate(
+  const result = (await translate(
     "gemini-2.0-flash",
     {
       messages: [
@@ -1363,7 +1363,7 @@ test("registered OPENAI->GEMINI translator uses context-mode for signature-less 
       ],
     },
     false
-  ) as any;
+  )) as any;
 
   const body = JSON.stringify(result);
   // Context mode: signature-less functionCall must NOT appear as a native part.
@@ -1406,12 +1406,12 @@ test("registered OPENAI->GEMINI translator uses context-mode for signature-less 
 // expiry / never stored). The standard GEMINI registration must use "context" mode
 // so signature-less tool calls are omitted from the native parts and represented as
 // context text, avoiding the 400 while preserving conversational continuity.
-test("registered OPENAI->GEMINI translator falls back to context mode for signatureless tool calls (#3688)", () => {
+test("registered OPENAI->GEMINI translator falls back to context mode for signatureless tool calls (#3688)", async () => {
   // Signature store is cleared by beforeEach — no stored signature for call_3688.
   const translate = getRequestTranslator(FORMATS.OPENAI, FORMATS.GEMINI);
   assert.ok(typeof translate === "function", "registered translator must be a function");
 
-  const result = translate(
+  const result = (await translate(
     "gemini-2.5-pro-preview",
     {
       messages: [
@@ -1437,7 +1437,7 @@ test("registered OPENAI->GEMINI translator falls back to context mode for signat
     },
     false,
     { _signatureNamespace: "conn-3688-test" }
-  ) as any;
+  )) as any;
 
   const body = JSON.stringify(result);
 
@@ -1476,7 +1476,7 @@ test("registered OPENAI->GEMINI translator keeps native functionCall+thoughtSign
   storeGeminiThoughtSignature(buildGeminiThoughtSignatureKey(ns, toolId), "SIG_3688_HAPPY_PATH");
 
   const translate = getRequestTranslator(FORMATS.OPENAI, FORMATS.GEMINI);
-  const result = translate(
+  const result = (await translate(
     "gemini-2.5-pro-preview",
     {
       messages: [
@@ -1498,7 +1498,7 @@ test("registered OPENAI->GEMINI translator keeps native functionCall+thoughtSign
     },
     false,
     { _signatureNamespace: ns }
-  ) as any;
+  )) as any;
 
   const body = JSON.stringify(result);
 
@@ -1524,57 +1524,57 @@ test("registered OPENAI->GEMINI translator keeps native functionCall+thoughtSign
 
 // Regression for #3842: thinking.budget_tokens on the explicit Claude-format path
 // must be capped by the model's thinkingBudgetCap, matching the reasoning_effort path.
-test("OpenAI -> Gemini thinking.budget_tokens is capped by model thinkingBudgetCap (#3842)", () => {
+test("OpenAI -> Gemini thinking.budget_tokens is capped by model thinkingBudgetCap (#3842)", async () => {
   // gemini-2.5-flash has thinkingBudgetCap: 24576
-  const result = openaiToGeminiRequest(
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: "think hard" }],
       thinking: { type: "enabled", budget_tokens: 50000 },
     },
     false
-  ) as any;
+  )) as any;
   assert.equal(result.generationConfig.thinkingConfig.thinkingBudget, 24576);
   assert.equal(result.generationConfig.thinkingConfig.includeThoughts, true);
 });
 
-test("OpenAI -> Gemini thinking.budget_tokens=0 disables thinking after cap", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini thinking.budget_tokens=0 disables thinking after cap", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: "no thinking" }],
       thinking: { type: "enabled", budget_tokens: 0 },
     },
     false
-  ) as any;
+  )) as any;
   assert.equal(result.generationConfig.thinkingConfig.thinkingBudget, 0);
   assert.equal(result.generationConfig.thinkingConfig.includeThoughts, false);
 });
 
-test("OpenAI -> Gemini thinking.budget_tokens below cap passes through", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini thinking.budget_tokens below cap passes through", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: "some thinking" }],
       thinking: { type: "enabled", budget_tokens: 8192 },
     },
     false
-  ) as any;
+  )) as any;
   assert.equal(result.generationConfig.thinkingConfig.thinkingBudget, 8192);
   assert.equal(result.generationConfig.thinkingConfig.includeThoughts, true);
 });
 
 // Guard: models with thinkingBudgetCap=0 (e.g. gemini-3-flash) must NOT
 // receive thinkingConfig even when the caller explicitly sends budget_tokens.
-test("OpenAI -> Gemini skips thinkingConfig for model with thinkingBudgetCap=0", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini skips thinkingConfig for model with thinkingBudgetCap=0", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-3-flash",
     {
       messages: [{ role: "user", content: "hello" }],
       thinking: { type: "enabled", budget_tokens: 5000 },
     },
     false
-  ) as any;
+  )) as any;
   assert.equal(
     result.generationConfig.thinkingConfig,
     undefined,
@@ -1587,29 +1587,29 @@ test("OpenAI -> Gemini skips thinkingConfig for model with thinkingBudgetCap=0",
 // false — matching the pre-#6943 native-defaults contract (see
 // translator-openai-to-gemini-defaults.test.ts). Omitting thinkingConfig entirely
 // here would crash callers that read `.thinkingConfig.thinkingBudget` unconditionally.
-test("OpenAI -> Gemini clamps reasoning_effort thinkingConfig to 0 for model with thinkingBudgetCap=0", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini clamps reasoning_effort thinkingConfig to 0 for model with thinkingBudgetCap=0", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-3-flash",
     {
       messages: [{ role: "user", content: "hello" }],
       reasoning_effort: "high",
     },
     false
-  ) as any;
+  )) as any;
   assert.equal(result.generationConfig.thinkingConfig.thinkingBudget, 0);
   assert.equal(result.generationConfig.thinkingConfig.includeThoughts, false);
 });
 
 // Guard: models not in MODEL_SPECS (thinkingBudgetCap=undefined) default to allowed.
-test("OpenAI -> Gemini allows thinkingConfig for unknown model (no spec)", () => {
-  const result = openaiToGeminiRequest(
+test("OpenAI -> Gemini allows thinkingConfig for unknown model (no spec)", async () => {
+  const result = (await openaiToGeminiRequest(
     "some-unknown-gemini-model",
     {
       messages: [{ role: "user", content: "hello" }],
       thinking: { type: "enabled", budget_tokens: 5000 },
     },
     false
-  ) as any;
+  )) as any;
   assert.equal(result.generationConfig.thinkingConfig.thinkingBudget, 5000);
   assert.equal(result.generationConfig.thinkingConfig.includeThoughts, true);
 });

@@ -12,34 +12,23 @@ test("monitoring section exists", () => {
   assert.ok(section, "monitoring section must exist");
 });
 
-test("monitoring section has exactly 4 children: 1 item (activity) + 3 groups (logs, audit, system)", () => {
+test("monitoring section has exactly 3 children: the groups logs, audit, system", () => {
   const section = findSection("monitoring");
   assert.ok(section, "monitoring section must exist");
 
   const children = section.children;
-  assert.equal(children.length, 4, "monitoring must have 4 children");
+  assert.equal(children.length, 3, "monitoring must have 3 children");
 
-  // First child is the activity item (not a group)
-  const first = children[0] as sidebarVisibility.SidebarItemDefinition;
-  assert.ok(!("type" in first) || first.type !== "group", "first child must not be a group");
-  assert.equal(
-    (first as sidebarVisibility.SidebarItemDefinition).id,
-    "activity",
-    "first child must be activity item"
-  );
-
-  // Remaining 3 children are groups
-  const groups = children.slice(1);
-  for (const g of groups) {
-    assert.ok("type" in g && g.type === "group", "children[1..3] must all be groups");
-  }
-
-  const groupIds = groups.map((g) => (g as sidebarVisibility.SidebarItemGroup).id);
+  // All children are groups (the activity item moved inside the logs group).
+  const groupIds = children.map((g) => (g as sidebarVisibility.SidebarItemGroup).id);
   assert.deepEqual(
     groupIds,
     ["logs", "audit", "system"],
     "group ids must be logs, audit, system in order"
   );
+  for (const g of children) {
+    assert.ok("type" in g && g.type === "group", "every monitoring child must be a group");
+  }
 });
 
 test("getSectionItems of monitoring does NOT contain logs-activity", () => {
@@ -94,10 +83,10 @@ test("monitoring logs group contains logs, logs-proxy, logs-console, logs-timeli
   assert.ok(logsGroup, "logs group must exist in monitoring");
 
   const itemIds = logsGroup.items.map((i) => i.id);
-  assert.deepEqual(itemIds, ["logs", "logs-proxy", "logs-console", "logs-timeline"]);
+  assert.deepEqual(itemIds, ["activity", "logs", "logs-proxy", "logs-console", "logs-timeline"]);
 });
 
-test("monitoring system group contains health and runtime", () => {
+test("monitoring system group contains proxy, health, runtime and system-mitm-proxy", () => {
   const section = findSection("monitoring");
   assert.ok(section, "monitoring section must exist");
 
@@ -108,5 +97,5 @@ test("monitoring system group contains health and runtime", () => {
   assert.ok(systemGroup, "system group must exist in monitoring");
 
   const itemIds = systemGroup.items.map((i) => i.id);
-  assert.deepEqual(itemIds, ["health", "runtime"]);
+  assert.deepEqual(itemIds, ["proxy", "health", "runtime", "system-mitm-proxy"]);
 });

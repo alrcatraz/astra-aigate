@@ -46,11 +46,11 @@ async function parseSetting(value: string | undefined): Promise<CcAliasSetting> 
  * wins over the global flag. `null`/`undefined` means "inherit" from the
  * next level down.
  */
-export async function resolveCcAliasEnabled(opts: {
+export function resolveCcAliasEnabled(opts: {
   model?: CcAliasSetting;
   provider?: CcAliasSetting;
   global: boolean;
-}): Promise<boolean> {
+}): boolean {
   if (opts.model === "on") return true;
   if (opts.model === "off") return false;
   if (opts.provider === "on") return true;

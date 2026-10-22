@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 
 const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const registeredKeysDb = await import("../../src/lib/db/registeredKeys.ts");
+const core = await import("../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
 
 test("hashKey in apiKeys handles null/undefined safely", async () => {
   // @ts-ignore - testing runtime safety

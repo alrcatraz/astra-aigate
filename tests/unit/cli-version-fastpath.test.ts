@@ -38,11 +38,11 @@ test("fast-path selector: defensive on non-array input", () => {
 });
 
 test("omniroute CLI --version fast-path prints ONLY the version, skipping bootstrap output", async () => {
-  const pkg = JSON.parse(
-    readFileSync(join(process.cwd(), "package.json"), "utf8")
-  ) as { version: string };
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
+    version: string;
+  };
 
-  const { stdout } = await execFileAsync(process.execPath, ["bin/omniroute.mjs", "--version"], {
+  const { stdout } = await execFileAsync(process.execPath, ["bin/astra-aigate.mjs", "--version"], {
     cwd: process.cwd(),
     env: { ...process.env, DATA_DIR: "" },
   });

@@ -119,33 +119,39 @@ test("database settings reader supports legacy flat keys and lets nested saves w
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('databaseSettings', ?, ?)"
   ).run("callLogs", JSON.stringify(99));
 
-  assert.equal(databaseSettings.getUserDatabaseSettings().retention.callLogs, 99);
+  assert.equal((await databaseSettings.getUserDatabaseSettings()).retention.callLogs, 99);
 
   await databaseSettings.updateDatabaseSettings({
     retention: {
-      ...databaseSettings.getUserDatabaseSettings().retention,
+      ...(await databaseSettings.getUserDatabaseSettings()).retention,
       callLogs: 7,
     },
   });
 
-  assert.equal(databaseSettings.getUserDatabaseSettings().retention.callLogs, 7);
+  assert.equal((await databaseSettings.getUserDatabaseSettings()).retention.callLogs, 7);
 });
 
 test("database log settings mirror the runtime pipeline toggle", async () => {
   await settingsDb.updateSettings({ call_log_pipeline_enabled: false });
 
-  assert.equal(databaseSettings.getUserDatabaseSettings().logs.callLogPipelineEnabled, false);
+  assert.equal(
+    (await databaseSettings.getUserDatabaseSettings()).logs.callLogPipelineEnabled,
+    false
+  );
 
   await databaseSettings.updateDatabaseSettings({
     logs: {
-      ...databaseSettings.getUserDatabaseSettings().logs,
+      ...(await databaseSettings.getUserDatabaseSettings()).logs,
       callLogPipelineEnabled: true,
     },
   });
 
   const settings = await settingsDb.getSettings();
   assert.equal(settings.call_log_pipeline_enabled, true);
-  assert.equal(databaseSettings.getUserDatabaseSettings().logs.callLogPipelineEnabled, true);
+  assert.equal(
+    (await databaseSettings.getUserDatabaseSettings()).logs.callLogPipelineEnabled,
+    true
+  );
 });
 
 test("database optimization settings apply SQLite cache size immediately", async () => {
@@ -154,7 +160,7 @@ test("database optimization settings apply SQLite cache size immediately", async
   await databaseSettings.updateDatabaseSettings({
     optimization: {
       ...current.optimization,
-      autoVacuumMode: core.getAutoVacuumMode(),
+      autoVacuumMode: await core.getAutoVacuumMode(),
       pageSize: 4096,
       cacheSize: 16384,
     },
@@ -169,7 +175,7 @@ test("database optimization settings apply SQLite cache size immediately", async
 
   assert.equal(db.pragma("cache_size", { simple: true }), -16384);
   assert.equal(JSON.parse(stored?.value ?? "null"), 16384);
-  assert.equal(databaseSettings.getUserDatabaseSettings().optimization.cacheSize, 16384);
+  assert.equal((await databaseSettings.getUserDatabaseSettings()).optimization.cacheSize, 16384);
 });
 
 test("database optimization settings apply SQLite page size immediately", async () => {
@@ -178,14 +184,14 @@ test("database optimization settings apply SQLite page size immediately", async 
   await databaseSettings.updateDatabaseSettings({
     optimization: {
       ...current.optimization,
-      autoVacuumMode: core.getAutoVacuumMode(),
+      autoVacuumMode: await core.getAutoVacuumMode(),
       pageSize: 8192,
       cacheSize: 16384,
     },
   });
 
   assert.equal(core.getDbInstance().pragma("page_size", { simple: true }), 8192);
-  assert.equal(databaseSettings.getUserDatabaseSettings().optimization.pageSize, 8192);
+  assert.equal((await databaseSettings.getUserDatabaseSettings()).optimization.pageSize, 8192);
 });
 
 test("database optimization cache size is applied when the DB is reopened", async () => {
@@ -196,6 +202,7 @@ test("database optimization cache size is applied when the DB is reopened", asyn
 
   await core.resetDbInstanceDrained();
   const reopened = core.getDbInstance();
+  await core.awaitDbOptimizationSettings();
 
   assert.equal(reopened.pragma("cache_size", { simple: true }), -32768);
   await core.awaitDbMigrations();
@@ -215,13 +222,13 @@ test("database optimization rejects negative cache size through the API", async 
   assert.equal(response.status, 400);
 });
 
-test("database settings reader normalizes legacy negative cache size to the positive default", () => {
+test("database settings reader normalizes legacy negative cache size to the positive default", async () => {
   const db = core.getDbInstance();
   db.prepare(
     "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('databaseSettings', ?, ?)"
   ).run("optimization.cacheSize", JSON.stringify(-2000));
 
-  assert.equal(databaseSettings.getUserDatabaseSettings().optimization.cacheSize, 65536);
+  assert.equal((await databaseSettings.getUserDatabaseSettings()).optimization.cacheSize, 65536);
 });
 
 test("purgeDetailedLogs deletes request_detail_logs", async () => {

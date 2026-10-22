@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   try {
     const keys = await listRegisteredKeys({ provider, accountId });
-    return NextResponse.json({ keys, total: keys.length });
+    return NextResponse.json({ keys: keys.items, total: keys.total });
   } catch (err) {
     console.error("[registered-keys] GET failed:", err);
     return NextResponse.json({ error: "Failed to list registered keys" }, { status: 500 });

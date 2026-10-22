@@ -25,7 +25,11 @@ import { bootstrapTranslatorRegistry } from "./bootstrap.ts";
 import { hasThinkingConfig, normalizeThinkingConfig } from "../services/provider.ts";
 import { applyThinkingBudget } from "../services/thinkingBudget.ts";
 import { applyReasoningRuleDirective } from "@/lib/reasoningRouting/policy";
-import { getResolvedModelCapabilitiesSync, supportsReasoningSync } from "@/lib/modelCapabilities";
+import {
+  getResolvedModelCapabilities,
+  getResolvedModelCapabilitiesSync,
+  supportsReasoningSync,
+} from "@/lib/modelCapabilities";
 import { normalizeRoles } from "../services/roleNormalizer.ts";
 import { hoistLeadingSystemMessage } from "./helpers/strictSystemHoist.ts";
 import {
@@ -182,7 +186,7 @@ const OPENAI_INCOMPATIBLE_ECHO_FIELDS = [
   "cache_control",
 ];
 
-export function translateRequest(
+export async function translateRequest(
   sourceFormat,
   targetFormat,
   model,
@@ -210,7 +214,7 @@ export function translateRequest(
   );
 
   // Phase 2: Apply thinking budget control before normalization
-  result = applyThinkingBudget(result);
+  result = await applyThinkingBudget(result);
   // HARDEN (2026-08-08): the thinking-budget pass must NEVER strip the conversation.
   // If it returns an object that lost `messages` (a production regression observed on
   // this deployment — chat bodies were reduced to a bare "{model}"), fall back to the
@@ -275,7 +279,7 @@ export function translateRequest(
               _provider: provider,
             }
           : credentials;
-      result = directTranslator(model, result, stream, directCredentials);
+      result = await directTranslator(model, result, stream, directCredentials);
     } else {
       // Fallback: hub-and-spoke via OpenAI
       // Step 1: source -> openai (if source is not openai)
@@ -302,7 +306,7 @@ export function translateRequest(
                   ...(preserveCacheControl ? { _preserveCacheControl: true } : {}),
                 }
               : credentials;
-          result = toOpenAI(model, result, stream, step1Credentials);
+          result = await toOpenAI(model, result, stream, step1Credentials);
           // Log OpenAI intermediate format
           reqLogger?.logOpenAIRequest?.(result);
         }
@@ -328,7 +332,7 @@ export function translateRequest(
                   ...(hasProvider ? { _provider: provider } : {}),
                 }
               : credentials;
-          result = fromOpenAI(model, result, stream, translationCredentials);
+          result = await fromOpenAI(model, result, stream, translationCredentials);
         }
       }
     }
@@ -345,10 +349,19 @@ export function translateRequest(
     normalizedProvider,
     normalizedModel
   );
-  const resolvedCapabilities = getResolvedModelCapabilitiesSync({
-    provider: normalizedProvider,
-    model: normalizedModel,
-  });
+  // Await the async resolver: the sync variant only serves an already-warm
+  // cache (it kicks off resolution and returns null on a cold key), which made
+  // the reasoning-replay gate fall back to the provider/model heuristics and
+  // silently drop cached reasoning on the first request.
+  const resolvedCapabilities =
+    (await getResolvedModelCapabilities({
+      provider: normalizedProvider,
+      model: normalizedModel,
+    })) ??
+    getResolvedModelCapabilitiesSync({
+      provider: normalizedProvider,
+      model: normalizedModel,
+    });
   const isReasoner = requiresReasoningReplay({
     provider: normalizedProvider,
     model: normalizedModel,

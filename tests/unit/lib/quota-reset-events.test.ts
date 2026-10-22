@@ -14,8 +14,10 @@ const {
   getProviderQuotaWindowStartIso,
 } = await import("../../../src/lib/db/quotaResetEvents.ts");
 
-// Force migrations (incl. 108_provider_quota_reset_events) to run.
+// Force migrations (incl. 108_provider_quota_reset_events) to run, then join the
+// barrier — getDbInstance() only kicks the run off lazily.
 core.getDbInstance();
+await core.awaitDbMigrations();
 
 const CONN = "conn-1";
 const PROVIDER = "antigravity";
@@ -44,9 +46,13 @@ test("records a weekly window transition and getWindowStart returns the prior wi
   assert.equal(start, PREV_RESET);
 });
 
-test("getWindowStart returns null for a reset day with no recorded event", () => {
+test("getWindowStart returns null for a reset day with no recorded event", async () => {
   assert.equal(
-    getProviderQuotaWindowStartIso(CONN, "2026-02-01T00:00:00.000Z", Date.parse(OBSERVED) + 1000),
+    await getProviderQuotaWindowStartIso(
+      CONN,
+      "2026-02-01T00:00:00.000Z",
+      Date.parse(OBSERVED) + 1000
+    ),
     null
   );
 });
@@ -136,7 +142,7 @@ test("observed same-resetAt quota drop overrides an older recorded weekly window
     source: "observed_snapshot_reset",
   });
   assert.equal(
-    getProviderQuotaWindowStartIso(
+    await getProviderQuotaWindowStartIso(
       connectionId,
       targetResetAt,
       Date.parse("2026-07-02T00:00:00.000Z")
@@ -161,7 +167,7 @@ test("records same-resetAt weekly resets when usage drops back to the reset floo
   });
 
   assert.equal(
-    getProviderQuotaWindowStartIso(
+    await getProviderQuotaWindowStartIso(
       connectionId,
       targetResetAt,
       Date.parse("2026-07-02T00:00:00.000Z")
@@ -181,7 +187,7 @@ test("does not record when previous and current reset fall on the same day witho
     observedAt: "2026-03-10T23:30:00.000Z",
   });
   assert.equal(
-    getProviderQuotaWindowStartIso(
+    await getProviderQuotaWindowStartIso(
       "conn-sameday",
       "2026-03-10T23:00:00.000Z",
       Date.parse("2026-03-11T00:00:00.000Z")
@@ -201,7 +207,7 @@ test("does not record for a non-weekly (e.g. daily) window", async () => {
     observedAt: OBSERVED,
   });
   assert.equal(
-    getProviderQuotaWindowStartIso("conn-daily", CUR_RESET, Date.parse(OBSERVED) + 1000),
+    await getProviderQuotaWindowStartIso("conn-daily", CUR_RESET, Date.parse(OBSERVED) + 1000),
     null
   );
 });

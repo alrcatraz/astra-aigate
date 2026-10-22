@@ -120,7 +120,7 @@ test("all-dead pool on a connection → fail-closed (#6246), never direct egress
   const resolved = await proxiesDb.resolveProxyForConnectionFromRegistry(connId);
   assert.equal(resolved, null, "an all-dead pool must not resolve to a live proxy");
   assert.equal(
-    proxiesDb.hasBlockingProxyAssignment(connId),
+    await proxiesDb.hasBlockingProxyAssignment(connId),
     true,
     "an all-dead assigned pool must block, not leak the real IP via direct egress"
   );

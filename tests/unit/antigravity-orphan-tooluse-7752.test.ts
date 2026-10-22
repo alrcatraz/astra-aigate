@@ -32,9 +32,8 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-ag-orphan
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = "test-ag-orphan-tooluse-secret";
 
-const { openaiToAntigravityRequest } = await import(
-  "../../open-sse/translator/request/openai-to-gemini.ts"
-);
+const { openaiToAntigravityRequest } =
+  await import("../../open-sse/translator/request/openai-to-gemini.ts");
 const { fixToolPairs } = await import("../../open-sse/services/contextManager.ts");
 
 type GeminiEnvelope = {
@@ -84,14 +83,14 @@ function collectFunctionCallAndResponseIds(envelope: GeminiEnvelope) {
   return { functionCallIds, functionResponseIds };
 }
 
-test("#7752: openaiToAntigravityRequest strips an orphan functionCall (no functionResponse) for a Claude-branded Antigravity model", () => {
+test("#7752: openaiToAntigravityRequest strips an orphan functionCall (no functionResponse) for a Claude-branded Antigravity model", async () => {
   const body = buildOpenCodeStyleBody();
-  const envelope = openaiToAntigravityRequest(
+  const envelope = (await openaiToAntigravityRequest(
     "agy/claude-opus-4-6-thinking",
     body,
     true,
     null
-  ) as GeminiEnvelope;
+  )) as GeminiEnvelope;
 
   const { functionCallIds, functionResponseIds } = collectFunctionCallAndResponseIds(envelope);
 
@@ -105,7 +104,7 @@ test("#7752: openaiToAntigravityRequest strips an orphan functionCall (no functi
   );
 });
 
-test("#7752: a still-in-flight trailing tool_call (no tool_result yet, at the very end of history) is NOT stripped", () => {
+test("#7752: a still-in-flight trailing tool_call (no tool_result yet, at the very end of history) is NOT stripped", async () => {
   const body = {
     model: "agy/claude-opus-4-6-thinking",
     stream: true,
@@ -125,12 +124,12 @@ test("#7752: a still-in-flight trailing tool_call (no tool_result yet, at the ve
       },
     ],
   };
-  const envelope = openaiToAntigravityRequest(
+  const envelope = (await openaiToAntigravityRequest(
     "agy/claude-opus-4-6-thinking",
     body,
     true,
     null
-  ) as GeminiEnvelope;
+  )) as GeminiEnvelope;
   const { functionCallIds } = collectFunctionCallAndResponseIds(envelope);
   assert.ok(
     functionCallIds.has("toolu_vrtx_pending"),
@@ -138,14 +137,13 @@ test("#7752: a still-in-flight trailing tool_call (no tool_result yet, at the ve
   );
 });
 
-test("control: the mainline Claude executor's fixToolPairs DOES strip the same orphan tool_call", () => {
+test("control: the mainline Claude executor's fixToolPairs DOES strip the same orphan tool_call", async () => {
   const body = buildOpenCodeStyleBody();
   const fixed = fixToolPairs(body.messages as Record<string, unknown>[]) as Array<
     Record<string, unknown>
   >;
   const assistantMsg = fixed.find((m) => m.role === "assistant") as
-    | { tool_calls?: Array<{ id: string }> }
-    | undefined;
+    { tool_calls?: Array<{ id: string }> } | undefined;
   const survivingIds = (assistantMsg?.tool_calls ?? []).map((tc) => tc.id);
   assert.deepEqual(survivingIds, ["toolu_vrtx_019zAAAA"]);
 });

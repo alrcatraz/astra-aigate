@@ -160,7 +160,10 @@ test.describe("Combo Unification", () => {
     await gotoDashboardRoute(page, "/dashboard/combos");
 
     const sidebar = page.locator("aside, nav").first();
-    await expect(sidebar.getByText("Combos", { exact: true })).toBeVisible();
+    // The Combos group has a title AND a nav item both labelled "Combos" after the
+    // sidebar-group rework, so target the nav link specifically to avoid the
+    // strict-mode ambiguity the group title introduces.
+    await expect(sidebar.locator('a[href="/dashboard/combos"]')).toBeVisible();
     await expect(sidebar.getByText("Auto Combo")).toHaveCount(0);
   });
 

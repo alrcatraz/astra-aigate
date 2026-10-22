@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+// Faithful next-intl double: resolves the real English copy from src/i18n/messages/en.json.
+// Must be the first import so the mock is registered before the component is evaluated.
+import "../../_setup/nextIntlDouble";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -7,14 +10,12 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "openrouter" }),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
 
 const { default: EditConnectionModal } =
   await import("../../../src/app/(dashboard)/dashboard/providers/[id]/components/modals/EditConnectionModal");
 
-const FREE_TOGGLE = 'button[role="switch"][aria-label="importFreeModelsOnlyLabel"]';
+// Real copy from the `providers` namespace of src/i18n/messages/en.json.
+const FREE_TOGGLE = 'button[role="switch"][aria-label="Import only free models"]';
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
@@ -37,19 +38,37 @@ function render(props: Record<string, unknown>) {
   return el;
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
+async function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
-  act(async () => {
+  // act() must be awaited: a pending async act interleaves act scopes, so the
+  // controlled input's state update is not flushed before the next interaction.
+  await act(async () => {
     setter.call(input, value);
     await input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 
-async function waitFor(fn: () => boolean, timeoutMs = 2000) {
+async function click(el: Element) {
+  await act(async () => {
+    await el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function saveButton(el: HTMLElement) {
+  const btn = Array.from(el.querySelectorAll("button")).find(
+    (b) => b.textContent?.trim() === "Save"
+  );
+  if (!btn) throw new Error("save button not rendered");
+  return btn;
+}
+
+async function waitFor(fn: () => boolean, timeoutMs = 3000) {
   const start = Date.now();
   while (!fn()) {
     if (Date.now() - start > timeoutMs) throw new Error("waitFor timed out");
-    await new Promise((r) => setTimeout(r, 20));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
   }
 }
 
@@ -91,6 +110,8 @@ describe("EditConnectionModal — import only free models", () => {
       providerId: "anthropic",
       connection: { id: "conn-2", provider: "anthropic", providerSpecificData: {} },
     });
+    // The modal still renders its form; only the free-models toggle is absent.
+    expect(el.querySelector("button")).toBeTruthy();
     expect(el.querySelector(FREE_TOGGLE)).toBeNull();
   });
 
@@ -121,16 +142,12 @@ describe("EditConnectionModal — import only free models", () => {
 
     const toggle = el.querySelector<HTMLButtonElement>(FREE_TOGGLE)!;
     expect(toggle.getAttribute("aria-checked")).toBe("true");
-    act(async () => {
-      await toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(toggle);
+    expect(el.querySelector<HTMLButtonElement>(FREE_TOGGLE)!.getAttribute("aria-checked")).toBe(
+      "false"
+    );
 
-    const saveBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "save"
-    )!;
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     // Must be an explicit `false`, not `undefined` — otherwise the PUT merge keeps the old `true`.
@@ -149,16 +166,9 @@ describe("EditConnectionModal — import only free models", () => {
     });
 
     const toggle = el.querySelector<HTMLButtonElement>(FREE_TOGGLE)!;
-    act(async () => {
-      await toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(toggle);
 
-    const saveBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "save"
-    )!;
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];
@@ -186,18 +196,15 @@ describe("EditConnectionModal — quota scraping fields", () => {
 
     const workspaceInput = el.querySelector<HTMLInputElement>(
       'input[name="opencodeGoWorkspaceId"]'
-    )!;
-    const cookieInput = el.querySelector<HTMLInputElement>('input[name="opencodeGoAuthCookie"]')!;
-    expect(workspaceInput.value).toBe("workspace-existing");
-    setInputValue(workspaceInput, "workspace-updated");
-    setInputValue(cookieInput, "auth=opencode-cookie");
+    );
+    const cookieInput = el.querySelector<HTMLInputElement>('input[name="opencodeGoAuthCookie"]');
+    expect(workspaceInput).toBeTruthy();
+    expect(cookieInput).toBeTruthy();
+    expect(workspaceInput!.value).toBe("workspace-existing");
+    await setInputValue(workspaceInput!, "workspace-updated");
+    await setInputValue(cookieInput!, "auth=opencode-cookie");
 
-    const saveBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "save"
-    )!;
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];
@@ -221,12 +228,7 @@ describe("EditConnectionModal — quota scraping fields", () => {
 
     expect(el.querySelector<HTMLInputElement>('input[name="ollamaCloudUsageCookie"]')).toBeTruthy();
 
-    const saveBtn = Array.from(el.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "save"
-    )!;
-    act(async () => {
-      await saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];

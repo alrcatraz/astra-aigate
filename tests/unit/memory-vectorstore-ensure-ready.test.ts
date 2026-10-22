@@ -21,6 +21,11 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
 const core = await import("../../src/lib/db/core.ts");
+
+// Bootstrap: open the DB and wait for the async migration run BEFORE the first
+// test touches any table (afterEach cleanup() re-awaits after every rmSync).
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { getMemoryVecMeta } = await import("../../src/lib/db/memoryVec.ts");
 const vsModule = await import("../../src/lib/memory/vectorStore.ts");
 const { getVectorStore, _resetVectorStoreSingleton } = vsModule;
@@ -71,6 +76,18 @@ function getStoreOrSkip(t: { skip: (msg: string) => void }): ReturnType<typeof g
   return store;
 }
 
+/**
+ * setMemoryVecMeta() is fired without await inside VectorStore.ensureReady() /
+ * resetForSignature() (fire-and-forget), so the meta row lands a few ticks
+ * after the call returns. Drain those pending writes before reading meta back,
+ * otherwise getMemoryVecMeta() races them and reports the previous value.
+ */
+async function drainVecMetaWrites(): Promise<void> {
+  for (let i = 0; i < 5; i++) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+}
+
 // ──────────────── Tests ────────────────
 
 test("ensureReady: first call creates vec_memories with correct dim", async (t) => {
@@ -81,6 +98,7 @@ test("ensureReady: first call creates vec_memories with correct dim", async (t) 
   const res = makeResolution("openai:text-embedding-3-small:1536", 1536);
 
   const result = await store.ensureReady(res);
+  await drainVecMetaWrites();
 
   assert.equal(result.ready, true, "should be ready after first ensureReady");
 
@@ -102,12 +120,14 @@ test("ensureReady: second call with same signature is idempotent", async (t) => 
   const res = makeResolution("openai:text-embedding-3-small:1536", 1536);
 
   await store.ensureReady(res);
+  await drainVecMetaWrites();
 
   // Read meta after first call.
   const meta1 = await getMemoryVecMeta();
 
   // Second call — should be no-op.
   const result = await store.ensureReady(res);
+  await drainVecMetaWrites();
 
   assert.equal(result.ready, true);
   const meta2 = await getMemoryVecMeta();
@@ -135,14 +155,17 @@ test("ensureReady: signature change triggers reset + marks memories needs_reinde
   // First ensureReady with signature X.
   const resX = makeResolution("openai:ada-002:1024", 1024);
   await store.ensureReady(resX);
+  await drainVecMetaWrites();
 
-  // Check X is set.
-  assert.equal(getMemoryVecMeta().embeddingSignature, "openai:ada-002:1024");
-  assert.equal(getMemoryVecMeta().activeDim, 1024);
+  // Check X is set. (getMemoryVecMeta is async — must be awaited.)
+  const metaX = await getMemoryVecMeta();
+  assert.equal(metaX.embeddingSignature, "openai:ada-002:1024");
+  assert.equal(metaX.activeDim, 1024);
 
   // Now switch to signature Y (different model + dim).
   const resY = makeResolution("openai:text-embedding-3-small:1536", 1536);
   const resetResult = await store.ensureReady(resY);
+  await drainVecMetaWrites();
 
   assert.equal(resetResult.ready, true, "should be ready after signature change");
 

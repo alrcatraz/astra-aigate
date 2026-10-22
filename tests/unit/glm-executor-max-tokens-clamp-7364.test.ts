@@ -9,17 +9,17 @@ import assert from "node:assert/strict";
 
 import { GlmExecutor } from "../../open-sse/executors/glm.ts";
 
-test("GlmExecutor.transformForTransport clamps an oversized client max_tokens for glm-4.6v (openai transport)", () => {
+test("GlmExecutor.transformForTransport clamps an oversized client max_tokens for glm-4.6v (openai transport)", async () => {
   const executor = new GlmExecutor("glm");
   const body = { messages: [{ role: "user", content: "describe this image" }], max_tokens: 65536 };
 
-  const transformed = executor.transformForTransport(
+  const transformed = (await executor.transformForTransport(
     "glm-4.6v",
     body,
     false,
     { apiKey: "glm-key" },
     "openai"
-  ) as { max_tokens?: number };
+  )) as { max_tokens?: number };
 
   assert.equal(
     transformed.max_tokens,
@@ -28,17 +28,17 @@ test("GlmExecutor.transformForTransport clamps an oversized client max_tokens fo
   );
 });
 
-test("GlmExecutor.transformForTransport leaves an in-range max_tokens for glm-4.6v untouched", () => {
+test("GlmExecutor.transformForTransport leaves an in-range max_tokens for glm-4.6v untouched", async () => {
   const executor = new GlmExecutor("glm");
   const body = { messages: [{ role: "user", content: "describe this image" }], max_tokens: 2048 };
 
-  const transformed = executor.transformForTransport(
+  const transformed = (await executor.transformForTransport(
     "glm-4.6v",
     body,
     false,
     { apiKey: "glm-key" },
     "openai"
-  ) as { max_tokens?: number };
+  )) as { max_tokens?: number };
 
   assert.equal(transformed.max_tokens, 2048);
 });

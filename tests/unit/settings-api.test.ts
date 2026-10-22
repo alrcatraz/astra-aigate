@@ -27,10 +27,10 @@ async function createSettingsApiHarness() {
   }
 
   async function cleanup() {
+    // Close the handle first; the dir is about to disappear, so do NOT
+    // re-open (getDbInstance() on a removed dir throws "no driver available").
     await core.resetDbInstanceDrained();
     fs.rmSync(testDataDir, { recursive: true, force: true });
-    core.getDbInstance();
-    await core.awaitDbMigrations();
   }
 
   return {

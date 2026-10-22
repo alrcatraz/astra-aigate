@@ -107,19 +107,19 @@ test("normalizeAzureModelsResponse handles Azure-specific deployment response fo
   assert.equal(normalizedDeployments[0].id, "dep-mistral");
 });
 
-test("buildInternalChatRequest sets X-OmniRoute-Connection header when connectionId is provided", () => {
+test("buildInternalChatRequest sets X-AI-Gate-Connection header when connectionId is provided", () => {
   const reqWithConn = buildInternalChatRequest(
     { model: "azure-ai/gpt-4o" },
     new AbortController().signal,
     "conn-azure-123"
   );
-  assert.equal(reqWithConn.headers.get("X-OmniRoute-Connection"), "conn-azure-123");
+  assert.equal(reqWithConn.headers.get("X-AI-Gate-Connection"), "conn-azure-123");
 
   const reqWithoutConn = buildInternalChatRequest(
     { model: "azure-ai/gpt-4o" },
     new AbortController().signal
   );
-  assert.equal(reqWithoutConn.headers.get("X-OmniRoute-Connection"), null);
+  assert.equal(reqWithoutConn.headers.get("X-AI-Gate-Connection"), null);
 });
 
 test("validateAzureAiProvider evaluates multi-deployment connections with granular per-deployment results", async () => {

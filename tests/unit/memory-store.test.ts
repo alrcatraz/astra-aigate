@@ -376,8 +376,8 @@ test("getMemoryTokensUsed sums estimated tokens, optionally scoped to an api key
   insertMemoryRow({ id: "tok-1", apiKeyId: "key-a", content: "aaaa" }); // (4+3)/4 = 1
   insertMemoryRow({ id: "tok-2", apiKeyId: "key-b", content: "aaaaaaaa" }); // (8+3)/4 = 2
 
-  assert.equal(store.getMemoryTokensUsed("key-a"), 1);
-  assert.equal(store.getMemoryTokensUsed("key-b"), 2);
-  assert.equal(store.getMemoryTokensUsed(), 3); // all memories
-  assert.equal(store.getMemoryTokensUsed("missing-key"), 0);
+  assert.equal(await store.getMemoryTokensUsed("key-a"), 1);
+  assert.equal(await store.getMemoryTokensUsed("key-b"), 2);
+  assert.equal(await store.getMemoryTokensUsed(), 3); // all memories
+  assert.equal(await store.getMemoryTokensUsed("missing-key"), 0);
 });

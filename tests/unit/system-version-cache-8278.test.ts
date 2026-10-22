@@ -50,9 +50,12 @@ test("explicit refresh bypasses an ordinary in-flight lookup and coalesces with 
     return calls === 1 ? ordinary.promise : refresh.promise;
   };
 
-  const stale = await resolveLatestVersionCached({ lookup });
-  const firstRefresh = await resolveLatestVersionCached({ lookup, bypassCache: true });
-  const secondRefresh = await resolveLatestVersionCached({ lookup, bypassCache: true });
+  // Collect the promises WITHOUT awaiting them: the deferreds below resolve
+  // only after these three calls are started — awaiting here would deadlock
+  // (added by the 907b2f17 await sweep, reverted as it self-deadlocks).
+  const stale = resolveLatestVersionCached({ lookup });
+  const firstRefresh = resolveLatestVersionCached({ lookup, bypassCache: true });
+  const secondRefresh = resolveLatestVersionCached({ lookup, bypassCache: true });
   assert.equal(calls, 2);
 
   ordinary.resolve("3.8.49");
@@ -78,7 +81,10 @@ test("no-store refresh does not populate the process cache", async () => {
 test("cache invalidation prevents an older in-flight result from repopulating the cache", async () => {
   let calls = 0;
   const pending = deferred<string | null>();
-  const first = await resolveLatestVersionCached({
+  // Start (do NOT await) the in-flight lookup: pending resolves only at the
+  // clearLatestVersionCache()/pending.resolve() lines below — awaiting here
+  // would deadlock (added by the 907b2f17 await sweep, reverted).
+  const first = resolveLatestVersionCached({
     lookup: () => {
       calls += 1;
       return pending.promise;

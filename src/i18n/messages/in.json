@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Tipe berkas tidak valid. Silakan unggah PNG, JPG, SVG, GIF, atau WebP.",
     "invalidFaviconFileType": "Tipe berkas tidak valid. Silakan unggah PNG, ICO, SVG, GIF, or WebP.",
     "failedToReadFile": "Gagal membaca berkas",
-    "startOnLogin": "Mulai saat Login",
-    "startOnLoginDesc": "Luncurkan AI Gate secara otomatis saat sistem dinyalakan dan jalankan secara diam-diam di baki latar belakang.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

@@ -78,18 +78,22 @@ describe("COMPRESSION_CONTEXT_GROUP contains all 4 engine items", () => {
     }
   });
 
-  it("group order is Settings → Combos → engines → Studio → Exclusions", () => {
+  it("group order is Overview → Live → Settings → Combos → engines → Studio → Exclusions", () => {
     const ids = itemIds as string[];
-    assert.equal(ids[0], "context-settings", "Settings must be first");
-    assert.equal(ids[1], "context-combos", "Combos must be second");
+    assert.equal(ids[0], "context", "Overview must be first");
+    assert.equal(ids[1], "compression-live", "Live monitor must be second");
+    assert.equal(ids[2], "context-settings", "Settings must follow Live");
+    assert.equal(ids[3], "context-combos", "Combos must follow Settings");
     assert.equal(ids[ids.length - 1], "compression-exclusions", "Exclusions must be last");
     assert.equal(
       ids[ids.length - 2],
       "compression-studio",
       "Studio must immediately precede Exclusions"
     );
-    // Combos precedes every per-engine page.
+    // Settings precede Combos, and Combos precedes every per-engine page.
+    const settingsIdx = ids.indexOf("context-settings");
     const combosIdx = ids.indexOf("context-combos");
+    assert.ok(combosIdx > settingsIdx, "Combos must appear after context-settings");
     for (const id of ["context-caveman", "context-rtk", ...ENGINE_IDS]) {
       assert.ok(ids.indexOf(id) > combosIdx, `${id} should appear after context-combos`);
     }

@@ -51,7 +51,7 @@ test("setup-qwen writes current V4 settings and only its dedicated env key", asy
     assert.equal(settings.modelProviders.openai.length, 2);
     assert.deepEqual(settings.modelProviders.openai[1], {
       id: "qwen/qwen3.8-max-preview",
-      name: "qwen/qwen3.8-max-preview (OmniRoute)",
+      name: "qwen/qwen3.8-max-preview (AI Gate)",
       envKey: "OMNIROUTE_API_KEY",
       baseUrl: "http://router:20128/v1",
     });

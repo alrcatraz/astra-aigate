@@ -163,48 +163,6 @@ export async function discoverZedCredentials(): Promise<ZedCredential[]> {
  * @param provider - Provider name (openai, anthropic, google, etc.)
  * @returns The credential if found, null otherwise
  */
-export async function getZedCredential(provider: string): Promise<ZedCredential | null> {
-  const keytar = await loadKeytar();
-  if (!keytar) return null;
-
-  const patterns = ZED_SERVICE_PATTERNS.filter((p) =>
-    p.toLowerCase().includes(provider.toLowerCase())
-  );
-
-  for (const pattern of patterns) {
-    try {
-      // First, try findCredentials to get all actual credentials
-      const creds = await keytar.findCredentials(pattern);
-      if (creds.length > 0 && creds[0].password) {
-        return {
-          provider,
-          service: pattern,
-          account: creds[0].account,
-          token: creds[0].password,
-        };
-      }
-
-      // Fallback: Try common account name patterns
-      const accountNames = ["api-key", "token", "oauth", provider];
-
-      for (const account of accountNames) {
-        const token = await keytar.getPassword(pattern, account);
-        if (token) {
-          return {
-            provider,
-            service: pattern,
-            account,
-            token,
-          };
-        }
-      }
-    } catch (error: any) {
-      console.debug("Failed to get credential for %s:", pattern, error?.message || error);
-    }
-  }
-
-  return null;
-}
 
 /**
  * Checks if Zed IDE appears to be installed and configured

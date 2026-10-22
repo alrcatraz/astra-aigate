@@ -387,11 +387,11 @@ export async function buildApiKeySelfServiceStatus(
 
   const resolvedDeps = await normalizeDeps(deps);
   const summary = await resolvedDeps.getCostSummary(metadata.id);
-  resolvedDeps.checkBudget(metadata.id);
+  await resolvedDeps.checkBudget(metadata.id);
 
   const cost = await buildCostStatus(summary, resolvedDeps.now());
   const tokens = aggregateTokens(
-    resolvedDeps.getAsyncDb() as DbLike,
+    resolvedDeps.getDbInstance() as DbLike,
     metadata.id,
     cost.periodStartAt ??
       new Date(getCurrentMonthWindow(resolvedDeps.now()).periodStartAt).toISOString()

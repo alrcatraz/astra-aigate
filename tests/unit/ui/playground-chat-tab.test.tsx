@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -6,10 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
-
+// next-intl comes from the shared double: the empty-state copy, the "Send" /
+// "Regenerate" button labels and the no-model warning are REAL `playground.*`
+// strings — the identity key mock rendered `chattab*`/`startConversation` and
+// no button matched `textContent.includes("Send")`.
 vi.mock("@/lib/playground/types", () => ({
   getModelPricing: () => null,
 }));
@@ -148,14 +149,15 @@ describe("ChatTab", () => {
 
   it("shows empty state message when no messages", () => {
     const el = renderChatTab();
-    expect(el.textContent).toContain("Start a conversation");
+    expect(el.textContent).toContain(resolveMessage("playground", "startConversation"));
   });
 
   it("warns when no model is configured", () => {
     const config = makeConfig();
     config.model = "";
     const el = renderChatTab(config);
-    expect(el.textContent).toContain("model");
+    expect(el.textContent).toContain(resolveMessage("playground", "setModelInConfigFirst"));
+    expect(el.textContent?.toLowerCase()).toContain("model");
   });
 
   it("sends message and renders assistant response with markdown", async () => {
@@ -166,8 +168,10 @@ describe("ChatTab", () => {
     const el = renderChatTab();
     const textarea = el.querySelector("textarea") as HTMLTextAreaElement;
 
-    act(() => {
-      setInputValue(textarea, "Hello!");
+    // setInputValue() is async — handing it to a sync act() left the update
+    // unflushed, so the Send click saw an empty textarea.
+    await act(async () => {
+      await setInputValue(textarea, "Hello!");
     });
 
     // Find and click send button
@@ -199,8 +203,8 @@ describe("ChatTab", () => {
     const el = renderChatTab(config);
     const textarea = el.querySelector("textarea") as HTMLTextAreaElement;
 
-    act(() => {
-      setInputValue(textarea, "Test message");
+    await act(async () => {
+      await setInputValue(textarea, "Test message");
     });
 
     const sendBtn = Array.from(el.querySelectorAll("button")).find((b) =>
@@ -228,8 +232,8 @@ describe("ChatTab", () => {
     const el = renderChatTab(makeConfig(), onMetricsUpdate);
     const textarea = el.querySelector("textarea") as HTMLTextAreaElement;
 
-    act(() => {
-      setInputValue(textarea, "Hello");
+    await act(async () => {
+      await setInputValue(textarea, "Hello");
     });
 
     const sendBtn = Array.from(el.querySelectorAll("button")).find((b) =>
@@ -254,8 +258,8 @@ describe("ChatTab", () => {
     const el = renderChatTab();
     const textarea = el.querySelector("textarea") as HTMLTextAreaElement;
 
-    act(() => {
-      setInputValue(textarea, "Generate something");
+    await act(async () => {
+      await setInputValue(textarea, "Generate something");
     });
 
     const sendBtn = Array.from(el.querySelectorAll("button")).find((b) =>
@@ -286,8 +290,8 @@ describe("ChatTab", () => {
     const el = renderChatTab();
     const textarea = el.querySelector("textarea") as HTMLTextAreaElement;
 
-    act(() => {
-      setInputValue(textarea, "Hello");
+    await act(async () => {
+      await setInputValue(textarea, "Hello");
     });
 
     const sendBtn = Array.from(el.querySelectorAll("button")).find((b) =>

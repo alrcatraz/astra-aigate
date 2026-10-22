@@ -25,10 +25,83 @@
  * If this file ever flags a missing executor, the fix is in the executor
  * — the contract is the executor's responsibility.
  */
-import { describe, it } from "node:test";
+import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { getExecutor } from "../../open-sse/executors/index.ts";
 import { WEB_COOKIE_PROVIDERS, NOAUTH_PROVIDERS } from "../../src/shared/constants/providers.ts";
+import { __setTlsFetchOverrideForTesting as setChatGptTlsOverride } from "../../open-sse/services/chatgptTlsClient.ts";
+import { __setTlsFetchOverrideForTesting as setGrokTlsOverride } from "../../open-sse/services/grokTlsClient.ts";
+import { __setTlsFetchOverrideForTesting as setClaudeTlsOverride } from "../../open-sse/services/claudeTlsClient.ts";
+import { __setTlsFetchOverrideForTesting as setPerplexityTlsOverride } from "../../open-sse/services/perplexityTlsClient.ts";
+import { __setTlsFetchOverrideForTesting as setNotionTlsOverride } from "../../open-sse/services/notionTlsClient.ts";
+import { __setTlsFetchOverrideForTesting as setLmarenaTlsOverride } from "../../open-sse/services/lmarenaTlsClient.ts";
+
+// ── Hermetic guards ────────────────────────────────────────────────────────
+// ~21 of these executors go outbound on their first action (TLS-client calls
+// to chatgpt.com / grok.com / claude.ai / perplexity.ai / notion.so /
+// arena.ai, plain fetch() to the remaining hosts, and a Playwright
+// page.goto for gemini-web). CI runners have no egress, so every outbound
+// path is stubbed BEFORE any execute() call: a globalThis.fetch stub that
+// answers a non-ok 401 JSON Response, __setTlsFetchOverrideForTesting
+// overrides for all six TLS clients the sweep touches, and a
+// chromium.launch patch (the browser IS installed on dev machines, so
+// gemini-web would otherwise really navigate to gemini.google.com).
+// All three are restored in the `after` hook below.
+
+const HERMETIC_BODY = JSON.stringify({
+  error: {
+    message: "hermetic stub: outbound network disabled in tests",
+    type: "upstream_error",
+    code: "HTTP_401",
+  },
+});
+
+function hermetic401(): Response {
+  return new Response(HERMETIC_BODY, {
+    status: 401,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+const originalFetch = globalThis.fetch;
+globalThis.fetch = (async () => hermetic401()) as typeof globalThis.fetch;
+
+// TLS-client override shape: { status, headers, text, body } (TlsFetchResult).
+// 401 + JSON text routes every consumer through its auth-failure branch,
+// which builds a proper error Response with a non-empty body.
+const hermeticTlsOverride = async () => ({
+  status: 401,
+  headers: new Headers(),
+  text: HERMETIC_BODY,
+  body: null,
+});
+
+const TLS_OVERRIDE_SETTERS = [
+  setChatGptTlsOverride,
+  setGrokTlsOverride,
+  setClaudeTlsOverride,
+  setPerplexityTlsOverride,
+  setNotionTlsOverride,
+  setLmarenaTlsOverride,
+];
+for (const setter of TLS_OVERRIDE_SETTERS) {
+  setter(hermeticTlsOverride as never);
+}
+
+const playwrightModule = await import("playwright");
+const originalChromiumLaunch = playwrightModule.chromium.launch;
+const hermeticLaunchError = new Error(
+  "browserType.launch: Executable doesn't exist at /home/node/.cache/ms-playwright/chromium_headless_shell-1161/chrome-linux/headless_shell"
+);
+playwrightModule.chromium.launch = (async () => {
+  throw hermeticLaunchError;
+}) as never;
+
+after(() => {
+  globalThis.fetch = originalFetch;
+  for (const setter of TLS_OVERRIDE_SETTERS) setter(null);
+  playwrightModule.chromium.launch = originalChromiumLaunch;
+});
 
 type WebCookieId = keyof typeof WEB_COOKIE_PROVIDERS;
 type NoauthId = keyof typeof NOAUTH_PROVIDERS;

@@ -20,7 +20,7 @@ import { safePercentage } from "@/shared/utils/formatting";
 import {
   saveQuotaSnapshot,
   cleanupOldSnapshots,
-  getLatestQuotaSnapshotsForConnection,
+  getLatestQuotaSnapshotsForConnectionSync,
 } from "@/lib/db/quotaSnapshots";
 import { recordProviderQuotaResetEventIfChanged } from "@/lib/db/quotaResetEvents";
 import { getCodexQuotaWindowFilterForModel } from "@omniroute/open-sse/config/codexQuotaScopes.ts";
@@ -394,7 +394,12 @@ function hydrateQuotaCacheFromSnapshots(connectionId: string): QuotaCacheEntry |
 
   let snapshots;
   try {
-    snapshots = getLatestQuotaSnapshotsForConnection(connectionId);
+    // Sync read: hydrate feeds the Array.sort comparator in auth's connection
+    // scoring (a comparator cannot await), so this must return an array, not a
+    // Promise. getLatestQuotaSnapshotsForConnection (async) returns a Promise
+    // whose .length is undefined — it silently returned null here since the
+    // async-migration commit, so cold-start cache reads never hydrated.
+    snapshots = getLatestQuotaSnapshotsForConnectionSync(connectionId);
   } catch {
     return null;
   }

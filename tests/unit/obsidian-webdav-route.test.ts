@@ -295,7 +295,7 @@ test("encryption round-trip: setWebdavPassword stores encrypted, getWebdavPasswo
   );
 
   // getWebdavPassword must round-trip back to plaintext
-  const retrieved = obsidianDb.getWebdavPassword();
+  const retrieved = await obsidianDb.getWebdavPassword();
   assert.equal(retrieved, plaintext, "getWebdavPassword must return original plaintext");
 
   // Clean up env for other tests
@@ -310,7 +310,7 @@ test("encryption graceful fallback: plaintext stored without key reads back corr
   await obsidianDb.setWebdavPassword(plaintext);
 
   // Must read back the same value
-  const retrieved = obsidianDb.getWebdavPassword();
+  const retrieved = await obsidianDb.getWebdavPassword();
   assert.equal(
     retrieved,
     plaintext,

@@ -13,6 +13,11 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 const core = await import("../../src/lib/db/core.ts");
 const at = await import("../../src/lib/db/accessTokens.ts");
 
+// getDbInstance() kicks migrations off lazily; join the barrier before the
+// first query or cli_access_tokens may not exist yet.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   try {
     await core.resetDbInstanceDrained();
@@ -37,8 +42,11 @@ test("createAccessToken defaults to the safest scope (read) for invalid input", 
   assert.equal(record.scope, "read");
 });
 
-test("createAccessToken rejects an empty name", () => {
-  assert.throws(() => at.createAccessToken({ name: "   ", scope: "read" }), /name is required/);
+test("createAccessToken rejects an empty name", async () => {
+  await assert.rejects(
+    () => at.createAccessToken({ name: "   ", scope: "read" }),
+    /name is required/
+  );
 });
 
 test("verifyAccessToken returns identity+scope for a valid secret, null for wrong", async () => {
@@ -47,9 +55,9 @@ test("verifyAccessToken returns identity+scope for a valid secret, null for wron
   assert.ok(v);
   assert.equal(v?.scope, "admin");
   assert.equal(v?.name, "verify-me");
-  assert.equal(at.verifyAccessToken("oma_live_wrong"), null);
-  assert.equal(at.verifyAccessToken(""), null);
-  assert.equal(at.verifyAccessToken(null), null);
+  assert.equal(await at.verifyAccessToken("oma_live_wrong"), null);
+  assert.equal(await at.verifyAccessToken(""), null);
+  assert.equal(await at.verifyAccessToken(null), null);
 });
 
 test("only the hash is stored — the plaintext secret never lands in the DB", async () => {
@@ -65,24 +73,24 @@ test("only the hash is stored — the plaintext secret never lands in the DB", a
 
 test("verifyAccessToken stamps last_used_at", async () => {
   const { secret, record } = await at.createAccessToken({ name: "touch", scope: "read" });
-  assert.equal(at.getAccessToken(record.id)?.lastUsedAt, null);
+  assert.equal((await at.getAccessToken(record.id))?.lastUsedAt, null);
   await at.verifyAccessToken(secret);
-  assert.notEqual(at.getAccessToken(record.id)?.lastUsedAt, null);
+  assert.notEqual((await at.getAccessToken(record.id))?.lastUsedAt, null);
 });
 
 test("revoked tokens fail verification", async () => {
   const { secret, record } = await at.createAccessToken({ name: "to-revoke", scope: "write" });
-  assert.ok(at.verifyAccessToken(secret));
-  assert.equal(at.revokeAccessToken(record.id), true);
-  assert.equal(at.verifyAccessToken(secret), null);
+  assert.ok(await at.verifyAccessToken(secret));
+  assert.equal(await at.revokeAccessToken(record.id), true);
+  assert.equal(await at.verifyAccessToken(secret), null);
   // idempotent: revoking again is a no-op
-  assert.equal(at.revokeAccessToken(record.id), false);
+  assert.equal(await at.revokeAccessToken(record.id), false);
 });
 
 test("revokeAccessToken works by display prefix too", async () => {
   const { secret, record } = await at.createAccessToken({ name: "by-prefix", scope: "read" });
-  assert.equal(at.revokeAccessToken(record.tokenPrefix), true);
-  assert.equal(at.verifyAccessToken(secret), null);
+  assert.equal(await at.revokeAccessToken(record.tokenPrefix), true);
+  assert.equal(await at.verifyAccessToken(secret), null);
 });
 
 test("expired tokens fail verification", async () => {
@@ -92,7 +100,7 @@ test("expired tokens fail verification", async () => {
     scope: "admin",
     expiresAt: past,
   });
-  assert.equal(at.verifyAccessToken(secret), null);
+  assert.equal(await at.verifyAccessToken(secret), null);
 });
 
 test("listAccessTokens returns masked records (no secret/hash field)", async () => {

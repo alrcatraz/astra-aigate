@@ -32,10 +32,13 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-  ok: true,
-  json: async () => ({ connections: [], keys: [], data: [], cloudEnabled: false }),
-}));
+vi.stubGlobal(
+  "fetch",
+  vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ connections: [], keys: [], data: [], cloudEnabled: false }),
+  })
+);
 
 vi.mock("@/shared/constants/models", () => ({
   PROVIDER_ID_TO_ALIAS: {},
@@ -51,11 +54,18 @@ vi.mock("@/app/(dashboard)/dashboard/cli-code/components/ToolDetailClient", () =
 
 // ── Import after mocks ────────────────────────────────────────────────────────
 
-const { default: CliCodeDetailPage } = await import(
-  "@/app/(dashboard)/dashboard/cli-code/[id]/page"
-);
+const { default: CliCodeDetailPage } =
+  await import("@/app/(dashboard)/dashboard/cli-code/[id]/page");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
 const containers: HTMLElement[] = [];
 
@@ -79,6 +89,7 @@ async function renderPage(id: string): Promise<{ container: HTMLElement; notFoun
 
   if (!notFoundThrown && jsx) {
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     act(() => {
       root.render(jsx as React.ReactElement);
     });
@@ -97,10 +108,14 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => {
+    for (const { root } of mounted) root.unmount();
+  });
   while (containers.length > 0) {
     containers.pop()?.remove();
   }
   document.body.innerHTML = "";
+  mounted.length = 0;
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "చెల్లని ఫైల్ రకం. దయచేసి PNG, JPG, SVG, GIF లేదా WebPని అప్‌లోడ్ చేయండి.",
     "invalidFaviconFileType": "చెల్లని ఫైల్ రకం. దయచేసి PNG, ICO, SVG, GIF లేదా WebPని అప్‌లోడ్ చేయండి.",
     "failedToReadFile": "ఫైల్‌ను చదవడం విఫలమైంది",
-    "startOnLogin": "లాగిన్ అయినప్పుడు ప్రారంభించండి",
-    "startOnLoginDesc": "సిస్టమ్ స్టార్టప్‌లో AI Gateని స్వయంచాలకంగా ప్రారంభించండి మరియు బ్యాక్‌గ్రౌండ్ ట్రేలో నిశ్శబ్దంగా రన్ చేయండి.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

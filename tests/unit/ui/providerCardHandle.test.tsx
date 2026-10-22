@@ -37,12 +37,22 @@ describe("ProviderCardHandle imperative API", () => {
   let container: HTMLDivElement | null = null;
   let handle: ProviderCardHandle | null = null;
 
+  // Every root has to be unmounted inside act before its container leaves the DOM.
+  // Detaching a live root instead leaves React's scheduler with work queued against
+  // a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+  // react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+  // it fails the whole Vitest run rather than any one case. A test that renders twice
+  // also needs every root tracked, not just the newest container.
+  const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
+
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
     handle = null;
-    if (container) {
-      document.body.removeChild(container);
-      container = null;
-    }
+    container = null;
   });
 
   const PROVIDER_ID = "openai";
@@ -52,6 +62,7 @@ describe("ProviderCardHandle imperative API", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     act(() => {
       root.render(
         <ProviderCard
@@ -114,6 +125,7 @@ describe("ProviderCardHandle imperative API", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     let h: ProviderCardHandle | null = null;
     act(() => {
       root.render(

@@ -31,6 +31,14 @@ const AuthzSection = (
 
 const cleanupCallbacks: Array<() => void> = [];
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
 function makeContainer(): HTMLElement {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -64,8 +72,10 @@ function mockInventoryFetch(cors: { allowAll: boolean; allowedOrigins: string[] 
 
 async function renderAuthzSection(): Promise<HTMLElement> {
   const container = makeContainer();
+  const root = createRoot(container);
+  mounted.push({ root, el: container });
   await act(async () => {
-    createRoot(container).render(React.createElement(AuthzSection));
+    root.render(React.createElement(AuthzSection));
   });
   // Flush the mount-time inventory fetch + resulting state update.
   await act(async () => {
@@ -83,8 +93,12 @@ describe("AuthzSection wildcard-CORS banner (#5602)", { timeout: 60000 }, () => 
   });
 
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
     while (cleanupCallbacks.length > 0) cleanupCallbacks.pop()?.();
     document.body.innerHTML = "";
+    mounted.length = 0;
     vi.clearAllMocks();
   });
 

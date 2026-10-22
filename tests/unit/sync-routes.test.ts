@@ -165,7 +165,7 @@ test("sync token routes issue, list, use and revoke dedicated tokens", async () 
   );
   assert.equal(revokedBundleResponse.status, 401);
 
-  const auditActions = compliance.getAuditLog().map((entry) => entry.action);
+  const auditActions = (await compliance.getAuditLog()).map((entry) => entry.action);
   assert.equal(auditActions.includes("sync.token.created"), true);
   assert.equal(auditActions.includes("sync.token.revoked"), true);
 });

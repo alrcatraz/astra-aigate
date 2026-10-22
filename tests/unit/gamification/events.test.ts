@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { emitGamificationEvent } from "../../../src/lib/gamification/events";
 import { getDbInstance } from "../../../src/lib/db/core";
 
+const core = await import("../../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 describe("Gamification Events", () => {
   it("does not throw for valid event", async () => {
     await assert.doesNotReject(emitGamificationEvent({ apiKeyId: "test-user", action: "request" }));

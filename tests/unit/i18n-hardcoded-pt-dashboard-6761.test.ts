@@ -12,7 +12,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const FILES = [
   "src/app/(dashboard)/dashboard/compression/studio/CompareView.tsx",
   "src/app/(dashboard)/dashboard/compression/studio/PlaygroundInput.tsx",
-  "src/app/(dashboard)/dashboard/context/combos/CompressionHub.tsx",
+  "src/app/(dashboard)/dashboard/context/CompressionHub.tsx",
   "src/app/(dashboard)/dashboard/translator/components/advanced/CompressionPreviewAccordion.tsx",
 ];
 

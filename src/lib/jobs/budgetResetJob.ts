@@ -15,9 +15,9 @@ export function startBudgetResetJob() {
     return timer;
   }
 
-  const run = () => {
+  const run = async () => {
     try {
-      const result = syncAllBudgetSchedules(Date.now());
+      const result = await syncAllBudgetSchedules(Date.now());
       if (result.resetCount > 0) {
         console.log(`[BudgetReset] processed=${result.processed} reset=${result.resetCount}`);
       }
@@ -30,11 +30,4 @@ export function startBudgetResetJob() {
   timer = setInterval(run, getIntervalMs());
   timer.unref?.();
   return timer;
-}
-
-export function stopBudgetResetJob() {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
 }

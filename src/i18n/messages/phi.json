@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Hindi wastong uri ng file. Mangyaring mag-upload ng PNG, JPG, SVG, GIF, o WebP.",
     "invalidFaviconFileType": "Hindi wastong uri ng file. Mangyaring mag-upload ng PNG, ICO, SVG, GIF, o WebP.",
     "failedToReadFile": "Nabigong basahin ang file",
-    "startOnLogin": "Magsimula sa Pag-login",
-    "startOnLoginDesc": "Awtomatikong ilunsad ang AI Gate sa pagsisimula ng system at tahimik na patakbuhin sa background tray.",
     "flushCache": "Flush Cache",
     "flushing": "Nag-flush...",
     "size": "Sukat",

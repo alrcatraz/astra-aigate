@@ -1,6 +1,24 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { getStainlessTimeoutSeconds } from "@/shared/utils/runtimeTimeouts";
+import type { HeaderLike, MessageLike, BuildRequestOptions } from "./claudeCodeCompatTypes.ts";
+export {
+  CLAUDE_CODE_COMPATIBLE_PREFIX,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_CHAT_PATH,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_MODELS_PATH,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_MAX_TOKENS,
+  CLAUDE_CODE_COMPATIBLE_ANTHROPIC_VERSION,
+  CONTEXT_1M_BETA_HEADER,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_SYSTEM_BLOCKS,
+  CONTEXT_1M_SUPPORTED_MODELS,
+  CLAUDE_CODE_COMPATIBLE_STAINLESS_TIMEOUT_SECONDS,
+} from "./claudeCodeCompatConstants.ts";
+export {
+  CLAUDE_CODE_COMPATIBLE_ANTHROPIC_BETA,
+  CLAUDE_CODE_COMPATIBLE_REDACT_THINKING_BETA,
+  resolveClaudeCodeCompatibleAnthropicBeta,
+} from "./claudeCodeCompatibleBeta.ts";
+export * from "../config/claudeCodeCompatibleIdentity.ts";
 import { ANTHROPIC_VERSION_HEADER } from "../config/anthropicHeaders.ts";
 import {
   CLAUDE_CODE_COMPATIBLE_STAINLESS_PACKAGE_VERSION,
@@ -38,61 +56,17 @@ import {
  * wire-image details, so we only synthesize the minimum required defaults when
  * the caller did not already provide Claude-shaped fields.
  */
-export const CLAUDE_CODE_COMPATIBLE_PREFIX = "anthropic-compatible-cc-";
-export const CLAUDE_CODE_COMPATIBLE_DEFAULT_CHAT_PATH = "/v1/messages?beta=true";
-export const CLAUDE_CODE_COMPATIBLE_DEFAULT_MODELS_PATH = "/models";
-export const CLAUDE_CODE_COMPATIBLE_DEFAULT_MAX_TOKENS = 64000;
-export const CLAUDE_CODE_COMPATIBLE_ANTHROPIC_VERSION = ANTHROPIC_VERSION_HEADER;
-export {
-  CLAUDE_CODE_COMPATIBLE_ANTHROPIC_BETA,
-  CLAUDE_CODE_COMPATIBLE_REDACT_THINKING_BETA,
-  resolveClaudeCodeCompatibleAnthropicBeta,
-} from "./claudeCodeCompatibleBeta.ts";
-export * from "../config/claudeCodeCompatibleIdentity.ts";
-export const CONTEXT_1M_BETA_HEADER = "context-1m-2025-08-07";
-const CLAUDE_CODE_COMPATIBLE_DEFAULT_SYSTEM_BLOCKS = [
-  {
-    type: "text",
-    text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
-  },
-];
-const CONTEXT_1M_SUPPORTED_MODELS = [
-  "claude-fable-5",
-  "claude-sonnet-5",
-  "claude-sonnet-4-6",
-  "claude-opus-4-8",
-  "claude-opus-4-7",
-  "claude-opus-4-6",
-];
-export const CLAUDE_CODE_COMPATIBLE_STAINLESS_TIMEOUT_SECONDS = getStainlessTimeoutSeconds(
-  process.env
-);
-type HeaderLike =
-  | Headers
-  | Record<string, string | undefined>
-  | { get?: (name: string) => string | null }
-  | null
-  | undefined;
-
-type MessageLike = {
-  role?: string;
-  content?: unknown;
-};
-
-type BuildRequestOptions = {
-  sourceBody?: Record<string, unknown> | null;
-  normalizedBody?: Record<string, unknown> | null;
-  claudeBody?: Record<string, unknown> | null;
-  model: string;
-  stream?: boolean;
-  cwd?: string;
-  now?: Date;
-  sessionId?: string | null;
-  preserveCacheControl?: boolean;
-  preserveClaudeMessages?: boolean;
-  redactThinking?: boolean;
-  summarizeThinking?: boolean;
-};
+import {
+  CLAUDE_CODE_COMPATIBLE_PREFIX,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_CHAT_PATH,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_MODELS_PATH,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_MAX_TOKENS,
+  CLAUDE_CODE_COMPATIBLE_ANTHROPIC_VERSION,
+  CONTEXT_1M_BETA_HEADER,
+  CLAUDE_CODE_COMPATIBLE_DEFAULT_SYSTEM_BLOCKS,
+  CONTEXT_1M_SUPPORTED_MODELS,
+  CLAUDE_CODE_COMPATIBLE_STAINLESS_TIMEOUT_SECONDS,
+} from "./claudeCodeCompatConstants.ts";
 
 function supportsClaudeXHighEffort(model: string | null | undefined): boolean {
   return typeof model === "string" && supportsXHighEffort("claude", model);

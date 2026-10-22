@@ -20,9 +20,11 @@ export async function getModelAliases() {
 
 export async function setModelAlias(alias: string, model: unknown) {
   const db = await getAsyncDb();
-  db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('modelAliases', ?, ?)"
-  ).run(alias, JSON.stringify(model));
+  await db
+    .prepare(
+      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('modelAliases', ?, ?)"
+    )
+    .run(alias, JSON.stringify(model));
   backupDbFile("pre-write");
 }
 

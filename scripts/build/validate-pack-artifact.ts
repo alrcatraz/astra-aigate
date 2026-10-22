@@ -43,21 +43,154 @@ function ensureAppStagingReady(): void {
   runNpm(["run", "build:cli"], "inherit");
 }
 
-function runPackDryRun(): any {
-  const output = runNpm(["pack", "--dry-run", "--json", "--ignore-scripts"]);
-
-  const jsonStart = output.indexOf("[");
-  const jsonEnd = output.lastIndexOf("]");
-  const jsonPayload =
-    jsonStart >= 0 && jsonEnd > jsonStart ? output.slice(jsonStart, jsonEnd + 1) : output;
-  const parsed = JSON.parse(jsonPayload);
-  const packReport = Array.isArray(parsed) ? parsed[0] : null;
-
-  if (!packReport || !Array.isArray(packReport.files)) {
-    throw new Error("npm pack --dry-run --json did not return the expected files[] payload.");
+/**
+ * Extract the FIRST balanced JSON array from npm's output.
+ *
+ * npm may append notice/summary lines after the payload (observed in CI:
+ * the array ends mid-stream and trailing lines contain `]`, so the old
+ * `indexOf("[")..lastIndexOf("]")` slice swallowed them and JSON.parse
+ * failed with "Unexpected non-whitespace character after JSON"). Scanning
+ * for the bracket-balanced extent of the first array makes the parse
+ * immune to whatever npm prints around it.
+ *
+ * Returns `{ parsed, kind }` where `kind` reports the payload shape
+ * ("array" | "object" | "primitive" | "none") so callers can produce a
+ * self-diagnosing error when the shape is unexpected (guix CI can surface
+ * an npm error OBJECT with no files[] at all).
+ */
+function extractFirstJsonArray(output: string): { parsed: unknown; kind: string } {
+  // Prefer the first balanced ARRAY (the normal npm --json payload).
+  let start = output.indexOf("[");
+  while (start >= 0) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < output.length; i++) {
+      const ch = output[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "[") depth++;
+      else if (ch === "]") {
+        depth--;
+        if (depth === 0) {
+          try {
+            return { parsed: JSON.parse(output.slice(start, i + 1)), kind: "array" };
+          } catch {
+            break; // not actually JSON — try the next '['
+          }
+        }
+      }
+    }
+    start = output.indexOf("[", start + 1);
   }
 
-  return packReport;
+  // No balanced array: fall back to the first balanced OBJECT (npm error payloads
+  // surface as `{"error": ...}` with no files[]). A string-aware brace scan keeps
+  // this immune to trailing notices too.
+  const objStart = output.indexOf("{");
+  if (objStart >= 0) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = objStart; i < output.length; i++) {
+      const ch = output[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          try {
+            return { parsed: JSON.parse(output.slice(objStart, i + 1)), kind: "object" };
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return { parsed: null, kind: "none" };
+}
+
+function describeShape(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (Array.isArray(value)) return `array[len=${value.length}]`;
+  if (typeof value === "object") return `object{${Object.keys(value as object).join(",")}}`;
+  return typeof value;
+}
+
+function runPackDryRun(): {
+  filename: string;
+  entryCount: number;
+  size: number;
+  unpackedSize: number;
+  files: Array<{ path: string }>;
+} {
+  const output = runNpm(["pack", "--dry-run", "--json", "--ignore-scripts"]);
+
+  const { parsed, kind } = extractFirstJsonArray(output);
+
+  // Shape 1 (expected): a wrapper object — [{ filename, entryCount, files: [...] }].
+  // Shape 2 (observed in guix CI, npm 11.19): a FLAT array of file entries —
+  // [{ path, size, mode }, ...] with no wrapper. Normalise both to one report.
+  let report: {
+    filename: string;
+    entryCount: number;
+    size: number;
+    unpackedSize: number;
+    files: Array<{ path: string }>;
+  } | null = null;
+
+  if (Array.isArray(parsed) && parsed.length > 0 && parsed[0] && typeof parsed[0] === "object") {
+    const head = parsed[0] as any;
+    if (Array.isArray(head.files)) {
+      // Shape 1: wrapper
+      report = head;
+    } else if (typeof head.path === "string") {
+      // Shape 2: flat array of { path, size, mode } — synthesise the wrapper
+      // so the policy check below (packReport.files.map(f => f.path)) is uniform.
+      const files = parsed as Array<{ path: string; size?: number }>;
+      report = {
+        filename: "package.tgz (dry-run)",
+        entryCount: files.length,
+        size: files.reduce((sum, f) => sum + (f.size ?? 0), 0),
+        unpackedSize: files.reduce((sum, f) => sum + (f.size ?? 0), 0),
+        files,
+      };
+    }
+  } else if (parsed && typeof parsed === "object" && Array.isArray((parsed as any).files)) {
+    // Shape 1 without the array wrapper: a bare wrapper object
+    report = parsed as any;
+  }
+
+  if (!report || !Array.isArray(report.files)) {
+    // Surface what npm ACTUALLY returned (truncated) so the next CI failure
+    // diagnoses itself instead of leaving us guessing the payload shape.
+    const preview = (() => {
+      try {
+        return JSON.stringify(parsed)?.slice(0, 400) ?? String(parsed).slice(0, 400);
+      } catch {
+        return String(parsed).slice(0, 400);
+      }
+    })();
+    throw new Error(
+      `npm pack --dry-run --json did not return a recognisable files payload. ` +
+        `topLevel=${kind} parsed=${describeShape(parsed)} preview=${preview}`
+    );
+  }
+
+  return report;
 }
 
 function formatBytes(bytes: number): string {

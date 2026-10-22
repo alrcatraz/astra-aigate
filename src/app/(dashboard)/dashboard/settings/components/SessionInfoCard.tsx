@@ -76,9 +76,19 @@ export default function SessionInfoCard() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       sessionStorage.removeItem("omniroute_login_time");
-      window.location.href = "/";
+      // Full reload is intentional after logout: the cookie is gone but an SPA route
+      // change would keep React Query/store caches alive and leave the shell showing a
+      // signed-in UI. The Next.js location-assign rule cannot express "throw the client
+      // tree away", so it is disabled here on purpose rather than worked around.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = `${window.location.origin}/`;
     } catch {
-      window.location.href = "/";
+      // Full reload is intentional after logout: the cookie is gone but an SPA route
+      // change would keep React Query/store caches alive and leave the shell showing a
+      // signed-in UI. The Next.js location-assign rule cannot express "throw the client
+      // tree away", so it is disabled here on purpose rather than worked around.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = `${window.location.origin}/`;
     }
   };
 

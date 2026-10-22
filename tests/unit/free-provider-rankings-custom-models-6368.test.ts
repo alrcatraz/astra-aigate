@@ -35,6 +35,9 @@ const modelsDb = await import("../../src/lib/db/models.ts");
 const intelligenceDb = await import("../../src/lib/db/modelIntelligence.ts");
 const rankings = await import("../../src/lib/freeProviderRankings.ts");
 
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const CUSTOM_MODEL_ID = "claude-fable-5-6368";
 
 test.after(async () => {

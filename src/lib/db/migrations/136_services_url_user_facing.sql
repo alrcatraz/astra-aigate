@@ -5,10 +5,6 @@
 -- Health probes keep using `health_endpoint` (unchanged).
 -- Applies to deployments that already ran 135.
 
-UPDATE services
-SET url = 'http://192.168.0.200:9377'
-WHERE id = 'camofox';
-
-UPDATE services
-SET url = 'http://10.0.40.1:8080'
-WHERE id = 'searxng';
+-- Deployment-specific service URLs (camofox / searxng) are intentionally NOT
+-- seeded here: the upstream product ships only generic defaults. Operators
+-- configure their own endpoints via the Services admin UI / private config.

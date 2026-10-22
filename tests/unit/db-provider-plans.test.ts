@@ -188,8 +188,8 @@ test("deletePlan removes the plan and returns true", async () => {
 
   const deleted = await plansDb.deletePlan("conn-delete-me");
   assert.equal(deleted, true);
-  assert.equal(plansDb.getPlan("conn-delete-me"), null);
-  assert.equal(plansDb.listPlans().length, 0);
+  assert.equal(await plansDb.getPlan("conn-delete-me"), null);
+  assert.equal((await plansDb.listPlans()).length, 0);
 });
 
 test("deletePlan returns false for unknown connectionId", async () => {

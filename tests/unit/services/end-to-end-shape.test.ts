@@ -29,6 +29,10 @@ process.env.NINEROUTER_PORT = "20130";
 
 // Boot DB before any route imports so the schema is ready.
 const core = await import("../../../src/lib/db/core.ts");
+// getDbInstance() returns synchronously while runMigrations is still in flight;
+// without draining it the first seed hits "no such table: version_manager".
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { upsertVersionManagerTool } = await import("../../../src/lib/db/versionManager.ts");
 
 // Seed both services as "stopped" (installed) so lifecycle routes proceed.

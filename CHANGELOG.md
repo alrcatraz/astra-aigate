@@ -3,6 +3,155 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.2] — Async-correctness sweep, test-suite repair (2026-10-21)
+
+The async-DB migration (SQLite singleton → `getAsyncDb()` adapter, PG support)
+left call sites that consumed Promises as if they were values. Because a
+Promise is always truthy, those bugs failed silently: reads returned nothing,
+writes were skipped, and guards short-circuited in the permissive direction.
+This release closes that class across `src/`, `open-sse/` and the API routes,
+and repairs the test suite that had accumulated around it.
+
+### Fixed
+
+- **Kimi founding-friend badge and card accent restored**: the consistency pass in
+  `42c08e59` deleted the chip, its render site, the `isKimiPartner` local and the
+  brand-blue accent branch while leaving the explanatory comments orphaned and
+  `isKimiPartnerProviderId`/`KIMI_BRAND_COLOR` exported and documented as this
+  component's only consumers — the signature of an accidental deletion.
+- **Request-log detail no longer blanks on structured errors**: `errorText.toLowerCase()`
+  ran on the raw `error`, so an `{ code, message }` payload threw during render
+  (#7845) even though the same component already formats that shape for display
+  further down.
+- **Unawaited async reads and writes** (the dominant defect class): API routes
+  and DB wrappers that called an `async` helper bare. Highest-impact instances:
+  - `/api/db-backups/exportAll` threw `writeFileSync(undefined)` (destructuring
+    a Promise yielded no rows), so the full-backup export was unusable;
+    `src/lib/db/backup.ts` also swallowed every settings read into its own
+    `catch`, silently reverting retention to defaults.
+  - `GET /api/cache/entries` answered 200 with an empty body — the semantic
+    cache list/delete helpers are async and were not awaited.
+  - Provider quota limits never fell back to banked reset credits: the stale
+    path read the previous cache entry without awaiting it.
+  - Proxy assignment, param-filter and gamification writes were fire-and-forget,
+    so a caller reading the row back immediately saw nothing.
+  - The provider-plugin manifest treated an unreadable exposure store as "hide
+    everything" and silently stripped every service model; it now behaves like
+    "no row configured" (expose), matching the documented default.
+- **Cold-cache config skips** (`open-sse/translator/index.ts`,
+  `src/lib/db/paramFilters.ts`): `bumpCacheGeneration()` cleared the in-memory
+  cache while the synchronous hot path read it, so the first request after a
+  write used no resolved capabilities and no stored filters. Both now await the
+  real resolver and re-warm immediately.
+- **Thinking budget serialized as a Promise** (`open-sse/services/thinkingBudget.ts`,
+  `open-sse/translator/request/openai-to-gemini.ts`): `getDefaultThinkingBudget()`
+  became async at three call sites that still used it bare, so
+  `thinkingConfig.thinkingBudget` carried a Promise (truthy) instead of a
+  number, and the medium-effort mapping produced `NaN`. The three
+  `openai-to-gemini` golden snapshots had been regenerated while the bug was
+  live and contained `"thinkingBudget": {}`; they are regenerated against the
+  fixed code (real cap 24576).
+- **Reasoning cache expiry compared TEXT against INTEGER**
+  (`src/lib/db/reasoningCache.ts`): SQLite's type ordering made every expired
+  row look live. Expiry is now normalised in JS, keeping the query
+  driver-agnostic for PG.
+- **PG-mode SQL** (`open-sse/services/*`, compression stats): `instr()` is
+  MySQL/SQLite-flavoured — `strpos()` is now selected per driver, and the
+  compression statistics path avoids SQLite-only constructs.
+- **Session account affinity** (`src/lib/db/*`) is fully async across the
+  stack, and the core ↔ healthCheck import cycle is broken so the deferred
+  startup barrier can be awaited.
+- **Request headers** (`open-sse/utils/*`): the renamed `X-AI-Gate-*` headers
+  are recognised alongside the legacy `x-omniroute-*` names, including the
+  no-cache bypass header that the semantic cache had stopped honouring.
+- **UI**: `bailian-coding-plan` now exposes the base-URL field when adding a
+  connection (same #7447 gap as kimi/moonshot — the preset points at the
+  international host and CN-console keys are rejected there); the six
+  home-page quick-start links carry `prefetch={false}` like the sidebar, so
+  production Next no longer prefetches the whole dashboard on first paint.
+- **i18n**: Vietnamese locale completed (56 missing keys), four orphan keys
+  removed across 41 locale files, nine broken ICU escapes repaired in `vi.json`;
+  zh-CN/zh-TW copy uses the canonical term 提供者.
+- **Packaging**: `npm pack --json` output is parsed robustly (npm 12 keyed
+  payload, lifecycle-polluted stdout, flat file array) and the packed CLI bin is
+  resolved from `package.json` instead of a hardcoded name.
+- **Dead code / structure**: 79 unreachable modules removed; 40 files that knip
+  misjudged restored; oversized modules split behind the file-size gate (db core,
+  api-manager page, executors, dashboard tabs) and the extracted helpers
+  re-exported from `localDb`.
+- **Secrets scanning**: the public Firefly balance key is de-literalized from
+  scanned comments; `.gitignore` root anchors restored six swallowed API routes.
+
+### Tests
+
+- Unit suite: ~90 files repaired — await barriers, migration-before-read
+  ordering, `resetDbInstanceDrained` cache invalidation, and stale rebrand or
+  label expectations (OmniRoute → AI Gate, sidebar group rework). Two cases that
+  asserted on pending Promises were made to validate for real: the Vietnamese
+  placeholder/ICU-parse guards (`flatMap(async …)` without `Promise.all`) and
+  `getObsidianConfig` (`"connected" in <Promise>` is always false-yet-passing).
+- E2E: delete now confirmed in the in-app `ConfirmModal` (not `window.confirm`),
+  sidebar `Combos` locator disambiguated after the group rework, landing-page
+  title follows the rebrand, and the "no stack traces" guard matches a real V8
+  frame instead of the prose sequence `" at /"` (the page payload legitimately
+  contains "…endpoint at /api/v1/chat/completions"). The Bailian case resolves
+  the modal's real two-step shape: it opens as "Add Connection · Alibaba Token
+  Plan" with a "Which region are you using?" chooser and no inputs at all, and
+  only after a region is picked does the same dialog become "Add Alibaba Token
+  Plan API Key" with Name/API Key/Validation Model/Priority/Base URL. It also has
+  no `aria-label`, so the accessible name is derived from a heading that changes
+  between those states — keying the locator on it is what kept the case red. The
+  spec now addresses the dialog role, tolerates an entry point that already shows
+  the form, and reports the dialogs on the page with their labels and text on
+  timeout instead of a bare "element(s) not found".
+- Vitest UI: five files had been silently red because the job never reached a
+  verdict in CI (cancelled at its timeout every run). The test doubles for
+  `next-intl` handed out a fresh translation closure on every call; components
+  that keep `t` in a `useCallback`/`useEffect` dependency then re-fired their
+  effect every render and `act()` never settled — 26 cases failed as bare 5s
+  timeouts while a neighbouring case whose data never resolved passed (that
+  inversion is the fingerprint). The mocks now memoise per namespace and
+  resolve real English copy from `src/i18n/messages/en.json`; three further files
+  mount inside `NextIntlClientProvider` because the components read copy through
+  i18n and the tests rendered them bare; eight `act(async …)` calls were missing
+  `await`, so assertions read the pre-click attribute. `runtime-page-client` was
+  the same defect but worse: its first `await act(root.render())` never settled
+  at all, so the file ran indefinitely and vitest could not even report its own
+  test timeout — that hang, not the suite size, is what kept the CI UI job from
+  ever producing a verdict (the file now finishes in 4.4s).
+- Vitest UI suite is green end to end: `tests/unit/ui` 196 files / 1041 tests, and
+  the MCP/autoCombo project 35 files, with no unhandled errors — several files had
+  detached live React roots without unmounting, which surfaced _after_ the file
+  finished as `ReferenceError: window is not defined` from react-dom's scheduler
+  and failed the whole run while every case passed.
+- Integration: the `POST /cert` 404 case supplies a sudo password so it tests
+  the missing-certificate path rather than the runner's sudo configuration.
+- Quality ratchets tightened (i18n UI coverage 75.5 → 99, file-size ceilings to
+  binary integers, vuln baseline rebaselined with CVE-variance justification,
+  bundle size 6762 → 7667) and inherited upstream OmniRoute checks adapted to
+  this fork.
+
+### Build & CI
+
+- `fumadocs-mdx` is pinned to 15.2.0: 15.4.x imports the `fumadocs-core/server`
+  subpath, which `fumadocs-core` no longer exports (checked against the registry
+  for both the resolved 16.13.0 and the declared floor), so the build could not
+  compile. A caret range cannot express this — `^15.0.7` re-resolves to 15.4.6.
+- `vite` is declared explicitly. It is a peer of `vitest`, and `.npmrc` disables
+  peer auto-install on purpose (`legacy-peer-deps=true`), so `npm ci` could not
+  resolve it and the Vitest job died at startup with `Cannot find package 'vite'`.
+- The `bun-dist` action records the 1.4.2 `bun-linux-x64.zip` digest from the
+  release's `SHASUMS256.txt`; the action refuses to fetch a release without one.
+- The lockfile stays on the public registry: regenerating it through a local
+  mirror wrote 31 `resolved` URLs that CI's `EALLOWREMOTE` guard rejects, which
+  failed every job that installs. Digests were re-verified against the tarballs.
+- `upload-artifact` now includes hidden files so the ESLint JSON report from
+  `.artifacts/` actually uploads; without it the quality gate silently re-ran
+  ESLint over a tree carrying build output and reported warnings that do not
+  exist in a clean checkout.
+- Job ceilings raised where `npm ci` (measured 9–10.5 min) had eaten the budget:
+  Bun 10 → 25, Vitest 15 → 30, Integration 15 → 30, Unit 25 → 40 minutes.
+
 ## [0.6.1] — PG-mode async guards + gamification upsert fix (2026-08-22)
 
 Bug-fix release, both fixes landed in the self-hosted **PostgreSQL** run mode:

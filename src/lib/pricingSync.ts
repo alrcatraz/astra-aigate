@@ -299,10 +299,24 @@ const SYNC_STATUS_NAMESPACE = "pricing_sync_status";
 const SYNC_STATUS_KEY = "last_sync";
 
 function readPersistedSyncStatus(): { lastSyncTime: string; lastSyncModelCount: number } | null {
-  const db = getAsyncDb();
-  const row = db
-    .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(SYNC_STATUS_NAMESPACE, SYNC_STATUS_KEY);
+  // Synchronous read through the adapter's `.raw` sync handle — the same
+  // pattern getSyncedPricing uses above. `getSyncStatus()` is consumed
+  // synchronously (API routes, cross-instance status reads), but
+  // `getAsyncDb().prepare().get()` returns a Promise on the async adapter:
+  // toRecord(Promise) saw no `.value`, so a fresh module instance always
+  // read null here and reported model count 0 despite a persisted sync
+  // (#6325 — the exact regression this fallback exists for). PG mode has no
+  // sync driver; `.raw` degrades to an empty scratch handle there, so guard
+  // the whole read and fall back to null instead of throwing.
+  let row: unknown;
+  try {
+    const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
+    row = raw
+      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
+      .get(SYNC_STATUS_NAMESPACE, SYNC_STATUS_KEY);
+  } catch {
+    return null;
+  }
   const record = toRecord(row);
   const rawValue = typeof record.value === "string" ? record.value : null;
   if (!rawValue) return null;
@@ -386,10 +400,13 @@ export async function syncPricingFromSources(opts?: {
     const providerCount = Object.keys(aggregated).length;
 
     if (!dryRun) {
-      saveSyncedPricing(aggregated);
+      // These writes must land before the function resolves — fire-and-forget
+      // here lets a caller read stale/empty pricing right after a successful
+      // sync (observed as synced.openai === undefined in the roundtrip test).
+      await saveSyncedPricing(aggregated);
       lastSyncTime = new Date().toISOString();
       lastSyncModelCount = modelCount;
-      writePersistedSyncStatus(lastSyncTime, modelCount);
+      await writePersistedSyncStatus(lastSyncTime, modelCount);
     }
 
     return {

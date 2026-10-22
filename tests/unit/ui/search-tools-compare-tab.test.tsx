@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -7,10 +8,9 @@ import type { SearchProviderCatalogItem } from "../../../src/shared/schemas/sear
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
-
+// next-intl comes from the shared double: the cap warning is REAL
+// `search.maxCompareProviders` copy interpolated with {count}, so the identity
+// key mock rendered the literal key and no "4".
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) =>
     React.createElement("a", { href, ...props }, children),
@@ -153,7 +153,11 @@ describe("CompareTab", () => {
     expect(fifthBtn?.disabled).toBe(true);
     // Warning message should appear
     const warning = el.querySelector(".text-warning");
-    expect(warning?.textContent).toContain("4");
+    expect(warning?.textContent).toMatch(/\b4\b/);
+    // Sanity: the warning is the real localised cap message, not a raw key.
+    expect(warning?.textContent).toBe(
+      resolveMessage("search", "maxCompareProviders")?.replace("{count}", "4")
+    );
   });
 
   it("D22 — can select up to 4 providers", () => {
@@ -177,7 +181,7 @@ describe("CompareTab", () => {
     expect(runBtn.disabled).toBe(true);
   });
 
-  it("run button enabled after selecting provider and entering query", () => {
+  it("run button enabled after selecting provider and entering query", async () => {
     const el = renderCompare();
     const input = el.querySelector("[data-testid='compare-query-input']") as HTMLInputElement;
     const firstProviderBtn = el.querySelector(
@@ -188,7 +192,9 @@ describe("CompareTab", () => {
       firstProviderBtn.click();
     });
 
-    act(async () => {
+    // Awaited: an un-awaited `act(async …)` never exits React's act scope, so
+    // every later render in the file queues forever and reads back empty.
+    await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         "value"
@@ -220,7 +226,7 @@ describe("CompareTab", () => {
       bingBtn.click();
     });
 
-    act(async () => {
+    await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         "value"
@@ -260,7 +266,7 @@ describe("CompareTab", () => {
       bingBtn.click();
     });
 
-    act(async () => {
+    await act(async () => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         "value"

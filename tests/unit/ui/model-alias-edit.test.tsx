@@ -106,7 +106,29 @@ function mountModelRow(props: Record<string, unknown> = {}) {
   return el;
 }
 
-beforeEach(() => {});
+function click(el: Element | null) {
+  expect(el).not.toBeNull();
+  act(() => {
+    el!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function typeAndKey(input: HTMLInputElement, value: string, key: string) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
+  act(() => {
+    setter.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+  });
+}
+
+beforeEach(() => {
+  // Without this React 19 schedules renders instead of committing them inside
+  // act(), so every assertion below sees an empty container.
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 afterEach(() => {
   for (const { root, el } of containers) {
@@ -127,9 +149,7 @@ describe("PassthroughModelRow — inline alias edit", () => {
     expect(span).toBeTruthy();
     expect(el.querySelector("input")).toBeNull();
 
-    act(async () => {
-      await span!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    click(span);
 
     expect(el.querySelector("input")).toBeTruthy();
   });
@@ -139,22 +159,12 @@ describe("PassthroughModelRow — inline alias edit", () => {
     const el = mountPassthrough({ alias: "old-alias", onSetAlias });
     const span = el.querySelector("span.cursor-pointer");
 
-    act(async () => {
-      await span!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    click(span);
 
     const input = el.querySelector("input") as HTMLInputElement;
     expect(input).toBeTruthy();
 
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value"
-    )!.set!;
-    act(async () => {
-      setter.call(input, "new-alias");
-      await input.dispatchEvent(new Event("input", { bubbles: true }));
-      await input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    });
+    typeAndKey(input, "new-alias", "Enter");
 
     expect(onSetAlias).toHaveBeenCalledWith("new-alias");
   });
@@ -164,20 +174,10 @@ describe("PassthroughModelRow — inline alias edit", () => {
     const el = mountPassthrough({ alias: "old-alias", onSetAlias });
     const span = el.querySelector("span.cursor-pointer");
 
-    act(async () => {
-      await span!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    click(span);
 
     const input = el.querySelector("input") as HTMLInputElement;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value"
-    )!.set!;
-    act(async () => {
-      setter.call(input, "something-else");
-      await input.dispatchEvent(new Event("input", { bubbles: true }));
-      await input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
+    typeAndKey(input, "something-else", "Escape");
 
     expect(onSetAlias).not.toHaveBeenCalled();
     expect(el.querySelector("input")).toBeNull();
@@ -209,9 +209,7 @@ describe("ModelRow — inline alias edit", () => {
     expect(span).toBeTruthy();
     expect(el.querySelector("input[type=text]")).toBeNull();
 
-    act(async () => {
-      await span!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    click(span);
 
     expect(el.querySelector("input[type=text]")).toBeTruthy();
   });
@@ -221,20 +219,11 @@ describe("ModelRow — inline alias edit", () => {
     const el = mountModelRow({ alias: "old-alias", onSetAlias });
     const span = el.querySelector("span.cursor-pointer");
 
-    act(async () => {
-      await span!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    click(span);
 
     const input = el.querySelector("input[type=text]") as HTMLInputElement;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value"
-    )!.set!;
-    act(async () => {
-      setter.call(input, "new-alias");
-      await input.dispatchEvent(new Event("input", { bubbles: true }));
-      await input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    });
+    expect(input).toBeTruthy();
+    typeAndKey(input, "new-alias", "Enter");
 
     expect(onSetAlias).toHaveBeenCalledWith("new-alias");
   });
@@ -244,20 +233,10 @@ describe("ModelRow — inline alias edit", () => {
     const el = mountModelRow({ alias: "old-alias", onSetAlias });
     const span = el.querySelector("span.cursor-pointer");
 
-    act(async () => {
-      await span!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    click(span);
 
     const input = el.querySelector("input[type=text]") as HTMLInputElement;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value"
-    )!.set!;
-    act(async () => {
-      setter.call(input, "something-else");
-      await input.dispatchEvent(new Event("input", { bubbles: true }));
-      await input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
+    typeAndKey(input, "something-else", "Escape");
 
     expect(onSetAlias).not.toHaveBeenCalled();
     expect(el.querySelector("input[type=text]")).toBeNull();

@@ -18,8 +18,13 @@ test("clamps head to >=0 when maxTextChars is below the tail reservation (≤300
 
   // Bug: headSize = -250 → slice(0,-250) keeps the first 250 chars → output leaks a long
   // run of 'A' and is far larger than maxTextChars. Fixed: headSize clamps to 0 → empty
-  // head → output is just the truncation notice (which contains no capital 'A').
-  assert.ok(!out.includes("A"), "head must be empty (clamped) — no leaked content from a negative slice");
+  // head → output is just the truncation notice. (Can't test `!out.includes("A")` any
+  // more: the notice text now carries the "AI Gate" product name, which itself contains a
+  // capital 'A' — so assert on the leaked input run instead.)
+  assert.ok(
+    !/A{5,}/.test(out),
+    "head must be empty (clamped) — no leaked content from a negative slice"
+  );
   assert.ok(out.includes("truncated"), "still emits the truncation notice");
 });
 
@@ -39,8 +44,5 @@ test("reports omitted chars relative to the filtered text, not the raw input", (
   const omitted = Number(match[1]);
   // Filtered text is ~1010 chars; head keeps 100 → omitted ~910. The raw input is 1110, so
   // the buggy `text.length - head.length` would report ~1010 (> filtered length).
-  assert.ok(
-    omitted <= 1000,
-    `omitted must reflect the filtered text (<=1000), got ${omitted}`
-  );
+  assert.ok(omitted <= 1000, `omitted must reflect the filtered text (<=1000), got ${omitted}`);
 });

@@ -50,22 +50,27 @@ test("no API route statically imports better-sqlite3 (must use the resilient dri
 });
 
 test("openDatabaseAsync validates a real sqlite file with the integrity_check shape the route expects", async () => {
-  const tmp = path.join(os.tmpdir(), `omniroute-3025-${process.pid}-${process.hrtime.bigint()}.sqlite`);
+  const tmp = path.join(
+    os.tmpdir(),
+    `omniroute-3025-${process.pid}-${process.hrtime.bigint()}.sqlite`
+  );
   // Seed a valid sqlite file through the same resilient adapter the route will now use.
   const seed = await openDatabaseAsync(tmp);
-  seed.exec("CREATE TABLE api_keys (id INTEGER PRIMARY KEY)");
-  seed.close();
+  await seed.exec("CREATE TABLE api_keys (id INTEGER PRIMARY KEY)");
+  await seed.close();
 
   const db = await openDatabaseAsync(tmp, { readonly: true });
   try {
-    const result = db.pragma("integrity_check") as Array<{ integrity_check?: string }>;
+    const result = (await db.pragma("integrity_check")) as Array<{ integrity_check?: string }>;
     assert.equal(result[0]?.integrity_check, "ok");
-    const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{
-      name: string;
-    }>).map((r) => r.name);
+    const tables = (
+      (await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all()) as Array<{
+        name: string;
+      }>
+    ).map((r) => r.name);
     assert.ok(tables.includes("api_keys"));
   } finally {
-    db.close();
+    await db.close();
     for (const f of [tmp, `${tmp}-wal`, `${tmp}-shm`, `${tmp}-journal`]) {
       if (fs.existsSync(f)) fs.unlinkSync(f);
     }

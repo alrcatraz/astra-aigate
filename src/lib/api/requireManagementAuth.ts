@@ -9,8 +9,6 @@ import {
   hasManageScope as hasManageScopeShared,
 } from "@/shared/constants/managementScopes";
 
-export { MANAGE_SCOPE };
-
 /**
  * Check whether any of the supplied scopes authorizes management API access.
  *

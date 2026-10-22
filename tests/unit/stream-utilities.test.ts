@@ -10,7 +10,7 @@ import { createPassthroughStreamWithLogger } from "../../open-sse/utils/stream.t
 
 import { wantsProgress, createProgressTransform } from "../../open-sse/utils/progressTracker.ts";
 
-test("wantsProgress detects X-OmniRoute-Progress header correctly", () => {
+test("wantsProgress detects X-AI-Gate-Progress header correctly", () => {
   const headersObj = { "x-omniroute-progress": "true" };
   assert.equal(wantsProgress(new Headers(headersObj)), true);
 

@@ -22,8 +22,8 @@ function setup() {
 }
 
 async function teardown() {
+  const { resetDbInstanceDrained, ensureDbInitialized } = await import("../../src/lib/db/core.ts");
   try {
-    const { resetDbInstance } = require("../../src/lib/db/core.ts");
     await resetDbInstanceDrained();
   } catch {
     // ignore if import fails
@@ -33,13 +33,24 @@ async function teardown() {
   } else {
     delete process.env.DATA_DIR;
   }
+  // Do NOT rm tempDir here: core.ts freezes DATA_DIR/SQLITE_FILE at first
+  // import (inside the first test), so deleting the first temp dir breaks
+  // every later open in this file ("directory does not exist" → sql.js →
+  // rawBf.prepare().all crashes). The dir is a per-process mkdtemp under
+  // /tmp and is reaped with the OS.
+  // try {
+  //   fs.rmSync(tempDir, { recursive: true, force: true });
+  // } catch {
+  //   // ignore cleanup errors
+  // }
   try {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    // Best-effort restore for the shared DATA_DIR: the next test re-opens its
+    // own DB in setup(), so a driver/adapter quirk here must not fail the
+    // test that already passed its assertions.
+    await ensureDbInitialized();
   } catch {
-    // ignore cleanup errors
+    // ignore restore failures
   }
-  getDbInstance();
-  await awaitDbMigrations();
 }
 
 function countRows(db: unknown, table: string): number {
@@ -53,7 +64,7 @@ test.after(async () => {
   // Belt-and-suspenders: guarantee the DB handle from the last test that ran
   // (if teardown() somehow wasn't reached) is closed so node:test can exit.
   try {
-    const { resetDbInstance } = require("../../src/lib/db/core.ts");
+    const { resetDbInstanceDrained } = await import("../../src/lib/db/core.ts");
     await resetDbInstanceDrained();
   } catch {
     // ignore
@@ -63,9 +74,13 @@ test.after(async () => {
 test("resetUsageHistory: 'all' wipes usage_history, daily_usage_summary, and hourly_usage_summary; a period only deletes rows older than the cutoff; an invalid period throws", async () => {
   setup();
   try {
-    const { getDbInstance } = await import("../../src/lib/db/core.ts");
+    const { getDbInstance, awaitDbMigrations } = await import("../../src/lib/db/core.ts");
     const { resetUsageHistory } = await import("../../src/lib/db/cleanup.ts");
 
+    // getDbInstance() kicks off migrations lazily; join the barrier before the
+    // first touch or request_detail_logs may not exist yet ("no such table").
+    getDbInstance();
+    await awaitDbMigrations();
     const db = getDbInstance();
 
     const now = Date.now();

@@ -918,6 +918,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
               </div>
               <Link
                 href="/docs"
+                prefetch={false}
                 className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors"
               >
                 <span className="material-symbols-outlined text-[14px]">menu_book</span>
@@ -937,6 +938,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       endpoint: (chunks) => (
                         <Link
                           href="/dashboard/api-manager"
+                          prefetch={false}
                           className="text-primary hover:underline"
                         >
                           {chunks}
@@ -955,7 +957,11 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                   <p className="text-text-muted mt-0.5">
                     {t.rich("step2Desc", {
                       providers: (chunks) => (
-                        <Link href="/dashboard/providers" className="text-primary hover:underline">
+                        <Link
+                          href="/dashboard/providers"
+                          prefetch={false}
+                          className="text-primary hover:underline"
+                        >
                           {chunks}
                         </Link>
                       ),
@@ -966,6 +972,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       mediaProviders: (chunks) => (
                         <Link
                           href="/dashboard/media-providers"
+                          prefetch={false}
                           className="text-primary hover:underline"
                         >
                           {chunks}
@@ -995,12 +1002,20 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                   <p className="text-text-muted mt-0.5">
                     {t.rich("step4Desc", {
                       logs: (chunks) => (
-                        <Link href="/dashboard/logs" className="text-primary hover:underline">
+                        <Link
+                          href="/dashboard/logs"
+                          prefetch={false}
+                          className="text-primary hover:underline"
+                        >
                           {chunks}
                         </Link>
                       ),
                       analytics: (chunks) => (
-                        <Link href="/dashboard/analytics" className="text-primary hover:underline">
+                        <Link
+                          href="/dashboard/analytics"
+                          prefetch={false}
+                          className="text-primary hover:underline"
+                        >
                           {chunks}
                         </Link>
                       ),

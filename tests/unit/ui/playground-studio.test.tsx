@@ -6,6 +6,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
+// The three tab bodies are `next/dynamic({ ssr: false })` imports. This file tests
+// the studio shell — tab selection, pane layout — not the tab bodies, and the real
+// BuildTab pulls in a large module graph (useToolsBuilder -> playground schemas)
+// whose resolution lands after teardown, which Vitest reports as an
+// EnvironmentTeardownError for the whole run. Stub them so the shell is exercised
+// without that race.
+vi.mock("@/app/(dashboard)/dashboard/playground/components/tabs/BuildTab", () => ({
+  default: () => null,
+}));
+vi.mock("@/app/(dashboard)/dashboard/playground/components/tabs/ChatTab", () => ({
+  default: () => null,
+}));
+vi.mock("@/app/(dashboard)/dashboard/playground/components/tabs/ApiTab", () => ({
+  default: () => null,
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, params?: Record<string, unknown>) =>
     params ? `${key}(${JSON.stringify(params)})` : key,
@@ -118,9 +134,8 @@ vi.mock("react-markdown", () => ({
 
 // ── Import under test ──────────────────────────────────────────────────────────
 
-const { PlaygroundStudio } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/PlaygroundStudio"
-);
+const { PlaygroundStudio } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/PlaygroundStudio");
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -141,8 +156,9 @@ function renderStudio(): HTMLDivElement {
 
 describe("PlaygroundStudio", () => {
   beforeEach(() => {
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-      .IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterEach(() => {
@@ -182,7 +198,8 @@ describe("PlaygroundStudio", () => {
   it("switches to API tab when clicked", () => {
     const el = renderStudio();
     const tabButtons = el.querySelectorAll("[role='tab']");
-    const apiTab = Array.from(tabButtons).find((b) => b.textContent?.includes("tabApi")) as HTMLButtonElement | undefined;
+    const apiTab = Array.from(tabButtons).find((b) => b.textContent?.includes("tabApi")) as
+      HTMLButtonElement | undefined;
 
     expect(apiTab).toBeTruthy();
     act(() => {
@@ -196,9 +213,8 @@ describe("PlaygroundStudio", () => {
   it("switches to Compare tab and marks it active", () => {
     const el = renderStudio();
     const tabButtons = el.querySelectorAll("[role='tab']");
-    const compareTab = Array.from(tabButtons).find((b) =>
-      b.textContent?.includes("tabCompare")
-    ) as HTMLButtonElement | undefined;
+    const compareTab = Array.from(tabButtons).find((b) => b.textContent?.includes("tabCompare")) as
+      HTMLButtonElement | undefined;
 
     act(() => {
       compareTab?.click();
@@ -212,9 +228,8 @@ describe("PlaygroundStudio", () => {
   it("switches to Build tab and marks it active", () => {
     const el = renderStudio();
     const tabButtons = el.querySelectorAll("[role='tab']");
-    const buildTab = Array.from(tabButtons).find((b) =>
-      b.textContent?.includes("tabBuild")
-    ) as HTMLButtonElement | undefined;
+    const buildTab = Array.from(tabButtons).find((b) => b.textContent?.includes("tabBuild")) as
+      HTMLButtonElement | undefined;
 
     act(() => {
       buildTab?.click();
@@ -228,21 +243,23 @@ describe("PlaygroundStudio", () => {
   it("preserves config pane state when switching tabs", () => {
     const el = renderStudio();
 
-    // Verify config pane is rendered
-    const configPaneLabel = el.querySelector("[aria-label='Config pane']");
+    // Verify config pane is rendered. This file's translator double echoes raw
+    // keys, and the pane's aria-label is tp("configPane") — "Config pane" was a
+    // stale literal from before the pane moved onto next-intl.
+    const configPaneLabel = el.querySelector("[aria-label='configPane']");
     expect(configPaneLabel).toBeTruthy();
 
-    // Switch to API tab
+    // Switch to API tab (tab label under the key echo is "tabApi")
     const tabButtons = el.querySelectorAll("[role='tab']");
-    const apiTab = Array.from(tabButtons).find((b) =>
-      b.textContent?.includes("API")
-    ) as HTMLButtonElement | undefined;
+    const apiTab = Array.from(tabButtons).find((b) => b.textContent?.includes("tabApi")) as
+      HTMLButtonElement | undefined;
+    expect(apiTab).toBeTruthy();
     act(() => {
       apiTab?.click();
     });
 
     // Config pane should still be visible
-    const configPaneAfterSwitch = el.querySelector("[aria-label='Config pane']");
+    const configPaneAfterSwitch = el.querySelector("[aria-label='configPane']");
     expect(configPaneAfterSwitch).toBeTruthy();
   });
 
@@ -254,7 +271,9 @@ describe("PlaygroundStudio", () => {
 
   it("opens export modal when export button is clicked", () => {
     const el = renderStudio();
-    const exportBtn = el.querySelector("button[aria-label='exportCode']") as HTMLButtonElement | null;
+    const exportBtn = el.querySelector(
+      "button[aria-label='exportCode']"
+    ) as HTMLButtonElement | null;
 
     act(() => {
       exportBtn?.click();

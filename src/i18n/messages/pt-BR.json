@@ -1259,7 +1259,10 @@
     "analyticsLimits": "Limits",
     "analyticsLimitsSubtitle": "Rate limits and constraints",
     "gamificationAdmin": "Gamification Admin",
-    "gamificationAdminSubtitle": "Gamification administration"
+    "gamificationAdminSubtitle": "Gamification administration",
+    "context": "Contexto",
+    "skillSources": "Skill Hub",
+    "skillSourcesSubtitle": "Fontes de habilidades e artefatos"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -3019,7 +3022,9 @@
     "ccOnboardingCopy": "Copiar",
     "ccOnboardingCopied": "Copiado",
     "ccOnboardingKeyPlaceholder": "<sua chave de API do AI Gate>",
-    "ccOnboardingWindowNote": "O Claude Code assume uma janela de contexto de 200K para qualquer id de modelo que ele não reconhece. Para um modelo com janela real diferente, acrescente CLAUDE_CODE_AUTO_COMPACT_WINDOW logo abaixo para a compactação automática não disparar cedo demais."
+    "ccOnboardingWindowNote": "O Claude Code assume uma janela de contexto de 200K para qualquer id de modelo que ele não reconhece. Para um modelo com janela real diferente, acrescente CLAUDE_CODE_AUTO_COMPACT_WINDOW logo abaixo para a compactação automática não disparar cedo demais.",
+    "hermesViaOmniRoute": "Roteado via {provider}",
+    "hermesNotOmniRoute": "Não via AI Gate (via {provider})"
   },
   "combos": {
     "title": "Combos",
@@ -4430,7 +4435,36 @@
     "installSkillModalDesc": "Cole um JSON de manifesto de habilidade ou carregue um arquivo .json.",
     "uploadJson": "Carregar JSON",
     "cancel": "Cancelar",
-    "installSkill": "Instalar habilidade"
+    "installSkill": "Instalar habilidade",
+    "sourcesTab": "Fontes",
+    "sourcesTitle": "Fontes de Skills",
+    "skillHubTitle": "Skill Hub",
+    "skillHubSubtitle": "Cadastre fontes de skills, descubra skills e pacote artefatos",
+    "registerSourceButton": "Cadastrar Fonte",
+    "sourceKindLabel": "Tipo de fonte",
+    "sourceNameLabel": "Nome",
+    "sourceNamePlaceholder": "ex.: Minhas Skills da Equipe",
+    "sourceUrlLabel": "URL do repositório (git)",
+    "sourceUrlPlaceholder": "https://git.example.com/org/repo.git",
+    "sourcePathLabel": "Caminho do diretório de skills",
+    "sourceCredentialLabel": "Referência de credencial (nome da variável de ambiente)",
+    "sourceCredentialPlaceholder": "opcional, ex.: GITEA_SKILL_TOKEN",
+    "autoUpdateLabel": "Atualização automática",
+    "registering": "Cadastrando...",
+    "registerButton": "Cadastrar",
+    "noSources": "Nenhuma fonte cadastrada ainda. Cadastre uma fonte Gitea ou GitHub para começar.",
+    "discoverButton": "Descobrir",
+    "enabledLabel": "Ativado",
+    "enableSource": "Ativar",
+    "disableSource": "Desativar",
+    "deleteSource": "Excluir",
+    "lastSync": "Última sincronização: {at}",
+    "yes": "Sim",
+    "no": "Não",
+    "confirmDeleteSource": "Excluir a fonte \"{name}\"?",
+    "updateAvailable": "Atualização disponível",
+    "allKinds": "Todas as fontes",
+    "builtinOnly": "Somente integradas"
   },
   "health": {
     "title": "Saúde do Sistema",
@@ -4810,7 +4844,16 @@
     },
     "tierFlowDiagramAlt": "Diagrama de fallback de 3 camadas do AI Gate",
     "apiKeyMgmt": "Ger. de Chaves API",
-    "loading": "Carregando..."
+    "loading": "Carregando...",
+    "apiKey": "Chave de API",
+    "apiUrl": "URL da API",
+    "capsLockOn": "Caps Lock está ativado",
+    "launchDashboard": "Abrir Painel",
+    "passwordPlaceholder": "Senha",
+    "passwordsDoNotMatch": "As senhas não coincidem",
+    "skipSecurity": "Pular configuração de segurança",
+    "testingProvider": "Testando conexão do provedor...",
+    "testSuccess": "Conexão bem-sucedida"
   },
   "providers": {
     "title": "Provedores",
@@ -6398,8 +6441,6 @@
     "invalidLogoFileType": "Tipo de arquivo inválido. Carregue PNG, JPG, SVG, GIF ou WebP.",
     "invalidFaviconFileType": "Tipo de arquivo inválido. Carregue PNG, ICO, SVG, GIF ou WebP.",
     "failedToReadFile": "Falha ao ler o arquivo",
-    "startOnLogin": "Iniciar ao fazer login",
-    "startOnLoginDesc": "Iniciar automaticamente o AI Gate na inicialização do sistema e executá-lo silenciosamente na bandeja do sistema.",
     "flushCache": "Limpar Cache",
     "flushing": "Limpando…",
     "size": "Tamanho",
@@ -9124,7 +9165,12 @@
     "nodeIncompatibleHint": "AI Gate requires Node.js 22.22.2+ (22.x LTS) or 24.0.0+ (24.x LTS). Node 24 LTS is recommended.",
     "signInDescription": "Enter your password to continue",
     "passwordPlaceholder": "Password",
-    "signingIn": "Signing in..."
+    "signingIn": "Signing in...",
+    "continueWithSSO": "Continuar com SSO",
+    "loginError": "Senha incorreta",
+    "nodeIncompatibleText": "Esta versão do astra-aigate requer um runtime Node.js compatível. Detectado",
+    "setPassword": "Defina sua senha para continuar",
+    "settingUp": "Configurando..."
   },
   "landing": {
     "brandName": "Astra AI Gate",
@@ -10334,7 +10380,15 @@
     "assistant": "Assistente",
     "errorLabel": "Erro",
     "requestFailed": "Falha na requisição",
-    "stop": "Parar"
+    "stop": "Parar",
+    "rerank": "Rerank",
+    "moderation": "Moderação",
+    "audioTranslation": "Tradução de áudio",
+    "documents": "Documentos",
+    "topN": "Top N",
+    "rerankQuerySample": "Qual é a capital da França?",
+    "documentsSample": "Paris é a capital da França\nBerlin é a capital da Alemanha",
+    "moderationSample": "Vou me machucar. Por favor, me ajudem."
   },
   "requestLogger": {
     "recording": "Recording",

@@ -7,6 +7,7 @@
  */
 
 import { getDbInstance, getAsyncDb } from "@/lib/db/core";
+import type { RawSyncDb } from "@/lib/db/adapters/types";
 import { rowToCamel } from "@/lib/db/core";
 import type { HookConfig, HookConfigRow, HookLogEntry, HookScope } from "@/lib/middleware/types";
 
@@ -52,7 +53,10 @@ function hookConfigToRow(config: HookConfig): HookConfigRow {
  * Get all hooks from DB.
  */
 export function getAllMiddlewareHooks(): HookConfig[] {
-  const db = getAsyncDb() as any;
+  // Synchronous getter by contract (runtime hook loading): read through the
+  // synchronous raw handle — SqliteDatabase.prepare() is typed async, but the
+  // runtime handle is the unwrapped sync DB (returns arrays, not Promises).
+  const db = (getDbInstance() as unknown as { raw?: unknown }).raw as RawSyncDb;
   const rows = db
     .prepare("SELECT * FROM middleware_hooks ORDER BY priority ASC, name ASC")
     .all() as HookConfigRow[];
@@ -63,7 +67,7 @@ export function getAllMiddlewareHooks(): HookConfig[] {
  * Get enabled hooks from DB (for runtime loading).
  */
 export function getEnabledMiddlewareHooks(): HookConfig[] {
-  const db = getAsyncDb() as any;
+  const db = (getDbInstance() as unknown as { raw?: unknown }).raw as RawSyncDb;
   const rows = db
     .prepare("SELECT * FROM middleware_hooks WHERE enabled = 1 ORDER BY priority ASC")
     .all() as HookConfigRow[];

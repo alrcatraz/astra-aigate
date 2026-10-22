@@ -30,7 +30,9 @@ test("lobeProviderIcons never imports the removed Stepfun Color sub-component", 
 });
 
 test("lobeProviderIcons maps both Stepfun mono and color slots to StepfunMonoIcon", () => {
-  const stepfunEntry = lobeProviderIconsSrc.match(/Stepfun:\s*{\s*mono:\s*(\w+),\s*color:\s*(\w+)\s*}/);
+  const stepfunEntry = lobeProviderIconsSrc.match(
+    /Stepfun:\s*{\s*mono:\s*(\w+),\s*color:\s*(\w+)\s*}/
+  );
   assert.ok(stepfunEntry, "Stepfun entry must exist in LOBE_ICON_COMPONENTS");
   const [, mono, color] = stepfunEntry;
   assert.equal(mono, "StepfunMonoIcon");
@@ -38,7 +40,9 @@ test("lobeProviderIcons maps both Stepfun mono and color slots to StepfunMonoIco
 });
 
 test("DashboardLayout does not read localStorage synchronously inside the collapsed useState initializer", () => {
-  const collapsedStateMatch = dashboardLayoutSrc.match(/const \[collapsed, setCollapsed\] = useState\(([^)]*)\)/);
+  const collapsedStateMatch = dashboardLayoutSrc.match(
+    /const \[collapsed, setCollapsed\] = useState\(([^)]*)\)/
+  );
   assert.ok(collapsedStateMatch, "collapsed useState declaration must exist");
   assert.equal(
     collapsedStateMatch[1].trim(),
@@ -47,10 +51,16 @@ test("DashboardLayout does not read localStorage synchronously inside the collap
   );
 });
 
-test("DashboardLayout defers the sidebar-collapsed localStorage read to a useEffect", () => {
-  const effectIndex = dashboardLayoutSrc.indexOf("useEffect(() => {");
-  assert.ok(effectIndex >= 0, "a useEffect must exist");
-  const effectBody = dashboardLayoutSrc.slice(effectIndex, dashboardLayoutSrc.indexOf("}, []);", effectIndex));
-  assert.match(effectBody, /localStorage\.getItem\(SIDEBAR_COLLAPSED_KEY\)/);
-  assert.match(effectBody, /setCollapsed\(true\)/);
+test("DashboardLayout never reads localStorage during render (hydration-safe; collapse persistence was removed)", () => {
+  // The #7743 guard originally tracked the deferred useEffect read of
+  // SIDEBAR_COLLAPSED_KEY. The Expo shell rewrite (93f7cbe1) removed sidebar-collapse
+  // persistence from DashboardLayout entirely (SIDEBAR_COLLAPSED_KEY no longer exists
+  // anywhere in src/), so the invariant that remains is the one that motivated the
+  // original fix: no localStorage read may happen during render, synchronous or not,
+  // or the server/client markup can still diverge.
+  assert.doesNotMatch(
+    dashboardLayoutSrc,
+    /localStorage\.(getItem|setItem)/,
+    "DashboardLayout must not touch localStorage while rendering (hydration mismatch risk)"
+  );
 });

@@ -54,6 +54,9 @@ execSync("which npm", { env: process.env });
 // DB bootstrap (must be before ninerouter import due to db/core eager init)
 const core = await import("../../../../src/lib/db/core.ts");
 const db = core.getDbInstance();
+// Migrations run fire-and-forget once the DB opens — join the barrier before
+// touching tables, or `version_manager` may not exist yet (file-level crash).
+await core.awaitDbMigrations();
 db.prepare(
   `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)
    VALUES ('9router', 'not_installed', 20130, 0, 1, 1)`

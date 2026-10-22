@@ -273,14 +273,14 @@ async function collectUsageSnapshots(
       if (!connection) continue;
       const snapshot = snapshotFromConnection(
         connection,
-        deps.getProviderLimitsCache(connection.id)
+        await deps.getProviderLimitsCache(connection.id)
       );
       if (snapshot) snapshots.push(snapshot);
     }
     return snapshots;
   }
 
-  const caches = deps.getAllProviderLimitsCache();
+  const caches = await deps.getAllProviderLimitsCache();
   const connections = await deps.getProviderConnections({ isActive: true });
   const snapshots: UsageSnapshot[] = [];
   for (const rawConnection of connections) {

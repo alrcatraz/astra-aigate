@@ -359,7 +359,7 @@ test("GET /api/usage/analytics does not double-count raw and aggregated rows", a
   // instead of hardcoding 30 days so this fixture stays valid regardless of
   // the configured retention window.
   const { getUserDatabaseSettings } = await import("../../src/lib/db/databaseSettings.ts");
-  const rawRetentionDays = getUserDatabaseSettings().retention.usageHistory;
+  const rawRetentionDays = (await getUserDatabaseSettings()).retention.usageHistory;
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - rawRetentionDays);
   const olderDate = new Date(cutoffDate);

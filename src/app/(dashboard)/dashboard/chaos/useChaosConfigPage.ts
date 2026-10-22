@@ -6,8 +6,7 @@ import { useChaosConfigData } from "./useChaosConfigData";
 import { useChaosConfigPersistence } from "./useChaosConfigPersistence";
 import { useChaosTestRun } from "./useChaosTestRun";
 
-export type { ChaosProviderInfo, ChaosPageConfig } from "./chaosPageTypes";
-export { DEFAULT_CHAOS_PAGE_CONFIG } from "./chaosPageTypes";
+export type { ChaosPageConfig } from "./chaosPageTypes";
 
 /**
  * All state + handlers for the Chaos Mode config page
@@ -27,7 +26,10 @@ export function useChaosConfigPage() {
   const addOverride = useCallback(() => {
     setConfig((prev) => ({
       ...prev,
-      providerOverrides: [...prev.providerOverrides, { providerId: "", modelId: "", enabled: true }],
+      providerOverrides: [
+        ...prev.providerOverrides,
+        { providerId: "", modelId: "", enabled: true },
+      ],
     }));
   }, [setConfig]);
 

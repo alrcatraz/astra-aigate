@@ -66,11 +66,11 @@ test("A: an EYE-hidden synced model is preserved (listed-but-hidden) across re-i
   ]);
   let synced = (await getSyncedAvailableModels(PROVIDER)).map((m) => m.id);
   assert.deepEqual(synced.sort(), ["A", "B", "C"], "all three present after first sync");
-  assert.equal(getModelIsHidden(PROVIDER, "B"), false, "B is visible before eye-hide");
+  assert.equal(await getModelIsHidden(PROVIDER, "B"), false, "B is visible before eye-hide");
 
   // Operator hides B with the EYE toggle (visibility only, NOT a delete).
   await mergeModelCompatOverride(PROVIDER, "B", { isHidden: true });
-  assert.equal(getModelIsHidden(PROVIDER, "B"), true, "B is eye-hidden");
+  assert.equal(await getModelIsHidden(PROVIDER, "B"), true, "B is eye-hidden");
 
   // Auto-fetch re-imports the SAME upstream list (still advertising B).
   await replaceSyncedAvailableModelsForConnection(PROVIDER, CONNECTION, [
@@ -82,12 +82,12 @@ test("A: an EYE-hidden synced model is preserved (listed-but-hidden) across re-i
   synced = (await getSyncedAvailableModels(PROVIDER)).map((m) => m.id);
   assert.ok(synced.includes("B"), "#3782: eye-hidden B STAYS in the synced list after re-sync");
   assert.equal(
-    getModelIsHidden(PROVIDER, "B"),
+    await getModelIsHidden(PROVIDER, "B"),
     true,
     "#3782: eye-hidden B is NOT re-enabled (stays hidden) after re-sync"
   );
-  assert.equal(getModelIsHidden(PROVIDER, "A"), false, "A stays visible");
-  assert.equal(getModelIsHidden(PROVIDER, "C"), false, "C stays visible");
+  assert.equal(await getModelIsHidden(PROVIDER, "A"), false, "A stays visible");
+  assert.equal(await getModelIsHidden(PROVIDER, "C"), false, "C stays visible");
   assert.ok(synced.includes("A") && synced.includes("C"), "A and C still present");
 });
 
@@ -102,10 +102,10 @@ test("B: a genuinely-new model on re-sync defaults to VISIBLE", async () => {
 
   const synced = (await getSyncedAvailableModels(PROVIDER)).map((m) => m.id);
   assert.ok(synced.includes("D"), "new model D is imported");
-  assert.equal(getModelIsHidden(PROVIDER, "D"), false, "new model D defaults to visible");
+  assert.equal(await getModelIsHidden(PROVIDER, "D"), false, "new model D defaults to visible");
   // Eye-hidden B is still preserved + hidden.
   assert.ok(synced.includes("B"), "eye-hidden B still present");
-  assert.equal(getModelIsHidden(PROVIDER, "B"), true, "eye-hidden B still hidden");
+  assert.equal(await getModelIsHidden(PROVIDER, "B"), true, "eye-hidden B still hidden");
 });
 
 test("C: a DELETED synced model still stays out on re-import (delete signal)", async () => {

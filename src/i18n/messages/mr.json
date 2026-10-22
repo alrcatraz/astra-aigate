@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "अवैध फाइल प्रकार. कृपया PNG, JPG, SVG, GIF किंवा WebP अपलोड करा.",
     "invalidFaviconFileType": "अवैध फाइल प्रकार. कृपया PNG, ICO, SVG, GIF किंवा WebP अपलोड करा.",
     "failedToReadFile": "फाइल वाचण्यात अयशस्वी",
-    "startOnLogin": "लॉगिनवर सुरू करा",
-    "startOnLoginDesc": "सिस्टम स्टार्टअपवर AI Gate स्वयंचलितपणे लाँच करा आणि बॅकग्राउंड ट्रेमध्ये शांतपणे चालवा.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

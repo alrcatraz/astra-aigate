@@ -77,7 +77,9 @@ function normalizeResetInterval(value: unknown): BudgetResetInterval {
 
 function ensureSchema() {
   if (_schemaChecked) return;
-  const db = getAsyncDb();
+  // Synchronous helper: the counter hot path cannot await, so use the
+  // synchronous handle — the async adapter's exec() returns a Promise.
+  const db = getDbInstance();
   db.exec(`
     CREATE TABLE IF NOT EXISTS api_key_token_limits (
       id              TEXT PRIMARY KEY,
@@ -257,7 +259,7 @@ export function resetWindowIfElapsed(limit: TokenLimit, now = Date.now()): Token
  */
 export function getWindowUsage(limit: TokenLimit, now = Date.now()): number {
   ensureSchema();
-  const db = getAsyncDb();
+  const db = getDbInstance();
   const { windowStart } = resetWindowIfElapsed(limit, now);
   const row = db
     .prepare(
@@ -278,7 +280,7 @@ export function incrementWindowTokens(
   tokens: number
 ): number {
   ensureSchema();
-  const db = getAsyncDb();
+  const db = getDbInstance();
   const delta = Math.max(0, Math.floor(toNumber(tokens)));
   const row = db
     .prepare(

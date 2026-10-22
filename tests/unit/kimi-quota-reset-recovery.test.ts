@@ -9,6 +9,10 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = "test-kimi-quota-reset-secret";
 
 const core = await import("../../src/lib/db/core.ts");
+// Open the isolated DB and wait for migrations BEFORE importing db readers —
+// last_ping_at (migration 123) must exist before auth/providers queries run.
+core.getDbInstance();
+await core.awaitDbMigrations();
 const providersDb = await import("../../src/lib/db/providers.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const auth = await import("../../src/sse/services/auth.ts");

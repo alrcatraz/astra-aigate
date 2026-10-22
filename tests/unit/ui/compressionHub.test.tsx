@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -161,7 +162,7 @@ describe("CompressionHub", () => {
       );
 
       const { default: CompressionHub } =
-        await import("../../../src/app/(dashboard)/dashboard/context/combos/CompressionHub");
+        await import("../../../src/app/(dashboard)/dashboard/context/CompressionHub");
 
       let container!: HTMLElement;
       await act(async () => {
@@ -184,7 +185,10 @@ describe("CompressionHub", () => {
 });
 
 describe("CompressionCombosPageClient", () => {
-  it("renders the Hub on top and the named-combos manager below", async () => {
+  // The Hub is its own page since 52c6c308 ("Compression Hub thin overview"):
+  // this screen now carries only the named-combos manager, and the hub heading is
+  // asserted by that page's own coverage instead.
+  it("renders the named-combos manager (the Hub moved to /dashboard/context)", async () => {
     setupFetchMock({ enabled: true, mode: "stacked", pipeline: [{ engine: "rtk" }] });
     const { default: CompressionCombosPageClient } =
       await import("../../../src/app/(dashboard)/dashboard/context/combos/CompressionCombosPageClient");
@@ -196,7 +200,7 @@ describe("CompressionCombosPageClient", () => {
     await flush();
 
     const text = container.textContent ?? "";
-    expect(text).toContain("Compression Hub");
     expect(text).toContain("Named combos");
+    expect(text).not.toContain("Compression Hub");
   });
 });

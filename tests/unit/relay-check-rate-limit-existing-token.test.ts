@@ -88,7 +88,7 @@ async function insertRelayToken(overrides: {
 }
 
 test("checkRateLimit: existingToken fast-path agrees with the legacy re-query path", async () => {
-  const token = insertRelayToken({
+  const token = await insertRelayToken({
     id: "rl_fastpath1",
     name: "fast-path-token",
     maxRequestsPerMinute: 10,
@@ -109,7 +109,7 @@ test("checkRateLimit: legacy re-query path (no token passed) still works when th
 });
 
 test("checkRateLimit: existingToken fast-path still enforces the per-minute cap", async () => {
-  const token = insertRelayToken({
+  const token = await insertRelayToken({
     id: "rl_captoken1",
     name: "cap-token",
     maxRequestsPerMinute: 2,

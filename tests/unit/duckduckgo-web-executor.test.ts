@@ -1,8 +1,24 @@
-import { describe, it, mock } from "node:test";
+import { describe, it, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { DuckDuckGoWebExecutor, DUCKDUCKGO_BASE } from "../../open-sse/executors/duckduckgo-web.ts";
 
 describe("DuckDuckGoWebExecutor", () => {
+  // Hermetic run: no test in this file may touch the network. A fetch stub that
+  // rejects immediately (never a hanging promise) sends every code path through
+  // the same documented "network error" branches the assertions below already
+  // accept, and keeps the completion-time assertions honest.
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    globalThis.fetch = async () => {
+      throw new TypeError("fetch failed (hermetic test stub)");
+    };
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
   describe("class instantiation", () => {
     it("should instantiate executor", () => {
       const executor = new DuckDuckGoWebExecutor();

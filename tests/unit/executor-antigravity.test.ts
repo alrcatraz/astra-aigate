@@ -86,20 +86,20 @@ test("AntigravityExecutor.buildHeaders includes native headers without OmniRoute
   assert.equal(headers.Authorization, "Bearer ag-token");
   assert.equal(headers.Accept, "text/event-stream");
   assert.equal(headers["User-Agent"], antigravityIdeUserAgent("2.1.1"));
-  assert.equal(headers["X-OmniRoute-Source"], undefined);
+  assert.equal(headers["X-AI-Gate-Source"], undefined);
 });
 
 test("Antigravity header scrub removes OmniRoute internal headers", () => {
   const headers = scrubProxyAndFingerprintHeaders({
     Authorization: "Bearer ag-token",
-    "X-OmniRoute-Source": "omniroute",
-    "X-OmniRoute-No-Cache": "true",
+    "X-AI-Gate-Source": "omniroute",
+    "X-AI-Gate-No-Cache": "true",
     "X-Forwarded-For": "127.0.0.1",
   });
 
   assert.equal(headers.Authorization, "Bearer ag-token");
-  assert.equal(headers["X-OmniRoute-Source"], undefined);
-  assert.equal(headers["X-OmniRoute-No-Cache"], undefined);
+  assert.equal(headers["X-AI-Gate-Source"], undefined);
+  assert.equal(headers["X-AI-Gate-No-Cache"], undefined);
   assert.equal(headers["X-Forwarded-For"], undefined);
   assert.equal(headers["Accept-Encoding"], "gzip, deflate, br");
 });

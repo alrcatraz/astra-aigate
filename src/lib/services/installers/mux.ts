@@ -134,19 +134,6 @@ export async function update(): Promise<InstallResult> {
   return install("latest");
 }
 
-export async function uninstall(): Promise<void> {
-  const nmDir = path.join(MUX_INSTALL_DIR, "node_modules");
-  if (fs.existsSync(nmDir)) {
-    fs.rmSync(nmDir, { recursive: true, force: true });
-  }
-  await upsertVersionManagerTool({
-    tool: "mux",
-    status: "not_installed",
-    installedVersion: null,
-    binaryPath: null,
-  });
-}
-
 /**
  * Build spawn args for ServiceSupervisor.start().
  *

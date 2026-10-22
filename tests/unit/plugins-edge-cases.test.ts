@@ -87,7 +87,7 @@ test.beforeEach(async () => {
   // is redundant anyway — resetDbInstance() already invalidates the instance,
   // and rmSync/mkdirSync below gives us a fresh DATA_DIR for next getDbInstance().
   try {
-    for (const p of dbPlugins.listPlugins()) {
+    for (const p of await dbPlugins.listPlugins()) {
       await dbPlugins.deletePlugin(p.name);
     }
   } catch {
@@ -484,8 +484,8 @@ test("db: pluginExists returns true/false correctly", async () => {
     manifest: {},
   });
 
-  assert.equal(dbPlugins.pluginExists("exists-test"), true);
-  assert.equal(dbPlugins.pluginExists("nope"), false);
+  assert.equal(await dbPlugins.pluginExists("exists-test"), true);
+  assert.equal(await dbPlugins.pluginExists("nope"), false);
 });
 
 test("db: deletePlugin returns true when plugin exists, false when not", async () => {
@@ -498,7 +498,7 @@ test("db: deletePlugin returns true when plugin exists, false when not", async (
     manifest: {},
   });
 
-  assert.equal(dbPlugins.deletePlugin("del-test"), true);
-  assert.equal(dbPlugins.deletePlugin("del-test"), false);
-  assert.equal(dbPlugins.getPluginByName("del-test"), null);
+  assert.equal(await dbPlugins.deletePlugin("del-test"), true);
+  assert.equal(await dbPlugins.deletePlugin("del-test"), false);
+  assert.equal(await dbPlugins.getPluginByName("del-test"), null);
 });

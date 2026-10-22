@@ -41,7 +41,7 @@ function seed(total: number, withArtifact: boolean) {
   })();
 }
 
-function captureSql(run: () => void): string[] {
+async function captureSql(run: () => void | Promise<void>): Promise<string[]> {
   const db = core.getDbInstance();
   const orig = db.prepare.bind(db);
   const sqls: string[] = [];
@@ -50,7 +50,7 @@ function captureSql(run: () => void): string[] {
     return orig(sql);
   };
   try {
-    run();
+    await run();
   } finally {
     (db as unknown as { prepare: unknown }).prepare = orig;
   }
@@ -73,12 +73,12 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("#5618 collectReferencedArtifacts pages with LIMIT and collects across pages — no unbounded .all()", () => {
+test("#5618 collectReferencedArtifacts pages with LIMIT and collects across pages — no unbounded .all()", async () => {
   const total = 6000; // > one 5000-row page → exercises the pagination loop
   seed(total, true);
 
   let referenced: Set<string> | undefined;
-  const sqls = captureSql(async () => {
+  const sqls = await captureSql(async () => {
     referenced = await bounded.collectReferencedArtifacts();
   });
 
@@ -90,12 +90,12 @@ test("#5618 collectReferencedArtifacts pages with LIMIT and collects across page
   );
 });
 
-test("#5618 deleteCallLogsBefore selects ids with LIMIT (bounded) instead of all at once", () => {
+test("#5618 deleteCallLogsBefore selects ids with LIMIT (bounded) instead of all at once", async () => {
   const total = 1200;
   seed(total, false);
 
   let result: { deletedRows: number } | undefined;
-  const sqls = captureSql(async () => {
+  const sqls = await captureSql(async () => {
     result = await callLogs.deleteCallLogsBefore("2030-01-01T00:00:00.000Z");
   });
 

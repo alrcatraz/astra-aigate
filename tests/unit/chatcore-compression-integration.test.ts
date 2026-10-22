@@ -29,7 +29,7 @@ test("chatCore integration: compressContext called proactively when context exce
     `Expected ${estimatedTokens} to exceed threshold ${threshold}`
   );
 
-  const result = compressContext(body, { provider, model, maxTokens: contextLimit });
+  const result = await compressContext(body, { provider, model, maxTokens: contextLimit });
 
   assert.ok(result.compressed, "Context should be compressed");
   assert.ok(
@@ -71,7 +71,7 @@ test("chatCore integration: compressContext NOT called when context is below 85%
     `Expected ${estimatedTokens} to be below threshold ${threshold}`
   );
 
-  const result = compressContext(body, { provider, model, maxTokens: contextLimit });
+  const result = await compressContext(body, { provider, model, maxTokens: contextLimit });
 
   assert.equal(result.compressed, false, "Context should NOT be compressed");
 });
@@ -96,7 +96,7 @@ test("chatCore integration: compression preserves message structure", async () =
     ],
   };
 
-  const result = compressContext(body, { provider, model, maxTokens: contextLimit });
+  const result = await compressContext(body, { provider, model, maxTokens: contextLimit });
 
   assert.ok(result.compressed, "Context should be compressed");
   assert.ok(Array.isArray(result.body.messages), "Messages should remain an array");
@@ -129,7 +129,12 @@ test("chatCore integration: compression handles tool messages", async () => {
     ],
   };
 
-  const result = compressContext(body, { provider, model, maxTokens: 5000, reserveTokens: 1000 });
+  const result = await compressContext(body, {
+    provider,
+    model,
+    maxTokens: 5000,
+    reserveTokens: 1000,
+  });
 
   assert.ok(result.compressed, "Context should be compressed");
 

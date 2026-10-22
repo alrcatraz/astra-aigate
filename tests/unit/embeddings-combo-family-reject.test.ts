@@ -14,6 +14,10 @@ const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
   await import("../../src/lib/db/core.ts");
 const { createEmbeddingResponse } = await import("../../src/lib/embeddings/service.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test.
+getDbInstance();
+await awaitDbMigrations();
+
 test.after(async () => {
   // Release the SQLite handle so the native test runner can exit (CLAUDE.md #3).
   await resetDbInstanceDrained();

@@ -278,7 +278,7 @@ function resolveReasoningObservation(
 
 async function hasTable(tableName: string): Promise<boolean> {
   // PG-aware shared existence check (bare sqlite_master does not exist in PG).
-  return tableExists(tableName);
+  return tableExists(tableName, getAsyncDb());
 }
 
 function readLegacyLogFromDisk(entry: {
@@ -582,7 +582,7 @@ export async function saveCallLog(entry: any) {
     // nor block the request-scoped context.
     const apiKeyId = entry.apiKeyId || apiKeyContext?.apiKeyId || null;
     const apiKeyName = entry.apiKeyName || apiKeyContext?.apiKeyName || null;
-    const noLogEnabled = Boolean(entry.noLog) || (apiKeyId ? isNoLog(apiKeyId) : false);
+    const noLogEnabled = Boolean(entry.noLog) || (apiKeyId ? await isNoLog(apiKeyId) : false);
 
     const protectedRequestBody = noLogEnabled ? null : protectPayloadForLog(entry.requestBody);
     const protectedResponseBody = noLogEnabled ? null : protectPayloadForLog(entry.responseBody);

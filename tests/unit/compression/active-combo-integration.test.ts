@@ -35,7 +35,7 @@ test("an active named combo's pipeline is what selectCompressionPlan resolves, f
 
   // Mirror chatCore's load: build the combos map from the DB.
   const combos = Object.fromEntries(
-    combosDb.listCompressionCombos().map((c) => [c.id, c.pipeline])
+    (await combosDb.listCompressionCombos()).map((c) => [c.id, c.pipeline])
   );
   const config = { ...DEFAULT_COMPRESSION_CONFIG, enabled: true, activeComboId: created.id };
   const plan = selectCompressionPlan(config, null, 5000, undefined, undefined, combos);

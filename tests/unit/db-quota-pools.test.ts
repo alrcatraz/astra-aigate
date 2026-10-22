@@ -143,7 +143,7 @@ test("deletePool removes pool and returns true", async () => {
   const pool = await poolsDb.createPool({ connectionId: "c6", name: "Deletable" });
   const deleted = await poolsDb.deletePool(pool.id);
   assert.equal(deleted, true);
-  assert.equal(poolsDb.getPool(pool.id), null);
+  assert.equal(await poolsDb.getPool(pool.id), null);
 });
 
 test("deletePool returns false for unknown id", async () => {
@@ -169,7 +169,7 @@ test("upsertAllocations replaces all previous allocations atomically", async () 
     { apiKeyId: "k3", weight: 100, policy: "soft", capValue: 500, capUnit: "tokens" },
   ]);
 
-  const refreshed = poolsDb.getPool(pool.id)!;
+  const refreshed = (await poolsDb.getPool(pool.id))!;
   assert.equal(refreshed.allocations.length, 1);
   assert.equal(refreshed.allocations[0].apiKeyId, "k3");
   assert.equal(refreshed.allocations[0].capValue, 500);
@@ -184,7 +184,7 @@ test("upsertAllocations with empty array removes all allocations", async () => {
   });
 
   await poolsDb.upsertAllocations(pool.id, []);
-  const refreshed = poolsDb.getPool(pool.id)!;
+  const refreshed = (await poolsDb.getPool(pool.id))!;
   assert.equal(refreshed.allocations.length, 0);
 });
 
@@ -258,7 +258,7 @@ test("allocation stores optional capValue and capUnit correctly", async () => {
     ],
   });
 
-  const found = poolsDb.getPool(pool.id)!;
+  const found = (await poolsDb.getPool(pool.id))!;
   const alloc = found.allocations.find((a) => a.apiKeyId === "k-cap")!;
   assert.equal(alloc.capValue, 1000);
   assert.equal(alloc.capUnit, "requests");
@@ -295,7 +295,7 @@ test("rowToAllocation normalizes an unknown DB policy to 'hard' (Guard A)", asyn
   db.pragma("ignore_check_constraints = OFF");
 
   // Read through the domain module — the unknown policy must become 'hard'.
-  const found = poolsDb.getPool(pool.id)!;
+  const found = (await poolsDb.getPool(pool.id))!;
   const alloc = found.allocations.find((a) => a.apiKeyId === "k-corrupt")!;
   assert.equal(alloc.policy, "hard", "unknown DB policy must be normalized to 'hard'");
 
@@ -316,7 +316,7 @@ test("rowToAllocation preserves valid policies unchanged (Guard A regression)", 
     ],
   });
 
-  const found = poolsDb.getPool(pool.id)!;
+  const found = (await poolsDb.getPool(pool.id))!;
   assert.equal(found.allocations.find((a) => a.apiKeyId === "k-hard")!.policy, "hard");
   assert.equal(found.allocations.find((a) => a.apiKeyId === "k-soft")!.policy, "soft");
   assert.equal(found.allocations.find((a) => a.apiKeyId === "k-burst")!.policy, "burst");

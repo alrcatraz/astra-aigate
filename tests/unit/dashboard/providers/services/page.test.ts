@@ -23,12 +23,23 @@ describe("sidebarVisibility — embedded-services", () => {
   it("embedded-services has the correct href", async () => {
     const { SIDEBAR_SECTIONS } =
       await import("../../../../../src/shared/constants/sidebarVisibility.ts");
-    const omniProxy = SIDEBAR_SECTIONS.find((s) => s.id === "omni-proxy");
-    const flat = (omniProxy?.children ?? []).filter((c) => !("type" in c));
-    const item = flat.find((c) => (c as { id: string }).id === "embedded-services") as
-      | { id: string; href: string }
-      | undefined;
-    assert.ok(item, "embedded-services item should exist in omni-proxy section");
+    // The item lives in a nested group (omni-proxy > routing > embedded-services),
+    // so walk the tree instead of pinning one group id — the nav restructure moves
+    // items between groups and a shallow lookup breaks on every regroup.
+    const findItem = (nodes, id) => {
+      for (const node of nodes ?? []) {
+        if (node.id === id) return node;
+        const nested = findItem(node.children ?? node.items, id);
+        if (nested) return nested;
+      }
+      return undefined;
+    };
+    let item;
+    for (const section of SIDEBAR_SECTIONS) {
+      item = findItem([section], "embedded-services");
+      if (item) break;
+    }
+    assert.ok(item, "embedded-services item should exist in a sidebar section");
     assert.equal(item.href, "/dashboard/providers/services");
   });
 });

@@ -10,8 +10,8 @@ type KimiClaudeRequest = {
   messages: Array<{ content: Array<Record<string, unknown>> }>;
 };
 
-test("OpenAI to Kimi Anthropic maps effort without inventing a token budget", () => {
-  const translated = translateRequest(
+test("OpenAI to Kimi Anthropic maps effort without inventing a token budget", async () => {
+  const translated = (await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     "kimi-for-coding",
@@ -38,7 +38,7 @@ test("OpenAI to Kimi Anthropic maps effort without inventing a token budget", ()
     false,
     {},
     "kimi-coding"
-  ) as KimiClaudeRequest;
+  )) as KimiClaudeRequest;
 
   assert.deepEqual(translated.thinking, { type: "enabled" });
   assert.deepEqual(translated.output_config, { effort: "high" });
@@ -49,8 +49,8 @@ test("OpenAI to Kimi Anthropic maps effort without inventing a token budget", ()
   });
 });
 
-test("Kimi Anthropic preserves an explicit empty thinking block", () => {
-  const translated = translateRequest(
+test("Kimi Anthropic preserves an explicit empty thinking block", async () => {
+  const translated = (await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.CLAUDE,
     "kimi-for-coding",
@@ -72,7 +72,7 @@ test("Kimi Anthropic preserves an explicit empty thinking block", () => {
     false,
     {},
     "kimi-coding"
-  ) as KimiClaudeRequest;
+  )) as KimiClaudeRequest;
 
   assert.deepEqual(translated.messages[0].content[0], {
     type: "thinking",

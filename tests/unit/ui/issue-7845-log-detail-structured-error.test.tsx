@@ -16,14 +16,14 @@
  * before rendering, while leaving plain string errors rendered verbatim
  * (no added JSON quoting).
  */
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const RequestLoggerDetail = (
-  await import("../../../src/shared/components/RequestLoggerDetail.tsx")
-).default;
+const RequestLoggerDetail = (await import("../../../src/shared/components/RequestLoggerDetail.tsx"))
+  .default;
 
 let container: HTMLElement;
 let root: Root;

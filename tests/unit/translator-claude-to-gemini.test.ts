@@ -33,8 +33,8 @@ function getFunctionResponse(part: unknown) {
   return functionResponse as { name: string };
 }
 
-test("Claude -> Gemini maps system, thinking, tool use, tool result and tools", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini maps system, thinking, tool use, tool result and tools", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-pro",
     {
       system: [{ text: "Rules" }],
@@ -106,8 +106,8 @@ test("Claude -> Gemini maps system, thinking, tool use, tool result and tools", 
   });
 });
 
-test("Claude -> Gemini clamps maxOutputTokens to the model cap", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini clamps maxOutputTokens to the model cap", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
@@ -121,8 +121,8 @@ test("Claude -> Gemini clamps maxOutputTokens to the model cap", () => {
   assert.equal(result.generationConfig.maxOutputTokens, 65536);
 });
 
-test("Claude -> Gemini preserves requested maxOutputTokens when the model cap is unknown", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini preserves requested maxOutputTokens when the model cap is unknown", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
@@ -134,8 +134,8 @@ test("Claude -> Gemini preserves requested maxOutputTokens when the model cap is
   assert.equal(result.generationConfig.maxOutputTokens, 32000);
 });
 
-test("Claude -> Gemini converts text and base64 images to Gemini parts", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini converts text and base64 images to Gemini parts", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [
@@ -162,8 +162,8 @@ test("Claude -> Gemini converts text and base64 images to Gemini parts", () => {
   ]);
 });
 
-test("Claude -> Gemini injects a fallback thoughtSignature on tool-call batches without thinking", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini injects a fallback thoughtSignature on tool-call batches without thinking", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [
@@ -182,10 +182,10 @@ test("Claude -> Gemini injects a fallback thoughtSignature on tool-call batches 
   assert.equal((result.contents[0].parts[0] as any).thoughtSignature, undefined);
 });
 
-test("Claude -> Gemini sanitizes long tool names and exposes a restore map", () => {
+test("Claude -> Gemini sanitizes long tool names and exposes a restore map", async () => {
   const longToolName =
     "mcp__filesystem__read_multiple_files_with_validation_and_metadata_bundle_v2";
-  const result = claudeToGeminiRequest(
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [
@@ -230,15 +230,15 @@ test("Claude -> Gemini sanitizes long tool names and exposes a restore map", () 
   assert.equal(parameters.properties?.path?.["x-ui"], undefined);
 });
 
-test("Claude -> Gemini handles empty bodies without producing invalid content", () => {
-  const result = claudeToGeminiRequest("gemini-2.5-flash", {}, false);
+test("Claude -> Gemini handles empty bodies without producing invalid content", async () => {
+  const result = await claudeToGeminiRequest("gemini-2.5-flash", {}, false);
 
   assert.deepEqual(result.contents, []);
   assert.deepEqual(result.generationConfig, {});
   assert.deepEqual(result.safetySettings, DEFAULT_SAFETY_SETTINGS);
 });
 
-test("Claude -> Gemini maps output_config.effort to thinkingConfig when thinking absent", () => {
+test("Claude -> Gemini maps output_config.effort to thinkingConfig when thinking absent", async () => {
   // NOTE: max/xhigh previously asserted 131072, but that locked in the OLD
   // no-cap behavior — gemini-2.5-pro is unregistered, so the raw budget sailed
   // to the upstream and 400'd ("thinking_budget must be in the range"). The
@@ -254,7 +254,7 @@ test("Claude -> Gemini maps output_config.effort to thinkingConfig when thinking
   ];
 
   for (const { effort, expected } of cases) {
-    const result = claudeToGeminiRequest(
+    const result = await claudeToGeminiRequest(
       "gemini-2.5-pro",
       {
         messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
@@ -274,8 +274,8 @@ test("Claude -> Gemini maps output_config.effort to thinkingConfig when thinking
 // Gemini model's real thinking-budget cap. gemini-2.5-flash's true max is 24576;
 // the previous unclamped 32768 made the upstream return HTTP 400. Pro-tier
 // (gemini-2.5-pro, real cap 32768) is asserted untouched by the test above.
-test("Claude -> Gemini clamps output_config.effort=high to gemini-2.5-flash cap (#3842)", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini clamps output_config.effort=high to gemini-2.5-flash cap (#3842)", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
@@ -288,8 +288,8 @@ test("Claude -> Gemini clamps output_config.effort=high to gemini-2.5-flash cap 
   assert.equal(budget, 24576);
 });
 
-test("Claude -> Gemini prefers thinking.budget_tokens over output_config.effort", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini prefers thinking.budget_tokens over output_config.effort", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
@@ -305,8 +305,8 @@ test("Claude -> Gemini prefers thinking.budget_tokens over output_config.effort"
   });
 });
 
-test("Claude -> Gemini skips thinkingConfig for output_config.effort=none", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini skips thinkingConfig for output_config.effort=none", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-pro",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
@@ -320,9 +320,9 @@ test("Claude -> Gemini skips thinkingConfig for output_config.effort=none", () =
 
 // Regression for #3842: thinking.budget_tokens must be capped by the model's
 // thinkingBudgetCap, matching the output_config.effort path behavior.
-test("Claude -> Gemini thinking.budget_tokens is capped by model thinkingBudgetCap (#3842)", () => {
+test("Claude -> Gemini thinking.budget_tokens is capped by model thinkingBudgetCap (#3842)", async () => {
   // gemini-2.5-flash has thinkingBudgetCap: 24576
-  const result = claudeToGeminiRequest(
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "think hard" }] }],
@@ -341,8 +341,8 @@ test("Claude -> Gemini thinking.budget_tokens is capped by model thinkingBudgetC
 // tests/unit/claude-to-gemini-budget-tokens-zero-6813.test.ts for the canonical
 // regression). This mirrors that contract for a model with an explicit
 // thinkingBudgetCap.
-test("Claude -> Gemini thinking.budget_tokens=0 preserves dynamic-thinking sentinel after cap (#6813)", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini thinking.budget_tokens=0 preserves dynamic-thinking sentinel after cap (#6813)", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "no thinking" }] }],
@@ -358,8 +358,8 @@ test("Claude -> Gemini thinking.budget_tokens=0 preserves dynamic-thinking senti
 
 // Guard: models with thinkingBudgetCap=0 (e.g. gemini-3-flash) must NOT
 // receive thinkingConfig even when the caller explicitly sends budget_tokens.
-test("Claude -> Gemini skips thinkingConfig for model with thinkingBudgetCap=0", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini skips thinkingConfig for model with thinkingBudgetCap=0", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-3-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
@@ -376,8 +376,8 @@ test("Claude -> Gemini skips thinkingConfig for model with thinkingBudgetCap=0",
 
 // Guard: models with thinkingBudgetCap=0 must not receive thinkingConfig
 // via the output_config.effort path either.
-test("Claude -> Gemini skips effort thinkingConfig for model with thinkingBudgetCap=0", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini skips effort thinkingConfig for model with thinkingBudgetCap=0", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-3-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
@@ -393,8 +393,8 @@ test("Claude -> Gemini skips effort thinkingConfig for model with thinkingBudget
 });
 
 // Guard: models not in MODEL_SPECS (thinkingBudgetCap=undefined) default to allowed.
-test("Claude -> Gemini allows thinkingConfig for unknown model (no spec)", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini allows thinkingConfig for unknown model (no spec)", async () => {
+  const result = await claudeToGeminiRequest(
     "some-unknown-gemini-model",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
@@ -411,8 +411,8 @@ test("Claude -> Gemini allows thinkingConfig for unknown model (no spec)", () =>
 // Effort budgets must be capped by the model's thinkingBudgetCap.
 // gemini-2.5-flash has thinkingBudgetCap:24576; effort "high" sends 32768
 // which must be capped to 24576.
-test("Claude -> Gemini effort budget is capped by thinkingBudgetCap", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini effort budget is capped by thinkingBudgetCap", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
@@ -428,8 +428,8 @@ test("Claude -> Gemini effort budget is capped by thinkingBudgetCap", () => {
 
 // Non-numeric budget_tokens (e.g. string "auto") must fall through to the
 // effort path, not be treated as a numeric budget.
-test("Claude -> Gemini non-numeric budget_tokens falls through to effort path", () => {
-  const result = claudeToGeminiRequest(
+test("Claude -> Gemini non-numeric budget_tokens falls through to effort path", async () => {
+  const result = await claudeToGeminiRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],

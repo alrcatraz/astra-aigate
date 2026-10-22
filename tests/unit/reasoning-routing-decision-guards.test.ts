@@ -12,6 +12,10 @@ const core = await import("../../src/lib/db/core.ts");
 const rulesDb = await import("../../src/lib/db/reasoningRoutingRules.ts");
 const handler = await import("../../src/sse/handlers/reasoningRouting.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 /**
  * `applyReasoningRouting` short-circuits on two separate conditions before
  * applying a decision: no rule matched, and the resolver having failed

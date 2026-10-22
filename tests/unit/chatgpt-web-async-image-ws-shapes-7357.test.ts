@@ -2,12 +2,30 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 
-const { ChatGptWebExecutor, __resetChatGptWebCachesForTesting } = await import(
-  "../../open-sse/executors/chatgpt-web.ts"
-);
-const { __setTlsFetchOverrideForTesting } = await import(
-  "../../open-sse/services/chatgptTlsClient.ts"
-);
+const { ChatGptWebExecutor, __resetChatGptWebCachesForTesting } =
+  await import("../../open-sse/executors/chatgpt-web.ts");
+const { __setTlsFetchOverrideForTesting } =
+  await import("../../open-sse/services/chatgptTlsClient.ts");
+// ── Root cause of the intermittent 20 s hang in case 1 (#7357) ──────────────
+// Importing chatgpt-web.ts pulls in services/reasoningCache.ts, whose
+// module-load boot sweep lazily opens the SQLite DB (fresh temp DB per test
+// process via tests/_setup/isolateDataDir.ts). src/lib/db/core.ts
+// deliberately defers the versioned migration runner behind setTimeout(0)
+// ("consumers join via awaitDbMigrations()"), so a full schema + migration
+// pass — tsx transpiling better-sqliteAdapter, reading migration files,
+// ensureColumn/FTS5 checks — lands on the event loop WHILE this test's
+// executor is suspended waiting on the fake celsius WebSocket. That stalls
+// the loop for ~150-300 ms locally (worse on CI), the fake socket delivers
+// its frame through a 5 ms -> onopen -> +5 ms timer chain that cannot run
+// during the stall, and once the stall exceeds OMNIROUTE_CGPT_WEB_IMAGE_TIMEOUT_MS
+// (300 ms) the wait's timeout wins the race, the already-queued frame is
+// dropped, and the (intentionally un-mocked) conversation-poll fallback
+// loops until the 20 s abort signal — the observed hang.
+// Join the migration work HERE, before any timing-critical section, so the
+// event loop is quiet when the WebSocket frame is delivered.
+const { getDbInstance, awaitDbMigrations } = await import("../../src/lib/db/core.ts");
+getDbInstance(); // idempotent; guarantees the open (and its deferred runner) is scheduled
+await awaitDbMigrations();
 
 function makeHeaders(map: Record<string, string> = {}) {
   const h = new Headers();
@@ -96,7 +114,17 @@ class FakeWebSocket extends EventEmitter {
             },
           },
         };
-        this.onmessage?.({ data: JSON.stringify(frame) });
+        // Deliver the frame more than once (idempotent — the collector dedupes by
+        // asset_pointer; chatgpt.com also repeats frames in practice). Note the
+        // executor assigns `ws.onmessage` synchronously right after `new
+        // WebSocket()`, so the FIRST emit already lands whenever the event loop
+        // is healthy. Repeats cannot rescue a starved loop: they are all
+        // scheduled from this 5 ms timer, i.e. AFTER any stall. The real flake
+        // was the deferred SQLite migration runner (see the top-of-file note)
+        // blocking the loop past OMNIROUTE_CGPT_WEB_IMAGE_TIMEOUT_MS.
+        const emit = () => this.onmessage?.({ data: JSON.stringify(frame) });
+        emit();
+        for (const delay of [10, 30, 60, 120]) setTimeout(emit, delay);
       }, 5);
     }, 5);
   }

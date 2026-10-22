@@ -1,4 +1,4 @@
-import { getAsyncDb, getDbInstance } from "./core";
+import { getAsyncDb, getDbDriver, getDbInstance } from "./core";
 
 export interface CompressionAnalyticsRow {
   id?: number;
@@ -112,7 +112,16 @@ const COMPRESSION_ANALYTICS_COLUMNS = [
 function ensureCompressionAnalyticsColumns(): void {
   const db = getAsyncDb();
   if (columnsEnsuredForDb === db) return;
-  // Synchronous on purpose: the sync writers below (insertCompressionAnalyticsRow,
+  // PG mode: table + columns come from migrations (038/041…); there is nothing to
+  // ALTER at runtime. `getDbInstance()` under DB_DRIVER=postgres returns an empty
+  // in-memory SQLite scratch DB (see core.ts getDbInstance), so running the
+  // PRAGMA probe below would hit "no such table: compression_analytics" and 500
+  // /api/analytics/compression. Skip the probe entirely for PG.
+  if (getDbDriver() === "postgres") {
+    columnsEnsuredForDb = db;
+    return;
+  }
+  // SQLite path (unchanged): the sync writers below (insertCompressionAnalyticsRow,
   // updateUsageReceipt…) call this right before preparing statements that reference
   // these columns. An async wrapper deferred every ALTER to a microtask, so the
   // first INSERT hit "no column named rtk_raw_output_pointer" (#8716 family).

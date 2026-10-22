@@ -76,10 +76,6 @@ export interface SkillCoverage {
   generatedAt: string; // ISO datetime
 }
 
-export interface SkillCatalogEntry extends AgentSkill {
-  // No additional fields; alias for AgentSkill at catalog-level.
-}
-
 export interface SkillMarkdown {
   id: string;
   frontmatter: { name: string; description: string };

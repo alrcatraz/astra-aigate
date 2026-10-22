@@ -19,6 +19,10 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
 // Bootstrap DB
 const core = await import("../../../src/lib/db/core.ts");
+// Fully drain migrations before the seed INSERT — getDbInstance() is sync and
+// returns while runMigrations is still in flight (`no such table: version_manager`).
+core.getDbInstance();
+await core.awaitDbMigrations();
 const db = core.getDbInstance();
 
 // Seed service rows

@@ -21,6 +21,14 @@ vi.mock("@/shared/utils/formatting", () => ({
 
 const cleanupCallbacks: Array<() => void> = [];
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
 function makeContainer(): HTMLElement {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -38,8 +46,12 @@ describe("CoolingConnectionsPanel", () => {
   });
 
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
     while (cleanupCallbacks.length > 0) cleanupCallbacks.pop()?.();
     document.body.innerHTML = "";
+    mounted.length = 0;
   });
 
   it("module loads and exports a default component (guards the import path)", async () => {
@@ -51,6 +63,7 @@ describe("CoolingConnectionsPanel", () => {
     const { default: CoolingConnectionsPanel } = await import(PANEL_PATH);
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     const future = new Date(Date.now() + 5 * 60_000).toISOString();
     await act(async () => {
       root.render(
@@ -71,6 +84,7 @@ describe("CoolingConnectionsPanel", () => {
     const { default: CoolingConnectionsPanel } = await import(PANEL_PATH);
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     const past = new Date(Date.now() - 60_000).toISOString();
     await act(async () => {
       root.render(

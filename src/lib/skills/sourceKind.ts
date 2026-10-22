@@ -43,12 +43,6 @@ export const SKILL_ARTIFACTS = [
 export type SkillArtifact = (typeof SKILL_ARTIFACTS)[number];
 
 /** Skill 唯一身份（同一 skill 名不同源可共存）。 */
-export interface SkillIdentity {
-  sourceRef: string; // 源内标识，如 "project:astra-sre" 或 source_kind 值
-  externalId: string; // 源内 skill 唯一 ID
-  name: string;
-  version?: string;
-}
 
 /** SourceAdapter 统一接口 — 每个源实现此接口，hub 经 adapter 聚合。 */
 export interface SkillSourceAdapter {

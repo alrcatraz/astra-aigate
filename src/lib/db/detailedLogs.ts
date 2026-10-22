@@ -40,7 +40,7 @@ async function requestDetailLogsTableExists(): Promise<boolean> {
     return requestDetailLogsTableExistsCache;
   }
 
-  requestDetailLogsTableExistsCache = await tableExists("request_detail_logs");
+  requestDetailLogsTableExistsCache = await tableExists("request_detail_logs", getAsyncDb());
   return requestDetailLogsTableExistsCache;
 }
 
@@ -62,7 +62,7 @@ export async function isDetailedLoggingEnabled(): Promise<boolean> {
 /** Save a detailed log entry — caller must verify isDetailedLoggingEnabled() first */
 export async function saveRequestDetailLog(entry: RequestDetailLog): Promise<void> {
   const noLogEnabled =
-    Boolean(entry.no_log) || (entry.api_key_id ? isNoLog(entry.api_key_id) : false);
+    Boolean(entry.no_log) || (entry.api_key_id ? await isNoLog(entry.api_key_id) : false);
   if (noLogEnabled || !(await requestDetailLogsTableExists())) return;
 
   const db = await getAsyncDb();

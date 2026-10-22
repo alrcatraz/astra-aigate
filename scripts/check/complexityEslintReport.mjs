@@ -11,8 +11,16 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const CONFIG_PATH = path.join(ROOT, "eslint.complexity-ratchets.config.mjs");
 
-/** Positional dirs — must match config `files` scopes (see check-complexity tests). */
-export const ESLINT_SCAN_DIRS = ["src", "open-sse", "electron", "bin"];
+/**
+ * Positional dirs — must match config `files` scopes (see check-complexity tests).
+ *
+ * `electron/` was dropped 2026-10-05: this fork has no electron desktop target (the
+ * OmniRoute upstream did), so the dir does not exist. ESLint 9 aborts when a positional
+ * dir matches no files ("No files matching the pattern electron"), crashing the whole
+ * complexity-ratchets gate. electron/ contributed 0 violations even when present (only
+ * types.d.ts, which the config ignores), so dropping it does not move the baseline count.
+ */
+export const ESLINT_SCAN_DIRS = ["src", "open-sse", "bin"];
 
 const ESLINT_BIN = path.join(
   ROOT,

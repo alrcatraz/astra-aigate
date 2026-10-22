@@ -1,3 +1,4 @@
+import "../../_setup/nextIntlDouble";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -15,9 +16,13 @@ import {
 
 describe("sidebar proxy expansion", () => {
   it("proxy navigation is always present and cannot be hidden by legacy settings", () => {
-    const omniProxy = SIDEBAR_SECTIONS.find((section) => section.id === "omni-proxy");
-    expect(omniProxy).toBeDefined();
-    expect(getSectionItems(omniProxy!).some((item) => item.id === "proxy")).toBe(true);
+    // `proxy` moved out of the OmniProxy section into Monitoring → System in the
+    // Expo shell rewrite (93f7cbe1); it stays always-visible wherever it renders.
+    const proxyItem = SIDEBAR_SECTIONS.flatMap((section) => getSectionItems(section)).find(
+      (item) => item.id === "proxy"
+    );
+    expect(proxyItem).toBeDefined();
+    expect(proxyItem!.href).toBe("/dashboard/system/proxy");
     expect((HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("proxy")).toBe(false);
     expect(normalizeHiddenSidebarItems(["proxy", "logs"])).toEqual(["logs"]);
   });

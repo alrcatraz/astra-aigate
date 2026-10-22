@@ -7,9 +7,9 @@ import { capMaxOutputTokens } from "../../../../src/lib/modelCapabilities.ts";
 const MIN_CLAUDE_THINKING_BUDGET = 1024;
 const MIN_RESPONSE_ROOM = 1024;
 
-function safeCapMaxOutputTokens(model: string): number | null {
+async function safeCapMaxOutputTokens(model: string): Promise<number | null> {
   try {
-    const cap = capMaxOutputTokens(model);
+    const cap = await capMaxOutputTokens(model);
     return typeof cap === "number" && cap > 0 ? cap : null;
   } catch {
     return null;
@@ -39,12 +39,12 @@ function safeCapMaxOutputTokens(model: string): number | null {
  *   fittedBudget = 128000 - 32000 = 96000  (>= 1024, OK)
  *   → max_tokens=128000, budget_tokens=96000 (vs. the old buggy 139264 / 131072).
  */
-export function fitThinkingToMaxTokens(
+export async function fitThinkingToMaxTokens(
   model: string,
   callerMaxTokens: number,
   thinking: Record<string, unknown> | undefined
-): { maxTokens: number; thinking: Record<string, unknown> | undefined } {
-  const modelCap = safeCapMaxOutputTokens(model);
+): Promise<{ maxTokens: number; thinking: Record<string, unknown> | undefined }> {
+  const modelCap = await safeCapMaxOutputTokens(model);
   const requestedBudget = Number(thinking?.budget_tokens) || 0;
 
   // No budgeted thinking — just cap max_tokens to the model output ceiling.

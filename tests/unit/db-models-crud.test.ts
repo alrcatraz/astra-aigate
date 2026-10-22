@@ -144,7 +144,7 @@ test("removing a custom model also removes its compat override", async () => {
   assert.equal(await modelsDb.removeCustomModel("anthropic", "claude-3-haiku"), true);
   assert.equal(await modelsDb.removeCustomModel("anthropic", "claude-3-haiku"), false);
   assert.deepEqual(await modelsDb.getCustomModels("anthropic"), []);
-  assert.deepEqual(modelsDb.getModelCompatOverrides("anthropic"), []);
+  assert.deepEqual(await modelsDb.getModelCompatOverrides("anthropic"), []);
 });
 
 test("synced available models are unioned across connections and cleaned per connection", async () => {
@@ -187,20 +187,23 @@ test("compat overrides expose per-protocol getters and removable extra headers",
     },
   });
 
-  assert.equal(modelsDb.getModelNormalizeToolCallId("openai", "gpt-4.1"), true);
-  assert.equal(modelsDb.getModelNormalizeToolCallId("openai", "gpt-4.1", "openai"), false);
-  assert.equal(modelsDb.getModelPreserveOpenAIDeveloperRole("openai", "gpt-4.1"), false);
-  assert.equal(modelsDb.getModelPreserveOpenAIDeveloperRole("openai", "gpt-4.1", "openai"), true);
-  assert.equal(modelsDb.getModelIsHidden("openai", "gpt-4.1"), true);
-  assert.deepEqual(modelsDb.getModelUpstreamExtraHeaders("openai", "gpt-4.1", "openai"), {
+  assert.equal(await modelsDb.getModelNormalizeToolCallId("openai", "gpt-4.1"), true);
+  assert.equal(await modelsDb.getModelNormalizeToolCallId("openai", "gpt-4.1", "openai"), false);
+  assert.equal(await modelsDb.getModelPreserveOpenAIDeveloperRole("openai", "gpt-4.1"), false);
+  assert.equal(
+    await modelsDb.getModelPreserveOpenAIDeveloperRole("openai", "gpt-4.1", "openai"),
+    true
+  );
+  assert.equal(await modelsDb.getModelIsHidden("openai", "gpt-4.1"), true);
+  assert.deepEqual(await modelsDb.getModelUpstreamExtraHeaders("openai", "gpt-4.1", "openai"), {
     "X-Top": "1",
     "X-Proto": "yes",
   });
 
   await modelsDb.removeModelCompatOverride("openai", "gpt-4.1");
 
-  assert.equal(modelsDb.getModelNormalizeToolCallId("openai", "gpt-4.1"), false);
-  assert.deepEqual(modelsDb.getModelCompatOverrides("openai"), []);
+  assert.equal(await modelsDb.getModelNormalizeToolCallId("openai", "gpt-4.1"), false);
+  assert.deepEqual(await modelsDb.getModelCompatOverrides("openai"), []);
 });
 
 test("sanitizeUpstreamHeadersMap keeps only safe trimmed headers", () => {
@@ -312,16 +315,22 @@ test("compat getters fall back to override rows when custom model storage is mal
     "anthropic"
   );
 
-  assert.equal(modelsDb.getModelNormalizeToolCallId("anthropic", "claude-edge", "openai"), false);
   assert.equal(
-    modelsDb.getModelPreserveOpenAIDeveloperRole("anthropic", "claude-edge", "openai"),
+    await modelsDb.getModelNormalizeToolCallId("anthropic", "claude-edge", "openai"),
+    false
+  );
+  assert.equal(
+    await modelsDb.getModelPreserveOpenAIDeveloperRole("anthropic", "claude-edge", "openai"),
     true
   );
-  assert.equal(modelsDb.getModelIsHidden("anthropic", "claude-edge"), true);
-  assert.deepEqual(modelsDb.getModelUpstreamExtraHeaders("anthropic", "claude-edge", "openai"), {
-    "X-Compat": "fallback",
-    "X-Compat-Proto": "fallback-proto",
-  });
+  assert.equal(await modelsDb.getModelIsHidden("anthropic", "claude-edge"), true);
+  assert.deepEqual(
+    await modelsDb.getModelUpstreamExtraHeaders("anthropic", "claude-edge", "openai"),
+    {
+      "X-Compat": "fallback",
+      "X-Compat-Proto": "fallback-proto",
+    }
+  );
 });
 
 test("missing alias helpers return empty results for unknown tools and providers", async () => {

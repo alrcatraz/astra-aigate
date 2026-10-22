@@ -7,6 +7,7 @@
 // tests/unit/combo-select-all-batch-8526.test.ts (this file's location,
 // tests/unit/ui/*.test.tsx, is only collected by the advisory
 // `test:vitest:ui` — see CONTRIBUTING.md "Both test runners must pass").
+import "../../_setup/nextIntlDouble";
 import { describe, expect, it } from "vitest";
 import {
   computeBatchAddModelSteps,
@@ -49,7 +50,8 @@ describe("ComboFormModal Select all / Unselect all handlers (real implementation
       []
     );
     expect(addedAny).toBe(true);
-    expect(next).toEqual([{ model: "openai/gpt-4o", providerId: "openai", weight: 0 }]);
+    // Newly batch-added steps get the builder's default weight of 1.
+    expect(next).toEqual([{ model: "openai/gpt-4o", providerId: "openai", weight: 1 }]);
   });
 
   it("is a no-op when nothing is selected", () => {

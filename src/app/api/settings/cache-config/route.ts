@@ -116,7 +116,7 @@ export async function PUT(request: NextRequest) {
     // updateDatabaseSettings() calls invalidateDbCache("settings") internally,
     // which bumps the model-catalog cache version so in-flight responses pick
     // up the fresh TTL — no separate version bump needed here.
-    updateDatabaseSettings({ cache: updates });
+    await updateDatabaseSettings({ cache: updates });
 
     // idempotencyWindowMs is not part of the databaseSettings "cache" section —
     // persist it through the flat general settings module instead (see GET).

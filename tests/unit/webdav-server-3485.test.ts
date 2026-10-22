@@ -283,7 +283,7 @@ test("decryptStored: null input returns null", async () => {
 test("decryptStored: value encrypted by TS encrypt() decrypts correctly", async () => {
   const SECRET = "webdav-test-encryption-key-32chars-ok";
   process.env.STORAGE_ENCRYPTION_KEY = SECRET;
-  const encrypted = encryptTs(SECRET, "my-vault-password");
+  const encrypted = await encryptTs(SECRET, "my-vault-password");
 
   const { decryptStored } = await importHandler();
   const result = decryptStored(encrypted);
@@ -717,7 +717,7 @@ test("encrypted password in DB is decrypted and auth works", async () => {
   const encVaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "omni-webdav-enc-vault-"));
 
   try {
-    const encryptedPass = encryptTs(encSecret, TEST_PASS);
+    const encryptedPass = await encryptTs(encSecret, TEST_PASS);
 
     await createTestDb(encDataDir, {
       enabled: true,

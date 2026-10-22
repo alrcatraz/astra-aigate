@@ -49,7 +49,7 @@ function errorResponseWithConnectionId(status: number, connectionId: string) {
     status,
     headers: {
       "content-type": "application/json",
-      "X-OmniRoute-Selected-Connection-Id": connectionId,
+      "X-AI-Gate-Selected-Connection-Id": connectionId,
     },
   });
 }

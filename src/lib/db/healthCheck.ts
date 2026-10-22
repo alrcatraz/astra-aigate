@@ -1,5 +1,5 @@
 import { normalizeComboStep } from "@/lib/combos/steps";
-import { tableExists } from "./core";
+import { tableExists } from "./tableExists";
 
 import type { SqliteAdapter } from "./adapters/types";
 type SqliteDatabase = SqliteAdapter;
@@ -255,7 +255,9 @@ async function getBrokenQuotaSnapshotRowIds(db: SqliteDatabase): Promise<number[
 
   for (const row of rows) {
     const connectionId = toTrimmedString(row.connection_id);
-    const missingConnection = !!connectionId && !hasProviderConnection(db, connectionId);
+    // Await the async connection check — without await the Promise is always
+    // truthy, so !Promise = false and orphan snapshots were never repaired.
+    const missingConnection = !!connectionId && !(await hasProviderConnection(db, connectionId));
     const invalidTimestamp = !isValidIsoTimestamp(row.created_at);
     if ((missingConnection || invalidTimestamp) && typeof row.id === "number") {
       brokenRowIds.add(row.id);

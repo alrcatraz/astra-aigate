@@ -12,17 +12,16 @@ test("normalizeDroidModelList accepts legacy single `model` string", () => {
 });
 
 test("normalizeDroidModelList accepts `models` array (upstream #618)", () => {
-  assert.deepEqual(
-    normalizeDroidModelList({ models: ["openai/gpt-5", "anthropic/claude-4"] }),
-    ["openai/gpt-5", "anthropic/claude-4"]
-  );
+  assert.deepEqual(normalizeDroidModelList({ models: ["openai/gpt-5", "anthropic/claude-4"] }), [
+    "openai/gpt-5",
+    "anthropic/claude-4",
+  ]);
 });
 
 test("normalizeDroidModelList prefers `models` over legacy `model`", () => {
-  assert.deepEqual(
-    normalizeDroidModelList({ model: "legacy/old", models: ["openai/gpt-5"] }),
-    ["openai/gpt-5"]
-  );
+  assert.deepEqual(normalizeDroidModelList({ model: "legacy/old", models: ["openai/gpt-5"] }), [
+    "openai/gpt-5",
+  ]);
 });
 
 test("normalizeDroidModelList trims and dedupes, drops empty/non-string", () => {
@@ -47,7 +46,7 @@ test("buildDroidCustomModels emits one entry per model with sequential ids", () 
   });
 
   assert.equal(out.length, 2);
-  assert.equal(out[0].id, "custom:OmniRoute-0");
+  assert.equal(out[0].id, "custom:AI Gate-0");
   assert.equal(out[0].index, 0);
   assert.equal(out[0].model, "openai/gpt-5");
   assert.equal(out[0].displayName, "openai/gpt-5");
@@ -56,7 +55,7 @@ test("buildDroidCustomModels emits one entry per model with sequential ids", () 
   assert.equal(out[0].noImageSupport, false);
   assert.equal(out[0].baseUrl, "http://localhost:20128/v1");
   assert.equal(out[0].apiKey, "sk_omniroute");
-  assert.equal(out[1].id, "custom:OmniRoute-1");
+  assert.equal(out[1].id, "custom:AI Gate-1");
   assert.equal(out[1].index, 1);
 });
 
@@ -68,14 +67,14 @@ test("buildDroidCustomModels promotes activeModel to index 0", () => {
   });
 
   assert.equal(out[0].model, "anthropic/claude-4");
-  assert.equal(out[0].id, "custom:OmniRoute-0");
+  assert.equal(out[0].id, "custom:AI Gate-0");
   assert.equal(out[0].index, 0);
   // Remaining entries are re-indexed in their original relative order
   assert.equal(out[1].model, "openai/gpt-5");
-  assert.equal(out[1].id, "custom:OmniRoute-1");
+  assert.equal(out[1].id, "custom:AI Gate-1");
   assert.equal(out[1].index, 1);
   assert.equal(out[2].model, "google/gemini");
-  assert.equal(out[2].id, "custom:OmniRoute-2");
+  assert.equal(out[2].id, "custom:AI Gate-2");
   assert.equal(out[2].index, 2);
 });
 
@@ -110,10 +109,10 @@ test("buildDroidCustomModels throws on empty list", () => {
   );
 });
 
-test("isOmniRouteCustomModel matches any custom:OmniRoute-<i> id (multi-model)", () => {
-  assert.equal(isOmniRouteCustomModel({ id: "custom:OmniRoute-0" }), true);
-  assert.equal(isOmniRouteCustomModel({ id: "custom:OmniRoute-1" }), true);
-  assert.equal(isOmniRouteCustomModel({ id: "custom:OmniRoute-42" }), true);
+test("isOmniRouteCustomModel matches any custom:AI Gate-<i> id (multi-model)", () => {
+  assert.equal(isOmniRouteCustomModel({ id: "custom:AI Gate-0" }), true);
+  assert.equal(isOmniRouteCustomModel({ id: "custom:AI Gate-1" }), true);
+  assert.equal(isOmniRouteCustomModel({ id: "custom:AI Gate-42" }), true);
   assert.equal(isOmniRouteCustomModel({ id: "custom:Other-0" }), false);
   assert.equal(isOmniRouteCustomModel({ id: 42 as unknown }), false);
   assert.equal(isOmniRouteCustomModel(null), false);

@@ -18,16 +18,16 @@ const bodyArb = fc.record({
   messages: fc.array(messageArb, { minLength: 1, maxLength: 6 }),
 });
 
-test("translateRequest openai->claude never throws and keeps messages", () => {
+test("translateRequest openai->claude never throws and keeps messages", async () => {
   fc.assert(
-    fc.property(bodyArb, (body) => {
-      const out = translateRequest(
+    fc.asyncProperty(bodyArb, async (body) => {
+      const out = (await translateRequest(
         FORMATS.OPENAI,
         FORMATS.CLAUDE,
         body.model,
         body,
         true
-      ) as Record<string, unknown>;
+      )) as Record<string, unknown>;
       assert.ok(out && typeof out === "object");
       // Either messages array is non-empty, or content went to system field (system-only body)
       const hasMessages = Array.isArray(out.messages) && (out.messages as unknown[]).length > 0;
@@ -37,7 +37,7 @@ test("translateRequest openai->claude never throws and keeps messages", () => {
   );
 });
 
-test("translateRequest round-trip openai->claude->openai preserves message count for well-formed input", () => {
+test("translateRequest round-trip openai->claude->openai preserves message count for well-formed input", async () => {
   // Generate bodies with properly alternating user/assistant roles (no consecutive same role),
   // optionally preceded by a system message. This is the well-formed case where Claude's
   // merge-consecutive-same-role normalization does NOT collapse messages.
@@ -56,21 +56,21 @@ test("translateRequest round-trip openai->claude->openai preserves message count
     }),
   });
   fc.assert(
-    fc.property(altBodyArb, (body) => {
-      const claude = translateRequest(
+    fc.asyncProperty(altBodyArb, async (body) => {
+      const claude = (await translateRequest(
         FORMATS.OPENAI,
         FORMATS.CLAUDE,
         body.model,
         body,
         true
-      ) as Record<string, unknown>;
-      const back = translateRequest(
+      )) as Record<string, unknown>;
+      const back = (await translateRequest(
         FORMATS.CLAUDE,
         FORMATS.OPENAI,
         body.model,
         claude,
         true
-      ) as Record<string, unknown>;
+      )) as Record<string, unknown>;
       assert.ok(Array.isArray(back.messages));
       assert.equal((back.messages as unknown[]).length, body.messages.length);
     })

@@ -24,6 +24,11 @@ const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
 const { getModelInfo } = await import("../../src/sse/services/model.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test
+// (test.before inserts into provider_nodes — needs icon_url etc. to exist).
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const CONN_ID = "openai-compatible-chat-97b0e595-probe6772";
 const PREFIX = "custpfx6772"; // was "fta"; freetheai (#7602) claimed the "fta" built-in alias, which by design shadows custom-node prefixes
 const RAW_MODEL_ID = "vova/gpt-5.5"; // upstream's own model id already has a slash

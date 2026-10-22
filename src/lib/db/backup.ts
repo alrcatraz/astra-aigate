@@ -54,7 +54,7 @@ async function getStoredDbBackupInteger(
   options: { min: number }
 ): Promise<number | undefined> {
   try {
-    const db = getAsyncDb();
+    const db = await getAsyncDb();
     const row = (await db
       .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
       .get(DB_BACKUP_SETTINGS_NAMESPACE, key)) as { value?: string } | undefined;
@@ -72,7 +72,7 @@ async function setStoredDbBackupInteger(
   options: { min: number }
 ): Promise<void> {
   if (!Number.isInteger(value) || value < options.min) return;
-  const db = getAsyncDb();
+  const db = await getAsyncDb();
   await db
     .prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)")
     .run(DB_BACKUP_SETTINGS_NAMESPACE, key, JSON.stringify(value));
@@ -249,7 +249,7 @@ function parseStoredJson(value: string | undefined): unknown {
  */
 export async function isAutoBackupDisabledBySetting(): Promise<boolean> {
   try {
-    const db = getAsyncDb();
+    const db = await getAsyncDb();
     const rows = (await db
       .prepare("SELECT namespace, key, value FROM key_value WHERE namespace IN (?, ?)")
       .all("settings", "databaseSettings")) as Array<{
@@ -395,7 +395,7 @@ export async function backupDbFile(reason = "auto") {
     const backupFile = path.join(backupDir, `db_${timestamp}_${reason}.sqlite`);
 
     // Use native SQLite backup API for consistency
-    const db = getAsyncDb();
+    const db = await getAsyncDb();
     db.backup(backupFile)
       .then(() => {
         console.log(`[DB] Backup created: ${backupFile} (${stat.size} bytes)`);
@@ -428,38 +428,42 @@ export async function listDbBackups() {
       .reverse();
 
     const { tryOpenSync } = await import("@/lib/db/adapters/driverFactory");
-    return entries.map((filename) => {
-      const filePath = path.join(backupDir, filename);
-      const stat = fs.statSync(filePath);
-      const match = filename.match(/^db_(.+?)_([^.]+)\.sqlite$/);
-      const reason = match ? match[2] : "unknown";
+    // The adapter returned by tryOpenSync is async — an un-awaited .get()
+    // yields a Promise, so connectionCount would read 0 forever.
+    return await Promise.all(
+      entries.map(async (filename) => {
+        const filePath = path.join(backupDir, filename);
+        const stat = fs.statSync(filePath);
+        const match = filename.match(/^db_(.+?)_([^.]+)\.sqlite$/);
+        const reason = match ? match[2] : "unknown";
 
-      let connectionCount = 0;
-      try {
-        const backupDb = tryOpenSync(filePath, { readonly: true });
-        if (backupDb) {
-          try {
-            const row = backupDb
-              .prepare("SELECT COUNT(*) as cnt FROM provider_connections")
-              .get() as CountRow | undefined;
-            connectionCount = Number(row?.cnt ?? 0);
-          } finally {
-            backupDb.close();
+        let connectionCount = 0;
+        try {
+          const backupDb = tryOpenSync(filePath, { readonly: true });
+          if (backupDb) {
+            try {
+              const row = (await backupDb
+                .prepare("SELECT COUNT(*) as cnt FROM provider_connections")
+                .get()) as CountRow | undefined;
+              connectionCount = Number(row?.cnt ?? 0);
+            } finally {
+              await backupDb.close();
+            }
           }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
-      }
 
-      return {
-        id: filename,
-        filename,
-        createdAt: stat.mtime.toISOString(),
-        size: stat.size,
-        reason,
-        connectionCount,
-      };
-    });
+        return {
+          id: filename,
+          filename,
+          createdAt: stat.mtime.toISOString(),
+          size: stat.size,
+          reason,
+          connectionCount,
+        };
+      })
+    );
   } catch {
     return [];
   }
@@ -527,7 +531,7 @@ export async function restoreDbBackup(backupId: string) {
           backupDirForPre,
           `db_${new Date().toISOString().replace(/[:.]/g, "-")}_pre-restore.sqlite`
         );
-        const dbForBackup = getAsyncDb();
+        const dbForBackup = await getAsyncDb();
         await dbForBackup.backup(preBackupPath);
         _lastBackupAt = Date.now();
       }
@@ -565,7 +569,7 @@ export async function restoreDbBackup(backupId: string) {
   fs.copyFileSync(backupPath, sqliteFile);
 
   // Reopen
-  const db = getAsyncDb();
+  const db = await getAsyncDb();
   const connCount =
     (
       (await db.prepare("SELECT COUNT(*) as cnt FROM provider_connections").get()) as
@@ -617,7 +621,7 @@ export interface ExportAllRows {
  * entire export — consistent with the original inline behaviour.
  */
 export async function exportAllSummaryRows(): Promise<ExportAllRows> {
-  const db = getAsyncDb();
+  const db = await getAsyncDb();
 
   const settings: Record<string, string> = {};
   try {
@@ -710,7 +714,7 @@ export async function countImportedRows(): Promise<{
   comboCount: number;
   keyCount: number;
 }> {
-  const db = getAsyncDb();
+  const db = await getAsyncDb();
   const connCount =
     ((await db.prepare("SELECT COUNT(*) as cnt FROM provider_connections").get()) as any)?.cnt || 0;
   const nodeCount =

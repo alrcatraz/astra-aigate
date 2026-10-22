@@ -47,7 +47,7 @@ describe("modelContextOverrides", () => {
     assert.equal(rec?.modelId, "gpt-5");
   });
 
-  it("upserts on the same (provider, model) key and records the source", () => {
+  it("upserts on the same (provider, model) key and records the source", async () => {
     mco.setModelContextOverride("anthropic", "claude-sonnet-4-5", 200000, "auto:discovery");
     assert.equal(
       mco.getModelContextOverrideRecord("anthropic", "claude-sonnet-4-5")?.source,
@@ -58,7 +58,7 @@ describe("modelContextOverrides", () => {
     const rec = mco.getModelContextOverrideRecord("anthropic", "claude-sonnet-4-5");
     assert.equal(rec?.realContext, 1000000);
     assert.equal(rec?.source, "manual");
-    assert.equal(mco.listModelContextOverrides().length, 1);
+    assert.equal((await mco.listModelContextOverrides()).length, 1);
   });
 
   it("rejects non-positive / non-integer windows and empty keys (no write)", () => {
@@ -75,11 +75,11 @@ describe("modelContextOverrides", () => {
     assert.equal(mco.getModelContextOverride("openai", "gpt-5"), 333000);
   });
 
-  it("removes an override", () => {
-    mco.setModelContextOverride("groq", "llama-3.3-70b", 128000);
-    assert.equal(mco.removeModelContextOverride("groq", "llama-3.3-70b"), true);
-    assert.equal(mco.getModelContextOverride("groq", "llama-3.3-70b"), null);
-    assert.equal(mco.removeModelContextOverride("groq", "llama-3.3-70b"), false);
+  it("removes an override", async () => {
+    await mco.setModelContextOverride("groq", "llama-3.3-70b", 128000);
+    assert.equal(await mco.removeModelContextOverride("groq", "llama-3.3-70b"), true);
+    assert.equal(await mco.getModelContextOverride("groq", "llama-3.3-70b"), null);
+    assert.equal(await mco.removeModelContextOverride("groq", "llama-3.3-70b"), false);
   });
 
   it("lists all overrides", async () => {

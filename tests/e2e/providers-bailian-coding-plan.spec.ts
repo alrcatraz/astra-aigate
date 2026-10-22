@@ -1,5 +1,52 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { gotoDashboardRoute } from "./helpers/dashboardAuth";
+
+// When the credential modal does not appear, a bare "element(s) not found" is
+// undiagnosable from CI: it could be a different accessible name, a different
+// dialog, or the click having opened nothing at all. Report what the page
+// actually offers so one CI log is enough to fix the locator.
+async function describeDialogs(page: Page): Promise<string> {
+  const dialogs = page.getByRole("dialog");
+  const n = await dialogs.count();
+  const seen: string[] = [];
+  for (let i = 0; i < Math.min(n, 5); i++) {
+    const d = dialogs.nth(i);
+    const label = await d.getAttribute("aria-label").catch(() => null);
+    const text = (await d.innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 140);
+    seen.push(`[${i}] ariaLabel=${JSON.stringify(label)} text=${JSON.stringify(text)}`);
+  }
+  const buttons = (await page.getByRole("button").allInnerTexts())
+    .map((s) => s.trim().replace(/\s+/g, " "))
+    .filter(Boolean)
+    .slice(0, 20);
+  const urlFields = await page.getByLabel(/url/i).count();
+  const dialogButtons =
+    n > 0
+      ? (await dialogs.first().getByRole("button").allInnerTexts())
+          .map((s) => s.trim().replace(/\s+/g, " "))
+          .filter(Boolean)
+      : [];
+  const dialogInputs = n > 0 ? await dialogs.first().locator("input").count() : 0;
+  const dialogLabels =
+    n > 0 ? (await dialogs.first().locator("label").allInnerTexts()).map((s) => s.trim()) : [];
+  const dialogText =
+    n > 0
+      ? (
+          await dialogs
+            .first()
+            .innerText()
+            .catch(() => "")
+        )
+          .replace(/\s+/g, " ")
+          .slice(0, 400)
+      : "";
+  return (
+    `dialogs=${n} {${seen.join(" | ")}} urlLabelledInputs=${urlFields} ` +
+    `buttons=${JSON.stringify(buttons)} dialogButtons=${JSON.stringify(dialogButtons)} ` +
+    `dialogInputs=${dialogInputs} dialogLabels=${JSON.stringify(dialogLabels)} ` +
+    `dialogText=${JSON.stringify(dialogText)}`
+  );
+}
 
 const DEFAULT_BAILIAN_URL = "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1";
 
@@ -77,14 +124,41 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    const dialog = page.getByRole("dialog").first();
-    await expect(dialog).toBeVisible({ timeout: 10000 });
+    // This modal carries no aria-label and its heading changes as it advances, so the
+    // accessible name is not a stable handle: the browser reports
+    // "Add Connection · Alibaba Token Plan" on the region step and
+    // "Add Alibaba Token Plan API Key" once a region is chosen. Address the role and
+    // assert on content, which is what the user does.
+    const dialog = page.getByRole("dialog").last();
+    try {
+      await expect(dialog).toBeVisible({ timeout: 10000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report ---\n${await describeDialogs(page)}`
+      );
+    }
 
-    const baseUrlInput = dialog
-      .getByLabel(/base.*url/i)
-      .or(dialog.locator("input").filter({ has: page.locator("..").getByText(/base.*url/i) }));
+    // Step 1 — region chooser ("Which region are you using?"). Choosing a region
+    // swaps the same dialog over to the credential form; Singapore is the
+    // international endpoint the default URL points at. Tolerate an entry point that
+    // already shows the form so the spec does not encode one route as the only one.
+    const singapore = dialog.getByRole("button", { name: /singapore/i });
+    if ((await singapore.count()) > 0) {
+      await singapore.click();
+    }
 
-    await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
+    // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
+    // valid relative selector here and could never match anything.
+    const baseUrlInput = dialog.getByLabel(/base.*url/i);
+
+    try {
+      await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report (first paint) ---\n${await describeDialogs(page)}`
+      );
+    }
 
     const inputValue = await baseUrlInput.inputValue();
     expect(inputValue).toBe(DEFAULT_BAILIAN_URL);
@@ -188,13 +262,40 @@ test.describe("Bailian Coding Plan Provider", () => {
     await expect(addKeyButton.first()).toBeEnabled({ timeout: 5000 });
     await addKeyButton.first().click();
 
-    const dialog = page.getByRole("dialog").first();
-    await expect(dialog).toBeVisible({ timeout: 10000 });
+    // This modal carries no aria-label and its heading changes as it advances, so the
+    // accessible name is not a stable handle: the browser reports
+    // "Add Connection · Alibaba Token Plan" on the region step and
+    // "Add Alibaba Token Plan API Key" once a region is chosen. Address the role and
+    // assert on content, which is what the user does.
+    const dialog = page.getByRole("dialog").last();
+    try {
+      await expect(dialog).toBeVisible({ timeout: 10000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report ---\n${await describeDialogs(page)}`
+      );
+    }
 
-    const baseUrlInput = dialog
-      .getByLabel(/base.*url/i)
-      .or(dialog.locator("input").filter({ has: page.locator("..").getByText(/base.*url/i) }));
-    await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    // Step 1 — region chooser ("Which region are you using?"). Choosing a region
+    // swaps the same dialog over to the credential form; Singapore is the
+    // international endpoint the default URL points at. Tolerate an entry point that
+    // already shows the form so the spec does not encode one route as the only one.
+    const singapore = dialog.getByRole("button", { name: /singapore/i });
+    if ((await singapore.count()) > 0) {
+      await singapore.click();
+    }
+
+    // The shared Input wires its label to the field via htmlFor/useId, so getByLabel
+    // is exact; the old `.or(…)` fallback hopped with `locator("..")`, which is not a
+    // valid relative selector here and could never match anything.
+    const baseUrlInput = dialog.getByLabel(/base.*url/i);
+    try {
+      await expect(baseUrlInput).toBeVisible({ timeout: 15000 });
+    } catch (err) {
+      throw new Error(
+        `${(err as Error).message}\n--- page report (first paint) ---\n${await describeDialogs(page)}`
+      );
+    }
 
     const nameInput = dialog.getByLabel(/name/i).or(dialog.locator("input").first());
     await nameInput.fill("Test Invalid URL Connection");

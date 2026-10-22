@@ -116,7 +116,10 @@ test("codewhale-settings POST: writes primary ~/.codewhale/config.toml for a fre
       const primaryPath = path.join(tmpHome, ".codewhale", "config.toml");
       assert.ok(fs.existsSync(primaryPath), "Primary ~/.codewhale/config.toml must be written");
       const content = fs.readFileSync(primaryPath, "utf-8");
-      assert.ok(content.includes("managed by OmniRoute"), "Config should have OmniRoute marker");
+      assert.ok(
+        content.includes("managed by AI Gate") || content.includes("managed by OmniRoute"),
+        "Config should have the managed-by marker (AI Gate, or OmniRoute for pre-rebrand)"
+      );
       assert.ok(content.includes("http://localhost:20128"), "Config should contain base URL");
       assert.ok(content.includes("[openai]"), "Config should have [openai] section");
 

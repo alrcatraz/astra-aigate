@@ -20,10 +20,35 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("next-intl", () => ({
-  useTranslations: (ns: string) => (key: string) => `${ns}.${key}`,
-  useLocale: () => "en",
-}));
+// Two faithful-mock requirements, both learned the hard way:
+//  1. next-intl's real useTranslations returns a STABLE function per namespace
+//     across renders. Returning a fresh closure breaks consumers that (correctly)
+//     list `t` in a useCallback/useEffect dependency — the callback identity
+//     changes every render, the effect re-fires, and act() never settles, so the
+//     suite hangs until the 5s test timeout.
+//  2. The strings must be the real English copy: these cases assert on
+//     "CLI profile auto-sync" / "Codex profiles" (and on aria-labels derived
+//     from the same keys), not on `ns.key` placeholders.
+vi.mock("next-intl", async () => {
+  const mod = (await import("../../../src/i18n/messages/en.json")) as {
+    default: Record<string, unknown>;
+  };
+  const messages = mod.default;
+  const cache = new Map<string, (key: string) => string>();
+  const useTranslations = (ns: string) => {
+    let fn = cache.get(ns);
+    if (!fn) {
+      const table = (messages[ns] ?? {}) as Record<string, unknown>;
+      fn = (key: string) => {
+        const value = table[key];
+        return typeof value === "string" ? value : `${ns}.${key}`;
+      };
+      cache.set(ns, fn);
+    }
+    return fn;
+  };
+  return { useTranslations, useLocale: () => "en" };
+});
 
 // Mock CLI components so tests don't pull in their heavy dependencies
 vi.mock("@/shared/components/cli", () => ({

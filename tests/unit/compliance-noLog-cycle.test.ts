@@ -40,6 +40,6 @@ test("noLog state set via compliance/index is visible via compliance/noLog", asy
   const compliance = await import("../../src/lib/compliance/index.ts");
   const noLog = await import("../../src/lib/compliance/noLog.ts");
   compliance.setNoLog("__test-cycle-key__", true);
-  assert.equal(noLog.isNoLog("__test-cycle-key__"), true);
+  assert.equal(await noLog.isNoLog("__test-cycle-key__"), true);
   compliance.setNoLog("__test-cycle-key__", false);
 });

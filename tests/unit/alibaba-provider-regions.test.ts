@@ -35,6 +35,12 @@ test("Alibaba-family endpoint matrix keeps product and region boundaries distinc
       "global-sg": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
       "china-beijing": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
     },
+    // zhipu joined the regional matrix in d3988f76 (方案D GLM/Z.AI merged into a
+    // single provider): CN endpoint on bigmodel.cn, global on api.z.ai.
+    zhipu: {
+      "china-beijing": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "global-sg": "https://api.z.ai/api/paas/v4/chat/completions",
+    },
   });
 });
 

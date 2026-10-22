@@ -136,13 +136,13 @@ test("upsertAllocations: saving allocations on pool A propagates to pool B (same
   await poolsDb.upsertAllocations(poolA.id, [{ apiKeyId: "k1", weight: 50, policy: "hard" }]);
 
   // Pool A should have the row
-  const allocsA = getAllocs(poolA.id);
+  const allocsA = await getAllocs(poolA.id);
   assert.equal(allocsA.length, 1, "pool A should have 1 allocation");
   assert.equal(allocsA[0].apiKeyId, "k1");
   assert.equal(allocsA[0].weight, 50);
 
   // Pool B should also have the SAME row (propagation)
-  const allocsB = getAllocs(poolB.id);
+  const allocsB = await getAllocs(poolB.id);
   assert.equal(allocsB.length, 1, "pool B should have 1 propagated allocation");
   assert.equal(allocsB[0].apiKeyId, "k1", "propagated row should have same apiKeyId");
   assert.equal(allocsB[0].weight, 50, "propagated row should have same weight");
@@ -180,11 +180,11 @@ test("upsertAllocations: re-upsert replaces propagated rows (idempotent)", async
   await poolsDb.upsertAllocations(poolA.id, [{ apiKeyId: "k1", weight: 70, policy: "hard" }]);
 
   // Both pools should have exactly 1 row (not 2+1)
-  const allocsA = getAllocs(poolA.id);
+  const allocsA = await getAllocs(poolA.id);
   assert.equal(allocsA.length, 1, "pool A: replace, not append");
   assert.equal(allocsA[0].weight, 70, "pool A: new weight");
 
-  const allocsB = getAllocs(poolB.id);
+  const allocsB = await getAllocs(poolB.id);
   assert.equal(allocsB.length, 1, "pool B: same replacement via propagation");
   assert.equal(allocsB[0].weight, 70, "pool B: new weight propagated");
   assert.equal(allocsB[0].apiKeyId, "k1", "pool B: only k1 remains");
@@ -218,11 +218,11 @@ test("upsertAllocations: single-pool group — only that pool is written", async
   await poolsDb.upsertAllocations(poolZ.id, [{ apiKeyId: "k3", weight: 100, policy: "hard" }]);
 
   // poolZ should have the row
-  assert.equal(getAllocs(poolZ.id).length, 1, "poolZ should have 1 allocation");
+  assert.equal((await getAllocs(poolZ.id)).length, 1, "poolZ should have 1 allocation");
 
   // poolO (different group) should have NO rows
   assert.equal(
-    getAllocs(poolO.id).length,
+    (await getAllocs(poolO.id)).length,
     0,
     "poolO (different group) must not receive propagated rows"
   );
@@ -253,7 +253,7 @@ test("enforceQuotaShare: key k1 allocated via pool A is enforced when calling po
   await poolsDb.upsertAllocations(poolA.id, [{ apiKeyId: "k1", weight: 50, policy: "hard" }]);
 
   // Verify propagation happened (sanity)
-  const allocsB = getAllocs(poolB.id);
+  const allocsB = await getAllocs(poolB.id);
   assert.equal(allocsB.length, 1, "pool B must have the propagated allocation before enforce");
   assert.equal(allocsB[0].apiKeyId, "k1");
 
@@ -401,7 +401,7 @@ test("upsertAllocations: propagates to all 3 pools in the same group", async () 
     ["B", poolB.id],
     ["C", poolC.id],
   ] as [string, string][]) {
-    const allocs = getAllocs(pid);
+    const allocs = await getAllocs(pid);
     assert.equal(allocs.length, 2, `pool ${label} should have 2 allocations`);
     const k6a = allocs.find((a) => a.apiKeyId === "k6a");
     const k6b = allocs.find((a) => a.apiKeyId === "k6b");

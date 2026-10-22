@@ -10,6 +10,16 @@ import {
   type TranslationFn as CostTranslationFn,
 } from "@/shared/utils/serviceTierLabels";
 import dynamic from "next/dynamic";
+import type {
+  UsageAnalyticsSummary,
+  UsageAnalyticsProviderRow,
+  UsageAnalyticsModelRow,
+  UsageAnalyticsTrendRow,
+  UsageAnalyticsApiKeyRow,
+  UsageAnalyticsAccountRow,
+  UsageAnalyticsServiceTierRow,
+  UsageAnalyticsPayload,
+} from "./costAnalyticsTypes";
 
 const CostTrendCard = dynamic(
   () => import("./components/CostCharts").then((m) => ({ default: m.CostTrendCard })),
@@ -42,93 +52,6 @@ import { ApiKeyUsageLimitCard } from "./components/ApiKeyUsageLimitCard";
 import { MetricCard } from "./components/MetricCard";
 import { TopListCard } from "./components/TopListCard";
 import { useApiKeyUsageLimits } from "./useApiKeyUsageLimits";
-
-interface UsageAnalyticsSummary {
-  totalCost: number;
-  totalCostUsd: number;
-  totalCostCny: number;
-  costCurrency: "USD" | "CNY";
-  fxRateUsdCny: number;
-  totalRequests: number;
-  uniqueModels: number;
-  uniqueAccounts: number;
-  uniqueApiKeys: number;
-  totalTokens: number;
-  promptTokens: number;
-  completionTokens: number;
-  fallbackCount: number;
-  fallbackRatePct: number;
-  requestedModelCoveragePct: number;
-  streak: number;
-  flexRequests?: number;
-  flexCost?: number;
-  flexSavings?: number;
-  flexUsageSavingsTokens?: number;
-}
-
-interface UsageAnalyticsProviderRow {
-  provider: string;
-  requests: number;
-  totalTokens: number;
-  cost: number;
-  currency?: "USD" | "CNY";
-}
-
-interface UsageAnalyticsModelRow {
-  model: string;
-  requests: number;
-  totalTokens: number;
-  cost: number;
-}
-
-interface UsageAnalyticsTrendRow {
-  date: string;
-  cost: number;
-}
-
-interface UsageAnalyticsApiKeyRow {
-  apiKey: string;
-  apiKeyId: string | null;
-  apiKeyName: string;
-  requests: number;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  cost: number;
-}
-
-interface UsageAnalyticsAccountRow {
-  account: string;
-  totalTokens: number;
-  requests: number;
-  cost: number;
-  currency?: "USD" | "CNY";
-}
-
-interface UsageAnalyticsServiceTierRow {
-  serviceTier: "standard" | "priority" | "flex";
-  label: string;
-  requests: number;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  cost: number;
-  savings?: number;
-  usageSavingsTokens?: number;
-}
-
-interface UsageAnalyticsPayload {
-  summary: UsageAnalyticsSummary;
-  byProvider: UsageAnalyticsProviderRow[];
-  byModel: UsageAnalyticsModelRow[];
-  byApiKey: UsageAnalyticsApiKeyRow[];
-  byAccount: UsageAnalyticsAccountRow[];
-  byServiceTier?: UsageAnalyticsServiceTierRow[];
-  dailyTrend: UsageAnalyticsTrendRow[];
-  weeklyPattern: Array<{ day: string; avgTokens: number; totalTokens: number }>;
-  activityMap: Record<string, number>;
-  presetSummaries?: Record<string, { totalCost: number }>;
-}
 
 const RANGE_OPTIONS: Array<{ value: CostRange; labelKey: string }> = [
   { value: "7d", labelKey: "range7d" },

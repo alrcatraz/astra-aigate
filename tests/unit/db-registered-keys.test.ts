@@ -37,15 +37,15 @@ test("registered keys issue, validate, consume budget and revoke correctly", asy
   });
 
   assert.match(issued.rawKey, /^ork_/);
-  assert.equal(registeredKeysDb.getRegisteredKey(issued.id).name, "Primary key");
-  assert.equal(registeredKeysDb.validateRegisteredKey(issued.rawKey).id, issued.id);
+  assert.equal((await registeredKeysDb.getRegisteredKey(issued.id))!.name, "Primary key");
+  assert.equal((await registeredKeysDb.validateRegisteredKey(issued.rawKey))!.id, issued.id);
 
   await registeredKeysDb.incrementRegisteredKeyUsage(issued.id);
   await registeredKeysDb.incrementRegisteredKeyUsage(issued.id);
-  assert.equal(registeredKeysDb.validateRegisteredKey(issued.rawKey), null);
+  assert.equal(await registeredKeysDb.validateRegisteredKey(issued.rawKey), null);
 
-  assert.equal(registeredKeysDb.revokeRegisteredKey(issued.id), true);
-  assert.equal(registeredKeysDb.revokeRegisteredKey(issued.id), false);
+  assert.equal(await registeredKeysDb.revokeRegisteredKey(issued.id), true);
+  assert.equal(await registeredKeysDb.revokeRegisteredKey(issued.id), false);
 });
 
 test("registered keys honor idempotency and list filters", async () => {
@@ -64,8 +64,14 @@ test("registered keys honor idempotency and list filters", async () => {
 
   assert.equal(second.idempotencyConflict, true);
   assert.equal(second.existing.id, first.id);
-  assert.equal(registeredKeysDb.listRegisteredKeys({ provider: "anthropic" }).length, 1);
-  assert.equal(registeredKeysDb.listRegisteredKeys({ accountId: "acct-2" }).length, 1);
+  assert.equal(
+    (await registeredKeysDb.listRegisteredKeys({ provider: "anthropic" })).items.length,
+    1
+  );
+  assert.equal(
+    (await registeredKeysDb.listRegisteredKeys({ accountId: "acct-2" })).items.length,
+    1
+  );
 });
 
 test("registered keys enforce provider and account quota limits", async () => {
@@ -86,8 +92,8 @@ test("registered keys enforce provider and account quota limits", async () => {
     accountId: "acct-3",
   });
 
-  assert.equal(registeredKeysDb.getProviderKeyLimit("openai").dailyIssued, 1);
-  assert.equal(registeredKeysDb.getAccountKeyLimit("acct-3").dailyIssued, 1);
+  assert.equal((await registeredKeysDb.getProviderKeyLimit("openai"))!.dailyIssued, 1);
+  assert.equal((await registeredKeysDb.getAccountKeyLimit("acct-3"))!.dailyIssued, 1);
 
   const providerQuota = await registeredKeysDb.checkQuota("openai", "");
   assert.equal(providerQuota.allowed, false);

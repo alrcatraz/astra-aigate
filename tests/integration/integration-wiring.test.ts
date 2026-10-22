@@ -281,9 +281,17 @@ describe("API Routes — dashboard and tool consumers", () => {
 
     assert.ok(requestLogger, "RequestLoggerV2 should exist");
     assert.ok(globals, "globals.css should exist");
-    assert.match(globals, /--color-card:\s+#ffffff/);
-    assert.match(globals, /--color-card:\s+#161b22/);
-    assert.match(globals, /--color-card:\s+var\(--color-card\)/);
+    // Every --color-card definition must be an opaque 6-digit hex: translucent
+    // (rgba/alpha) card tokens let content show through the request-log surface.
+    const cardTokens = [...globals.matchAll(/--color-card:\s*([^;]+);/g)].map((m) => m[1].trim());
+    assert.ok(cardTokens.length > 0, "globals.css should define --color-card");
+    for (const token of cardTokens) {
+      assert.match(
+        token,
+        /^#[0-9a-fA-F]{6}$/,
+        `--color-card must be an opaque hex, got "${token}"`
+      );
+    }
     // #4233 ("opaque tables D9") replaced the bg-black/5 tint — which lost to
     // bg-surface via tailwind-merge — with the opaque bg-surface theme color.
     // The intent here (request log surface stays opaque over theme colors) is now

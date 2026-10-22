@@ -125,7 +125,7 @@ describe("postgresDialect.translateSqliteToPostgres", () => {
   it("rewrites strftime('%s', expr)", () => {
     assert.equal(
       translateSqliteToPostgres("SELECT strftime('%s', created_at) FROM t"),
-      "SELECT EXTRACT(EPOCH FROM created_at) FROM t"
+      "SELECT (EXTRACT(EPOCH FROM (created_at)::timestamptz)) FROM t"
     );
   });
 

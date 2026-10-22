@@ -42,6 +42,11 @@ const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
 const { syncQuotaCombos } = await import("../../src/lib/quota/quotaCombos.ts");
 const { isQuotaModelName } = await import("../../src/lib/quota/quotaModelNaming.ts");
 
+// Full-async DB init: migrations run in the background of getDbInstance(), so the first
+// write below must wait for them or it fails with "no such table: quota_groups".
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const originalFetch = globalThis.fetch;
 let openRouterCalls = 0;
 

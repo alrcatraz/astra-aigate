@@ -336,7 +336,7 @@ test("handleComboChat context-relay respects handoffProviders and skips generati
   assert.equal(result.ok, true);
   assert.equal(usageCalls, 0);
   assert.equal(summaryCalls, 0);
-  assert.equal(handoffDb.getHandoff(sessionId, "relay-disabled-provider"), null);
+  assert.equal(await handoffDb.getHandoff(sessionId, "relay-disabled-provider"), null);
 });
 
 test("handleComboChat context-relay treats explicit empty handoffProviders as disabled", async () => {
@@ -384,7 +384,7 @@ test("handleComboChat context-relay treats explicit empty handoffProviders as di
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(result.ok, true);
   assert.equal(usageCalls, 0);
-  assert.equal(handoffDb.getHandoff(sessionId, "relay-empty-providers"), null);
+  assert.equal(await handoffDb.getHandoff(sessionId, "relay-empty-providers"), null);
 });
 
 test("getLastSessionModel uses latest id as deterministic tie-breaker", async () => {
@@ -403,7 +403,7 @@ test("getLastSessionModel uses latest id as deterministic tie-breaker", async ()
     )
     .run("2026-05-26 12:00:00", sessionId, comboName);
 
-  assert.equal(handoffDb.getLastSessionModel(sessionId, comboName), "anthropic/new");
+  assert.equal(await handoffDb.getLastSessionModel(sessionId, comboName), "anthropic/new");
 });
 
 test("handleComboChat universal handoff does not accumulate injected handoffs across fallback targets", async () => {
@@ -648,16 +648,19 @@ test("clearSessionModelHistoryForCombo removes all pins for a combo", async () =
   );
 
   // Sanity: pins exist
-  assert.equal(handoffDb.getLastSessionModel("sess-A", comboName), "openai/gpt-4o");
-  assert.equal(handoffDb.getLastSessionModel("sess-B", comboName), "anthropic/claude-3-5-sonnet");
+  assert.equal(await handoffDb.getLastSessionModel("sess-A", comboName), "openai/gpt-4o");
+  assert.equal(
+    await handoffDb.getLastSessionModel("sess-B", comboName),
+    "anthropic/claude-3-5-sonnet"
+  );
 
   // Clear pins for this combo
   const cleared = await handoffDb.clearSessionModelHistoryForCombo(comboName);
   assert.ok(cleared >= 2, `should have cleared at least 2 entries, got ${cleared}`);
 
   // Pins are gone
-  assert.equal(handoffDb.getLastSessionModel("sess-A", comboName), null);
-  assert.equal(handoffDb.getLastSessionModel("sess-B", comboName), null);
+  assert.equal(await handoffDb.getLastSessionModel("sess-A", comboName), null);
+  assert.equal(await handoffDb.getLastSessionModel("sess-B", comboName), null);
 });
 
 test("clearSessionModelHistoryForCombo does not affect other combos", async () => {
@@ -676,7 +679,7 @@ test("clearSessionModelHistoryForCombo does not affect other combos", async () =
   await handoffDb.clearSessionModelHistoryForCombo(comboB);
 
   // comboA is untouched
-  assert.equal(handoffDb.getLastSessionModel("sess-1", comboA), "openai/gpt-4o");
+  assert.equal(await handoffDb.getLastSessionModel("sess-1", comboA), "openai/gpt-4o");
   // comboB is cleared
-  assert.equal(handoffDb.getLastSessionModel("sess-1", comboB), null);
+  assert.equal(await handoffDb.getLastSessionModel("sess-1", comboB), null);
 });

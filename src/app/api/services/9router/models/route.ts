@@ -45,7 +45,7 @@ export async function GET(request: Request): Promise<Response> {
       await syncServiceModels(TOOL, baseUrl, apiKey);
     }
 
-    const models = getServiceModels(TOOL);
+    const models = await getServiceModels(TOOL);
     return Response.json({ data: models });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));

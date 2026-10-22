@@ -43,6 +43,12 @@ function getFsErrorCode(error: unknown): string | undefined {
 async function resetStorage() {
   apiKeysDb.resetApiKeyState();
   costRules.resetCostData();
+  // resetCostData() fires domainState.deleteAllCostData() WITHOUT awaiting it
+  // (src/domain/costRules.ts), so the floating DELETE can land after the next
+  // resetDbInstanceDrained() closes the handle ("The database connection is
+  // not open" → unhandledRejection attributed to this hook). Give it a beat
+  // to finish while the current connection is still open.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await coreDb.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -119,6 +125,7 @@ test.beforeEach(async () => {
 test.after(async () => {
   apiKeysDb.resetApiKeyState();
   costRules.resetCostData();
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await coreDb.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
@@ -474,7 +481,7 @@ test("enforceApiKeyPolicy rejects disallowed models and exhausted budgets", asyn
   assert.match(await readErrorMessage(disallowed.rejection), /not allowed/);
 
   const budgetMeta = await apiKeysDb.getApiKeyMetadata(budgetedKey.key);
-  costRules.setBudget(budgetMeta.id, { dailyLimitUsd: 1, warningThreshold: 0.5 });
+  await costRules.setBudget(budgetMeta.id, { dailyLimitUsd: 1, warningThreshold: 0.5 });
   costRules.recordCost(budgetMeta.id, 2);
 
   const overBudget = await policy.enforceApiKeyPolicy(

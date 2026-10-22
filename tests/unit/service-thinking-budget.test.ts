@@ -9,21 +9,21 @@ describe("thinkingBudget", () => {
   });
 
   describe("constants", () => {
-    it("ThinkingMode has expected values", () => {
+    it("ThinkingMode has expected values", async () => {
       assert.equal(mod.ThinkingMode.AUTO, "auto");
       assert.equal(mod.ThinkingMode.PASSTHROUGH, "passthrough");
       assert.equal(mod.ThinkingMode.CUSTOM, "custom");
       assert.equal(mod.ThinkingMode.ADAPTIVE, "adaptive");
     });
 
-    it("EFFORT_BUDGETS has expected keys", () => {
+    it("EFFORT_BUDGETS has expected keys", async () => {
       assert.equal(mod.EFFORT_BUDGETS.none, 0);
       assert.equal(mod.EFFORT_BUDGETS.low, 1024);
       assert.equal(mod.EFFORT_BUDGETS.medium, 10240);
       assert.equal(mod.EFFORT_BUDGETS.high, 131072);
     });
 
-    it("THINKING_LEVEL_MAP has expected keys", () => {
+    it("THINKING_LEVEL_MAP has expected keys", async () => {
       assert.equal(mod.THINKING_LEVEL_MAP.none, 0);
       assert.equal(mod.THINKING_LEVEL_MAP.low, 4096);
       assert.equal(mod.THINKING_LEVEL_MAP.medium, 8192);
@@ -31,7 +31,7 @@ describe("thinkingBudget", () => {
       assert.equal(mod.THINKING_LEVEL_MAP.max, 131072);
     });
 
-    it("DEFAULT_THINKING_CONFIG has expected shape", () => {
+    it("DEFAULT_THINKING_CONFIG has expected shape", async () => {
       assert.equal(mod.DEFAULT_THINKING_CONFIG.mode, "passthrough");
       assert.equal(mod.DEFAULT_THINKING_CONFIG.customBudget, 10240);
       assert.equal(mod.DEFAULT_THINKING_CONFIG.effortLevel, "medium");
@@ -39,21 +39,21 @@ describe("thinkingBudget", () => {
   });
 
   describe("setThinkingBudgetConfig / getThinkingBudgetConfig", () => {
-    it("sets and gets config", () => {
+    it("sets and gets config", async () => {
       mod.setThinkingBudgetConfig({ mode: mod.ThinkingMode.CUSTOM, customBudget: 5000 });
       const config = mod.getThinkingBudgetConfig();
       assert.equal(config.mode, "custom");
       assert.equal(config.customBudget, 5000);
     });
 
-    it("merges with defaults", () => {
+    it("merges with defaults", async () => {
       mod.setThinkingBudgetConfig({ mode: mod.ThinkingMode.AUTO });
       const config = mod.getThinkingBudgetConfig();
       assert.equal(config.mode, "auto");
       assert.equal(config.customBudget, 10240); // default
     });
 
-    it("getThinkingBudgetConfig returns copy", () => {
+    it("getThinkingBudgetConfig returns copy", async () => {
       const c1 = mod.getThinkingBudgetConfig();
       const c2 = mod.getThinkingBudgetConfig();
       assert.deepEqual(c1, c2);
@@ -62,75 +62,78 @@ describe("thinkingBudget", () => {
   });
 
   describe("normalizeThinkingLevel", () => {
-    it("returns body unchanged for null", () => {
-      assert.equal(mod.normalizeThinkingLevel(null), null);
+    it("returns body unchanged for null", async () => {
+      assert.equal(await mod.normalizeThinkingLevel(null), null);
     });
 
-    it("converts string thinkingLevel to numeric budget", () => {
+    it("converts string thinkingLevel to numeric budget", async () => {
       const body = { thinkingLevel: "high", model: "test-model" };
-      const result = mod.normalizeThinkingLevel(body);
+      const result = await mod.normalizeThinkingLevel(body);
       assert.ok(result.thinking !== undefined);
       assert.equal(result.thinking.type, "enabled");
       assert.ok(result.thinking.budget_tokens > 0);
       assert.equal(result.thinkingLevel, undefined);
     });
 
-    it("handles thinking_level snake_case", () => {
+    it("handles thinking_level snake_case", async () => {
       const body = { thinking_level: "medium", model: "test" };
-      const result = mod.normalizeThinkingLevel(body);
+      const result = await mod.normalizeThinkingLevel(body);
       assert.ok(result.thinking !== undefined);
       assert.equal(result.thinking_level, undefined);
     });
 
-    it("handles none level", () => {
+    it("handles none level", async () => {
       const body = { thinkingLevel: "none", model: "test" };
-      const result = mod.normalizeThinkingLevel(body);
+      const result = await mod.normalizeThinkingLevel(body);
       assert.equal(result.thinking.type, "disabled");
       assert.equal(result.thinking.budget_tokens, 0);
     });
 
-    it("ignores unknown level strings", () => {
+    it("ignores unknown level strings", async () => {
       const body = { thinkingLevel: "super-ultra", model: "test" };
-      const result = mod.normalizeThinkingLevel(body);
+      const result = await mod.normalizeThinkingLevel(body);
       assert.equal(result.thinking, undefined);
     });
   });
 
   describe("ensureThinkingConfig", () => {
-    it("returns body unchanged for null", () => {
-      assert.equal(mod.ensureThinkingConfig(null), null);
+    it("returns body unchanged for null", async () => {
+      assert.equal(await mod.ensureThinkingConfig(null), null);
     });
 
-    it("injects thinking for -thinking suffix models", () => {
+    it("injects thinking for -thinking suffix models", async () => {
       const body = { model: "claude-3-opus-thinking", messages: [] };
-      const result = mod.ensureThinkingConfig(body);
+      const result = await mod.ensureThinkingConfig(body);
       assert.ok(result.thinking !== undefined);
       assert.equal(result.thinking.type, "enabled");
       assert.ok(result.thinking.budget_tokens > 0);
     });
 
-    it("does not override existing thinking config", () => {
-      const body = { model: "claude-3-opus-thinking", thinking: { type: "enabled", budget_tokens: 999 } };
-      const result = mod.ensureThinkingConfig(body);
+    it("does not override existing thinking config", async () => {
+      const body = {
+        model: "claude-3-opus-thinking",
+        thinking: { type: "enabled", budget_tokens: 999 },
+      };
+      const result = await mod.ensureThinkingConfig(body);
       assert.equal(result.thinking.budget_tokens, 999);
     });
 
-    it("ignores models without -thinking suffix", () => {
+    it("ignores models without -thinking suffix", async () => {
       const body = { model: "gpt-4" };
-      const result = mod.ensureThinkingConfig(body);
+      const result = await mod.ensureThinkingConfig(body);
       assert.equal(result.thinking, undefined);
     });
   });
 
   describe("applyThinkingBudget", () => {
-    it("returns body for null input", () => {
-      assert.equal(mod.applyThinkingBudget(null), null);
+    it("returns body for null input", async () => {
+      assert.equal(await mod.applyThinkingBudget(null), null);
     });
 
-    it("applies passthrough mode (no changes)", () => {
+    it("applies passthrough mode (no changes)", async () => {
       mod.setThinkingBudgetConfig({ mode: mod.ThinkingMode.PASSTHROUGH });
       const body = { model: "test", messages: [] };
-      const result = mod.applyThinkingBudget(body);
+      const result = await mod.applyThinkingBudget(body);
       assert.ok(result);
     });
   });

@@ -95,6 +95,16 @@ describe("Task Fitness", () => {
   });
 
   describe("-free alias resolution (#4517)", () => {
+    beforeAll(async () => {
+      // These tests seed `model_intelligence` directly. That table is created
+      // by migration 097, which the DB open kicks off asynchronously — await it
+      // (and force the open) so the seed/override statements don't hit
+      // "no such table: model_intelligence".
+      const { getDbInstance, awaitDbMigrations } = await import("../../../../src/lib/db/core.ts");
+      getDbInstance();
+      await awaitDbMigrations();
+    });
+
     beforeEach(() => invalidateFitnessCache());
 
     it("returns the base model's arena_elo when given a -free variant", async () => {

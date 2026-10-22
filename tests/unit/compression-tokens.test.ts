@@ -31,7 +31,7 @@ test("tokensCompressed round-trips through saveCallLog → getCallLogs", async (
 
     const db = core.getDbInstance();
     const runner = await freshImport("../../src/lib/db/migrationRunner.ts");
-    await runner.runMigrations(db);
+    await runner.runMigrations(core.sqliteAsyncAdapter(db));
 
     const callLogs = await freshImport("../../src/lib/usage/callLogs.ts");
 
@@ -83,5 +83,4 @@ test("tokensCompressed round-trips through saveCallLog → getCallLogs", async (
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
-  await core.awaitDbMigrations();
 });

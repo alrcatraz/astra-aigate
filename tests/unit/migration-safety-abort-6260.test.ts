@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
-import { resetDbInstance } from "../../src/lib/db/core.ts";
+import { resetDbInstanceDrained } from "../../src/lib/db/core.ts";
 
 // Regression guard for #6260:
 //   1. The mass-migration safety-abort message must tell the operator how to
@@ -22,7 +22,7 @@ async function importFresh(modulePath: string) {
   return import(`${url}?test=${Date.now()}-${Math.random().toString(16).slice(2)}`);
 }
 
-function withMockedMigrationFs<T>(files: Record<string, string>, fn: () => T): T {
+async function withMockedMigrationFs<T>(files: Record<string, string>, fn: () => T): Promise<T> {
   const originalExistsSync = fs.existsSync;
   const originalReaddirSync = fs.readdirSync;
   const originalReadFileSync = fs.readFileSync;
@@ -53,7 +53,7 @@ function withMockedMigrationFs<T>(files: Record<string, string>, fn: () => T): T
   }) as typeof fs.readFileSync;
 
   try {
-    return fn();
+    return await fn();
   } finally {
     fs.existsSync = originalExistsSync;
     fs.readdirSync = originalReaddirSync;
@@ -61,7 +61,7 @@ function withMockedMigrationFs<T>(files: Record<string, string>, fn: () => T): T
   }
 }
 
-function withNonTestEnvironment<T>(fn: () => T): T {
+async function withNonTestEnvironment<T>(fn: () => T): Promise<T> {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalVitest = process.env.VITEST;
   const originalDisableAutoBackup = process.env.DISABLE_SQLITE_AUTO_BACKUP;
@@ -79,7 +79,7 @@ function withNonTestEnvironment<T>(fn: () => T): T {
   process.execArgv = process.execArgv.filter((arg) => !arg.includes("test"));
 
   try {
-    return fn();
+    return await fn();
   } finally {
     process.argv = originalArgv;
     process.execArgv = originalExecArgv;
@@ -95,18 +95,17 @@ function withNonTestEnvironment<T>(fn: () => T): T {
 // Existing DB with only the migrations table + one applied row and no physical
 // schema sentinel tables, so inferPhysicalSchemaBaseline() returns null and the
 // abort decision depends purely on the resolved threshold.
-function seedExistingDbWithoutPhysicalBaseline(db: InstanceType<typeof Database>) {
-  db.exec(`
+async function seedExistingDbWithoutPhysicalBaseline(db: Awaited<ReturnType<typeof createDb>>) {
+  await db.exec(`
     CREATE TABLE _omniroute_migrations (
       version TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       applied_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
-  db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
-    "001",
-    "initial_schema"
-  );
+  await db
+    .prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)")
+    .run("001", "initial_schema");
 }
 
 function buildMockMigrationFiles(startVersion: number, endVersion: number, prefix: string) {
@@ -119,8 +118,9 @@ function buildMockMigrationFiles(startVersion: number, endVersion: number, prefi
   return files;
 }
 
-function createDb() {
-  return new Database(":memory:");
+async function createDb() {
+  const core = await import("../../src/lib/db/core.ts");
+  return core.sqliteAsyncAdapter(new Database(":memory:"));
 }
 
 test.after(async () => {
@@ -132,26 +132,26 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
     try {
-      seedExistingDbWithoutPhysicalBaseline(db);
+      await seedExistingDbWithoutPhysicalBaseline(db);
       let thrown: unknown;
-      assert.throws(() => {
-        try {
-          withNonTestEnvironment(() =>
-            withMockedMigrationFs(buildMockMigrationFiles(1, 60, "bypass_hint"), () =>
-              runner.runMigrations(db)
-            )
-          );
-        } catch (err) {
-          thrown = err;
-          throw err;
-        }
-      });
+      try {
+        // runMigrations is async — the abort arrives as a rejection, which a
+        // synchronous assert.throws can never observe (it "passed" vacuously).
+        await withNonTestEnvironment(() =>
+          withMockedMigrationFs(buildMockMigrationFiles(1, 60, "bypass_hint"), () =>
+            runner.runMigrations(db)
+          )
+        );
+        assert.fail("expected MigrationSafetyAbortError");
+      } catch (err) {
+        thrown = err;
+      }
       const message = thrown instanceof Error ? thrown.message : String(thrown);
       assert.match(message, /OMNIROUTE_MAX_PENDING_MIGRATIONS=0/);
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );
@@ -161,9 +161,9 @@ test(
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
-    const db = createDb();
+    const db = await createDb();
     try {
-      seedExistingDbWithoutPhysicalBaseline(db);
+      await seedExistingDbWithoutPhysicalBaseline(db);
 
       const runOnce = () =>
         withNonTestEnvironment(() =>
@@ -174,28 +174,24 @@ test(
 
       let first: unknown;
       let second: unknown;
-      assert.throws(() => {
-        try {
-          runOnce();
-        } catch (err) {
-          first = err;
-          throw err;
-        }
-      });
-      assert.throws(() => {
-        try {
-          runOnce();
-        } catch (err) {
-          second = err;
-          throw err;
-        }
-      });
+      try {
+        await runOnce();
+        assert.fail("expected MigrationSafetyAbortError (first run)");
+      } catch (err) {
+        first = err;
+      }
+      try {
+        await runOnce();
+        assert.fail("expected MigrationSafetyAbortError (second run)");
+      } catch (err) {
+        second = err;
+      }
 
       assert.ok(first instanceof runner.MigrationSafetyAbortError);
       assert.ok(second instanceof runner.MigrationSafetyAbortError);
       assert.strictEqual(first, second, "cascade re-triggers must reuse the memoized instance");
     } finally {
-      db.close();
+      await db.close();
     }
   }
 );

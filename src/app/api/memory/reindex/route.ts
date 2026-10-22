@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { error: { message: "Invalid JSON body", details: [] } },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       markAllMemoriesNeedReindex();
     }
 
-    const pending = getReindexPending();
+    const pending = await getReindexPending();
 
     // Dispatch batch in background — do NOT await (returns immediate response).
     setImmediate(() => {

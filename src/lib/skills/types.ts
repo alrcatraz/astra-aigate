@@ -57,14 +57,6 @@ export interface SkillExecution {
   createdAt: Date;
 }
 
-export interface SkillConfig {
-  enabled: boolean;
-  mode: SkillMode;
-  allowedSkills: string[];
-  timeout: number;
-  maxRetries: number;
-}
-
 export type SkillHandler = (
   input: Record<string, unknown>,
   // provider/model (#7339): optional so existing handlers stay untouched — only the

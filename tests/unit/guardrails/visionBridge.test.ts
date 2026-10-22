@@ -6,6 +6,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+// The guardrail's combo check (getComboVisionBridgeDecision) reads the real DB:
+// with an unbootstrapped/mid-migration schema it throws and fails CONSERVATIVE
+// ("process"), which routes every case through the describe path instead of the
+// reroute/passthrough paths these tests exercise. Drain migrations first so an
+// empty DB resolves to the honest "not-combo" decision.
+const core = await import("../../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const { VisionBridgeGuardrail } = await import("../../../src/lib/guardrails/visionBridge.ts");
 const { resetGuardrailsForTests } = await import("../../../src/lib/guardrails/registry.ts");
 const { getResolvedModelCapabilities } = await import("../../../src/lib/modelCapabilities.ts");

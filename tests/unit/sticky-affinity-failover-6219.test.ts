@@ -7,7 +7,7 @@
 // The fix adds evictSessionAccountAffinityForConnection() (src/lib/db/
 // sessionAccountAffinity.ts) and calls it on that generic failover path. The
 // helper reads the stored pin INDEPENDENT of the TTL gate — the pre-existing
-// guarded reads via getSessionAccountAffinity(key, provider) (2-arg, ttl=0)
+// guarded reads via await getSessionAccountAffinity(key, provider) (2-arg, ttl=0)
 // always returned null, making that guard a silent no-op.
 //
 // These tests drive the extracted eviction seam directly (running the full
@@ -46,45 +46,57 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("evicts the sticky pin when the pinned connection fails over (#6219)", () => {
-  affinityDb.upsertSessionAccountAffinity(SESSION, PROVIDER, CONN_A, Date.now(), TTL);
+test("evicts the sticky pin when the pinned connection fails over (#6219)", async () => {
+  await affinityDb.upsertSessionAccountAffinity(SESSION, PROVIDER, CONN_A, Date.now(), TTL);
   assert.equal(
-    affinityDb.getSessionAccountAffinity(SESSION, PROVIDER, TTL)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity(SESSION, PROVIDER, TTL))?.connectionId,
     CONN_A,
     "precondition: session pinned to the (soon-exhausted) connection A"
   );
 
-  const evicted = affinityDb.evictSessionAccountAffinityForConnection(SESSION, PROVIDER, CONN_A);
+  const evicted = await affinityDb.evictSessionAccountAffinityForConnection(
+    SESSION,
+    PROVIDER,
+    CONN_A
+  );
 
   assert.equal(evicted, true, "failover eviction should report it removed the pin");
   assert.equal(
-    affinityDb.getSessionAccountAffinity(SESSION, PROVIDER, TTL),
+    await affinityDb.getSessionAccountAffinity(SESSION, PROVIDER, TTL),
     null,
     "after failover the sticky pin to the exhausted connection must be gone (re-pins next request)"
   );
 });
 
-test("does NOT evict a pin that points at a different (healthy) connection (#6219)", () => {
-  affinityDb.upsertSessionAccountAffinity(SESSION, PROVIDER, CONN_B, Date.now(), TTL);
+test("does NOT evict a pin that points at a different (healthy) connection (#6219)", async () => {
+  await affinityDb.upsertSessionAccountAffinity(SESSION, PROVIDER, CONN_B, Date.now(), TTL);
 
-  const evicted = affinityDb.evictSessionAccountAffinityForConnection(SESSION, PROVIDER, CONN_A);
+  const evicted = await affinityDb.evictSessionAccountAffinityForConnection(
+    SESSION,
+    PROVIDER,
+    CONN_A
+  );
 
   assert.equal(evicted, false, "must not evict when the pin is for another connection");
   assert.equal(
-    affinityDb.getSessionAccountAffinity(SESSION, PROVIDER, TTL)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity(SESSION, PROVIDER, TTL))?.connectionId,
     CONN_B,
     "a healthy pin to B must survive a failover on the unrelated connection A"
   );
 });
 
-test("eviction is not TTL-gated — clears the pin even for a stale stored record (#6219)", () => {
-  // The pre-fix guard read via getSessionAccountAffinity(key, provider) (ttl=0)
+test("eviction is not TTL-gated — clears the pin even for a stale stored record (#6219)", async () => {
+  // The pre-fix guard read via await getSessionAccountAffinity(key, provider) (ttl=0)
   // returned null and never deleted. The helper reads raw so eviction fires
   // regardless of the TTL gate.
   const past = Date.now() - 120_000;
-  affinityDb.upsertSessionAccountAffinity(SESSION, PROVIDER, CONN_A, past, 60_000); // already expired
+  await affinityDb.upsertSessionAccountAffinity(SESSION, PROVIDER, CONN_A, past, 60_000); // already expired
 
-  const evicted = affinityDb.evictSessionAccountAffinityForConnection(SESSION, PROVIDER, CONN_A);
+  const evicted = await affinityDb.evictSessionAccountAffinityForConnection(
+    SESSION,
+    PROVIDER,
+    CONN_A
+  );
 
   assert.equal(evicted, true, "raw connection-matched eviction still removes the stale stored pin");
 });

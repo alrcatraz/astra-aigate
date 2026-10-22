@@ -4,15 +4,19 @@ import assert from "node:assert/strict";
 const { openaiToClaudeRequest } =
   await import("../../open-sse/translator/request/openai-to-claude.ts");
 
-function userBlocks(model: string, content: unknown) {
-  const translated = openaiToClaudeRequest(model, { messages: [{ role: "user", content }] }, false);
+async function userBlocks(model: string, content: unknown) {
+  const translated = await openaiToClaudeRequest(
+    model,
+    { messages: [{ role: "user", content }] },
+    false
+  );
   const userMsg = translated.messages.find((m) => m.role === "user");
   assert.ok(userMsg && Array.isArray(userMsg.content), "expected a translated user message");
   return userMsg.content;
 }
 
-test("openaiToClaudeRequest maps an OpenAI file (PDF) block to a Claude document block", () => {
-  const blocks = userBlocks("claude-sonnet-4", [
+test("openaiToClaudeRequest maps an OpenAI file (PDF) block to a Claude document block", async () => {
+  const blocks = await userBlocks("claude-sonnet-4", [
     { type: "text", text: "summarize" },
     {
       type: "file",
@@ -27,8 +31,8 @@ test("openaiToClaudeRequest maps an OpenAI file (PDF) block to a Claude document
   assert.equal(doc.title, "edital.pdf");
 });
 
-test("openaiToClaudeRequest maps an OpenAI file (image mime) block to a Claude image block", () => {
-  const blocks = userBlocks("claude-sonnet-4", [
+test("openaiToClaudeRequest maps an OpenAI file (image mime) block to a Claude image block", async () => {
+  const blocks = await userBlocks("claude-sonnet-4", [
     {
       type: "file",
       file: { filename: "shot.png", file_data: "data:image/png;base64,iVBORw0KGgo=" },
@@ -41,8 +45,8 @@ test("openaiToClaudeRequest maps an OpenAI file (image mime) block to a Claude i
   assert.equal(img.source.data, "iVBORw0KGgo=");
 });
 
-test("openaiToClaudeRequest maps a remote file (PDF url) block to a Claude document url block", () => {
-  const blocks = userBlocks("claude-sonnet-4", [
+test("openaiToClaudeRequest maps a remote file (PDF url) block to a Claude document url block", async () => {
+  const blocks = await userBlocks("claude-sonnet-4", [
     { type: "file", file: { filename: "remote.pdf", file_data: "https://example.com/a.pdf" } },
   ]);
   const doc = blocks.find((b) => b.type === "document");
@@ -51,8 +55,8 @@ test("openaiToClaudeRequest maps a remote file (PDF url) block to a Claude docum
   assert.equal(doc.source.url, "https://example.com/a.pdf");
 });
 
-test("openaiToClaudeRequest skips a video file block (Claude has no native video input)", () => {
-  const blocks = userBlocks("claude-sonnet-4", [
+test("openaiToClaudeRequest skips a video file block (Claude has no native video input)", async () => {
+  const blocks = await userBlocks("claude-sonnet-4", [
     { type: "text", text: "watch this" },
     { type: "file", file: { filename: "clip.mp4", file_data: "data:video/mp4;base64,AAAAIGZ0" } },
   ]);

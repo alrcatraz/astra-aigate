@@ -94,32 +94,41 @@ function invalidate(): void {
   cache = null;
 }
 
-function referenceExists(table: string, id: string | null): boolean {
+// The async adapter returns a Promise from .get(); awaiting is required or
+// Boolean(Promise) is always true and the friendly reference error never fires
+// (the FK constraint rejects first with an opaque SqliteError).
+async function referenceExists(table: string, id: string | null): Promise<boolean> {
   if (!id) return false;
   const allowedTables = new Set(["api_keys", "combos", "provider_connections"]);
   if (!allowedTables.has(table)) return false;
-  return Boolean(getAsyncDb().prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id));
+  const row = await getAsyncDb().prepare(`SELECT 1 FROM ${table} WHERE id = ?`).get(id);
+  return Boolean(row);
 }
 
-export function getReasoningRoutingRuleReferenceErrors(rule: ReasoningRoutingRuleInput): string[] {
+export async function getReasoningRoutingRuleReferenceErrors(
+  rule: ReasoningRoutingRuleInput
+): Promise<string[]> {
   const errors: string[] = [];
-  if (rule.scope === "apiKey" && !referenceExists("api_keys", rule.apiKeyId)) {
+  if (rule.scope === "apiKey" && !(await referenceExists("api_keys", rule.apiKeyId))) {
     errors.push("The referenced API key does not exist");
   }
-  if (rule.scope === "combo" && !referenceExists("combos", rule.comboId)) {
+  if (rule.scope === "combo" && !(await referenceExists("combos", rule.comboId))) {
     errors.push("The referenced source combo does not exist");
   }
-  if (rule.scope === "connection" && !referenceExists("provider_connections", rule.connectionId)) {
+  if (
+    rule.scope === "connection" &&
+    !(await referenceExists("provider_connections", rule.connectionId))
+  ) {
     errors.push("The referenced provider connection does not exist");
   }
-  if (rule.targetKind === "combo" && !referenceExists("combos", rule.targetComboId)) {
+  if (rule.targetKind === "combo" && !(await referenceExists("combos", rule.targetComboId))) {
     errors.push("The referenced target combo does not exist");
   }
   return errors;
 }
 
-function assertReferences(rule: ReasoningRoutingRuleInput): void {
-  const errors = getReasoningRoutingRuleReferenceErrors(rule);
+async function assertReferences(rule: ReasoningRoutingRuleInput): Promise<void> {
+  const errors = await getReasoningRoutingRuleReferenceErrors(rule);
   if (errors.length > 0) throw new Error(errors.join("; "));
 }
 
@@ -182,7 +191,7 @@ function ruleParams(
 export async function createReasoningRoutingRule(
   rule: ReasoningRoutingRuleInput
 ): Promise<ReasoningRoutingRule> {
-  assertReferences(rule);
+  await assertReferences(rule);
   const id = randomUUID();
   const now = new Date().toISOString();
   getAsyncDb()
@@ -210,7 +219,7 @@ export async function updateReasoningRoutingRule(
   if (!existing) return null;
   const { id: _id, createdAt, updatedAt: _updatedAt, ...base } = existing;
   const next = { ...base, ...patch } as ReasoningRoutingRuleInput;
-  assertReferences(next);
+  await assertReferences(next);
   const now = new Date().toISOString();
   getAsyncDb()
     .prepare(

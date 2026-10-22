@@ -280,7 +280,7 @@ test("upgrade rejects manifest.main with path traversal and leaves old install i
   );
 
   // Old v1 install should still be in DB (upgrade rolled back before deleting old dir)
-  const row = pluginManager.getPlugin("escape-upgrade");
+  const row = await pluginManager.getPlugin("escape-upgrade");
   assert.ok(row, "Old plugin record should still exist after failed upgrade");
   assert.equal(row.version, "1.0.0", "Old version should be preserved");
 
@@ -475,7 +475,7 @@ test("install and uninstall work for a valid plugin (regression)", async () => {
   assert.equal(row.version, "1.0.0");
 
   await pluginManager.uninstall("valid-regression");
-  assert.equal(pluginManager.getPlugin("valid-regression"), null);
+  assert.equal(await pluginManager.getPlugin("valid-regression"), null);
 });
 
 test("upgrade works for a valid newer version (regression)", async () => {

@@ -20,6 +20,9 @@ process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 // Bootstrap DB and seed service row
 const core = await import("../../../../src/lib/db/core.ts");
 const db = core.getDbInstance();
+// isolateDataDir isolates DATA_DIR but never runs migrations — await them so the
+// fresh temp DB actually has version_manager before the seed below.
+await core.awaitDbMigrations();
 
 db.prepare(
   `INSERT OR IGNORE INTO version_manager (tool, status, port, auto_start, auto_update, provider_expose)

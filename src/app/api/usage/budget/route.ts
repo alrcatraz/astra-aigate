@@ -14,8 +14,8 @@ export async function GET(request) {
     if (!apiKeyId) {
       return NextResponse.json({ error: "apiKeyId query param is required" }, { status: 400 });
     }
-    const summary = getCostSummary(apiKeyId);
-    const budgetCheck = checkBudget(apiKeyId);
+    const summary = await getCostSummary(apiKeyId);
+    const budgetCheck = await checkBudget(apiKeyId);
     return NextResponse.json({
       ...summary,
       budgetCheck,
@@ -74,7 +74,7 @@ export async function POST(request) {
       resetTime,
     } = validation.data;
 
-    const budget = setBudget(apiKeyId, {
+    const budget = await setBudget(apiKeyId, {
       dailyLimitUsd,
       weeklyLimitUsd,
       monthlyLimitUsd,

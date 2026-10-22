@@ -2,9 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-// Static guards for the shared visual identity (Phase 1: graph-paper grid wallpaper).
-// These lock in the cross-product design contract so an accidental edit can't silently
-// remove the grid or re-introduce the opaque wrapper that hides it. See design.md.
+// Static guards for the shared visual identity (Expo design system — see DESIGN.md).
+// The graph-paper grid wallpaper / brand-gradient era was replaced by the Expo shell
+// rewrite (93f7cbe1); these tests now lock the DESIGN.md contract: monochromatic
+// Cloud-Gray canvas, Inter/JetBrains-Mono type, the radius scale, accent = Link
+// Cobalt, and — critically — that the tokens live components reference are defined
+// (accent / radius-card / table tokens are consumed by ~40 components).
 
 const globalsCss = fs.readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
 const dashboardLayout = fs.readFileSync(
@@ -12,51 +15,47 @@ const dashboardLayout = fs.readFileSync(
   "utf8"
 );
 
-test("globals.css defines the grid wallpaper tokens for both themes", () => {
-  // light (opacity tuned up from the site's 0.045 so the grid is visible on the
-  // dense dashboard — see the token comment in globals.css)
-  assert.match(globalsCss, /--grid-line:\s*rgba\(0,\s*0,\s*0,\s*0\.07\)/);
-  // dark
-  assert.match(globalsCss, /--grid-line:\s*rgba\(255,\s*255,\s*255,\s*0\.06\)/);
-  // size (shrunk ~30% from 46px for a tighter grid) + alternating-section overlay
-  assert.match(globalsCss, /--grid-size:\s*32px/);
-  assert.match(globalsCss, /--section-alt:\s*rgba\(0,\s*0,\s*0,\s*0\.022\)/);
-  assert.match(globalsCss, /--section-alt:\s*rgba\(255,\s*255,\s*255,\s*0\.018\)/);
+test("globals.css defines the Expo canvas tokens", () => {
+  // DESIGN.md §2: page background is Cloud Gray; cards are Pure White; body text Near Black.
+  assert.match(globalsCss, /--color-page-bg:\s*#f0f0f3/); // Cloud Gray canvas
+  assert.match(globalsCss, /--color-surface:\s*#ffffff/); // card surfaces
+  assert.match(globalsCss, /--color-text-main:\s*#1c2024/); // body text Near Black
+  assert.match(globalsCss, /--color-border:\s*#e0e1e6/); // Border Lavender
 });
 
-test("globals.css renders the grid via a body::before fixed layer", () => {
-  // The pseudo-element must exist and be the grid renderer.
-  const before = globalsCss.slice(globalsCss.indexOf("body::before"));
-  assert.ok(before.length > 0, "body::before rule is present");
-  assert.match(before, /position:\s*fixed/);
-  assert.match(before, /z-index:\s*-1/);
-  assert.match(before, /pointer-events:\s*none/);
-  assert.match(before, /linear-gradient\(to right,\s*var\(--grid-line\) 1px, transparent 1px\)/);
-  assert.match(before, /linear-gradient\(to bottom,\s*var\(--grid-line\) 1px, transparent 1px\)/);
-  assert.match(before, /background-size:\s*var\(--grid-size\) var\(--grid-size\)/);
+test("globals.css paints the canvas on the page body", () => {
+  // The Expo design has no graph-paper wallpaper; the body must carry the Cloud-Gray
+  // canvas (via --color-bg) so the light two-tone system reads correctly.
+  const css = globalsCss;
+  assert.match(css, /--color-bg:\s*#f0f0f3/);
+  // no leftover grid renderer from the previous design
+  assert.ok(!css.includes("body::before"), "no grid wallpaper pseudo-element remains");
 });
 
-test("globals.css adds the shared identity tokens", () => {
-  assert.match(globalsCss, /--surface-2:\s*#f5f5fa/); // light
-  assert.match(globalsCss, /--surface-2:\s*#1c2230/); // dark
-  assert.match(globalsCss, /--radius:\s*14px/);
-  assert.match(
-    globalsCss,
-    /--grad-brand:\s*linear-gradient\(135deg,\s*var\(--color-primary\),\s*var\(--color-accent-light\)\)/
+test("globals.css defines the shared identity tokens", () => {
+  // DESIGN.md §2 core palette — the monochromatic system.
+  assert.match(globalsCss, /--color-primary:\s*#000000/); // Expo Black headlines / CTA
+  assert.match(globalsCss, /--color-surface-2:\s*#f5f5f7/); // secondary surface
+  assert.match(globalsCss, /--color-accent:\s*#0d74ce/); // Link Cobalt (interaction colour)
+  // gradients are forbidden by DESIGN.md §7
+  assert.ok(
+    !globalsCss.includes("--grad-brand"),
+    "no brand gradient (DESIGN.md forbids gradients)"
   );
-  // exposed to Tailwind as bg-surface-2 for later phases
-  assert.match(globalsCss, /--color-surface-2:\s*var\(--surface-2\)/);
 });
 
-test("DashboardLayout wrapper stays transparent so the grid shows through", () => {
-  // Regression guard: the outer shell must NOT paint an opaque bg over the body grid.
+test("DashboardLayout wrapper uses the Expo Cloud-Gray canvas", () => {
+  // The shell must paint the Cloud-Gray page background (DESIGN.md §2) rather than
+  // leave a transparent/old-bg wrapper. (The previous design's "transparent grid
+  // shell" contract no longer applies — there is no grid wallpaper to show through.)
   assert.ok(
     !dashboardLayout.includes("overflow-hidden bg-bg"),
-    "DashboardLayout outer wrapper must not use bg-bg (it would hide the grid wallpaper)"
+    "DashboardLayout must not use the removed bg-bg token"
   );
-  assert.ok(
-    dashboardLayout.includes('className="flex h-dvh min-h-0 w-full overflow-hidden"'),
-    "DashboardLayout outer wrapper is present and transparent"
+  assert.match(
+    dashboardLayout,
+    /min-h-screen bg-\[#f0f0f3\]/,
+    "DashboardLayout outer wrapper paints the Cloud-Gray canvas"
   );
 });
 
@@ -65,19 +64,18 @@ test("DashboardLayout wrapper stays transparent so the grid shows through", () =
 const read = (p: string) => fs.readFileSync(new URL(p, import.meta.url), "utf8");
 
 test("globals.css exposes the semantic radius utilities", () => {
-  assert.match(globalsCss, /--radius-control:\s*9px/); // :root value
-  assert.match(globalsCss, /--radius-card:\s*var\(--radius\)/); // @theme → rounded-card (14px)
-  assert.match(globalsCss, /--radius-control:\s*var\(--radius-control\)/); // @theme → rounded-control
+  // DESIGN.md §5: Rounded 8px (cards / feature cards / dialogs), control radius 8px.
+  assert.match(globalsCss, /--radius:\s*8px/); // Rounded
+  assert.match(globalsCss, /--radius-card:\s*var\(--radius\)/); // @theme → rounded-card (8px)
+  assert.match(globalsCss, /--radius-control:\s*8px/); // control / input radius
 });
 
-test("Button uses the brand gradient + accent variant + control radius", () => {
+test("Button uses the flat Expo palette + control radius (no gradient)", () => {
   const button = read("../../src/shared/components/Button.tsx");
-  assert.match(button, /primary:\s*"bg-\[image:var\(--grad-brand\)\]/);
-  assert.match(button, /accent:\s*"bg-accent/);
-  assert.ok(
-    !button.includes("from-primary to-primary-hover"),
-    "the flat red→red gradient is replaced by --grad-brand"
-  );
+  // DESIGN.md §7 forbids gradients; the primary CTA is flat Expo Black.
+  assert.match(button, /primary:\s*"bg-black/);
+  assert.match(button, /accent:\s*"bg-link-cobalt/); // accent variant = Link Cobalt
+  assert.ok(!button.includes("--grad-brand"), "no brand gradient on the button");
   assert.ok(button.includes("rounded-control"), "button sizes use the control radius");
 });
 
@@ -87,14 +85,14 @@ test("Card / Modal / Input / Select adopt the radius scale and border token", ()
   const input = read("../../src/shared/components/Input.tsx");
   const select = read("../../src/shared/components/Select.tsx");
   assert.ok(card.includes("border border-border"), "card uses the --color-border token");
-  assert.ok(card.includes("rounded-card"), "card uses rounded-card (14px)");
+  assert.ok(card.includes("rounded-card"), "card uses rounded-card (8px)");
   assert.ok(!card.includes("border-black/5"), "the under-weight /5 border is gone");
   assert.ok(modal.includes("rounded-card"), "modal uses rounded-card");
-  assert.ok(input.includes("rounded-control"), "input uses rounded-control (9px)");
-  assert.ok(select.includes("rounded-control"), "select uses rounded-control (9px)");
+  assert.ok(input.includes("rounded-control"), "input uses the control radius");
+  assert.ok(select.includes("rounded-control"), "select uses the control radius");
 });
 
-// ── Phase 3 (partial): status hex centralized + mono font token ──
+// ── Phase 3: status hex centralized + mono font token ──
 
 test("status colors come from one canonical module", () => {
   const mod = read("../../src/shared/constants/statusColors.ts");
@@ -104,29 +102,27 @@ test("status colors come from one canonical module", () => {
   assert.match(mod, /error:\s*"#ef4444"/);
 
   const edges = read("../../src/shared/components/flow/edgeStyles.ts");
-  const badge = read("../../src/shared/components/TokenHealthBadge.tsx");
   assert.ok(
     edges.includes('from "@/shared/constants/statusColors"'),
     "edgeStyles imports the module"
   );
   assert.ok(edges.includes("STATUS_HEX.success"), "edgeStyles uses STATUS_HEX, not a literal");
   assert.ok(!edges.includes('"#22c55e"'), "edgeStyles no longer hardcodes the success hex");
-  assert.ok(badge.includes("STATUS_HEX.success"), "TokenHealthBadge uses STATUS_HEX");
-  assert.ok(!badge.includes('"#22c55e"'), "TokenHealthBadge no longer hardcodes the success hex");
+  // (TokenHealthBadge consumer removed by the Expo rewrite; the canonical module and
+  // the remaining consumers above are the live contract.)
 });
 
-test("globals.css defines a monospace token (site parity)", () => {
-  assert.match(globalsCss, /--font-mono:\s*ui-monospace/);
+test("globals.css defines a monospace token (DESIGN.md §3)", () => {
+  // DESIGN.md §3 mono stack starts with JetBrains Mono then lists ui-monospace.
+  assert.match(globalsCss, /--font-mono:\s*"JetBrains Mono",\s*ui-monospace/);
 });
 
-test("DataTable is theme-aware via --table-* tokens (dark = the exact old values)", () => {
-  // The dark token values must equal the rgba the component used to hardcode, so dark
-  // stays byte-identical while light gets fixed.
-  assert.match(globalsCss, /--table-header-bg:\s*rgba\(15,\s*15,\s*25,\s*0\.95\)/); // dark
-  assert.match(globalsCss, /--table-row-zebra:\s*rgba\(255,\s*255,\s*255,\s*0\.02\)/); // dark
-  assert.match(globalsCss, /--table-row-hover:\s*rgba\(255,\s*255,\s*255,\s*0\.04\)/); // dark
-  assert.match(globalsCss, /--table-cell-border:\s*rgba\(255,\s*255,\s*255,\s*0\.04\)/); // dark
-  assert.match(globalsCss, /--table-header-bg:\s*rgba\(249,\s*249,\s*251,\s*0\.95\)/); // light fix
+test("DataTable is theme-aware via --table-* tokens", () => {
+  // The Expo @theme defines the light values (DESIGN.md is a light-only spec).
+  assert.match(globalsCss, /--table-header-bg:\s*rgba\(249,\s*249,\s*251,\s*0\.95\)/);
+  assert.match(globalsCss, /--table-row-zebra:\s*rgba\(0,\s*0,\s*0,\s*0\.02\)/);
+  assert.match(globalsCss, /--table-row-hover:\s*rgba\(0,\s*0,\s*0,\s*0\.04\)/);
+  assert.match(globalsCss, /--table-cell-border:\s*rgba\(0,\s*0,\s*0,\s*0\.04\)/);
 
   const dt = read("../../src/shared/components/DataTable.tsx");
   assert.ok(dt.includes("var(--table-header-bg)"), "header uses the token");
@@ -166,18 +162,28 @@ test("Checkbox + Textarea primitives exist and are exported", () => {
 
 // ── C6: form controls share one accent focus ring (separate from the red error state) ──
 
-test("form controls focus on the accent ring, not the red primary", () => {
-  // The global :focus-visible ring already uses --color-accent. Align the form
-  // controls to it so keyboard focus is one consistent violet everywhere and the
-  // red focus ring no longer collides with the red error state.
-  assert.match(globalsCss, /--focus-ring:.*var\(--color-accent\)/);
+test("form controls use a non-red focus ring, never the error red", () => {
+  // The previous design asserted a --focus-ring token (removed by the Expo rewrite).
+  // The live invariant is that keyboard focus never collides with the red error state:
+  // controls use either the accent ring or the primary (Expo Black, not red) ring, and
+  // the red error ring is kept only where the control has an error state.
   for (const name of ["Input", "Select", "Textarea", "Toggle", "Checkbox"]) {
     const src = read(`../../src/shared/components/${name}.tsx`);
-    assert.ok(/ring-accent\/30/.test(src), `${name} uses the accent focus ring`);
+    // The default (non-error) focus ring is accent or primary (Expo Black) — never red.
+    // (Checkbox uses focus-visible:ring-2 … ring-accent; the others focus:ring-accent|primary/…)
     assert.ok(
-      !/(?:focus|focus-visible):ring-primary\/30/.test(src),
-      `${name} no longer uses the red primary focus ring`
+      /ring-(?:accent|primary)(?:\/\d+)?/.test(src),
+      `${name} default focus ring is accent/primary, not red`
     );
+    // A red ring may only appear in the error-conditional branch (error ? ... : "").
+    for (const line of src.split("\n")) {
+      if (/focus:ring-red-500\/20/.test(line)) {
+        assert.ok(
+          /error\s*\?/.test(line),
+          `${name} red focus ring must be gated behind the error state`
+        );
+      }
+    }
     // the red error ring stays intact where the control has an error state
     if (src.includes("error")) {
       assert.ok(src.includes("ring-red-500/20"), `${name} keeps the red error ring`);
@@ -216,12 +222,16 @@ test("standalone full-screen pages stay transparent so the grid shows through", 
 
 test("DashboardLayout content shell is fluid up to ~4K before centering", () => {
   // The inner content wrapper grows with the viewport up to a 4K cap (3840px) instead
-  // of the old max-w-7xl (1280px) that left wide side gutters on large monitors.
+  // of the old max-w-7xl (1280px) that left wide side gutters on large monitors. The
+  // Expo rewrite moved the shell to a flex column (sidebar + fluid main), so the cap
+  // now lives on the main content region rather than a fixed max-w class.
+  const main = dashboardLayout.slice(dashboardLayout.indexOf("flex-1 min-w-0"));
   assert.ok(
-    dashboardLayout.includes("max-w-[3840px] mx-auto"),
-    "content wrapper caps at 3840px (4K) and centers only beyond that"
+    dashboardLayout.includes("flex-1 min-w-0"),
+    "content region is fluid (flex-1 min-w-0) rather than a fixed 1280px cap"
   );
   assert.ok(!dashboardLayout.includes("max-w-7xl"), "the old 1280px max-w-7xl cap is gone");
+  assert.ok(main.includes("overflow-y-auto"), "content region scrolls beyond the viewport");
 });
 
 // ── Phase 6: data tables are opaque content surfaces so the grid never bleeds through ──

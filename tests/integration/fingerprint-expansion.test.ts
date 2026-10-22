@@ -192,6 +192,14 @@ let app:
   | undefined;
 
 test.before(async () => {
+  // Wait for the async migration runner before seeding: provider_nodes gains
+  // columns (icon_url, ...) via migrations, and createProviderNode would
+  // otherwise hit a freshly-created, not-yet-migrated table. Awaiting here also
+  // prevents "Migration runner failed: connection is not open" once
+  // closeDbInstance() runs below while migrations are still in flight.
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+
   // Start mock upstream
   const upstreamBaseUrl = await upstream.start();
   upstream.configureToken(TOKEN, {
@@ -299,7 +307,7 @@ test("round-robin combo with 3 fingerprints: all requests succeed", async () => 
     assert.equal(result.json.choices[0].message.content, "fingerprint ok");
     // #6426 (v3.8.46): chatCore now unconditionally aligns the non-streaming
     // response body.model with the resolved backend model advertised in the
-    // X-OmniRoute-Model header (echoRequestedModelName/#1311 is opt-in and off
+    // X-AI-Gate-Model header (echoRequestedModelName/#1311 is opt-in and off
     // here), so the response echoes the bare backend model id ("mimo-auto"),
     // not the "fp-mimocode/"-prefixed provider-node routing target — even
     // though the mock upstream in this test is configured to self-report the

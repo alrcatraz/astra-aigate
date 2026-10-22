@@ -65,7 +65,7 @@ function buildRequest(maxTokens: number) {
 test.before(async () => {
   await core.resetDbInstanceDrained();
   assert.equal(
-    overridesDb.setModelCapabilityOverride(`${PROVIDER}/${MODEL}`, "max_token", OUTPUT_CAP),
+    await overridesDb.setModelCapabilityOverride(`${PROVIDER}/${MODEL}`, "max_token", OUTPUT_CAP),
     true,
     "the operator override must be persisted for this test to mean anything"
   );

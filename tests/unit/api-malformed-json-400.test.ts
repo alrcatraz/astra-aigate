@@ -41,6 +41,9 @@ const combosDb = await import("../../src/lib/db/combos.ts");
 const pluginConfigRoute = await import("../../src/app/api/plugins/[name]/config/route.ts");
 const modelComboRoute = await import("../../src/app/api/model-combo-mappings/route.ts");
 
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Build a POST/PUT Request that CLAIMS to be JSON but carries a non-JSON body. */

@@ -109,14 +109,14 @@ describe("xAI OAuth usage dispatch", () => {
     );
   });
 
-  it("aggregates only in-window tokens for the given provider+connection", () => {
+  it("aggregates only in-window tokens for the given provider+connection", async () => {
     // 1.2M + 0.3M = 1.5M; excludes out-of-window, conn-other, and xai rows.
-    assert.equal(getMonthlyProviderTokensForConnection("xai-oauth", "conn-oauth"), 1_500_000);
-    assert.equal(getMonthlyProviderTokensForConnection("xao", "conn-alias"), 4_500_000);
+    assert.equal(await getMonthlyProviderTokensForConnection("xai-oauth", "conn-oauth"), 1_500_000);
+    assert.equal(await getMonthlyProviderTokensForConnection("xao", "conn-alias"), 4_500_000);
   });
 
-  it("returns 0 for an unknown connection (fail-open, no bleed)", () => {
-    assert.equal(getMonthlyProviderTokensForConnection("xai-oauth", "conn-none"), 0);
+  it("returns 0 for an unknown connection (fail-open, no bleed)", async () => {
+    assert.equal(await getMonthlyProviderTokensForConnection("xai-oauth", "conn-none"), 0);
   });
 
   it("getXaiOauthUsage live path returns weekly quota from billing percent", async () => {
@@ -162,7 +162,7 @@ describe("xAI OAuth usage dispatch", () => {
       };
     };
     assert.ok(r.quotas?.monthly, `expected fallback quotas, got: ${JSON.stringify(r)}`);
-    assert.match(r.plan || "", /OmniRoute-tracked/i);
+    assert.match(r.plan || "", /AI Gate-tracked/i);
     assert.match(r.message || "", /Live weekly quota unavailable/i);
     assert.equal(r.quotas!.monthly!.used, 1_500_000);
     assert.equal(r.quotas!.monthly!.unlimited, true, "fallback is uncapped self-track");

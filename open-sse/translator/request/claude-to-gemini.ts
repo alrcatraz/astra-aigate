@@ -15,7 +15,7 @@ import { getModelSpec } from "../../../src/shared/constants/modelSpecs.ts";
  * Converts Claude Messages API body directly to Gemini format,
  * skipping the OpenAI hub intermediate step.
  */
-export function claudeToGeminiRequest(model, body, stream, credentials = null) {
+export async function claudeToGeminiRequest(model, body, stream, credentials = null) {
   const toolNameMap = new Map<string, string>();
   const sanitizeToolName = (name: string) =>
     sanitizeGeminiToolName(name, {
@@ -59,7 +59,7 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
     result.generationConfig.topK = body.top_k;
   }
   if (body.max_tokens !== undefined) {
-    const maxOutputTokens = capMaxOutputTokens(model, body.max_tokens);
+    const maxOutputTokens = await capMaxOutputTokens(model, body.max_tokens);
     if (maxOutputTokens !== null) {
       result.generationConfig.maxOutputTokens = maxOutputTokens;
     }
@@ -198,7 +198,7 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
     // #6813: a truthy check here dropped `budget_tokens: 0` (dynamic thinking).
     // `undefined` (no budget specified) still falls through to the effort branch.
     // #3842: cap to the model's real thinking-budget limit.
-    const cappedBudget = capThinkingBudget(model, body.thinking.budget_tokens);
+    const cappedBudget = await capThinkingBudget(model, body.thinking.budget_tokens);
     // Only send thinkingConfig if the model supports thinking via budget.
     // Models with thinkingBudgetCap:0 (e.g. gemini-3-flash) reject
     // thinkingConfig even when capped to 0. The supportsThinking flag
@@ -232,7 +232,7 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
     // Gemini target via output_config.effort="high" sent 32768 (> 24576) → 400.
     // capThinkingBudget narrows 32768 to e.g. gemini-2.5-flash's 24576 while leaving
     // pro-tier (real cap 32768) untouched.
-    const budget = rawBudget !== undefined ? capThinkingBudget(model, rawBudget) : undefined;
+    const budget = rawBudget !== undefined ? await capThinkingBudget(model, rawBudget) : undefined;
     if (budget !== undefined && budget > 0) {
       // Only send thinkingConfig if the model supports thinking via budget.
       // Models with thinkingBudgetCap:0 (e.g. gemini-3-flash) reject

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -20,22 +21,9 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => {
-    const messages: Record<string, string> = {
-      "card.detected": "Detected",
-      "card.notDetected": "Not detected",
-      "card.configure": "Configure →",
-      "card.howToInstall": "How to install →",
-      "card.baseUrlPartial": "Partial Base URL",
-      "card.alsoAcp": "also ACP",
-      "card.connectProviderHint": "Connect a provider in Providers",
-    };
-    return (key: string) => messages[key] ?? key;
-  },
-  useLocale: () => "en",
-}));
-
+// next-intl comes from the shared double (../../_setup/nextIntlDouble), which
+// resolves the REAL `cliCommon.card.*` copy — a hand-maintained key map drifts
+// and silently renders `card.versionNotFound` as literal text.
 // Stub CliStatusBadge so it doesn't need next-intl internals
 vi.mock("@/app/(dashboard)/dashboard/cli-code/components/CliStatusBadge", () => ({
   default: ({
@@ -80,6 +68,14 @@ function makeBatchStatus(overrides: Partial<ToolBatchStatus> = {}): ToolBatchSta
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
+
 const containers: HTMLElement[] = [];
 
 function renderCard(
@@ -93,6 +89,7 @@ function renderCard(
   containers.push(container);
 
   const root = createRoot(container);
+  mounted.push({ root, el: container });
   act(() => {
     root.render(
       <CliToolCard
@@ -115,10 +112,14 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => {
+    for (const { root } of mounted) root.unmount();
+  });
   while (containers.length > 0) {
     containers.pop()?.remove();
   }
   document.body.innerHTML = "";
+  mounted.length = 0;
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -146,7 +147,7 @@ describe("CliToolCard", () => {
       detection: { installed: false, runnable: false, version: undefined },
     });
     const container = renderCard(makeTool(), status, "/detail", true);
-    expect(container.textContent).toContain("not found");
+    expect(container.textContent).toContain(resolveMessage("cliCommon", "card.versionNotFound"));
   });
 
   it("shows configure footer when installed", () => {
@@ -185,7 +186,7 @@ describe("CliToolCard", () => {
     });
     const tool = makeTool({ configType: "custom" });
     const container = renderCard(tool, status, "/detail", true);
-    expect(container.textContent).toContain("Manual config");
+    expect(container.textContent).toContain(resolveMessage("cliCommon", "card.manualConfig"));
     expect(container.textContent).toContain("Install");
   });
 
@@ -201,6 +202,6 @@ describe("CliToolCard", () => {
   it("renders gracefully with null batchStatus", () => {
     const container = renderCard(makeTool(), null, "/detail", true);
     expect(container.textContent).toContain("Claude Code");
-    expect(container.textContent).toContain("not found");
+    expect(container.textContent).toContain(resolveMessage("cliCommon", "card.versionNotFound"));
   });
 });

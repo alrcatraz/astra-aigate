@@ -1557,6 +1557,98 @@
       "stream": "https://api.dit.ai/v1/chat/completions"
     }
   },
+  "dmxapi": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://www.dmxapi.cn/v1/chat/completions",
+      "stream": "https://www.dmxapi.cn/v1/chat/completions"
+    }
+  },
+  "dmxapi-cn": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://www.dmxapi.cn/v1/chat/completions",
+      "stream": "https://www.dmxapi.cn/v1/chat/completions"
+    }
+  },
+  "dmxapi-com": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://dmxapi.com/v1/chat/completions",
+      "stream": "https://dmxapi.com/v1/chat/completions"
+    }
+  },
+  "dmxapi-ssvip": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://www.dmxapi.cn/v1/chat/completions",
+      "stream": "https://www.dmxapi.cn/v1/chat/completions"
+    }
+  },
   "doubao": {
     "format": "openai",
     "headers": {
@@ -2789,18 +2881,18 @@
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "X-KILOCODE-EDITORNAME": "OmniRoute"
+        "X-KILOCODE-EDITORNAME": "AI Gate"
       },
       "nonStream": {
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "X-KILOCODE-EDITORNAME": "OmniRoute"
+        "X-KILOCODE-EDITORNAME": "AI Gate"
       },
       "oauth": {
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "X-KILOCODE-EDITORNAME": "OmniRoute"
+        "X-KILOCODE-EDITORNAME": "AI Gate"
       }
     },
     "url": {
@@ -3435,18 +3527,18 @@
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "User-Agent": "OmniRoute/1.0"
+        "User-Agent": "AI Gate/1.0"
       },
       "nonStream": {
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "User-Agent": "OmniRoute/1.0"
+        "User-Agent": "AI Gate/1.0"
       },
       "oauth": {
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "User-Agent": "OmniRoute/1.0"
+        "User-Agent": "AI Gate/1.0"
       }
     },
     "url": {
@@ -4304,18 +4396,18 @@
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 OmniRoute/1.0"
+        "User-Agent": "Mozilla/5.0 AI Gate/1.0"
       },
       "nonStream": {
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 OmniRoute/1.0"
+        "User-Agent": "Mozilla/5.0 AI Gate/1.0"
       },
       "oauth": {
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 OmniRoute/1.0"
+        "User-Agent": "Mozilla/5.0 AI Gate/1.0"
       }
     },
     "url": {
@@ -4459,6 +4551,29 @@
     "url": {
       "nonStream": "https://api.siliconflow.com/v1/chat/completions",
       "stream": "https://api.siliconflow.com/v1/chat/completions"
+    }
+  },
+  "siliconflow-cn": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.siliconflow.cn/v1/chat/completions",
+      "stream": "https://api.siliconflow.cn/v1/chat/completions"
     }
   },
   "snowflake": {
@@ -5177,6 +5292,29 @@
       "stream": "https://api.xiaomimimo.com/v1"
     }
   },
+  "xiaomi-mimo-token-plan": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://token-plan-sgp.xiaomimimo.com/v1",
+      "stream": "https://token-plan-sgp.xiaomimimo.com/v1"
+    }
+  },
   "yi": {
     "format": "openai",
     "headers": {
@@ -5339,6 +5477,29 @@
     "url": {
       "nonStream": "https://zenmux.ai/api/anthropic/v1/messages",
       "stream": "https://zenmux.ai/api/anthropic/v1/messages"
+    }
+  },
+  "zhipu": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "stream": "https://open.bigmodel.cn/api/paas/v4/chat/completions"
     }
   }
 }

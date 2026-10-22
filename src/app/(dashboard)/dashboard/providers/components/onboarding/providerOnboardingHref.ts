@@ -1,10 +1,5 @@
 import type { OnboardingConnection } from "./providerOnboardingApi";
 
-export interface OnboardingSummaryAction {
-  href: string | null;
-  label: string;
-}
-
 /**
  * Minimum surface area required to compute the dashboard details href.
  * Accepts either a full {@link OnboardingConnection} or any partial that

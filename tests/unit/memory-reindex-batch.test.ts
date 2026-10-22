@@ -66,6 +66,7 @@ function insertMemory(
 
 test("runReindexBatch: empty queue returns {processed:0, errors:0}", async () => {
   core.getDbInstance(); // trigger migrations
+  await core.awaitDbMigrations(); // wait for schema before runReindexBatch queries memories
 
   const result = await runReindexBatch(10);
 
@@ -88,7 +89,7 @@ test("runReindexBatch: no embedding source → returns {processed:0, errors:0}",
   assert.deepEqual(result, { processed: 0, errors: 0 }, "no source → early exit with 0 processed");
 
   // Queue should still have 2 items (not consumed)
-  const pending = getReindexPending();
+  const pending = await getReindexPending();
   assert.equal(pending, 2, "queue should still have 2 items when no source configured");
 });
 
@@ -116,16 +117,16 @@ test("getReindexPending: returns count of memories with needs_reindex=1", async 
   insertMemory(db, "pend-2", "Pending two.");
   insertMemory(db, "pend-3", "Pending three.");
 
-  assert.equal(getReindexPending(), 0, "initially 0 pending");
+  assert.equal(await getReindexPending(), 0, "initially 0 pending");
 
   await memoryVec.markMemoryNeedsReindex("pend-1", true);
-  assert.equal(getReindexPending(), 1);
+  assert.equal(await getReindexPending(), 1);
 
   await memoryVec.markMemoryNeedsReindex("pend-2", true);
-  assert.equal(getReindexPending(), 2);
+  assert.equal(await getReindexPending(), 2);
 
   await memoryVec.markMemoryNeedsReindex("pend-3", true);
-  assert.equal(getReindexPending(), 3);
+  assert.equal(await getReindexPending(), 3);
 });
 
 test("runReindexBatch: respects the limit parameter", async () => {
@@ -136,7 +137,7 @@ test("runReindexBatch: respects the limit parameter", async () => {
     await memoryVec.markMemoryNeedsReindex(`lim-${i}`, true);
   }
 
-  assert.equal(getReindexPending(), 5, "should have 5 pending before batch");
+  assert.equal(await getReindexPending(), 5, "should have 5 pending before batch");
 
   // Run with limit=3 — since no source/vec, all return as 0 processed
   // but the queue size is checked via getMemoryReindexQueue(3)
@@ -146,7 +147,7 @@ test("runReindexBatch: respects the limit parameter", async () => {
   assert.ok(result.processed + result.errors <= 3, "batch cannot process more than limit items");
 
   // Queue still has items (5 - processed items)
-  const remaining = getReindexPending();
+  const remaining = await getReindexPending();
   assert.ok(remaining >= 5 - result.processed, "remaining queue >= 5 - processed");
 });
 

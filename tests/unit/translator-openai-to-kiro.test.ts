@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 const { buildKiroPayload } = await import("../../open-sse/translator/request/openai-to-kiro.ts");
 
-function buildSamplePayload() {
+async function buildSamplePayload() {
   return buildKiroPayload(
     "claude-sonnet-4",
     {
@@ -56,8 +56,8 @@ function buildSamplePayload() {
   );
 }
 
-test("OpenAI -> Kiro builds a conversation payload with deterministic structure", () => {
-  const result = buildSamplePayload();
+test("OpenAI -> Kiro builds a conversation payload with deterministic structure", async () => {
+  const result = await buildSamplePayload();
 
   assert.equal(result.profileArn, "arn:aws:demo");
   assert.deepEqual(result.inferenceConfig, {
@@ -75,8 +75,8 @@ test("OpenAI -> Kiro builds a conversation payload with deterministic structure"
   );
 });
 
-test("OpenAI -> Kiro preserves prior history, tool uses and accumulated tool results", () => {
-  const result = buildSamplePayload();
+test("OpenAI -> Kiro preserves prior history, tool uses and accumulated tool results", async () => {
+  const result = await buildSamplePayload();
 
   assert.equal(result.conversationState.history.length, 2);
   assert.deepEqual(result.conversationState.history[0], {
@@ -120,8 +120,8 @@ test("OpenAI -> Kiro preserves prior history, tool uses and accumulated tool res
   });
 });
 
-test("OpenAI -> Kiro maps invalid or empty assistant tool call arguments to empty input", () => {
-  const invalidResult = buildKiroPayload(
+test("OpenAI -> Kiro maps invalid or empty assistant tool call arguments to empty input", async () => {
+  const invalidResult = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -148,7 +148,7 @@ test("OpenAI -> Kiro maps invalid or empty assistant tool call arguments to empt
     {}
   );
 
-  const emptyResult = buildKiroPayload(
+  const emptyResult = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -175,7 +175,7 @@ test("OpenAI -> Kiro maps invalid or empty assistant tool call arguments to empt
     {}
   );
 
-  const toolUseResult = buildKiroPayload(
+  const toolUseResult = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -204,8 +204,8 @@ test("OpenAI -> Kiro maps invalid or empty assistant tool call arguments to empt
   );
 });
 
-test("OpenAI -> Kiro uses a neutral filler currentMessage when the request ends with assistant history (#5231)", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro uses a neutral filler currentMessage when the request ends with assistant history (#5231)", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -229,9 +229,9 @@ test("OpenAI -> Kiro uses a neutral filler currentMessage when the request ends 
   ]);
 });
 
-test("OpenAI -> Kiro derives a stable conversationId for the same first history turn", () => {
-  const first = buildSamplePayload();
-  const second = buildSamplePayload();
+test("OpenAI -> Kiro derives a stable conversationId for the same first history turn", async () => {
+  const first = await buildSamplePayload();
+  const second = await buildSamplePayload();
 
   assert.equal(
     (first.conversationState as any).history[0].userInputMessage.content,
@@ -244,8 +244,8 @@ test("OpenAI -> Kiro derives a stable conversationId for the same first history 
   assert.equal(first.conversationState.conversationId, second.conversationState.conversationId);
 });
 
-test("OpenAI -> Kiro still returns a valid payload for minimal requests", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro still returns a valid payload for minimal requests", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [{ role: "user", content: "Hi" }],
@@ -262,8 +262,8 @@ test("OpenAI -> Kiro still returns a valid payload for minimal requests", () => 
   assert.equal(result.conversationState.currentMessage.userInputMessage.modelId, "claude-sonnet-4");
 });
 
-test("OpenAI -> Kiro merges adjacent user history turns after role normalization", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro merges adjacent user history turns after role normalization", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -300,8 +300,8 @@ test("OpenAI -> Kiro merges adjacent user history turns after role normalization
   assert.equal(history[1].assistantResponseMessage?.content, "Answer 1");
 });
 
-test("OpenAI -> Kiro synthesizes tools schema when body.tools is omitted but history has tool_calls", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro synthesizes tools schema when body.tools is omitted but history has tool_calls", async () => {
+  const result = await buildKiroPayload(
     "claude-opus-4.7",
     {
       messages: [
@@ -344,8 +344,8 @@ test("OpenAI -> Kiro synthesizes tools schema when body.tools is omitted but his
   assert.deepEqual(names, ["bash", "edit"]);
 });
 
-test("OpenAI -> Kiro does not override body.tools when caller already provides a schema", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro does not override body.tools when caller already provides a schema", async () => {
+  const result = await buildKiroPayload(
     "claude-opus-4.7",
     {
       messages: [
@@ -387,8 +387,8 @@ test("OpenAI -> Kiro does not override body.tools when caller already provides a
   assert.equal(tools[0].toolSpecification.description, "Real description");
 });
 
-test("OpenAI -> Kiro synthesizes tools from Anthropic-style tool_use content blocks", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro synthesizes tools from Anthropic-style tool_use content blocks", async () => {
+  const result = await buildKiroPayload(
     "claude-opus-4.7",
     {
       messages: [
@@ -424,8 +424,8 @@ test("OpenAI -> Kiro synthesizes tools from Anthropic-style tool_use content blo
   assert.deepEqual(names, ["open_file", "search"]);
 });
 
-test("OpenAI -> Kiro attaches tools to currentMessage when history has no user turn to carry them", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro attaches tools to currentMessage when history has no user turn to carry them", async () => {
+  const result = await buildKiroPayload(
     "claude-opus-4.7",
     {
       messages: [
@@ -450,8 +450,8 @@ test("OpenAI -> Kiro attaches tools to currentMessage when history has no user t
   assert.equal(ctx.tools![0].toolSpecification.name, "edit");
 });
 
-test("OpenAI -> Kiro strips additionalProperties and empty required from tool schemas", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro strips additionalProperties and empty required from tool schemas", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [{ role: "user", content: "Hi" }],
@@ -504,8 +504,8 @@ test("OpenAI -> Kiro strips additionalProperties and empty required from tool sc
   );
 });
 
-test("OpenAI -> Kiro merges consecutive assistant messages", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro merges consecutive assistant messages", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -525,8 +525,8 @@ test("OpenAI -> Kiro merges consecutive assistant messages", () => {
   assert.equal(history[1].assistantResponseMessage.content, "Part 1\n\nPart 2");
 });
 
-test("OpenAI -> Kiro prepends synthetic user when conversation starts with assistant", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro prepends synthetic user when conversation starts with assistant", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -545,8 +545,8 @@ test("OpenAI -> Kiro prepends synthetic user when conversation starts with assis
   assert.equal(history[1].assistantResponseMessage.content, "Greeting");
 });
 
-test("OpenAI -> Kiro converts orphaned tool results to text", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro converts orphaned tool results to text", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -569,8 +569,8 @@ test("OpenAI -> Kiro converts orphaned tool results to text", () => {
   );
 });
 
-test("OpenAI -> Kiro includes origin on all history user messages", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro includes origin on all history user messages", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -592,8 +592,8 @@ test("OpenAI -> Kiro includes origin on all history user messages", () => {
 
 // ── Defeito 1: status hardcoded como "success" ──────────────────────────────
 
-test("OpenAI -> Kiro maps tool_result is_error:true to status:'error'", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro maps tool_result is_error:true to status:'error'", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -630,8 +630,8 @@ test("OpenAI -> Kiro maps tool_result is_error:true to status:'error'", () => {
   assert.equal(errorResult!.content[0].text, "Command not found");
 });
 
-test("OpenAI -> Kiro maps tool_result is_error:false to status:'success'", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro maps tool_result is_error:false to status:'success'", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -668,8 +668,8 @@ test("OpenAI -> Kiro maps tool_result is_error:false to status:'success'", () =>
 
 // ── Defeito 2: conteúdo não-texto colapsa para string vazia ─────────────────
 
-test("OpenAI -> Kiro serializes image tool_result content to non-empty text", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro serializes image tool_result content to non-empty text", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -709,8 +709,8 @@ test("OpenAI -> Kiro serializes image tool_result content to non-empty text", ()
   assert.ok(text && text.length > 0, `text must not be empty for image content, got: '${text}'`);
 });
 
-test("OpenAI -> Kiro serializes JSON-object tool_result content to non-empty text", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro serializes JSON-object tool_result content to non-empty text", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -747,8 +747,8 @@ test("OpenAI -> Kiro serializes JSON-object tool_result content to non-empty tex
   assert.ok(text && text.length > 0, `text must be non-empty, got: '${text}'`);
 });
 
-test("OpenAI -> Kiro uses placeholder text when tool_result content is empty array", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro uses placeholder text when tool_result content is empty array", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -785,9 +785,9 @@ test("OpenAI -> Kiro uses placeholder text when tool_result content is empty arr
 
 // ── Defeito 3: instabilidade do toolUseId ───────────────────────────────────
 
-test("OpenAI -> Kiro toolUseId round-trips between tool_use and tool_result in 2-turn conversation", () => {
+test("OpenAI -> Kiro toolUseId round-trips between tool_use and tool_result in 2-turn conversation", async () => {
   // Regressão para issue #2446: conversa 2 turnos (tool_use → tool_result → follow-up)
-  const result = buildKiroPayload(
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -837,12 +837,12 @@ test("OpenAI -> Kiro toolUseId round-trips between tool_use and tool_result in 2
   assert.equal(tr!.status, "success");
 });
 
-test("OpenAI -> Kiro does not inject the '(empty)' placeholder on a trailing tool-result-only turn", () => {
+test("OpenAI -> Kiro does not inject the '(empty)' placeholder on a trailing tool-result-only turn", async () => {
   // Regression for the same bug class as upstream decolua/9router#2183: an agentic
   // loop that ends in a tool-result turn with no follow-up user text must not have
   // its (otherwise legitimately-empty) user content replaced by a placeholder —
   // toolResults already give Kiro all the context it needs for this turn.
-  const result = buildKiroPayload(
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -881,8 +881,8 @@ test("OpenAI -> Kiro does not inject the '(empty)' placeholder on a trailing too
   assert.ok(!current.content.includes("(empty)"), "must not contain the '(empty)' placeholder");
 });
 
-test("OpenAI -> Kiro generates stable non-random toolUseId when tool_call has no id", () => {
-  const makePayload = () =>
+test("OpenAI -> Kiro generates stable non-random toolUseId when tool_call has no id", async () => {
+  const makePayload = async () =>
     buildKiroPayload(
       "claude-sonnet-4",
       {
@@ -904,11 +904,11 @@ test("OpenAI -> Kiro generates stable non-random toolUseId when tool_call has no
       null
     );
 
-  const id1 = (makePayload().conversationState.history as any[]).find(
+  const id1 = ((await makePayload()).conversationState.history as any[]).find(
     (h) => h.assistantResponseMessage?.toolUses
   )?.assistantResponseMessage?.toolUses?.[0]?.toolUseId;
 
-  const id2 = (makePayload().conversationState.history as any[]).find(
+  const id2 = ((await makePayload()).conversationState.history as any[]).find(
     (h) => h.assistantResponseMessage?.toolUses
   )?.assistantResponseMessage?.toolUses?.[0]?.toolUseId;
 
@@ -919,8 +919,8 @@ test("OpenAI -> Kiro generates stable non-random toolUseId when tool_call has no
 // Regression for #2446: an OpenAI-style `role:"tool"` message carrying NON-string
 // (structured / array) content must not collapse to `content:[{ text: "" }]` —
 // CodeWhisperer rejects an empty toolResult with 400 "Improperly formed request".
-test("OpenAI -> Kiro serializes non-string role:tool content to non-empty text (#2446)", () => {
-  const result = buildKiroPayload(
+test("OpenAI -> Kiro serializes non-string role:tool content to non-empty text (#2446)", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-4",
     {
       messages: [
@@ -970,7 +970,7 @@ test("OpenAI -> Kiro serializes non-string role:tool content to non-empty text (
 // receive image attachments — attaching them is wrong for those models.
 const PNG_DATA_URL = "data:image/png;base64,aGVsbG8=";
 
-function buildImageRequest(model: string) {
+async function buildImageRequest(model: string) {
   return buildKiroPayload(
     model,
     {
@@ -991,8 +991,8 @@ function buildImageRequest(model: string) {
   );
 }
 
-test("OpenAI -> Kiro attaches images for Claude models", () => {
-  const result = buildImageRequest("claude-sonnet-4.6");
+test("OpenAI -> Kiro attaches images for Claude models", async () => {
+  const result = await buildImageRequest("claude-sonnet-4.6");
   const images = result.conversationState.currentMessage.userInputMessage.images;
   assert.ok(Array.isArray(images), "Claude models must keep image attachments");
   // Three image blocks (image_url + Anthropic base64 + AI SDK-style) → 3 entries
@@ -1001,8 +1001,8 @@ test("OpenAI -> Kiro attaches images for Claude models", () => {
   assert.ok(images[0].source.bytes, "image bytes are preserved for Claude");
 });
 
-test("OpenAI -> Kiro drops images for non-Claude models (deepseek)", () => {
-  const result = buildImageRequest("deepseek-3.2");
+test("OpenAI -> Kiro drops images for non-Claude models (deepseek)", async () => {
+  const result = await buildImageRequest("deepseek-3.2");
   const images = result.conversationState.currentMessage.userInputMessage.images;
   assert.ok(
     images === undefined || images.length === 0,
@@ -1016,9 +1016,9 @@ test("OpenAI -> Kiro drops images for non-Claude models (deepseek)", () => {
   );
 });
 
-test("OpenAI -> Kiro drops images for other non-Claude Kiro models", () => {
+test("OpenAI -> Kiro drops images for other non-Claude Kiro models", async () => {
   for (const model of ["glm-5", "minimax-m2.5", "qwen3-coder-next"]) {
-    const result = buildImageRequest(model);
+    const result = await buildImageRequest(model);
     const images = result.conversationState.currentMessage.userInputMessage.images;
     assert.ok(
       images === undefined || images.length === 0,
@@ -1027,17 +1027,17 @@ test("OpenAI -> Kiro drops images for other non-Claude Kiro models", () => {
   }
 });
 
-test("buildKiroPayload rejects the Anthropic-only [1m] context suffix before Bedrock", () => {
+test("buildKiroPayload rejects the Anthropic-only [1m] context suffix before Bedrock", async () => {
   const body = { messages: [{ role: "user", content: "Hello" }] };
 
-  assert.throws(
+  await assert.rejects(
     () => buildKiroPayload("claude-sonnet-5-thinking[1m]", body, true, {}),
     /\[1m\]' suffix is not supported by Kiro upstream/,
     "kr/* model ids carrying [1m] must be rejected, not forwarded to AWS Bedrock"
   );
 });
 
-test("buildKiroPayload accepts kr/* model ids without the [1m] suffix", () => {
+test("buildKiroPayload accepts kr/* model ids without the [1m] suffix", async () => {
   const body = { messages: [{ role: "user", content: "Hello" }] };
 
   assert.doesNotThrow(
@@ -1046,10 +1046,10 @@ test("buildKiroPayload accepts kr/* model ids without the [1m] suffix", () => {
   );
 });
 
-test("buildKiroPayload strips the supported Thinking selector before upstream", () => {
+test("buildKiroPayload strips the supported Thinking selector before upstream", async () => {
   const body = { messages: [{ role: "user", content: "Hello" }] };
 
-  const result = buildKiroPayload("claude-sonnet-5-thinking", body, true, {});
+  const result = await buildKiroPayload("claude-sonnet-5-thinking", body, true, {});
   assert.equal(
     result.conversationState.currentMessage.userInputMessage.modelId,
     "claude-sonnet-5",
@@ -1067,17 +1067,17 @@ test("buildKiroPayload strips the supported Thinking selector before upstream", 
 // date-suffixed Claude model id (e.g. claude-opus-4-20250514) gets corrupted into
 // "claude-opus-4.20250514" because the unbounded `-(\d+)$` group swallows the
 // 8-digit date as if it were a minor version.
-test("buildKiroPayload normalizes short dash-suffixed minor versions to dots", () => {
+test("buildKiroPayload normalizes short dash-suffixed minor versions to dots", async () => {
   const body = { messages: [{ role: "user", content: "Hello" }] };
 
-  const opus = buildKiroPayload("claude-opus-4-8", body, false, null);
+  const opus = await buildKiroPayload("claude-opus-4-8", body, false, null);
   assert.equal(
     opus.conversationState.currentMessage.userInputMessage.modelId,
     "claude-opus-4.8",
     "1-digit minor version should normalize dash to dot"
   );
 
-  const sonnet = buildKiroPayload("claude-sonnet-4-6", body, false, null);
+  const sonnet = await buildKiroPayload("claude-sonnet-4-6", body, false, null);
   assert.equal(
     sonnet.conversationState.currentMessage.userInputMessage.modelId,
     "claude-sonnet-4.6",
@@ -1085,10 +1085,10 @@ test("buildKiroPayload normalizes short dash-suffixed minor versions to dots", (
   );
 });
 
-test("buildKiroPayload does not corrupt date-suffixed Claude model ids (#2270)", () => {
+test("buildKiroPayload does not corrupt date-suffixed Claude model ids (#2270)", async () => {
   const body = { messages: [{ role: "user", content: "Hello" }] };
 
-  const result = buildKiroPayload("claude-opus-4-20250514", body, false, null);
+  const result = await buildKiroPayload("claude-opus-4-20250514", body, false, null);
   assert.equal(
     result.conversationState.currentMessage.userInputMessage.modelId,
     "claude-opus-4-20250514",
@@ -1096,10 +1096,10 @@ test("buildKiroPayload does not corrupt date-suffixed Claude model ids (#2270)",
   );
 });
 
-test("buildKiroPayload leaves already-two-dash Claude ids unchanged (#2270)", () => {
+test("buildKiroPayload leaves already-two-dash Claude ids unchanged (#2270)", async () => {
   const body = { messages: [{ role: "user", content: "Hello" }] };
 
-  const result = buildKiroPayload("claude-opus-4-1-20250805", body, false, null);
+  const result = await buildKiroPayload("claude-opus-4-1-20250805", body, false, null);
   assert.equal(
     result.conversationState.currentMessage.userInputMessage.modelId,
     "claude-opus-4-1-20250805",
@@ -1107,14 +1107,14 @@ test("buildKiroPayload leaves already-two-dash Claude ids unchanged (#2270)", ()
   );
 });
 
-test("buildKiroPayload enables thinking mode for Claude models via reasoning_effort", () => {
+test("buildKiroPayload enables thinking mode for Claude models via reasoning_effort", async () => {
   const body = {
     messages: [{ role: "user", content: "Solve a hard problem" }],
     reasoning_effort: "high",
     max_tokens: 64000,
   };
 
-  const result = buildKiroPayload("claude-sonnet-5", body, false, null); // only Kiro model accepting adaptive thinking (#6576)
+  const result = await buildKiroPayload("claude-sonnet-5", body, false, null); // only Kiro model accepting adaptive thinking (#6576)
 
   assert.ok(result.additionalModelRequestFields, "additionalModelRequestFields must be set");
   assert.deepEqual(result.additionalModelRequestFields.thinking, {
@@ -1135,14 +1135,14 @@ test("buildKiroPayload enables thinking mode for Claude models via reasoning_eff
   );
 });
 
-test("buildKiroPayload drops temperature when thinking is enabled", () => {
+test("buildKiroPayload drops temperature when thinking is enabled", async () => {
   const body = {
     messages: [{ role: "user", content: "Solve a hard problem" }],
     reasoning_effort: "high",
     temperature: 0.5,
   };
 
-  const result = buildKiroPayload("claude-sonnet-5", body, false, null);
+  const result = await buildKiroPayload("claude-sonnet-5", body, false, null);
 
   assert.ok(result.additionalModelRequestFields, "thinking must be enabled");
   assert.equal(
@@ -1152,13 +1152,13 @@ test("buildKiroPayload drops temperature when thinking is enabled", () => {
   );
 });
 
-test("buildKiroPayload ignores thinking request for unsupported effort levels", () => {
+test("buildKiroPayload ignores thinking request for unsupported effort levels", async () => {
   const body = {
     messages: [{ role: "user", content: "Hello" }],
     reasoning_effort: "invalid",
   };
 
-  const result = buildKiroPayload("claude-opus-4.8", body, false, null);
+  const result = await buildKiroPayload("claude-opus-4.8", body, false, null);
 
   assert.equal(
     result.additionalModelRequestFields,
@@ -1167,22 +1167,22 @@ test("buildKiroPayload ignores thinking request for unsupported effort levels", 
   );
 });
 
-test("buildKiroPayload maps body.thinking budget_tokens to effort level", () => {
+test("buildKiroPayload maps body.thinking budget_tokens to effort level", async () => {
   const body = {
     messages: [{ role: "user", content: "Deep reasoning" }],
     thinking: { type: "enabled", budget_tokens: 50000 },
   };
 
-  const result = buildKiroPayload("claude-sonnet-5", body, false, null);
+  const result = await buildKiroPayload("claude-sonnet-5", body, false, null);
 
   assert.ok(result.additionalModelRequestFields, "thinking must be enabled from budget_tokens");
   assert.equal(result.additionalModelRequestFields.output_config.effort, "high");
 });
 
-test("buildKiroPayload leaves thinking off when no reasoning is requested", () => {
+test("buildKiroPayload leaves thinking off when no reasoning is requested", async () => {
   const body = { messages: [{ role: "user", content: "Hi" }] };
 
-  const result = buildKiroPayload("claude-opus-4.8", body, false, null);
+  const result = await buildKiroPayload("claude-opus-4.8", body, false, null);
 
   assert.equal(result.additionalModelRequestFields, undefined, "no thinking fields by default");
   assert.doesNotMatch(
@@ -1192,8 +1192,8 @@ test("buildKiroPayload leaves thinking off when no reasoning is requested", () =
   );
 });
 
-test("buildKiroPayload maps reasoning_effort to the same Kiro effort level (no +1 shift)", () => {
-  const result = buildKiroPayload(
+test("buildKiroPayload maps reasoning_effort to the same Kiro effort level (no +1 shift)", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-5",
     { messages: [{ role: "user", content: "hard" }], reasoning_effort: "medium" },
     false,
@@ -1203,8 +1203,8 @@ test("buildKiroPayload maps reasoning_effort to the same Kiro effort level (no +
   assert.equal(result.additionalModelRequestFields.output_config.effort, "medium");
 });
 
-test("buildKiroPayload reads effort from Anthropic output_config.effort", () => {
-  const result = buildKiroPayload(
+test("buildKiroPayload reads effort from Anthropic output_config.effort", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-5",
     { messages: [{ role: "user", content: "hard" }], output_config: { effort: "xhigh" } },
     false,
@@ -1215,8 +1215,8 @@ test("buildKiroPayload reads effort from Anthropic output_config.effort", () => 
   assert.equal(result.additionalModelRequestFields.output_config.effort, "xhigh");
 });
 
-test("buildKiroPayload defaults adaptive thinking (no effort) to high", () => {
-  const result = buildKiroPayload(
+test("buildKiroPayload defaults adaptive thinking (no effort) to high", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-5",
     { messages: [{ role: "user", content: "hard" }], thinking: { type: "adaptive" } },
     false,
@@ -1230,8 +1230,8 @@ test("buildKiroPayload defaults adaptive thinking (no effort) to high", () => {
   );
 });
 
-test("buildKiroPayload drops both temperature and top_p when thinking is enabled", () => {
-  const result = buildKiroPayload(
+test("buildKiroPayload drops both temperature and top_p when thinking is enabled", async () => {
+  const result = await buildKiroPayload(
     "claude-sonnet-5",
     {
       messages: [{ role: "user", content: "hard" }],

@@ -7,7 +7,12 @@ import type { AgentCredentials } from "@/lib/cloudAgent/baseAgent";
 // pattern). These helpers sit in the synchronous call stack (API routes call
 // them without await), so we read the async adapter through the sync view.
 function syncDb(): RawSyncDb {
-  return getAsyncDb() as unknown as RawSyncDb;
+  // getAsyncDb() returns the async *adapter* (sqliteAsyncAdapter / PG adapter)
+  // whose statement .run/.get/.all return Promises — casting that to the sync
+  // view yields Promises for every read (row is truthy, decrypt(undefined)
+  // returns null) and breaks `.all().map()`. Unwrap the driver handle via
+  // `.raw`, the same sync view featureFlags.ts / modelIntelligence.ts use.
+  return (getAsyncDb() as unknown as { raw: RawSyncDb }).raw;
 }
 
 // The `cloud_agent_credentials` table is provisioned by migration

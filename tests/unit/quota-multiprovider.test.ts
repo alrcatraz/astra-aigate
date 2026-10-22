@@ -62,6 +62,9 @@ const { PROVIDER_MODELS } = await import("../../open-sse/config/providerModels.t
 // Trigger migration once at module load so the schema is ready for the first
 // beforeEach without a slow per-test full migration run.
 core.getDbInstance();
+// getDbInstance() only kicks migrations off lazily — join the barrier before the
+// first query or tables such as quota_pool_connections may not exist yet.
+await core.awaitDbMigrations();
 
 // ---------------------------------------------------------------------------
 // Lifecycle

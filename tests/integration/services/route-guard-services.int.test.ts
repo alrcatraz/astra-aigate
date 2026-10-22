@@ -87,9 +87,13 @@ describe("isLocalOnlyPath — /api/services/* and /dashboard/providers/services/
     assert.equal(isLocalOnlyPath(pathOnly), true);
   });
 
-  it("returns false for /api/services (no trailing slash — does NOT match prefix)", () => {
-    // "/api/services" does not start with "/api/services/" — intentional behavior.
-    assert.equal(isLocalOnlyPath("/api/services"), false);
+  it("returns true for /api/services (bare registry index — classified for subtree parity)", () => {
+    // The registry index (8675acc3, post-bootstrap) resolves to the slashless
+    // path, which the "/api/services/" prefix never matched; it is classified
+    // alongside its T-10 subtree — same bare-path parity as /api/plugins.
+    // Before the parity fix, check:route-guard-membership reported it as an
+    // unclassified spawn-capable route.
+    assert.equal(isLocalOnlyPath("/api/services"), true);
   });
 
   it("returns false for /api/settings (unrelated route)", () => {
@@ -161,14 +165,17 @@ describe("LOCAL_ONLY_API_PREFIXES constant integrity", () => {
     );
   });
 
-  it("has exactly 5 entries (no silent regressions adding or removing prefixes)", () => {
-    // 4 baseline entries (/api/mcp/, /api/cli-tools/runtime/, /api/services/,
-    // /dashboard/providers/services/) + /api/copilot/ added in the v3.8.4
-    // semgrep MCP hardening pass (commit 21f8dc4b3).
+  it("has exactly 28 entries (no silent regressions adding or removing prefixes)", () => {
+    // Inventory pin. Every entry carries its own Hard-Rules justification in
+    // routeGuard.ts; the count grew past the original 5-entry upstream snapshot
+    // via hardening passes imported at bootstrap (cli-tools probes, plugins,
+    // middleware, headroom, issue-agent, discovery, VNC, ACP …) plus the bare
+    // /api/services parity fix (registry index, 8675acc3). An unexpected delta
+    // here = a silent classification change; update deliberately.
     assert.equal(
       LOCAL_ONLY_API_PREFIXES.length,
-      5,
-      `Expected 5 LOCAL_ONLY_API_PREFIXES, got ${LOCAL_ONLY_API_PREFIXES.length}: ${JSON.stringify(LOCAL_ONLY_API_PREFIXES)}`
+      28,
+      `Expected 28 LOCAL_ONLY_API_PREFIXES, got ${LOCAL_ONLY_API_PREFIXES.length}: ${JSON.stringify(LOCAL_ONLY_API_PREFIXES)}`
     );
   });
 });
@@ -188,11 +195,13 @@ describe("SPAWN_CAPABLE_PREFIXES constant integrity", () => {
     );
   });
 
-  it("has exactly 2 entries (no silent regressions)", () => {
+  it("has exactly 11 entries (no silent regressions)", () => {
+    // Kept in sync with tests/unit/authz/spawn-capable-prefixes-client-safe.test.ts
+    // (the maintained twin asserting the same inventory).
     assert.equal(
       SPAWN_CAPABLE_PREFIXES.length,
-      2,
-      `Expected 2 SPAWN_CAPABLE_PREFIXES, got ${SPAWN_CAPABLE_PREFIXES.length}: ${JSON.stringify(SPAWN_CAPABLE_PREFIXES)}`
+      11,
+      `Expected 11 SPAWN_CAPABLE_PREFIXES, got ${SPAWN_CAPABLE_PREFIXES.length}: ${JSON.stringify(SPAWN_CAPABLE_PREFIXES)}`
     );
   });
 

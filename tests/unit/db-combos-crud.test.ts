@@ -227,7 +227,9 @@ test("getCombos upgrades legacy persisted entries to version 2 and resolves comb
       id: "parent-ref-1-child",
       kind: "combo-ref",
       comboName: "child",
-      weight: 0,
+      // c1e1247b "fix(combos): default new model steps to weight 1" — a legacy
+      // bare string ref now normalizes to weight 1 (was 0 before that commit).
+      weight: 1,
     },
     {
       id: "parent-model-2-anthropic-claude-sonnet-4",

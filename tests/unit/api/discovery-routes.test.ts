@@ -91,7 +91,7 @@ describe("discovery API routes", () => {
     assert.ok(Array.isArray(body.results) && body.results.length > 0);
     assert.ok(body.results[0].id > 0);
     // the persisted row is now queryable
-    assert.ok(db.getDiscoveryResults("gamma").length > 0);
+    assert.ok((await db.getDiscoveryResults("gamma")).length > 0);
 
     const invalid = await scanRoute.POST(req("POST", "/api/discovery/scan", { providerId: "" }));
     assert.equal(invalid.status, 400);

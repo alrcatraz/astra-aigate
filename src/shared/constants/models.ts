@@ -2,9 +2,6 @@
 export {
   PROVIDER_MODELS,
   getProviderModels,
-  getDefaultModel,
-  isValidModel as isValidModelCore,
-  findModelName,
   getModelTargetFormat,
   PROVIDER_ID_TO_ALIAS,
   getModelsByProviderId,

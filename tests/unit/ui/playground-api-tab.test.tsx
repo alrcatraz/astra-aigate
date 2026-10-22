@@ -203,7 +203,10 @@ describe("ApiTab", () => {
 
     const endpointSelect = el.querySelector("select") as HTMLSelectElement;
 
-    act(async () => {
+    // Awaited: an un-awaited `act(async …)` never closes React's act scope, so
+    // every later test in the file queues renders forever — that is what timed
+    // out the SSE and info-banner waitFors.
+    await act(async () => {
       endpointSelect.value = "embeddings";
       await endpointSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
@@ -251,7 +254,7 @@ describe("ApiTab", () => {
     const modelSelect = el.querySelectorAll("select")[2] as HTMLSelectElement;
     await waitFor(() => modelSelect.options.length > 0);
 
-    act(async () => {
+    await act(async () => {
       modelSelect.value = "openai/gpt-4";
       await modelSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });

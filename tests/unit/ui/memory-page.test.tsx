@@ -32,36 +32,23 @@ vi.mock("swr", () => ({
 }));
 
 // Mock all child tab components + concept card
-vi.mock(
-  "../../../src/app/(dashboard)/dashboard/memory/components/MemoryConceptCard",
-  () => ({
-    default: () => React.createElement("div", { "data-testid": "concept-card" }, "ConceptCard"),
-  }),
-);
+vi.mock("../../../src/app/(dashboard)/dashboard/memory/components/MemoryConceptCard", () => ({
+  default: () => React.createElement("div", { "data-testid": "concept-card" }, "ConceptCard"),
+}));
 
-vi.mock(
-  "../../../src/app/(dashboard)/dashboard/memory/components/tabs/MemoriesTab",
-  () => ({
-    default: () =>
-      React.createElement("div", { "data-testid": "memories-tab-content" }, "MemoriesTab"),
-  }),
-);
+vi.mock("../../../src/app/(dashboard)/dashboard/memory/components/tabs/MemoriesTab", () => ({
+  default: () =>
+    React.createElement("div", { "data-testid": "memories-tab-content" }, "MemoriesTab"),
+}));
 
-vi.mock(
-  "../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab",
-  () => ({
-    default: () =>
-      React.createElement("div", { "data-testid": "playground-tab-content" }, "PlaygroundTab"),
-  }),
-);
+vi.mock("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab", () => ({
+  default: () =>
+    React.createElement("div", { "data-testid": "playground-tab-content" }, "PlaygroundTab"),
+}));
 
-vi.mock(
-  "../../../src/app/(dashboard)/dashboard/memory/components/tabs/EngineTab",
-  () => ({
-    default: () =>
-      React.createElement("div", { "data-testid": "engine-tab-content" }, "EngineTab"),
-  }),
-);
+vi.mock("../../../src/app/(dashboard)/dashboard/memory/components/tabs/EngineTab", () => ({
+  default: () => React.createElement("div", { "data-testid": "engine-tab-content" }, "EngineTab"),
+}));
 
 const cleanupCallbacks: Array<() => void> = [];
 
@@ -75,22 +62,37 @@ function makeContainer(): HTMLElement {
 describe("MemoryPage", () => {
   beforeEach(() => {
     mockTabValue = null;
-    (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-      true;
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
+  // Every root has to be unmounted inside act before its container leaves the DOM.
+  // Detaching a live root instead leaves React's scheduler with work queued against
+  // a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+  // react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+  // it fails the whole Vitest run rather than any one case. A test that renders twice
+  // also needs every root tracked, not just the newest container.
+
+  const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
     while (cleanupCallbacks.length > 0) cleanupCallbacks.pop()?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });
 
   it("renders the concept card", async () => {
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
-    );
+    const { default: MemoryPage } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/page");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<MemoryPage />);
     });
@@ -98,11 +100,11 @@ describe("MemoryPage", () => {
   });
 
   it("renders 3 tab buttons", async () => {
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
-    );
+    const { default: MemoryPage } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/page");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<MemoryPage />);
     });
@@ -114,11 +116,11 @@ describe("MemoryPage", () => {
 
   it("defaults to memories tab (tab=null)", async () => {
     mockTabValue = null;
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
-    );
+    const { default: MemoryPage } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/page");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<MemoryPage />);
     });
@@ -129,11 +131,11 @@ describe("MemoryPage", () => {
 
   it("shows playground tab when ?tab=playground", async () => {
     mockTabValue = "playground";
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
-    );
+    const { default: MemoryPage } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/page");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<MemoryPage />);
     });
@@ -143,11 +145,11 @@ describe("MemoryPage", () => {
 
   it("shows engine tab when ?tab=engine", async () => {
     mockTabValue = "engine";
-    const { default: MemoryPage } = await import(
-      "../../../src/app/(dashboard)/dashboard/memory/page"
-    );
+    const { default: MemoryPage } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/page");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<MemoryPage />);
     });

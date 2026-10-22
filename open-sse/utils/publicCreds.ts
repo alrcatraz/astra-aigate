@@ -204,8 +204,9 @@ const EMBEDDED_DEFAULTS = {
   // Adobe Express fallback IMS client_id for cookie exchange when Firefly
   // clio-playground-web refresh fails (older Express cookies).
   adobe_firefly_express_client_id: [31, 31, 1, 3, 23, 12, 1, 12, 58, 90, 21, 23, 3, 28, 25],
-  // Firefly credits balance endpoint public x-api-key (`SunbreakWebUI1`) from
-  // GET firefly.adobe.io/v1/credits/balance browser traffic.
+  // Firefly credits balance endpoint public x-api-key (non-per-user; same for
+  // every Firefly SPA session) from GET firefly.adobe.io/v1/credits/balance
+  // browser traffic. Plaintext lives only in the decode-oracle test fixture.
   adobe_firefly_balance_api_key: [60, 24, 0, 11, 0, 10, 20, 31, 50, 72, 18, 32, 43, 93],
 } as const;
 

@@ -30,6 +30,15 @@ async function importDbModules() {
 
 async function makeDbContext() {
   const modules = await importDbModules();
+  // The versioned migration runner is kicked off lazily — and asynchronously —
+  // by the first getDbInstance()/getAsyncDb() call. DB-mode CLI commands must
+  // join that barrier before their first query, otherwise they read a
+  // half-migrated schema (e.g. `combos` without `context_cache_protection`,
+  // added by migrations 005/096) and fail with SQLITE_ERROR on a fresh
+  // DATA_DIR. Same barrier-join shape as the test harnesses.
+  const core = await import(`${PROJECT_ROOT}/src/lib/db/core.ts`);
+  core.getDbInstance();
+  await core.awaitDbMigrations();
   return { kind: "db", db: modules };
 }
 

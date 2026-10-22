@@ -1,11 +1,9 @@
 import test from "node:test";
+import { setupTestDataDir } from "../_setup/testDataDir.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-model-sync-route-"));
-process.env.DATA_DIR = TEST_DATA_DIR;
+const TEST_DATA_DIR = setupTestDataDir("omniroute-model-sync-route-");
 // FASE-01: API_KEY_SECRET is required for CRC operations (no hardcoded fallback)
 if (!process.env.API_KEY_SECRET) {
   process.env.API_KEY_SECRET = "test-model-sync-secret-" + Date.now();

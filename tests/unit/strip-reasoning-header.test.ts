@@ -22,7 +22,7 @@ test("isStripReasoningRequested is true for truthy header values", () => {
 });
 
 test("isStripReasoningRequested is case-insensitive on the header NAME", () => {
-  assert.equal(isStripReasoningRequested({ "X-OmniRoute-Strip-Reasoning": "true" }), true);
+  assert.equal(isStripReasoningRequested({ "X-AI-Gate-Strip-Reasoning": "true" }), true);
 });
 
 test("isStripReasoningRequested works with a Headers instance", () => {

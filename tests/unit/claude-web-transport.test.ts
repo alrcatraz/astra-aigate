@@ -196,7 +196,7 @@ describe("Claude Web executor transport orchestration", () => {
     assert.equal(responseBody.choices[0].message.content, "direct answer");
     assert.equal(responseBody.claude_web.conversation_id, requests[0].conversationId);
     assert.match(
-      execution.response.headers.get("X-OmniRoute-Claude-Web-Assistant-Message-Uuid") ?? "",
+      execution.response.headers.get("X-AI-Gate-Claude-Web-Assistant-Message-Uuid") ?? "",
       /^[a-f0-9-]+$/
     );
   });

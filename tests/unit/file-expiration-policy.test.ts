@@ -1,13 +1,16 @@
 import { describe, it, before, afterEach } from "node:test";
 import assert from "node:assert";
 import { createFile, getFile, listFiles, deleteFile } from "@/lib/localDb";
-import { getDbInstance } from "@/lib/db/core.ts";
+import { getDbInstance, awaitDbMigrations } from "@/lib/db/core.ts";
 
 describe("File Expiration Policy", () => {
   let db: any;
 
-  before(() => {
+  before(async () => {
     db = getDbInstance();
+    // Migrations are deferred behind setTimeout(0) in core.ts; the `files`
+    // table only exists once they settle, so join before any test runs.
+    await awaitDbMigrations();
   });
 
   afterEach(async () => {

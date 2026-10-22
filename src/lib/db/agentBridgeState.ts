@@ -47,7 +47,7 @@ export async function upsertAgentBridgeState(
   row: Partial<AgentBridgeStateRow> & { agent_id: string }
 ): Promise<void> {
   const db = getAsyncDb();
-  const existing = getAgentBridgeState(row.agent_id);
+  const existing = await getAgentBridgeState(row.agent_id);
 
   if (!existing) {
     await db

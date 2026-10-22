@@ -134,15 +134,18 @@ test("intelligent combo selection defaults only inside the intelligent filter", 
   );
 });
 
-test("sidebar visibility excludes the removed auto-combo item", async () => {
+test("sidebar visibility keeps auto-combo hideable but unrendered", async () => {
   const sidebarVisibility = await import("../../src/shared/constants/sidebarVisibility.ts");
   const omniProxySection = sidebarVisibility.SIDEBAR_SECTIONS.find(
     (section) => section.id === "omni-proxy"
   );
 
+  // auto-combo was re-added to HIDEABLE by the Expo shell rewrite (93f7cbe1) so a
+  // saved "hide auto-combo" preference survives; it is simply no longer rendered
+  // by any section. Mirrors sidebar-visibility.test.ts (the authoritative spec).
   assert.equal(
     (sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS as readonly string[]).includes("auto-combo"),
-    false
+    true
   );
   assert.ok(omniProxySection);
   const items = sidebarVisibility.getSectionItems(omniProxySection);
@@ -152,6 +155,7 @@ test("sidebar visibility excludes the removed auto-combo item", async () => {
   );
   assert.deepEqual(sidebarVisibility.normalizeHiddenSidebarItems(["auto-combo" as any, "home"]), [
     "home",
+    "auto-combo",
   ]);
 });
 

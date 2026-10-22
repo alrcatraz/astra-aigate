@@ -1,9 +1,23 @@
-import { describe, it } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 const mod = await import("../../open-sse/executors/commandCode.ts");
 
+// Hermetic run: the "valid key" test below must exercise the fetch failure path
+// locally instead of POSTing to https://api.commandcode.ai/alpha/generate.
+const originalFetch = globalThis.fetch;
+
 describe("CommandCodeExecutor", () => {
+  beforeEach(() => {
+    globalThis.fetch = async () => {
+      throw new TypeError("fetch failed (hermetic test stub)");
+    };
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
   it("can be instantiated", () => {
     const executor = new mod.CommandCodeExecutor();
     assert.ok(executor);

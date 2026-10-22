@@ -28,7 +28,7 @@ describe("evalRunner", () => {
   it("should have golden-set suite pre-registered", async () => {
     const suite = await getSuite("golden-set");
     assert.ok(suite);
-    assert.equal(suite.name, "OmniRoute Golden Set");
+    assert.equal(suite.name, "AI Gate Golden Set");
     assert.ok(suite.cases.length >= 10);
   });
 
@@ -336,18 +336,18 @@ describe("responsiveSpecs", () => {
 import { setNoLog, isNoLog, getRetentionDays } from "../../src/lib/compliance/index.ts";
 
 describe("compliance", () => {
-  it("should default to logging enabled", () => {
-    assert.equal(isNoLog("key-1"), false);
+  it("should default to logging enabled", async () => {
+    assert.equal(await isNoLog("key-1"), false);
   });
 
-  it("should set noLog opt-out", () => {
+  it("should set noLog opt-out", async () => {
     setNoLog("key-1", true);
-    assert.equal(isNoLog("key-1"), true);
+    assert.equal(await isNoLog("key-1"), true);
   });
 
-  it("should clear noLog opt-out", () => {
+  it("should clear noLog opt-out", async () => {
     setNoLog("key-1", false);
-    assert.equal(isNoLog("key-1"), false);
+    assert.equal(await isNoLog("key-1"), false);
   });
 
   it("should expose split default retention windows", () => {

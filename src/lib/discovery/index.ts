@@ -59,25 +59,6 @@ export const DEFAULT_DISCOVERY_CONFIG: DiscoveryConfig = {
 /**
  * Probe a single URL for API availability.
  */
-export async function probeEndpoint(
-  url: string,
-  signal?: AbortSignal
-): Promise<{ accessible: boolean; status?: number; hasModels?: boolean }> {
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { "User-Agent": "AI Gate-Discovery/1.0" },
-      signal,
-    });
-    return {
-      accessible: res.ok,
-      status: res.status,
-      hasModels: res.ok && url.includes("/models"),
-    };
-  } catch {
-    return { accessible: false };
-  }
-}
 
 // ── Scan ──
 
@@ -115,16 +96,16 @@ export async function scanProvider(
  * re-discovering the same endpoint updates the existing row. Returns the
  * persisted row (with its id).
  */
-export function persistDiscoveryResult(result: DiscoveryResult): DiscoveryResult {
-  return dbUpsertDiscoveryResult(result as DbDiscoveryResult) as DiscoveryResult;
+export async function persistDiscoveryResult(result: DiscoveryResult): Promise<DiscoveryResult> {
+  return (await dbUpsertDiscoveryResult(result as DbDiscoveryResult)) as DiscoveryResult;
 }
 
 /**
  * Get discovery results from the DB, optionally filtered to one provider.
  * Newest findings first.
  */
-export function getDiscoveryResults(providerId?: string): DiscoveryResult[] {
-  return dbGetDiscoveryResults(providerId) as DiscoveryResult[];
+export async function getDiscoveryResults(providerId?: string): Promise<DiscoveryResult[]> {
+  return (await dbGetDiscoveryResults(providerId)) as DiscoveryResult[];
 }
 
 // ── Config ──
@@ -132,6 +113,3 @@ export function getDiscoveryResults(providerId?: string): DiscoveryResult[] {
 /**
  * Check if discovery service is enabled.
  */
-export function isDiscoveryEnabled(): boolean {
-  return DEFAULT_DISCOVERY_CONFIG.enabled;
-}

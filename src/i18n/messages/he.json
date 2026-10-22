@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "סוג קובץ לא חוקי. אנא העלה PNG, JPG, SVG, GIF או WebP.",
     "invalidFaviconFileType": "סוג קובץ לא חוקי. אנא העלה PNG, ICO, SVG, GIF או WebP.",
     "failedToReadFile": "קריאת הקובץ נכשלה",
-    "startOnLogin": "הפעלה בעת התחברות",
-    "startOnLoginDesc": "הפעל את AI Gate באופן אוטומטי עם הפעלת המערכת והרצה שלו ברקע במגש המערכת.",
     "flushCache": "לשטוף את המטמון",
     "flushing": "שוטף…",
     "size": "גודל",

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.ts";
 
 describe("#2130: body.system passthrough in openai→claude translator", () => {
-  it("preserves body.system array when no role=system messages exist", () => {
+  it("preserves body.system array when no role=system messages exist", async () => {
     const body = {
       model: "claude-opus-4-7",
       max_tokens: 2048,
@@ -29,7 +29,7 @@ describe("#2130: body.system passthrough in openai→claude translator", () => {
       ],
     };
 
-    const result = openaiToClaudeRequest("claude-opus-4-7", body, false);
+    const result = await openaiToClaudeRequest("claude-opus-4-7", body, false);
 
     assert.ok(result.system, "result.system must be defined");
     assert.ok(Array.isArray(result.system), "result.system must be an array");
@@ -39,7 +39,7 @@ describe("#2130: body.system passthrough in openai→claude translator", () => {
     );
   });
 
-  it("preserves body.system string when no role=system messages exist", () => {
+  it("preserves body.system string when no role=system messages exist", async () => {
     const body = {
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
@@ -47,14 +47,14 @@ describe("#2130: body.system passthrough in openai→claude translator", () => {
       system: "You are a helpful assistant.",
     };
 
-    const result = openaiToClaudeRequest("claude-sonnet-4-6", body, true);
+    const result = await openaiToClaudeRequest("claude-sonnet-4-6", body, true);
 
     assert.ok(result.system, "result.system must be defined");
     assert.ok(Array.isArray(result.system), "result.system must be an array");
     assert.equal(result.system[0].text, "You are a helpful assistant.");
   });
 
-  it("merges body.system with role=system messages", () => {
+  it("merges body.system with role=system messages", async () => {
     const body = {
       model: "claude-opus-4-7",
       max_tokens: 2048,
@@ -70,7 +70,7 @@ describe("#2130: body.system passthrough in openai→claude translator", () => {
       ],
     };
 
-    const result = openaiToClaudeRequest("claude-opus-4-7", body, false);
+    const result = await openaiToClaudeRequest("claude-opus-4-7", body, false);
 
     assert.ok(result.system, "result.system must be defined");
     assert.ok(Array.isArray(result.system), "result.system must be an array");
@@ -85,14 +85,14 @@ describe("#2130: body.system passthrough in openai→claude translator", () => {
     );
   });
 
-  it("works correctly when neither body.system nor role=system messages exist", () => {
+  it("works correctly when neither body.system nor role=system messages exist", async () => {
     const body = {
       model: "claude-sonnet-4-6",
       max_tokens: 2048,
       messages: [{ role: "user", content: "hello" }],
     };
 
-    const result = openaiToClaudeRequest("claude-sonnet-4-6", body, true);
+    const result = await openaiToClaudeRequest("claude-sonnet-4-6", body, true);
 
     assert.equal(
       result.system,

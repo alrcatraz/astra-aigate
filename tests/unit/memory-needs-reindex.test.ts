@@ -173,13 +173,13 @@ test("countMemoryReindexPending() decrements after clearing a flag", async () =>
   insertTestMemory(db, "id-3", "Content 3", "key-3");
 
   await memoryVec.markAllMemoriesNeedReindex();
-  assert.equal(memoryVec.countMemoryReindexPending(), 3);
+  assert.equal(await memoryVec.countMemoryReindexPending(), 3);
 
   await memoryVec.markMemoryNeedsReindex("id-1", false);
-  assert.equal(memoryVec.countMemoryReindexPending(), 2);
+  assert.equal(await memoryVec.countMemoryReindexPending(), 2);
 
   await memoryVec.markMemoryNeedsReindex("id-2", false);
-  assert.equal(memoryVec.countMemoryReindexPending(), 1);
+  assert.equal(await memoryVec.countMemoryReindexPending(), 1);
 });
 
 // ──────────────── getMemoryReindexQueue pagination ────────────────
@@ -240,13 +240,13 @@ test("full workflow: markAll → queue=3 → clear id-1 → queue=2", async () =
 
   const queueBefore = await memoryVec.getMemoryReindexQueue(10);
   assert.equal(queueBefore.length, 3);
-  assert.equal(memoryVec.countMemoryReindexPending(), 3);
+  assert.equal(await memoryVec.countMemoryReindexPending(), 3);
 
   await memoryVec.markMemoryNeedsReindex("id-1", false);
 
   const queueAfter = await memoryVec.getMemoryReindexQueue(10);
   assert.equal(queueAfter.length, 2, "queue should have 2 items after clearing id-1");
-  assert.equal(memoryVec.countMemoryReindexPending(), 2);
+  assert.equal(await memoryVec.countMemoryReindexPending(), 2);
 
   const ids = queueAfter.map((item) => item.id);
   assert.ok(!ids.includes("id-1"));

@@ -27,6 +27,9 @@ const proxiesDb = await import("../../src/lib/db/proxies.ts");
 const proxyTestRoute = await import("../../src/app/api/settings/proxy/test/route.ts");
 const proxySchemas = await import("../../src/shared/validation/schemas/proxy.ts");
 
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   try {

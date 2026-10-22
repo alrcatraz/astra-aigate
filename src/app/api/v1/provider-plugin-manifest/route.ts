@@ -20,9 +20,8 @@ const SERVICE_BACKEND_EXPOSURE_REQUIRED = new Set(SERVICE_BACKEND_PLUGIN_IDS);
 const SERVICE_BACKEND_PLUGIN_ID_SET = new Set<string>(SERVICE_BACKEND_PLUGIN_IDS);
 
 function createServiceManifestTemplate(providerId: string): ProviderPluginManifestEntry | null {
-  const entry = SERVICE_BACKEND_MANIFEST_TEMPLATE[
-    providerId as keyof typeof SERVICE_BACKEND_MANIFEST_TEMPLATE
-  ];
+  const entry =
+    SERVICE_BACKEND_MANIFEST_TEMPLATE[providerId as keyof typeof SERVICE_BACKEND_MANIFEST_TEMPLATE];
   if (!entry) return null;
 
   return {
@@ -78,7 +77,10 @@ function toProviderPluginModel(tool: string, model: ServiceModel): ProviderPlugi
   };
 }
 
-function pickServiceModels(tool: string, reader: (toolName: string) => ServiceModel[]): ProviderPluginModel[] {
+function pickServiceModels(
+  tool: string,
+  reader: (toolName: string) => ServiceModel[]
+): ProviderPluginModel[] {
   const models = reader(tool).filter(isValidServiceModelEntry);
 
   const unique = new Map<string, ProviderPluginModel>();
@@ -96,9 +98,16 @@ async function shouldExposeServiceModels(toolName: string): Promise<boolean> {
   if (!SERVICE_BACKEND_EXPOSURE_REQUIRED.has(toolName)) return true;
 
   const serviceTool = getServiceToolFromPluginId(toolName) ?? toolName;
-  const row = await getServiceRow(serviceTool);
-  if (!row) return true;
-  return row.providerExpose;
+  try {
+    const row = await getServiceRow(serviceTool);
+    if (!row) return true;
+    return row.providerExpose;
+  } catch {
+    // Exposure config unreadable (no DB / pre-migration) behaves like "no row":
+    // default to exposing, otherwise a store hiccup silently strips every
+    // service model from the plugin manifest.
+    return true;
+  }
 }
 
 function shouldInjectBackendPluginModels(provider: ProviderPluginManifestEntry) {
@@ -145,7 +154,7 @@ export async function injectServiceModelsIntoManifest(
       } catch {
         return provider;
       }
-    }),
+    })
   );
 
   return {

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -43,12 +44,12 @@ function setupFetch(fingerprints: string[]) {
 
 const containers: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
-function renderCard() {
+async function renderCard() {
   const el = document.createElement("div");
   document.body.appendChild(el);
   const root = createRoot(el);
   let counter = 0;
-  act(() => {
+  await act(async () => {
     root.render(
       <NoAuthAccountCard
         providerId={PROVIDER_ID}
@@ -75,14 +76,19 @@ const grid = (el: HTMLElement) =>
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
+  (
+    globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
   vi.clearAllMocks();
 });
 
-afterEach(() => {
-  for (const { root, el } of containers.splice(0)) {
-    act(() => root.unmount());
-    el.remove();
-  }
+afterEach(async () => {
+  await act(async () => {
+    for (const { root, el } of containers.splice(0)) {
+      root.unmount();
+      el.remove();
+    }
+  });
   vi.unstubAllGlobals();
 });
 
@@ -91,7 +97,7 @@ afterEach(() => {
 describe("NoAuthAccountCard compact grid", () => {
   it("renders the account list as a multi-column grid container", async () => {
     setupFetch(makeFingerprints(15));
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el) !== null);
     const container = grid(el)!;
     // Must be a responsive grid (not the old single-column stack) so 15 accounts stay compact.
@@ -101,14 +107,14 @@ describe("NoAuthAccountCard compact grid", () => {
 
   it("renders one chip per account fingerprint", async () => {
     setupFetch(makeFingerprints(15));
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 15);
     expect(grid(el)!.querySelectorAll("[data-account-id]").length).toBe(15);
   });
 
   it("constrains height with vertical scroll so a long list never grows unbounded", async () => {
     setupFetch(makeFingerprints(15));
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el) !== null);
     const container = grid(el)!;
     expect(container.className).toContain("overflow-y-auto");
@@ -117,7 +123,7 @@ describe("NoAuthAccountCard compact grid", () => {
 
   it("keeps a proxy control on every chip (shield icon)", async () => {
     setupFetch(makeFingerprints(3));
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 3);
     const chips = Array.from(grid(el)!.querySelectorAll<HTMLElement>("[data-account-id]"));
     for (const chip of chips) {
@@ -129,12 +135,12 @@ describe("NoAuthAccountCard compact grid", () => {
 
   it("opens the proxy editor when a chip's shield is clicked", async () => {
     setupFetch(makeFingerprints(3));
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 3);
     const firstChip = grid(el)!.querySelector<HTMLElement>("[data-account-id]")!;
     const proxyBtn = firstChip.querySelector<HTMLButtonElement>("button[title]")!;
-    act(async () => {
-      await proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await waitForCondition(() => el.textContent?.includes("Proxy for Account 1") ?? false);
     expect(el.textContent).toContain("Proxy for Account 1");
@@ -185,12 +191,14 @@ function setupFetchWithProxies(fingerprints: string[], accountProxies: unknown[]
 describe("NoAuthAccountCard proxy pool dropdown (#5217 Gap 1)", () => {
   it("defaults the editor to the Saved Proxy Pool dropdown when pool proxies exist", async () => {
     setupFetchWithProxies(makeFingerprints(2));
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 2);
     const proxyBtn = grid(el)!
       .querySelector<HTMLElement>("[data-account-id]")!
       .querySelector<HTMLButtonElement>("button[title]")!;
-    act(() => proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await act(async () => {
+      proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
     await waitForCondition(() => el.textContent?.includes("Proxy for Account 1") ?? false);
     // The saved dropdown lists every pool proxy by name; the manual Host input is hidden.
     const select = el.querySelector<HTMLSelectElement>("select")!;
@@ -203,12 +211,14 @@ describe("NoAuthAccountCard proxy pool dropdown (#5217 Gap 1)", () => {
   it("persists a by-id reference {fingerprint, proxyId} when a pool proxy is selected", async () => {
     const fps = makeFingerprints(2);
     const { putBodies } = setupFetchWithProxies(fps);
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 2);
     const proxyBtn = grid(el)!
       .querySelector<HTMLElement>("[data-account-id]")!
       .querySelector<HTMLButtonElement>("button[title]")!;
-    act(() => proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await act(async () => {
+      proxyBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
     await waitForCondition(() => el.querySelector("select") !== null);
 
     const select = el.querySelector<HTMLSelectElement>("select")!;
@@ -216,15 +226,17 @@ describe("NoAuthAccountCard proxy pool dropdown (#5217 Gap 1)", () => {
       window.HTMLSelectElement.prototype,
       "value"
     )!.set!;
-    act(async () => {
+    await act(async () => {
       setter.call(select, "pool-2");
-      await select.dispatchEvent(new Event("change", { bubbles: true }));
+      select.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
     const saveBtn = Array.from(el.querySelectorAll("button")).find(
       (b) => b.textContent?.trim() === "Save"
     )!;
-    act(() => saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await act(async () => {
+      saveBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
 
     await waitForCondition(() => putBodies.length > 0);
     const body = putBodies.at(-1) as { providerSpecificData?: { accountProxies?: unknown[] } };
@@ -235,7 +247,7 @@ describe("NoAuthAccountCard proxy pool dropdown (#5217 Gap 1)", () => {
   it("lights the shield for an account stored as a by-id reference", async () => {
     const fps = makeFingerprints(2);
     setupFetchWithProxies(fps, [{ fingerprint: fps[0], proxyId: "pool-1" }]);
-    const el = renderCard();
+    const el = await renderCard();
     await waitForCondition(() => grid(el)?.querySelectorAll("[data-account-id]").length === 2);
     const firstShield = grid(el)!
       .querySelector<HTMLElement>("[data-account-id]")!

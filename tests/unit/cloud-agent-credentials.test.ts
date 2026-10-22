@@ -22,12 +22,22 @@ process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "cloud-agent-creds-te
 const core = await import("../../src/lib/db/core.ts");
 const creds = await import("../../src/lib/cloudAgent/credentials.ts");
 
+// openSqliteDatabase() fires the versioned migration runner without awaiting
+// it, so every query in this file must first join that barrier.
+let dbReady: Promise<void> | null = null;
+function ensureDbReady(): Promise<void> {
+  core.getDbInstance();
+  if (!dbReady) dbReady = core.awaitDbMigrations();
+  return dbReady;
+}
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("migration 061 provisions cloud_agent_credentials (table exists after DB init)", () => {
+test("migration 061 provisions cloud_agent_credentials (table exists after DB init)", async () => {
+  await ensureDbReady();
   const db = core.getDbInstance();
   const row = db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
@@ -47,24 +57,28 @@ test("ensureCredentialsTable is no longer exported (inline DDL removed)", () => 
   );
 });
 
-test("save → get round-trips and decrypts the API key", () => {
+test("save → get round-trips and decrypts the API key", async () => {
+  await ensureDbReady();
   creds.saveCloudAgentCredential("devin", "sk-secret-123", "https://api.devin.example");
   const got = creds.getCloudAgentCredentialFromDb("devin");
   assert.deepEqual(got, { apiKey: "sk-secret-123", baseUrl: "https://api.devin.example" });
 });
 
-test("get returns null for unknown provider", () => {
+test("get returns null for unknown provider", async () => {
+  await ensureDbReady();
   assert.equal(creds.getCloudAgentCredentialFromDb("does-not-exist"), null);
 });
 
-test("save upserts (ON CONFLICT) rather than duplicating", () => {
+test("save upserts (ON CONFLICT) rather than duplicating", async () => {
+  await ensureDbReady();
   creds.saveCloudAgentCredential("jules", "sk-first");
   creds.saveCloudAgentCredential("jules", "sk-second", "https://jules.example");
   const got = creds.getCloudAgentCredentialFromDb("jules");
   assert.deepEqual(got, { apiKey: "sk-second", baseUrl: "https://jules.example" });
 });
 
-test("list returns masked keys, never the plaintext", () => {
+test("list returns masked keys, never the plaintext", async () => {
+  await ensureDbReady();
   creds.saveCloudAgentCredential("codex-cloud", "sk-supersecretvalue");
   const list = creds.listCloudAgentCredentials();
   const entry = list.find((c) => c.providerId === "codex-cloud");
@@ -73,7 +87,8 @@ test("list returns masked keys, never the plaintext", () => {
   assert.ok(!entry.apiKey.includes("supersecret"), "plaintext key must never be returned");
 });
 
-test("delete removes the credential", () => {
+test("delete removes the credential", async () => {
+  await ensureDbReady();
   creds.saveCloudAgentCredential("temp", "sk-temp");
   assert.ok(creds.getCloudAgentCredentialFromDb("temp"));
   creds.deleteCloudAgentCredential("temp");

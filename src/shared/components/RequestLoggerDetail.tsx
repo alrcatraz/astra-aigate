@@ -218,7 +218,10 @@ export default function RequestLoggerDetail({
   const [unblocking, setUnblocking] = useState(false);
   const [cleared, setCleared] = useState(false);
 
-  const errorText = (detail?.error || log.error) ?? "";
+  // #7845: `/api/logs/{id}` may return a structured `error` object (e.g. { code, message }).
+  // Coerce it before the substring probes below — calling .toLowerCase() on the raw value
+  // threw and crashed the whole detail modal (React error boundary-less render).
+  const errorText = formatErrorForDisplay(detail?.error || log.error) ?? "";
   const isCombo503 =
     log.status === 503 && errorText.toLowerCase().includes("all targets exhausted");
   const isModelCooldown = !isCombo503 && errorText.toLowerCase().includes("cooling down");

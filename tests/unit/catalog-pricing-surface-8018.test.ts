@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it, before, after } from "node:test";
 import { enrichCatalogModelEntry } from "../../src/lib/modelMetadataRegistry.ts";
+const core = await import("../../src/lib/db/core.ts");
 import {
   saveModelsDevPricing,
   clearModelsDevPricing,
@@ -16,6 +17,8 @@ type CatalogPricing = {
 
 describe("catalog pricing surface (#8018)", () => {
   before(async () => {
+    core.getDbInstance();
+    await core.awaitDbMigrations();
     const pricing: PricingByProvider = {
       openai: {
         "gpt-4o": { input: 2.5, output: 10 },

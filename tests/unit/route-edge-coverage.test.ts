@@ -1,12 +1,10 @@
 import test from "node:test";
+import { setupTestDataDir } from "../_setup/testDataDir.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { makeManagementSessionRequest } from "../helpers/managementSession.ts";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-route-edges-"));
-process.env.DATA_DIR = TEST_DATA_DIR;
+const TEST_DATA_DIR = setupTestDataDir("omniroute-route-edges-");
 process.env.API_KEY_SECRET = "test-api-key-secret";
 process.env.CLOUD_URL = "http://cloud.example";
 
@@ -191,7 +189,7 @@ test("api keys route covers auth, create, masking, pagination fallback and cloud
     assert.equal(createdBody.noLog, true);
     assert.match(createdBody.key, /^sk-/);
     assert.equal(stored?.noLog, true);
-    assert.equal(compliance.isNoLog(createdBody.id), true);
+    assert.equal(await compliance.isNoLog(createdBody.id), true);
 
     assert.equal(paged.status, 200);
     assert.equal(pagedBody.total, 4);

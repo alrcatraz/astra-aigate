@@ -20,7 +20,7 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ASSEMBLE = path.join(ROOT, "scripts", "build", "assembleStandalone.mjs");
-const BIN_ENTRY = path.join(ROOT, "bin", "omniroute.mjs");
+const BIN_ENTRY = path.join(ROOT, "bin", "astra-aigate.mjs");
 
 interface WrapperEntry {
   src: string;
@@ -119,8 +119,8 @@ test("dynamic import() closure is covered (server-ws boots dist/server.js)", () 
   );
 });
 
-test("every bin/omniroute.mjs local import is enforced by check:pack-artifact", () => {
-  // The CLI boot path (bin/omniroute.mjs → bin/cli/*) is covered by allowlist PREFIXES,
+test("every bin/astra-aigate.mjs local import is enforced by check:pack-artifact", () => {
+  // The CLI boot path (bin/astra-aigate.mjs → bin/cli/*) is covered by allowlist PREFIXES,
   // so a file vanishing from the tarball never fails the unexpected-paths check — only
   // PACK_ARTIFACT_REQUIRED_PATHS makes its absence loud. Derive the requirement from
   // the entrypoint's own imports.

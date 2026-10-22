@@ -13,7 +13,7 @@ const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 // plain turns was gated by a DeepSeek-only predicate, so a multi-turn text
 // conversation whose reasoning_content the client stripped was forwarded
 // without the field and rejected with 400.
-test("translateRequest replays reasoning_content on plain xiaomi-mimo assistant turns (9router#1321)", () => {
+test("translateRequest replays reasoning_content on plain xiaomi-mimo assistant turns (9router#1321)", async () => {
   const body = {
     model: "mimo-v2.5-pro",
     messages: [
@@ -24,7 +24,7 @@ test("translateRequest replays reasoning_content on plain xiaomi-mimo assistant 
     ],
   };
 
-  const result = translateRequest(
+  const result = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI,
     "mimo-v2.5-pro",

@@ -141,7 +141,7 @@ function mapSubscriptionRow(row: unknown): ProxySubscriptionRecord {
 
 export async function listSubscriptions(): Promise<ProxySubscriptionRecord[]> {
   const db = await getAsyncDb();
-  const rows = db
+  const rows = await db
     .prepare(
       "SELECT id, name, url, enabled, mode, rule_providers, local_core_endpoint, update_interval_minutes, last_fetched_at, status, error, last_nodes, last_error_at, consecutive_failures, created_at, updated_at FROM proxy_subscriptions ORDER BY updated_at DESC, name ASC"
     )
@@ -151,7 +151,11 @@ export async function listSubscriptions(): Promise<ProxySubscriptionRecord[]> {
 
 export async function getSubscriptionById(id: string): Promise<ProxySubscriptionRecord | null> {
   const db = await getAsyncDb();
-  const row = db
+  // The async adapter's `.get()` returns a Promise — consuming it un-awaited
+  // fed mapSubscriptionRow a Promise object: every field defaulted (`mode` →
+  // "global", `enabled` → true), so rule-mode subscriptions silently bound the
+  // global scope and updates wrote empty name/url.
+  const row = await db
     .prepare(
       "SELECT id, name, url, enabled, mode, rule_providers, local_core_endpoint, update_interval_minutes, last_fetched_at, status, error, last_nodes, last_error_at, consecutive_failures, created_at, updated_at FROM proxy_subscriptions WHERE id = ?"
     )
@@ -258,20 +262,13 @@ export async function updateSubscription(
   return getSubscriptionById(id);
 }
 
-export async function setSubscriptionEnabled(
-  id: string,
-  enabled: boolean
-): Promise<ProxySubscriptionRecord | null> {
-  return updateSubscription(id, { enabled });
-}
-
 export async function deleteSubscription(id: string): Promise<boolean> {
   await unapplySubscription(id);
   // Remove subscription-sourced proxy rows (force-clears their assignments).
   const db = await getAsyncDb();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT id FROM proxy_registry WHERE subscription_id = ?")
-    .all(id) as Array<{ id: string }>;
+    .all(id)) as Array<{ id: string }>;
   for (const r of rows) {
     try {
       await deleteProxyById(r.id, { force: true });
@@ -490,11 +487,11 @@ async function syncSubscriptionUnsafe(id: string): Promise<SyncResult> {
     // Remove stale subscription nodes no longer present in the fetched set.
     if (keptIds.length > 0) {
       const placeholders = keptIds.map(() => "?").join(",");
-      const stale = db
+      const stale = (await db
         .prepare(
           `SELECT id FROM proxy_registry WHERE subscription_id = ? AND id NOT IN (${placeholders})`
         )
-        .all(id, ...keptIds) as Array<{ id: string }>;
+        .all(id, ...keptIds)) as Array<{ id: string }>;
       for (const r of stale) {
         try {
           await deleteProxyById(r.id, { force: true });
@@ -503,9 +500,9 @@ async function syncSubscriptionUnsafe(id: string): Promise<SyncResult> {
         }
       }
     } else {
-      const stale = db
+      const stale = (await db
         .prepare("SELECT id FROM proxy_registry WHERE subscription_id = ?")
-        .all(id) as Array<{ id: string }>;
+        .all(id)) as Array<{ id: string }>;
       for (const r of stale) {
         try {
           await deleteProxyById(r.id, { force: true });
@@ -630,9 +627,9 @@ export async function applySubscription(id: string): Promise<void> {
   if (!sub || !sub.enabled) return;
 
   const db = await getAsyncDb();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT id FROM proxy_registry WHERE subscription_id = ? AND status != 'error'")
-    .all(id) as Array<{ id: string }>;
+    .all(id)) as Array<{ id: string }>;
   const ids = rows.map((r) => r.id);
   if (ids.length === 0) return;
 
@@ -649,9 +646,9 @@ export async function applySubscription(id: string): Promise<void> {
 /** Remove the subscription's proxies from their bound scope(s). */
 export async function unapplySubscription(id: string): Promise<void> {
   const db = await getAsyncDb();
-  const rows = db
+  const rows = (await db
     .prepare("SELECT id FROM proxy_registry WHERE subscription_id = ?")
-    .all(id) as Array<{ id: string }>;
+    .all(id)) as Array<{ id: string }>;
 
   // Detach every subscription proxy from ALL scopes in one batched delete.
   // Replaces the previous per-proxy getProxyWhereUsed + removeProxyFromScopePool
@@ -660,7 +657,7 @@ export async function unapplySubscription(id: string): Promise<void> {
   const ids = rows.map((r) => r.id);
   if (ids.length > 0) {
     const placeholders = ids.map(() => "?").join(",");
-    const res = db
+    const res = await db
       .prepare(`DELETE FROM proxy_assignments WHERE proxy_id IN (${placeholders})`)
       .run(...ids);
     if (res.changes > 0) {
@@ -676,7 +673,7 @@ export async function unapplySubscription(id: string): Promise<void> {
 
 async function hasNonSubscriptionGlobalProxy(): Promise<boolean> {
   const db = await getAsyncDb();
-  const row = db
+  const row = await db
     .prepare(
       "SELECT 1 FROM proxy_assignments a JOIN proxy_registry p ON p.id = a.proxy_id WHERE a.scope = 'global' AND (p.subscription_id IS NULL OR p.subscription_id = '') LIMIT 1"
     )
@@ -692,7 +689,9 @@ async function recomputeProxyEnabled(): Promise<void> {
   // permanently stuck on `true` after an unapply/disable cycle even though
   // nothing is bound anymore (resolveProxyForConnectionFromRegistry correctly
   // returns null, but the operator-facing proxyEnabled flag would lie).
-  const enabledSubWithBoundProxy = db
+  // Awaited: the async adapter's `.get()` is a Promise, and an un-awaited one
+  // is always truthy — the flag could never recompute back to false.
+  const enabledSubWithBoundProxy = await db
     .prepare(
       `SELECT 1 FROM proxy_subscriptions s
        JOIN proxy_registry p ON p.subscription_id = s.id
@@ -751,12 +750,4 @@ export function startSubscriptionScheduler(): void {
   // Check every minute; each subscription self-throttles by its interval.
   schedulerTimer = setInterval(tick, 60_000);
   if (typeof schedulerTimer.unref === "function") schedulerTimer.unref();
-}
-
-export function stopSubscriptionScheduler(): void {
-  if (schedulerTimer) {
-    clearInterval(schedulerTimer);
-    schedulerTimer = null;
-  }
-  schedulerStarted = false;
 }

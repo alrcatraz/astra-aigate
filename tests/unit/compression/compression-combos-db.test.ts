@@ -104,10 +104,10 @@ test("creates, updates and protects default compression combos", async () => {
     isDefault: true,
   });
   assert.equal(updated?.description, "Updated");
-  assert.equal(combosDb.getDefaultCompressionCombo()?.id, combo.id);
+  assert.equal((await combosDb.getDefaultCompressionCombo())?.id, combo.id);
 
-  assert.equal(combosDb.deleteCompressionCombo("default-caveman"), true);
-  assert.equal(combosDb.deleteCompressionCombo(combo.id), false);
+  assert.equal(await combosDb.deleteCompressionCombo("default-caveman"), true);
+  assert.equal(await combosDb.deleteCompressionCombo(combo.id), false);
 });
 
 test("assigns routing combos to compression combos", async () => {
@@ -119,16 +119,16 @@ test("assigns routing combos to compression combos", async () => {
     ],
   });
 
-  assert.equal(combosDb.assignRoutingCombo(combo.id, "routing-a"), true);
-  assert.equal(combosDb.getCompressionComboForRoutingCombo("routing-a")?.id, combo.id);
+  assert.equal(await combosDb.assignRoutingCombo(combo.id, "routing-a"), true);
+  assert.equal((await combosDb.getCompressionComboForRoutingCombo("routing-a"))?.id, combo.id);
   assert.deepEqual(
-    combosDb
-      .getAssignmentsForCompressionCombo(combo.id)
-      .map((assignment) => assignment.routingComboId),
+    (await combosDb.getAssignmentsForCompressionCombo(combo.id)).map(
+      (assignment) => assignment.routingComboId
+    ),
     ["routing-a"]
   );
 
-  assert.equal(combosDb.updateAssignments(combo.id, ["routing-b", "routing-c"]), true);
-  assert.equal(combosDb.getCompressionComboForRoutingCombo("routing-a"), null);
-  assert.equal(combosDb.getCompressionComboForRoutingCombo("routing-b")?.id, combo.id);
+  assert.equal(await combosDb.updateAssignments(combo.id, ["routing-b", "routing-c"]), true);
+  assert.equal(await combosDb.getCompressionComboForRoutingCombo("routing-a"), null);
+  assert.equal((await combosDb.getCompressionComboForRoutingCombo("routing-b"))?.id, combo.id);
 });

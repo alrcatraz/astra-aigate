@@ -85,14 +85,14 @@ test("auth login/logout routes emit structured audit events with ip and request 
   assert.deepEqual(await logoutResponse.json(), { success: true });
   assert.deepEqual(deleteCalls, [["auth_token"]]);
 
-  const loginEvent = compliance.getAuditLog({ action: "auth.login.success" })[0];
+  const loginEvent = (await compliance.getAuditLog({ action: "auth.login.success" }))[0];
   assert.equal(loginEvent.actor, "admin");
   assert.equal(loginEvent.resourceType, "auth_session");
   assert.equal(loginEvent.status, "success");
   assert.equal(loginEvent.ip, "198.51.100.10");
   assert.equal(loginEvent.requestId, "req-auth-login");
 
-  const logoutEvent = compliance.getAuditLog({ action: "auth.logout.success" })[0];
+  const logoutEvent = (await compliance.getAuditLog({ action: "auth.logout.success" }))[0];
   assert.equal(logoutEvent.actor, "admin");
   assert.equal(logoutEvent.resourceType, "auth_session");
   assert.equal(logoutEvent.status, "success");
@@ -119,7 +119,7 @@ test("auth login route records failed password attempts", async () => {
   assert.equal(response.status, 401);
   assert.deepEqual(await response.json(), { error: "Invalid password" });
 
-  const event = compliance.getAuditLog({ action: "auth.login.failed" })[0];
+  const event = (await compliance.getAuditLog({ action: "auth.login.failed" }))[0];
   assert.equal(event.actor, "anonymous");
   assert.equal(event.status, "failed");
   assert.equal(event.requestId, "req-auth-failed");
@@ -186,14 +186,18 @@ test("provider create/update/delete routes emit sanitized credential audit event
 
   assert.equal(deleteResponse.status, 200);
 
-  const createdEvent = compliance.getAuditLog({ action: "provider.credentials.created" })[0];
+  const createdEvent = (
+    await compliance.getAuditLog({ action: "provider.credentials.created" })
+  )[0];
   assert.equal(createdEvent.status, "success");
   assert.equal(createdEvent.resourceType, "provider_credentials");
   assert.equal(createdEvent.requestId, "req-provider-create");
   assert.equal(createdEvent.target, "openai:Primary OpenAI");
   assert.equal("apiKey" in (createdEvent.metadata as any).connection, false);
 
-  const updatedEvent = compliance.getAuditLog({ action: "provider.credentials.updated" })[0];
+  const updatedEvent = (
+    await compliance.getAuditLog({ action: "provider.credentials.updated" })
+  )[0];
   assert.equal(updatedEvent.requestId, "req-provider-update");
   assert.deepEqual((updatedEvent as any).metadata.changedFields.sort(), [
     "defaultModel",
@@ -205,7 +209,9 @@ test("provider create/update/delete routes emit sanitized credential audit event
   (assert as any).equal("apiKey" in (updatedEvent.metadata as any).before, false);
   (assert as any).equal("apiKey" in (updatedEvent.metadata as any).after, false);
 
-  const revokedEvent = compliance.getAuditLog({ action: "provider.credentials.revoked" })[0];
+  const revokedEvent = (
+    await compliance.getAuditLog({ action: "provider.credentials.revoked" })
+  )[0];
   assert.equal(revokedEvent.requestId, "req-provider-delete");
   assert.equal(revokedEvent.target, "openai:Primary OpenAI Updated");
   assert.equal(revokedEvent.status, "success");

@@ -76,6 +76,14 @@ async function cleanup() {
   await core.awaitDbMigrations();
 }
 
+// The versioned migrations (memory_vec_meta, vec_memories support tables) are
+// kicked off asynchronously by getDbInstance(); the first test must not race
+// them, otherwise ensureReady hits `no such table: memory_vec_meta`.
+test.before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
+
 test.afterEach(async () => {
   delete process.env.MEMORY_VEC_QUANTIZATION;
   await cleanup();

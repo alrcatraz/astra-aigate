@@ -102,9 +102,7 @@ function removeHostScript(path: string): void {
 // Written as .mjs to force ESM execution regardless of package.json.
 
 const PLUGIN_HOST_SCRIPT = `
-import { nativeRequire } from "@/lib/module-require";
 import { pathToFileURL } from "node:url";
-const require = nativeRequire;
 
 // pathToFileURL: on Windows a bare absolute path ("C:\\\\...") makes import()
 // throw ERR_UNSUPPORTED_ESM_URL_SCHEME ("C:" is parsed as a URL scheme), so no

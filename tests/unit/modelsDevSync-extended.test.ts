@@ -259,7 +259,7 @@ test("modelsDev pricing helpers persist records, skip corrupted rows, and clear 
   assert.equal(withCorruption.corrupted, undefined);
 
   await modelsDev.clearModelsDevPricing();
-  assert.deepEqual(modelsDev.getModelsDevPricing(), {});
+  assert.deepEqual(await modelsDev.getModelsDevPricing(), {});
 });
 
 test("modelsDev capabilities helpers create the table, persist rows, filter by provider/model, and expose context limits", async () => {
@@ -279,7 +279,7 @@ test("modelsDev capabilities helpers create the table, persist rows, filter by p
   assert.equal("getModelContextLimit" in modelsDev, false);
 
   await modelsDev.clearModelsDevCapabilities();
-  assert.deepEqual(modelsDev.getSyncedCapabilities(), {});
+  assert.deepEqual(await modelsDev.getSyncedCapabilities(), {});
 });
 
 test("modelsDev capability helpers coerce false/null values and ignore malformed rows", async () => {
@@ -369,7 +369,7 @@ test("modelsDev pricing helpers ignore malformed sqlite rows without crashing", 
   };
 
   try {
-    assert.deepEqual(modelsDev.getModelsDevPricing(), {
+    assert.deepEqual(await modelsDev.getModelsDevPricing(), {
       openai: {
         "gpt-4o": {
           input: 2.5,
@@ -408,7 +408,7 @@ test("saveModelsDevCapabilities round-trips false and null booleans", async () =
     },
   });
 
-  assert.deepEqual(modelsDev.getSyncedCapabilities("openai", "gpt-falsey"), {
+  assert.deepEqual(await modelsDev.getSyncedCapabilities("openai", "gpt-falsey"), {
     openai: {
       "gpt-falsey": {
         tool_call: false,
@@ -442,14 +442,14 @@ test("syncModelsDev supports dry-run mode, persistence, capability toggles, and 
   assert.equal(dryRun.dryRun, true);
   assert.equal(dryRun.capabilityCount, 0);
   assert.ok(dryRun.data.pricing.openai["gpt-4o"]);
-  assert.deepEqual(modelsDev.getModelsDevPricing(), {});
+  assert.deepEqual(await modelsDev.getModelsDevPricing(), {});
 
   const persisted = await modelsDev.syncModelsDev();
   assert.equal(persisted.success, true);
   assert.equal(persisted.dryRun, false);
   assert.ok(persisted.modelCount > 0);
-  assert.ok(modelsDev.getModelsDevPricing().anthropic["claude-sonnet-4-20250514"]);
-  assert.ok(modelsDev.getSyncedCapabilities().openai["gpt-4o"]);
+  assert.ok((await modelsDev.getModelsDevPricing()).anthropic["claude-sonnet-4-20250514"]);
+  assert.ok((await modelsDev.getSyncedCapabilities()).openai["gpt-4o"]);
   assert.ok(modelsDev.getSyncStatus().lastSync);
   assert.ok(modelsDev.getSyncStatus().lastSyncModelCount > 0);
 
@@ -485,7 +485,7 @@ test("syncModelsDev honors abort signals during retry backoff", async () => {
 
   try {
     const controller = new AbortController();
-    const pending = await modelsDev.syncModelsDev({ signal: controller.signal, maxRetries: 3 });
+    const pending = modelsDev.syncModelsDev({ signal: controller.signal, maxRetries: 3 });
     const warned = await waitFor(() => warnings.length > 0, 100);
     assert.ok(warned, "expected the first retry warning before aborting");
 

@@ -117,17 +117,17 @@ function createTestAdapter(): SqliteAdapter {
   return adapter;
 }
 
-function countArenaEloEntries(): number {
-  const row = testAdapter
+async function countArenaEloEntries(): Promise<number> {
+  const row = (await testAdapter
     .prepare("SELECT COUNT(*) as cnt FROM model_intelligence WHERE source = 'arena_elo'")
-    .get() as Record<string, unknown> | undefined;
+    .get()) as Record<string, unknown> | undefined;
   return Number(row?.cnt ?? 0);
 }
 
-function getAllEntries(): Array<Record<string, unknown>> {
-  return testAdapter
+async function getAllEntries(): Promise<Array<Record<string, unknown>>> {
+  return (await testAdapter
     .prepare("SELECT * FROM model_intelligence WHERE source = 'arena_elo' ORDER BY model, category")
-    .all() as Array<Record<string, unknown>>;
+    .all()) as Array<Record<string, unknown>>;
 }
 
 beforeEach(async () => {
@@ -533,7 +533,7 @@ describe("syncArenaElo()", () => {
     assert.strictEqual(result.source, "arena_elo");
     assert.ok(result.modelCount > 0);
 
-    const dbCount = countArenaEloEntries();
+    const dbCount = await countArenaEloEntries();
     assert.ok(dbCount > 0);
     assert.strictEqual(dbCount, result.modelCount);
   });
@@ -552,7 +552,7 @@ describe("syncArenaElo()", () => {
 
     await syncArenaElo();
 
-    const entries = getAllEntries().filter((e) => String(e.model) === "unique-test-model");
+    const entries = (await getAllEntries()).filter((e) => String(e.model) === "unique-test-model");
     const categories = entries.map((e) => String(e.category)).sort();
     assert.deepStrictEqual(categories, ["debugging", "default", "documentation", "review"]);
 
@@ -578,7 +578,7 @@ describe("syncArenaElo()", () => {
     assert.strictEqual(result.success, true);
     assert.ok(result.modelCount > 0);
 
-    const dbCount = countArenaEloEntries();
+    const dbCount = await countArenaEloEntries();
     assert.strictEqual(dbCount, 0, "dryRun should not write to DB");
   });
 
@@ -640,7 +640,7 @@ describe("syncArenaElo()", () => {
         "2020-01-01T00:00:00Z"
       );
 
-    assert.strictEqual(countArenaEloEntries(), 1);
+    assert.strictEqual(await countArenaEloEntries(), 1);
 
     const textData = makeLeaderboardData(
       [makeModelEntry({ model: "new-model", score: 1200, votes: 5000, rank: 1 })],
@@ -673,7 +673,7 @@ describe("syncArenaElo()", () => {
 
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.modelCount, 0);
-    assert.strictEqual(countArenaEloEntries(), 0);
+    assert.strictEqual(await countArenaEloEntries(), 0);
   });
 
   it("updates lastSyncTime after successful sync", async () => {
@@ -716,7 +716,7 @@ describe("syncArenaElo()", () => {
 
     await syncArenaElo();
 
-    const entries = getAllEntries();
+    const entries = await getAllEntries();
     const models = entries.map((e) => String(e.model));
 
     assert.ok(models.includes("claude-opus-4-6-thinking"));

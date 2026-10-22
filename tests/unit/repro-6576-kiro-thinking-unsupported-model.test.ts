@@ -23,11 +23,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { buildKiroPayload } = await import(
-  "../../open-sse/translator/request/openai-to-kiro.ts"
-);
+const { buildKiroPayload } = await import("../../open-sse/translator/request/openai-to-kiro.ts");
 
-test("[repro #6576] buildKiroPayload must not attach additionalModelRequestFields for claude-sonnet-4.5 (Kiro rejects it)", () => {
+test("[repro #6576] buildKiroPayload must not attach additionalModelRequestFields for claude-sonnet-4.5 (Kiro rejects it)", async () => {
   const body = {
     messages: [{ role: "user", content: "Calculate 51818+62218, and reply with result only." }],
     reasoning_effort: "medium",
@@ -35,7 +33,7 @@ test("[repro #6576] buildKiroPayload must not attach additionalModelRequestField
     stream: false,
   };
 
-  const result = buildKiroPayload("claude-sonnet-4.5", body, false, null);
+  const result = await buildKiroPayload("claude-sonnet-4.5", body, false, null);
 
   assert.equal(
     result.additionalModelRequestFields,
@@ -46,13 +44,13 @@ test("[repro #6576] buildKiroPayload must not attach additionalModelRequestField
   );
 });
 
-test("[repro #6576] buildKiroPayload must not attach additionalModelRequestFields for claude-haiku-4.5 (Kiro rejects it)", () => {
+test("[repro #6576] buildKiroPayload must not attach additionalModelRequestFields for claude-haiku-4.5 (Kiro rejects it)", async () => {
   const body = {
     messages: [{ role: "user", content: "hi" }],
     thinking: { type: "adaptive" },
   };
 
-  const result = buildKiroPayload("claude-haiku-4.5", body, false, null);
+  const result = await buildKiroPayload("claude-haiku-4.5", body, false, null);
 
   assert.equal(
     result.additionalModelRequestFields,

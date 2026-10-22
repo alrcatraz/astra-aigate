@@ -11,6 +11,25 @@ import { SignJWT } from "jose";
 import net from "node:net";
 import test from "node:test";
 import WebSocket from "ws";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+// Standalone safety: never let the sidecar (or the pre-migration below) touch
+// the real data dir when this file runs without the isolateDataDir harness.
+if (!process.env.DATA_DIR) {
+  process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-live-ws-"));
+}
+
+// Pre-migrate the shared DATA_DIR before spawning the sidecar: it inherits
+// DATA_DIR from this process, and scripts/start-ws-server.mjs seeds
+// compression_analytics while its migration run is still in flight. If the
+// table is missing, that query rejects as an unhandled rejection and the child
+// dies right after "listening" (ECONNRESET on the test's WebSocket connect).
+const core = await import("../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+core.closeDbInstance();
 
 function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {

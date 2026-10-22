@@ -44,9 +44,6 @@ function getModelIdIndex(): Map<string, ComboModelCollision> {
 }
 
 /** Test-only: force the memoized registry index to rebuild on next call. */
-export function __resetModelNameCollisionCacheForTest(): void {
-  cachedIndex = null;
-}
 
 /**
  * Returns the provider that registers `name` as a bare model id, or `null`

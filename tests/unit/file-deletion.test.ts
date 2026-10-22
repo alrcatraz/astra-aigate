@@ -27,13 +27,19 @@ describe("File Deletion API", () => {
 
   afterEach(async () => {
     // Ensure cleanup
-    const file = listFiles({ limit: 100 }).find((f) => f.filename === "test-delete-file.txt");
+    const file = (await listFiles({ limit: 100 })).find(
+      (f) => f.filename === "test-delete-file.txt"
+    );
     if (file && !file.deletedAt) {
       await deleteFile(file.id);
     }
   });
 
   beforeEach(async () => {
+    // getDbInstance() kicks migrations off lazily; join the barrier before the
+    // first query or the files table may not exist yet.
+    getDbInstance();
+    await awaitDbMigrations();
     const file = await createFile({
       bytes: 100,
       filename: "test-delete-file.txt",
@@ -45,14 +51,14 @@ describe("File Deletion API", () => {
   });
 
   it("should delete a file successfully", async () => {
-    const file = listFiles({ limit: 100 }).find((f) => f.id === testFileId);
+    const file = (await listFiles({ limit: 100 })).find((f) => f.id === testFileId);
     assert(file !== undefined);
     assert(file.deletedAt === null || file.deletedAt === undefined);
 
     const success = await deleteFile(testFileId);
     assert(success === true);
 
-    const deletedFile = listFiles({ limit: 100 }).find((f) => f.id === testFileId);
+    const deletedFile = (await listFiles({ limit: 100 })).find((f) => f.id === testFileId);
     assert(deletedFile === undefined, "Deleted file should not appear in list");
   });
 

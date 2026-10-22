@@ -34,6 +34,10 @@ const { resetDbInstanceDrained, getDbInstance, awaitDbMigrations } =
   await import("../../src/lib/db/core.ts");
 const { createCombo } = await import("../../src/lib/db/combos.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test.
+getDbInstance();
+await awaitDbMigrations();
+
 test.after(async () => {
   await resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

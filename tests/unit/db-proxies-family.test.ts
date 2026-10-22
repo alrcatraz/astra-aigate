@@ -1,9 +1,18 @@
-import { describe, it, after } from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { resetDbInstance, getDbInstance } from "../../src/lib/db/core";
+import {
+  resetDbInstance,
+  resetDbInstanceDrained,
+  getDbInstance,
+  awaitDbMigrations,
+} from "../../src/lib/db/core";
 import { createProxy, getProxyById } from "../../src/lib/db/proxies";
 
 describe("proxies CRUD carries family", () => {
+  before(async () => {
+    getDbInstance();
+    await awaitDbMigrations();
+  });
   after(async () => await resetDbInstanceDrained());
 
   it("persists and returns family=ipv6", async () => {

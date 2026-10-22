@@ -235,6 +235,11 @@ export const CONFIGURABLE_BASE_URL_PROVIDERS = new Set([
   // the existing override affordance for these two ids.
   "kimi",
   "moonshot",
+  // Same gap as #7447, same shape: the coding-plan endpoint is preset to the
+  // international host, but keys issued on the CN console are rejected there.
+  // Without an add-time field the operator had to create the connection and
+  // then reopen it in the edit modal just to point it at the CN endpoint.
+  "bailian-coding-plan",
 ]);
 
 export const DEFAULT_PROVIDER_BASE_URLS: Record<string, string> = {

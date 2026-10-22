@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const state = generateCommandCodeState();
   const expiresAt = new Date(Date.now() + COMMAND_CODE_AUTH_TTL_MS).toISOString();
   const stateHash = stateHashFromState(state);
-  createPendingCommandCodeAuthSession({ stateHash, expiresAt });
+  await createPendingCommandCodeAuthSession({ stateHash, expiresAt });
 
   const callbackUrl = buildCommandCodeCliCallbackUrl();
   const authUrl = `${COMMAND_CODE_STUDIO_AUTH_URL}?callback=${encodeURIComponent(

@@ -13,6 +13,7 @@
  * (the full optimistically-merged state).
  */
 
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -40,7 +41,7 @@ const mockFetch = vi.fn().mockImplementation((url: string, init: RequestInit) =>
 vi.stubGlobal("fetch", mockFetch);
 
 // Import after mocks are in place
-import CompressionHub from "../../../src/app/(dashboard)/dashboard/context/combos/CompressionHub";
+import CompressionHub from "../../../src/app/(dashboard)/dashboard/context/CompressionHub";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

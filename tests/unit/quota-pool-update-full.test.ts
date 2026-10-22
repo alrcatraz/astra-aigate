@@ -175,7 +175,7 @@ test("updatePool with new connectionIds triggers combo re-sync (openrouter → b
   );
 
   // The pool's primary connection should now reflect baidu
-  const reread = poolsDb.getPool(pool.id)!;
+  const reread = (await poolsDb.getPool(pool.id))!;
   assert.equal(reread.connectionId, idB, "pool.connectionId must be baidu conn after update");
   assert.deepEqual(reread.connectionIds, [idB], "pool.connectionIds must contain only baidu conn");
 });
@@ -247,7 +247,7 @@ test("updatePool with groupId persists the new group assignment", async () => {
   assert.equal(updated!.groupId, groupB.id, "pool should now be in groupB");
 
   // Re-read from DB to confirm persistence
-  const reread = poolsDb.getPool(pool.id)!;
+  const reread = (await poolsDb.getPool(pool.id))!;
   assert.equal(reread.groupId, groupB.id, "persisted groupId should be groupB");
 });
 
@@ -260,7 +260,7 @@ test("updatePool without connectionIds leaves connection membership untouched", 
 
   await poolsDb.updatePool(pool.id, { name: "Renamed" });
 
-  const reread = poolsDb.getPool(pool.id)!;
+  const reread = (await poolsDb.getPool(pool.id))!;
   assert.equal(reread.name, "Renamed");
   assert.equal(reread.connectionIds.length, 2, "connectionIds should be unchanged");
   assert.ok(reread.connectionIds.includes("stable-conn"));

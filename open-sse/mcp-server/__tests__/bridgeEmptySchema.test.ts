@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createMcpServer } from "../server";
 import { registerDownstreamTools, type McpEndpointBridge } from "../bridge";
+
+// server.ts imports ./audit.ts, which pulls node:sqlite — vite cannot bundle
+// that built-in unless the module is mocked (same pattern as cacheTools.test).
+vi.mock("../audit.ts", () => ({
+  logToolCall: vi.fn().mockResolvedValue(undefined),
+  closeAuditDb: vi.fn(),
+}));
 
 /**
  * Regression test for tools/call returning JSON-RPC -32602 on tools whose
@@ -43,7 +50,10 @@ describe("registerDownstreamTools empty-object inputSchema", () => {
 
   async function setup(tools: McpEndpointBridge["tools"]) {
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    const server = new McpServer({ name: "test", version: "1.0.0" });
+    // createMcpServer() sets registerRawTool (server.ts:655); a bare new
+    // McpServer() falls back to the prototype method in bridge.ts:289, which
+    // loses `this` when extracted, so `this._registeredTools` reads undefined.
+    const server = createMcpServer();
     const { bridge, callTool } = makeBridge(tools);
     const count = registerDownstreamTools(server, bridge);
     await server.connect(serverTransport);

@@ -3,7 +3,7 @@
     "TS2677": 1
   },
   "src/app/(dashboard)/dashboard/HomePageClient.tsx": {
-    "TS2339": 16
+    "TS2339": 9
   },
   "src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient.tsx": {
     "TS2503": 3
@@ -172,9 +172,6 @@
   "src/app/(dashboard)/dashboard/runtime/RuntimePageClient.tsx": {
     "TS2304": 1
   },
-  "src/app/(dashboard)/dashboard/settings/components/AppearanceTab.tsx": {
-    "TS2339": 4
-  },
   "src/app/(dashboard)/dashboard/settings/components/RedisLauncherPanel.tsx": {
     "TS2345": 11
   },
@@ -209,9 +206,6 @@
   "src/mitm/inspector/sseMerger.ts": {
     "TS2352": 1
   },
-  "src/shared/components/Header.tsx": {
-    "TS2353": 1
-  },
   "src/shared/components/OAuthModal.tsx": {
     "TS2769": 3,
     "TS2345": 3
@@ -224,9 +218,6 @@
   },
   "src/shared/components/analytics/rechartsDonuts.tsx": {
     "TS2739": 2
-  },
-  "src/shared/hooks/useElectron.ts": {
-    "TS2339": 19
   },
   "src/shared/providers/webSessionCredentials.ts": {
     "TS2353": 1,

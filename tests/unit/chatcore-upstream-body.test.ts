@@ -76,7 +76,7 @@ test("Codex Responses routing keeps reasoning effort while dropping GPT-only ver
   // so `prepareUpstreamBody`'s final sanitizeRequestForResolvedTarget (#7050/#7533) must
   // strip the GPT-only `verbosity` for that concrete target while keeping
   // `reasoning_effort`, which is not gated by destination provider.
-  const translated = translateRequest(
+  const translated = (await translateRequest(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.OPENAI,
     "glm-5.2",
@@ -89,7 +89,7 @@ test("Codex Responses routing keeps reasoning effort while dropping GPT-only ver
     true,
     { provider: "codex" },
     "codex"
-  ) as Record<string, unknown>;
+  )) as Record<string, unknown>;
 
   assert.equal(translated.reasoning_effort, "low");
   assert.equal(translated.verbosity, "low");
@@ -106,8 +106,8 @@ test("Codex Responses routing keeps reasoning effort while dropping GPT-only ver
   assert.equal(outbound.verbosity, undefined);
 });
 
-test("Codex Responses reasoning effort is translated to Claude thinking for z.ai", () => {
-  const translated = translateRequest(
+test("Codex Responses reasoning effort is translated to Claude thinking for z.ai", async () => {
+  const translated = (await translateRequest(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.CLAUDE,
     "glm-5.2",
@@ -120,7 +120,7 @@ test("Codex Responses reasoning effort is translated to Claude thinking for z.ai
     true,
     null,
     "zai"
-  ) as Record<string, unknown>;
+  )) as Record<string, unknown>;
 
   assert.deepEqual(translated.thinking, { type: "enabled", budget_tokens: 1024 });
   assert.equal(translated.reasoning_effort, undefined);

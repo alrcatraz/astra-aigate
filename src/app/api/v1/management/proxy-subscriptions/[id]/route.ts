@@ -1,4 +1,6 @@
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
+import { proxySubscriptionUpdateSchema } from "@/shared/validation/schemas/proxySubscription";
+import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
 import { createErrorResponseFromUnknown } from "@/lib/api/errorResponse";
 import {
   getSubscriptionById,
@@ -36,24 +38,11 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
   try {
     const { id } = await ctx.params;
     const body = await request.json().catch(() => null);
-    if (!body || typeof body !== "object") {
-      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    const validation = validateBody(proxySubscriptionUpdateSchema, body);
+    if (isValidationFailure(validation)) {
+      return Response.json({ error: validation.error.message }, { status: 400 });
     }
-    const b = body as Record<string, unknown>;
-    const payload: Partial<ProxySubscriptionPayload> = {};
-    if (typeof b.name === "string") payload.name = b.name.trim();
-    if (typeof b.url === "string") payload.url = b.url.trim();
-    if (typeof b.mode === "string") payload.mode = b.mode === "rule" ? "rule" : "global";
-    if (typeof b.enabled === "boolean") payload.enabled = b.enabled;
-    if (typeof b.localCoreEndpoint === "string") {
-      payload.localCoreEndpoint = b.localCoreEndpoint.trim() || null;
-    }
-    if (typeof b.updateIntervalMinutes === "number") {
-      payload.updateIntervalMinutes = b.updateIntervalMinutes;
-    }
-    if (Array.isArray(b.ruleProviders)) {
-      payload.ruleProviders = b.ruleProviders.filter((x) => typeof x === "string");
-    }
+    const payload: Partial<ProxySubscriptionPayload> = validation.data;
 
     const updated = await updateSubscription(id, payload);
     if (!updated) return Response.json({ error: "Subscription not found" }, { status: 404 });

@@ -11,9 +11,14 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const coreDb = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const initCloudSync = await import("../../src/lib/initCloudSync.ts");
+const readCacheDb = await import("../../src/lib/db/readCache.ts");
 
 async function resetStorage() {
   await coreDb.resetDbInstanceDrained();
+  // The raw connections read cache (5s TTL in src/lib/db/readCache.ts) survives a
+  // DB reset, so the next test's "empty" cycle would otherwise still see rows
+  // written by the previous test. Bust every cache alongside the reset.
+  readCacheDb.invalidateDbCache();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -33,6 +38,7 @@ async function resetStorage() {
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   coreDb.getDbInstance();
   await coreDb.awaitDbMigrations();
+  readCacheDb.invalidateDbCache();
 }
 
 function installTimerStubs() {
@@ -140,7 +146,7 @@ test("modelSyncScheduler resolves only loopback origins and uses the dashboard p
     BASE_URL: process.env.BASE_URL,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    OMNIROUTE_BASE_PATH: process.env.OMNIROUTE_BASE_PATH,
+    AIGATE_BASE_PATH: process.env.AIGATE_BASE_PATH,
     OMNIROUTE_INTERNAL_SCHEME: process.env.OMNIROUTE_INTERNAL_SCHEME,
     OMNIROUTE_TLS_CERT: process.env.OMNIROUTE_TLS_CERT,
     OMNIROUTE_TLS_KEY: process.env.OMNIROUTE_TLS_KEY,
@@ -151,7 +157,7 @@ test("modelSyncScheduler resolves only loopback origins and uses the dashboard p
   process.env.BASE_URL = "https://attacker.example";
   delete process.env.NEXT_PUBLIC_BASE_URL;
   delete process.env.NEXT_PUBLIC_APP_URL;
-  process.env.OMNIROUTE_BASE_PATH = "/omniroute/";
+  process.env.AIGATE_BASE_PATH = "/omniroute/";
   delete process.env.OMNIROUTE_INTERNAL_SCHEME;
   delete process.env.OMNIROUTE_TLS_CERT;
   delete process.env.OMNIROUTE_TLS_KEY;
@@ -218,7 +224,7 @@ test("modelSyncScheduler uses the listener-declared TLS scheme without trusting 
     BASE_URL: process.env.BASE_URL,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    OMNIROUTE_BASE_PATH: process.env.OMNIROUTE_BASE_PATH,
+    AIGATE_BASE_PATH: process.env.AIGATE_BASE_PATH,
     OMNIROUTE_INTERNAL_SCHEME: process.env.OMNIROUTE_INTERNAL_SCHEME,
     OMNIROUTE_TLS_CERT: process.env.OMNIROUTE_TLS_CERT,
     OMNIROUTE_TLS_KEY: process.env.OMNIROUTE_TLS_KEY,
@@ -227,7 +233,7 @@ test("modelSyncScheduler uses the listener-declared TLS scheme without trusting 
   process.env.BASE_URL = "https://attacker.example";
   delete process.env.NEXT_PUBLIC_BASE_URL;
   delete process.env.NEXT_PUBLIC_APP_URL;
-  process.env.OMNIROUTE_BASE_PATH = "/omniroute";
+  process.env.AIGATE_BASE_PATH = "/omniroute";
   process.env.OMNIROUTE_INTERNAL_SCHEME = "https";
   delete process.env.OMNIROUTE_TLS_CERT;
   delete process.env.OMNIROUTE_TLS_KEY;
@@ -403,8 +409,13 @@ test("modelSyncScheduler skips empty cycles and tolerates failing sync requests"
   const originalFetch = globalThis.fetch;
   const fetchCalls = [];
 
+  // Count only model-sync traffic: startModelSyncScheduler() also fires an async
+  // codex catalog revalidation (import("./codexCatalogRevalidation")) whose fetches
+  // and timer registrations race with this test and must not be mistaken for
+  // sync-cycle activity.
   globalThis.fetch = async (url) => {
-    fetchCalls.push(url);
+    const target = String(url);
+    if (target.includes("/sync-models")) fetchCalls.push(target);
     return new Response(JSON.stringify({ error: "upstream unavailable" }), {
       status: 503,
       headers: { "Content-Type": "application/json" },
@@ -413,9 +424,13 @@ test("modelSyncScheduler skips empty cycles and tolerates failing sync requests"
 
   try {
     const emptyScheduler = await loadScheduler("empty-cycle");
+    // The startup-delay timer is pushed synchronously by startModelSyncScheduler();
+    // capture its index first so a timer registered by codex revalidation (which
+    // lands asynchronously) can never be picked instead.
+    const emptyTimerIdx = timers.timeouts.length;
     emptyScheduler.startModelSyncScheduler("http://127.0.0.1:5555", 10_000);
-    await timers.timeouts[0].fn();
-    assert.equal(fetchCalls.length, 0);
+    await timers.timeouts[emptyTimerIdx].fn();
+    assert.equal(fetchCalls.length, 0, `unexpected sync fetch: ${fetchCalls.join(", ")}`);
     assert.equal(await emptyScheduler.getLastModelSyncTime(), null);
     emptyScheduler.stopModelSyncScheduler();
 
@@ -426,13 +441,14 @@ test("modelSyncScheduler skips empty cycles and tolerates failing sync requests"
       provider: "gemini",
       authType: "apikey",
       name: "Auto Sync Failure",
-      apiKey: "sk-auto-failure",
+      apiKey: "sk-failure",
       providerSpecificData: { autoSync: true },
     });
 
     const failingScheduler = await loadScheduler("failing-cycle");
+    const failingTimerIdx = timers.timeouts.length;
     failingScheduler.startModelSyncScheduler("http://127.0.0.1:5555", 10_000);
-    await timers.timeouts[0].fn();
+    await timers.timeouts[failingTimerIdx].fn();
 
     assert.equal(fetchCalls.length, 1);
     assert.match(await failingScheduler.getLastModelSyncTime(), /^\d{4}-\d{2}-\d{2}T/);

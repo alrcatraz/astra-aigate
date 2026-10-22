@@ -26,7 +26,11 @@ export function getHeaderValueCaseInsensitive(
 export function isNoMemoryRequested(
   headers: Record<string, unknown> | Headers | null | undefined
 ): boolean {
-  const value = (getHeaderValueCaseInsensitive(headers, "x-omniroute-no-memory") || "")
+  const value = (
+    (getHeaderValueCaseInsensitive(headers, "x-omniroute-no-memory") ??
+      getHeaderValueCaseInsensitive(headers, "x-ai-gate-no-memory")) ||
+    ""
+  )
     .trim()
     .toLowerCase();
   return value === "true" || value === "1" || value === "yes";
@@ -41,7 +45,11 @@ export function isNoMemoryRequested(
 export function resolveCompressionHeader(
   headers: Record<string, unknown> | Headers | null | undefined
 ): string | null {
-  const value = (getHeaderValueCaseInsensitive(headers, "x-omniroute-compression") || "").trim();
+  const value = (
+    (getHeaderValueCaseInsensitive(headers, "x-omniroute-compression") ??
+      getHeaderValueCaseInsensitive(headers, "x-ai-gate-compression")) ||
+    ""
+  ).trim();
   return value || null;
 }
 
@@ -58,7 +66,11 @@ export function resolveCompressionHeader(
 export function isStripReasoningRequested(
   headers: Record<string, unknown> | Headers | null | undefined
 ): boolean {
-  const value = (getHeaderValueCaseInsensitive(headers, "x-omniroute-strip-reasoning") || "")
+  const value = (
+    (getHeaderValueCaseInsensitive(headers, "x-omniroute-strip-reasoning") ??
+      getHeaderValueCaseInsensitive(headers, "x-ai-gate-strip-reasoning")) ||
+    ""
+  )
     .trim()
     .toLowerCase();
   return value === "true" || value === "1" || value === "yes";

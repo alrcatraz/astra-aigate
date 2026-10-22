@@ -36,16 +36,6 @@ export interface ArtifactResult extends ArtifactHandle {
 }
 
 /** 消费契约（供智能体侧实现；AI Gate 只定义类型不实现写目录）。 */
-export interface AgentInstallContract {
-  /** 解析产物 → 目标 Agent 的原生 skill 元数据 / 内容。 */
-  normalize(artifact: ArtifactHandle, targetAgent: string): Promise<SkillContent>;
-  /** 安装到目标 Agent 工作目录（消费方实现）。 */
-  install(meta: SkillContent, targetAgent: string): Promise<{ ok: boolean; path?: string }>;
-  /** 更新目标 Agent 已装的 skill（消费方实现）。 */
-  update(meta: SkillContent, targetAgent: string): Promise<{ ok: boolean }>;
-  /** 从目标 Agent 移除 skill（消费方实现）。 */
-  uninstall(targetAgent: string, skillName: string): Promise<{ ok: boolean }>;
-}
 
 /** 校验 plugin name 是否符合 Agent Plugins v1.0.0 约束。 */
 export function isValidPluginName(name: string): boolean {

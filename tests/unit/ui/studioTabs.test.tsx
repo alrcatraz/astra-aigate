@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
+import "../../_setup/nextIntlDouble";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
+// Imported at module scope: resolving this page's graph pulls in the whole
+// compression studio and takes longer than the 5s per-test budget when the suite
+// runs in parallel (the test then timed out on import alone).
+const { default: StudioPage } = await import("@/app/(dashboard)/dashboard/compression/studio/page");
+
 let container: HTMLElement;
 let root: Root;
 beforeEach(() => {
@@ -27,8 +33,6 @@ afterEach(() => {
 });
 describe("studio page", () => {
   it("shows Play by default and switches to Compare", async () => {
-    const { default: StudioPage } =
-      await import("@/app/(dashboard)/dashboard/compression/studio/page");
     await act(async () => {
       root.render(<StudioPage />);
     });

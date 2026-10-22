@@ -48,8 +48,12 @@ test("Alibaba registration preserves existing bare duplicate-model routing", () 
     provider: "nanogpt",
     model: "z-image-turbo",
   });
+  // qwen-image-2.0 is registered by both lmarena and dmxapi; parseImageModel
+  // resolves bare duplicates to the first IMAGE_PROVIDERS entry, and dmxapi
+  // (registered in e0da5c7d) precedes lmarena — so dmxapi owns the bare name.
+  // lmarena's copy is still reachable via the "lmarena/qwen-image-2.0" prefix.
   assert.deepEqual(parseImageModel("qwen-image-2.0"), {
-    provider: "lmarena",
+    provider: "dmxapi",
     model: "qwen-image-2.0",
   });
   assert.deepEqual(parseImageModel("qwen-image-3.0-pro"), {

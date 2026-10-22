@@ -66,14 +66,30 @@ test("sanitizeErrorMessage strips absolute paths + stack tail (self-check)", () 
 function patchPrepareToThrow(sqlMatch: string): () => void {
   const db = core.getDbInstance();
   const orig = db.prepare.bind(db);
+  // Routes go through the async adapter, which captured the sync handle's
+  // prepare at creation — patching only the sync instance no longer makes the
+  // request path throw.
+  const asyncDb = core.getAsyncDb() as unknown as {
+    prepare: (sql: string, ...rest: unknown[]) => unknown;
+  };
+  const origAsync = asyncDb.prepare.bind(asyncDb);
+  const shouldFail = (sql: unknown) => typeof sql === "string" && sql.includes(sqlMatch);
+
   (db as unknown as { prepare: unknown }).prepare = (sql: string, ...rest: unknown[]) => {
-    if (typeof sql === "string" && sql.includes(sqlMatch)) {
+    if (shouldFail(sql)) {
       throw makeLeakyError();
     }
     return orig(sql, ...(rest as []));
   };
+  asyncDb.prepare = (sql: string, ...rest: unknown[]) => {
+    if (shouldFail(sql)) {
+      throw makeLeakyError();
+    }
+    return origAsync(sql, ...rest);
+  };
   return () => {
     (db as unknown as { prepare: unknown }).prepare = orig;
+    asyncDb.prepare = origAsync;
   };
 }
 

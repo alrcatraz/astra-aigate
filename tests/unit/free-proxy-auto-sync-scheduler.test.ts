@@ -157,11 +157,16 @@ test("reentrancy guard: a second forced cycle is skipped while the first is stil
     return { results: {}, lastSyncAt: new Date().toISOString() };
   });
 
-  const firstCycle = await scheduler.forceFreeProxySyncCycle();
+  // NOTE: do NOT await these before releasing the gate below — the runner is
+  // gated on `releaseFirst`, so awaiting the first cycle here would deadlock
+  // (the 907b2f17 await sweep added awaits that made this test never settle).
+  // forceFreeProxySyncCycle() sets isRunning synchronously, so the second call
+  // observes the guard without needing the first to have finished.
+  const firstCycle = scheduler.forceFreeProxySyncCycle();
   // Fire the second cycle while the first is still awaiting the gate. The
   // reentrancy guard must skip it entirely — the runner must not be invoked
   // a second time while isRunning is true.
-  const secondCycle = await scheduler.forceFreeProxySyncCycle();
+  const secondCycle = scheduler.forceFreeProxySyncCycle();
 
   releaseFirst?.();
   await Promise.all([firstCycle, secondCycle]);

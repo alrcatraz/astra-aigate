@@ -13,10 +13,12 @@ import {
 import { createObsidianClient } from "@/lib/obsidian/api";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
-const setTokenSchema = z.object({
-  token: z.string().min(1).max(5000),
-  baseUrl: z.string().url().optional(),
-}).strict();
+const setTokenSchema = z
+  .object({
+    token: z.string().min(1).max(5000),
+    baseUrl: z.string().url().optional(),
+  })
+  .strict();
 
 export async function GET(request: NextRequest) {
   if (!(await isAuthenticated(request))) {
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const config = getObsidianConfig();
+    const config = await getObsidianConfig();
     return NextResponse.json({
       connected: config.connected,
       hasToken: config.token !== null,
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
   let urlToUse = parsed.data.baseUrl;
 
   if (!urlToUse) {
-    urlToUse = getObsidianBaseUrl();
+    urlToUse = await getObsidianBaseUrl();
   }
 
   if (urlToUse && /:27124(?:\/|$)/.test(urlToUse)) {
@@ -97,7 +99,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: sanitizeErrorMessage(msg), connected: false }, { status: 400 });
+    return NextResponse.json(
+      { error: sanitizeErrorMessage(msg), connected: false },
+      { status: 400 }
+    );
   }
 }
 

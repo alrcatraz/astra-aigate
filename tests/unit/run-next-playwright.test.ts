@@ -36,7 +36,7 @@ test("shouldUseWebpackForPlaywrightDev only opts into webpack when turbopack is 
   assert.equal(
     playwrightRunner.shouldUseWebpackForPlaywrightDev({
       mode: "dev",
-      env: { OMNIROUTE_USE_TURBOPACK: "1" },
+      env: { AIGATE_USE_TURBOPACK: "1" },
     }),
     false
   );
@@ -44,7 +44,7 @@ test("shouldUseWebpackForPlaywrightDev only opts into webpack when turbopack is 
   assert.equal(
     playwrightRunner.shouldUseWebpackForPlaywrightDev({
       mode: "dev",
-      env: { OMNIROUTE_USE_TURBOPACK: "0" },
+      env: { AIGATE_USE_TURBOPACK: "0" },
     }),
     true
   );
@@ -52,7 +52,7 @@ test("shouldUseWebpackForPlaywrightDev only opts into webpack when turbopack is 
   assert.equal(
     playwrightRunner.shouldUseWebpackForPlaywrightDev({
       mode: "start",
-      env: { OMNIROUTE_USE_TURBOPACK: "1" },
+      env: { AIGATE_USE_TURBOPACK: "1" },
     }),
     false
   );

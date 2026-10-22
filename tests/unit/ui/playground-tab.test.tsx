@@ -131,6 +131,14 @@ function makeContainer(): HTMLElement {
   return container;
 }
 
+// Every root has to be unmounted inside act before its container leaves the DOM.
+// Detaching a live root instead leaves React's scheduler with work queued against
+// a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+// react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+// it fails the whole Vitest run rather than any one case. A test that renders twice
+// also needs every root tracked, not just the newest container.
+const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLElement }> = [];
+
 describe("PlaygroundTab", () => {
   beforeEach(() => {
     (
@@ -143,6 +151,11 @@ describe("PlaygroundTab", () => {
   });
 
   afterEach(() => {
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
     while (cleanupCallbacks.length > 0) cleanupCallbacks.pop()?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -153,6 +166,7 @@ describe("PlaygroundTab", () => {
       await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<PlaygroundTab />);
     });
@@ -167,6 +181,7 @@ describe("PlaygroundTab", () => {
       await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<PlaygroundTab />);
     });
@@ -181,6 +196,7 @@ describe("PlaygroundTab", () => {
       await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<PlaygroundTab />);
     });
@@ -228,6 +244,7 @@ describe("PlaygroundTab", () => {
       await import("../../../src/app/(dashboard)/dashboard/memory/components/tabs/PlaygroundTab");
     const container = makeContainer();
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     await act(async () => {
       root.render(<PlaygroundTab />);
     });

@@ -157,7 +157,7 @@ test("upgrade preserves config values", async () => {
   assert.equal(result.version, "2.0.0");
 
   // Config is NOT preserved (delete+reinstall) — this is expected behavior
-  const row = dbPlugins.getPluginByName("upgrade-config-test")!;
+  const row = (await dbPlugins.getPluginByName("upgrade-config-test"))!;
   const config = JSON.parse(row.config);
   // After upgrade, config is empty since we delete+reinstall
   assert.deepEqual(config, {});

@@ -279,26 +279,26 @@ test("setAutoVacuum and getAutoVacuumMode round-trip", serial, async () => {
 
   // Set to NONE first
   await core.setAutoVacuum("NONE");
-  assert.equal(core.getAutoVacuumMode(), "NONE");
+  assert.equal(await core.getAutoVacuumMode(), "NONE");
 
   // Set to FULL
   await core.setAutoVacuum("FULL");
-  assert.equal(core.getAutoVacuumMode(), "FULL");
+  assert.equal(await core.getAutoVacuumMode(), "FULL");
 
   // Set to INCREMENTAL
   await core.setAutoVacuum("INCREMENTAL");
-  assert.equal(core.getAutoVacuumMode(), "INCREMENTAL");
+  assert.equal(await core.getAutoVacuumMode(), "INCREMENTAL");
 
   // Restore original
   await core.setAutoVacuum(originalMode);
-  assert.equal(core.getAutoVacuumMode(), originalMode);
+  assert.equal(await core.getAutoVacuumMode(), originalMode);
 });
 
 test("setAutoVacuum same mode is idempotent", serial, async () => {
   const mode = await core.getAutoVacuumMode();
   // Calling again with same mode should not throw
   await core.setAutoVacuum(mode);
-  assert.equal(core.getAutoVacuumMode(), mode);
+  assert.equal(await core.getAutoVacuumMode(), mode);
 });
 
 test("runManualVacuum succeeds", serial, async () => {

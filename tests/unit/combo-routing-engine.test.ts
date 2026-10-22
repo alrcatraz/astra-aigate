@@ -1,12 +1,10 @@
 import test from "node:test";
+import { setupTestDataDir } from "../_setup/testDataDir.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-combo-routing-"));
 const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
-process.env.DATA_DIR = TEST_DATA_DIR;
+const TEST_DATA_DIR = setupTestDataDir("omniroute-combo-routing-");
 
 const {
   getComboFromData,
@@ -127,6 +125,12 @@ async function cleanupTestDataDir() {
     try {
       await core.resetDbInstanceDrained();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+      // Re-run migrations after the dir rebuild — the success path must also
+      // repopulate the schema (previously only the error-retry tail did), or
+      // the first beforeEach query hits `no such table`.
+      fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+      core.getDbInstance();
+      await core.awaitDbMigrations();
       return;
     } catch (error: any) {
       lastError = error;
@@ -137,6 +141,7 @@ async function cleanupTestDataDir() {
   if (lastError) {
     throw lastError;
   }
+  fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   core.getDbInstance();
   await core.awaitDbMigrations();
 }

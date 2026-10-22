@@ -6,8 +6,8 @@ import { translateRequest } from "../../../open-sse/translator/index.ts";
 // Golden-file tests: freeze translateRequest output per fixture.
 // Regenerate with: UPDATE_GOLDEN=1 node --import tsx/esm --test tests/unit/correctness/translation.golden.test.ts
 for (const c of loadTranslationFixtures()) {
-  test(`golden: ${c.name}`, () => {
-    const out = translateRequest(
+  test(`golden: ${c.name}`, async () => {
+    const out = await translateRequest(
       c.sourceFormat,
       c.targetFormat,
       (c.input as { model?: string }).model ?? "m",

@@ -58,8 +58,8 @@ test("a hidden model lands in the provider's hidden set; a visible sibling does 
   await mergeModelCompatOverride(PROVIDER, VISIBLE_MODEL, { normalizeToolCallId: true });
 
   // Sanity: the per-model read agrees.
-  assert.equal(getModelIsHidden(PROVIDER, HIDDEN_MODEL), true);
-  assert.equal(getModelIsHidden(PROVIDER, VISIBLE_MODEL), false);
+  assert.equal(await getModelIsHidden(PROVIDER, HIDDEN_MODEL), true);
+  assert.equal(await getModelIsHidden(PROVIDER, VISIBLE_MODEL), false);
 
   const map = await getHiddenModelsByProvider();
   const hiddenForProvider = await map.get(PROVIDER);

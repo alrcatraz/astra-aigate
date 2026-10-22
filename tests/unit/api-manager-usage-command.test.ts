@@ -11,9 +11,17 @@ function read(relativePath: string) {
 
 test("api manager exposes allowUsageCommand in create, edit, and list UI", () => {
   const src = read("src/app/(dashboard)/dashboard/api-manager/ApiManagerPageClient.tsx");
+  // The permissions modal was split into components/ for the size gate; the
+  // edit-side command state lives in the form hook now.
+  const modalSrc = read(
+    "src/app/(dashboard)/dashboard/api-manager/components/usePermissionsModalForm.ts"
+  );
 
   assert.ok(src.includes("newKeyAllowUsageCommand"), "create modal must keep command state");
-  assert.ok(src.includes("setUsageCommandEnabled"), "permissions modal must edit command state");
+  assert.ok(
+    modalSrc.includes("setUsageCommandEnabled"),
+    "permissions modal must edit command state"
+  );
   assert.ok(src.includes("allowUsageCommand"), "API payloads must include allowUsageCommand");
   assert.ok(src.includes('t("localUsageCommand")'), "toggle must use i18n title");
   assert.ok(src.includes('t("localUsageCommandBadge")'), "key list must show enabled state");

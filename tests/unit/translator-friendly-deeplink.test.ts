@@ -31,11 +31,11 @@ const VALID_ADVANCED: ReadonlySet<AdvancedSlug> = new Set([
   "compression",
 ]);
 
-async function parseDeepLink(searchString: string): TranslateDeepLink {
+function parseDeepLink(searchString: string): TranslateDeepLink {
   const params = new URLSearchParams(searchString);
-  const tab = await params.get("tab");
-  const mode = await params.get("mode");
-  const advanced = await params.get("advanced");
+  const tab = params.get("tab");
+  const mode = params.get("mode");
+  const advanced = params.get("advanced");
   return {
     tab: VALID_TABS.has(tab as TranslatorTab) ? (tab as TranslatorTab) : "translate",
     mode: VALID_MODES.has(mode as TranslateMode) ? (mode as TranslateMode) : "send",

@@ -1,6 +1,11 @@
 import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
-import { getDbInstance, resetDbInstance } from "../../src/lib/db/core";
+import { getDbInstance, resetDbInstanceDrained, awaitDbMigrations } from "../../src/lib/db/core";
+
+// Bootstrap: open the DB and drain async migrations before the first test
+// (the PRAGMA reads below need the family column the migration adds).
+getDbInstance();
+await awaitDbMigrations();
 
 describe("migration 099 proxy family column", () => {
   after(async () => await resetDbInstanceDrained());

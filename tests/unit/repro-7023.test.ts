@@ -11,15 +11,12 @@ import assert from "node:assert/strict";
 // own documented nullable-union idiom for this exact strict-mode limitation), and
 // response-side drops the key when the model emits `null` for a non-required property.
 
-const { injectOptionalEnumOmissionSentinel, injectOptionalEnumOmissionForTools } = await import(
-  "../../open-sse/translator/helpers/schemaCoercion.ts"
-);
-const { stripEmptyOptionalToolArgs } = await import(
-  "../../open-sse/translator/response/openai-responses/pureHelpers.ts"
-);
-const { openaiResponsesToOpenAIResponse } = await import(
-  "../../open-sse/translator/response/openai-responses.ts"
-);
+const { injectOptionalEnumOmissionSentinel, injectOptionalEnumOmissionForTools } =
+  await import("../../open-sse/translator/helpers/schemaCoercion.ts");
+const { stripEmptyOptionalToolArgs } =
+  await import("../../open-sse/translator/response/openai-responses/pureHelpers.ts");
+const { openaiResponsesToOpenAIResponse } =
+  await import("../../open-sse/translator/response/openai-responses.ts");
 const { translateRequest } = await import("../../open-sse/translator/index.ts");
 const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 
@@ -32,7 +29,7 @@ const AGENT_SCHEMA = {
   required: ["description", "isolation"],
 };
 
-test("7023: injectOptionalEnumOmissionSentinel widens a no-default enum property not in required", () => {
+test("7023: injectOptionalEnumOmissionSentinel widens a no-default enum property not in required", async () => {
   const schema = {
     type: "object",
     properties: {
@@ -46,7 +43,7 @@ test("7023: injectOptionalEnumOmissionSentinel widens a no-default enum property
   assert.match(result.properties.isolation.description, /null = omit this parameter/);
 });
 
-test("7023: injectOptionalEnumOmissionSentinel leaves a required enum property untouched", () => {
+test("7023: injectOptionalEnumOmissionSentinel leaves a required enum property untouched", async () => {
   const schema = {
     type: "object",
     properties: { isolation: { type: "string", enum: ["worktree", "remote"] } },
@@ -57,17 +54,19 @@ test("7023: injectOptionalEnumOmissionSentinel leaves a required enum property u
   assert.equal(result.properties.isolation.type, "string");
 });
 
-test("7023: injectOptionalEnumOmissionSentinel leaves an enum property with a default untouched", () => {
+test("7023: injectOptionalEnumOmissionSentinel leaves an enum property with a default untouched", async () => {
   const schema = {
     type: "object",
-    properties: { isolation: { type: "string", enum: ["worktree", "remote"], default: "worktree" } },
+    properties: {
+      isolation: { type: "string", enum: ["worktree", "remote"], default: "worktree" },
+    },
     required: [],
   };
   const result = injectOptionalEnumOmissionSentinel(schema);
   assert.deepEqual(result.properties.isolation.enum, ["worktree", "remote"]);
 });
 
-test("7023: injectOptionalEnumOmissionSentinel leaves a non-enum property untouched", () => {
+test("7023: injectOptionalEnumOmissionSentinel leaves a non-enum property untouched", async () => {
   const schema = {
     type: "object",
     properties: { note: { type: "string" } },
@@ -77,7 +76,7 @@ test("7023: injectOptionalEnumOmissionSentinel leaves a non-enum property untouc
   assert.deepEqual(result, schema);
 });
 
-test("7023: injectOptionalEnumOmissionForTools transforms Responses-API shaped tools", () => {
+test("7023: injectOptionalEnumOmissionForTools transforms Responses-API shaped tools", async () => {
   const tools = [
     {
       type: "function",
@@ -93,13 +92,13 @@ test("7023: injectOptionalEnumOmissionForTools transforms Responses-API shaped t
   assert.deepEqual(result[0].parameters.properties.isolation.enum, ["worktree", "remote", null]);
 });
 
-test("7023: injectOptionalEnumOmissionForTools passes non-plain-object entries through unchanged", () => {
+test("7023: injectOptionalEnumOmissionForTools passes non-plain-object entries through unchanged", async () => {
   const tools = [null, "not-a-tool"];
   const result = injectOptionalEnumOmissionForTools(tools);
   assert.deepEqual(result, tools);
 });
 
-test("7023: translateRequest applies the injection only for targetFormat OPENAI_RESPONSES", () => {
+test("7023: translateRequest applies the injection only for targetFormat OPENAI_RESPONSES", async () => {
   const body = {
     model: "gpt-5.1-codex",
     messages: [{ role: "user", content: "hi" }],
@@ -118,17 +117,19 @@ test("7023: translateRequest applies the injection only for targetFormat OPENAI_
     ],
   };
 
-  const toResponses = translateRequest(
+  const toResponses = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI_RESPONSES,
     "gpt-5.1-codex",
     JSON.parse(JSON.stringify(body))
   );
-  const responsesTool = toResponses.tools.find((t) => t.name === "Agent" || t?.function?.name === "Agent");
+  const responsesTool = toResponses.tools.find(
+    (t) => t.name === "Agent" || t?.function?.name === "Agent"
+  );
   const responsesParams = responsesTool.parameters ?? responsesTool.function?.parameters;
   assert.ok(responsesParams.properties.isolation.enum.includes(null));
 
-  const toClaude = translateRequest(
+  const toClaude = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     "claude-3-7-sonnet",
@@ -148,14 +149,14 @@ const AGENT_SCHEMA_OPTIONAL = {
   required: ["description"],
 };
 
-test("7023: stripEmptyOptionalToolArgs drops a null value for a non-required, schema-declared property", () => {
+test("7023: stripEmptyOptionalToolArgs drops a null value for a non-required, schema-declared property", async () => {
   const raw = JSON.stringify({ description: "d", isolation: null });
   const cleaned = JSON.parse(stripEmptyOptionalToolArgs(raw, "Agent", AGENT_SCHEMA_OPTIONAL));
   assert.equal(Object.prototype.hasOwnProperty.call(cleaned, "isolation"), false);
   assert.equal(cleaned.description, "d");
 });
 
-test("7023: stripEmptyOptionalToolArgs preserves null for a required property (never drop what the schema demands)", () => {
+test("7023: stripEmptyOptionalToolArgs preserves null for a required property (never drop what the schema demands)", async () => {
   const schema = {
     type: "object",
     properties: { note: { type: ["string", "null"] } },
@@ -166,11 +167,14 @@ test("7023: stripEmptyOptionalToolArgs preserves null for a required property (n
   assert.equal(Object.prototype.hasOwnProperty.call(cleaned, "note"), true);
 });
 
-test("7023: acceptance — codex Agent call emits isolation:null (post-injection idiom) -> client-visible call has no isolation key", () => {
+test("7023: acceptance — codex Agent call emits isolation:null (post-injection idiom) -> client-visible call has no isolation key", async () => {
   const state = { toolSchemas: new Map([["Agent", AGENT_SCHEMA_OPTIONAL]]) };
 
   openaiResponsesToOpenAIResponse(
-    { type: "response.output_item.added", item: { type: "function_call", call_id: "call_1", name: "Agent" } },
+    {
+      type: "response.output_item.added",
+      item: { type: "function_call", call_id: "call_1", name: "Agent" },
+    },
     state
   );
   const done = openaiResponsesToOpenAIResponse(
@@ -191,11 +195,14 @@ test("7023: acceptance — codex Agent call emits isolation:null (post-injection
   assert.equal(args.description, "no isolation intended");
 });
 
-test("7023: negative — a legitimate isolation:'worktree' value is preserved unchanged", () => {
+test("7023: negative — a legitimate isolation:'worktree' value is preserved unchanged", async () => {
   const state = { toolSchemas: new Map([["Agent", AGENT_SCHEMA_OPTIONAL]]) };
 
   openaiResponsesToOpenAIResponse(
-    { type: "response.output_item.added", item: { type: "function_call", call_id: "call_2", name: "Agent" } },
+    {
+      type: "response.output_item.added",
+      item: { type: "function_call", call_id: "call_2", name: "Agent" },
+    },
     state
   );
   const done = openaiResponsesToOpenAIResponse(

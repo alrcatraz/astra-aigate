@@ -9,14 +9,13 @@ import assert from "node:assert/strict";
 // Claude paths), so consecutive `user` turns — or a tool-result turn (role:user)
 // immediately followed by a plain user turn — produced an invalid alternation.
 
-const { openaiToGeminiRequest, mergeConsecutiveSameRoleContents } = await import(
-  "../../open-sse/translator/request/openai-to-gemini.ts"
-);
+const { openaiToGeminiRequest, mergeConsecutiveSameRoleContents } =
+  await import("../../open-sse/translator/request/openai-to-gemini.ts");
 
 type GeminiContent = { role: string; parts: Array<Record<string, unknown>> };
 type GeminiReq = { contents: GeminiContent[] };
 
-function assertNoConsecutiveSameRole(contents: GeminiContent[], label: string) {
+async function assertNoConsecutiveSameRole(contents: GeminiContent[], label: string) {
   for (let i = 1; i < contents.length; i++) {
     assert.notStrictEqual(
       contents[i].role,
@@ -27,16 +26,16 @@ function assertNoConsecutiveSameRole(contents: GeminiContent[], label: string) {
   }
 }
 
-test("OpenAI -> Gemini merges two consecutive user messages into one content block", () => {
+test("OpenAI -> Gemini merges two consecutive user messages into one content block", async () => {
   const body = {
     messages: [
       { role: "user", content: "Hello" },
       { role: "user", content: "Additional context" },
     ],
   };
-  const result = openaiToGeminiRequest("gemini-2.5-pro", body, false) as GeminiReq;
+  const result = (await openaiToGeminiRequest("gemini-2.5-pro", body, false)) as GeminiReq;
 
-  assertNoConsecutiveSameRole(result.contents, "two-user");
+  await assertNoConsecutiveSameRole(result.contents, "two-user");
   // The two user turns collapse into a single user content carrying both parts.
   assert.equal(result.contents.length, 1, "expected the two user turns to merge into one");
   assert.equal(result.contents[0].role, "user");
@@ -44,7 +43,7 @@ test("OpenAI -> Gemini merges two consecutive user messages into one content blo
   assert.deepEqual(texts, ["Hello", "Additional context"]);
 });
 
-test("OpenAI -> Gemini does not emit a tool-result(user) turn adjacent to a user turn", () => {
+test("OpenAI -> Gemini does not emit a tool-result(user) turn adjacent to a user turn", async () => {
   // Agentic history: user -> assistant(tool_call) -> tool(result) -> user.
   // The assistant block pushes model + user(toolResponse); the trailing plain
   // user turn would otherwise produce two adjacent role:"user" contents.
@@ -66,9 +65,9 @@ test("OpenAI -> Gemini does not emit a tool-result(user) turn adjacent to a user
       { role: "user", content: "Now read a.ts" },
     ],
   };
-  const result = openaiToGeminiRequest("gemini-2.5-pro", body, false) as GeminiReq;
+  const result = (await openaiToGeminiRequest("gemini-2.5-pro", body, false)) as GeminiReq;
 
-  assertNoConsecutiveSameRole(result.contents, "tool-result-then-user");
+  await assertNoConsecutiveSameRole(result.contents, "tool-result-then-user");
   // Roles must strictly alternate: user, model, user (toolResp + "Now read a.ts" merged).
   assert.deepEqual(
     result.contents.map((c) => c.role),
@@ -76,7 +75,7 @@ test("OpenAI -> Gemini does not emit a tool-result(user) turn adjacent to a user
   );
 });
 
-test("OpenAI -> Gemini keeps a normally alternating conversation unchanged", () => {
+test("OpenAI -> Gemini keeps a normally alternating conversation unchanged", async () => {
   const body = {
     messages: [
       { role: "user", content: "Hi" },
@@ -84,16 +83,16 @@ test("OpenAI -> Gemini keeps a normally alternating conversation unchanged", () 
       { role: "user", content: "How are you?" },
     ],
   };
-  const result = openaiToGeminiRequest("gemini-2.5-pro", body, false) as GeminiReq;
+  const result = (await openaiToGeminiRequest("gemini-2.5-pro", body, false)) as GeminiReq;
 
-  assertNoConsecutiveSameRole(result.contents, "alternating");
+  await assertNoConsecutiveSameRole(result.contents, "alternating");
   assert.deepEqual(
     result.contents.map((c) => c.role),
     ["user", "model", "user"]
   );
 });
 
-test("mergeConsecutiveSameRoleContents merges adjacent same-role entries without mutating the input", () => {
+test("mergeConsecutiveSameRoleContents merges adjacent same-role entries without mutating the input", async () => {
   const userPartsA = [{ text: "Hello" }];
   const userPartsB = [{ text: "Additional context" }];
   const input: GeminiContent[] = [

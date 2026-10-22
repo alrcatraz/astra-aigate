@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const BIN = path.join(ROOT, "bin", "omniroute.mjs");
+const BIN = path.join(ROOT, "bin", "astra-aigate.mjs");
 const DATA_DIR_MODULE = path.join(ROOT, "bin", "cli", "data-dir.mjs");
 
 async function withEnv<T>(

@@ -56,8 +56,8 @@ test("transformRequest honors caller-supplied safetySettings accepted by Cloud C
   );
 });
 
-test("OpenAI Antigravity translation omits safetySettings when the caller omits them", () => {
-  const translated = openaiToAntigravityRequest(
+test("OpenAI Antigravity translation omits safetySettings when the caller omits them", async () => {
+  const translated = await openaiToAntigravityRequest(
     "gemini-2.5-flash",
     { messages: [{ role: "user", content: "hi" }] },
     true,
@@ -77,7 +77,7 @@ test("OpenAI Antigravity translation preserves caller-supplied safetySettings (#
     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
     { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "OFF" },
   ];
-  const translated = openaiToAntigravityRequest(
+  const translated = await openaiToAntigravityRequest(
     "gemini-2.5-flash",
     {
       messages: [{ role: "user", content: "hi" }],

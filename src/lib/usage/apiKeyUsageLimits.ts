@@ -326,7 +326,7 @@ async function getProviderWeeklyWindow(
       const connection = connectionFromValue(await deps.getProviderConnectionById(connectionId));
       if (!connection) continue;
       const resetAt = await findWeeklyQuotaResetAt(
-        deps.getProviderLimitsCache(connection.id)?.quotas,
+        (await deps.getProviderLimitsCache(connection.id))?.quotas,
         nowMs
       );
       if (resetAt) {
@@ -339,7 +339,7 @@ async function getProviderWeeklyWindow(
       }
     }
   } else {
-    const caches = deps.getAllProviderLimitsCache();
+    const caches = await deps.getAllProviderLimitsCache();
     const connections = await deps.getProviderConnections({ isActive: true });
     for (const rawConnection of connections) {
       const connection = connectionFromValue(rawConnection);
@@ -376,7 +376,7 @@ async function getProviderWeeklyWindow(
 async function getApiKeyUsdSpendSince(apiKeyId: string, sinceIso: string): Promise<number> {
   if (!apiKeyId) return 0;
   const db = await getAsyncDb();
-  const rows = db
+  const rows = (await db
     .prepare(
       `
       SELECT
@@ -395,7 +395,7 @@ async function getApiKeyUsdSpendSince(apiKeyId: string, sinceIso: string): Promi
       GROUP BY LOWER(provider), LOWER(model), serviceTier
     `
     )
-    .all({ apiKeyId, sinceIso }) as UsageCostRow[];
+    .all({ apiKeyId, sinceIso })) as UsageCostRow[];
 
   let total = 0;
   for (const row of rows) {

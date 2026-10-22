@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "தவறான கோப்பு வகை. PNG, JPG, SVG, GIF அல்லது WebP-ஐப் பதிவேற்றவும்.",
     "invalidFaviconFileType": "தவறான கோப்பு வகை. PNG, ICO, SVG, GIF அல்லது WebP-ஐப் பதிவேற்றவும்.",
     "failedToReadFile": "கோப்பைப் படிக்க முடியவில்லை",
-    "startOnLogin": "உள்நுழையும்போது தொடங்கவும்",
-    "startOnLoginDesc": "கணினி தொடங்கும் போது AI Gate-ஐத் தானாகவே துவக்கி, பின்னணி ட்ரேயில் அமைதியாக இயக்கவும்.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

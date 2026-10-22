@@ -25,6 +25,10 @@ process.env.DATA_DIR = testDataDir;
 const coreDb = await import("../../src/lib/db/core.ts");
 const upstreamProxyDb = await import("../../src/lib/db/upstreamProxy.ts");
 
+// Open + fully drain migrations before the first test statement.
+coreDb.getDbInstance();
+await coreDb.awaitDbMigrations();
+
 // ─── Executor imports (clearCliproxyapiUrlCache + resolveCliproxyapiBaseUrl) ──
 
 // Import the executor module to get the real exported functions.
@@ -44,8 +48,12 @@ function filterEmbeddedServices(providerIds: string[]): string[] {
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
-before(async () => {
+beforeEach(async () => {
+  // afterEach rm -rf's the whole DATA_DIR; reopen + fully drain migrations so
+  // the recreated SQLite file has every table before the next test writes.
   await coreDb.ensureDbInitialized();
+  coreDb.getDbInstance();
+  await coreDb.awaitDbMigrations();
 });
 
 afterEach(async () => {

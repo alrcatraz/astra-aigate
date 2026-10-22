@@ -25,8 +25,9 @@ test("leaf hosts the pure helpers and does not import the host", () => {
 test("host imports the helpers back from the leaf", () => {
   const src = readFileSync(HOST, "utf8");
   assert.match(src, /from "\.\/openai-to-kiro\/messageHelpers\.ts"/);
-  // buildKiroPayload stays exported on the host module.
-  assert.match(src, /export function buildKiroPayload\(/);
+  // buildKiroPayload stays exported on the host module (async since the
+  // capability caps became async across the 4-layer pipeline).
+  assert.match(src, /export (?:async )?function buildKiroPayload\(/);
 });
 
 test("normalizeKiroToolSchema strips empty required arrays and additionalProperties", async () => {

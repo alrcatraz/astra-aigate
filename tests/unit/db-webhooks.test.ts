@@ -35,8 +35,8 @@ test("webhooks create, update, query enabled hooks and delete records", async ()
   });
 
   assert.match(created.secret, /^whsec_/);
-  assert.equal(webhooksDb.getWebhooks().webhooks.length, 1);
-  assert.equal(webhooksDb.getEnabledWebhooks().length, 1);
+  assert.equal((await webhooksDb.getWebhooks()).webhooks.length, 1);
+  assert.equal((await webhooksDb.getEnabledWebhooks()).length, 1);
 
   const updated = await webhooksDb.updateWebhook(created.id, {
     enabled: false,
@@ -48,10 +48,10 @@ test("webhooks create, update, query enabled hooks and delete records", async ()
   assert.equal(updated.enabled, false);
   assert.deepEqual(updated.events, ["request.failed"]);
   assert.equal(updated.secret, "custom-secret");
-  assert.equal(webhooksDb.getEnabledWebhooks().length, 0);
+  assert.equal((await webhooksDb.getEnabledWebhooks()).length, 0);
 
-  assert.equal(webhooksDb.deleteWebhook(created.id), true);
-  assert.equal(webhooksDb.deleteWebhook(created.id), false);
+  assert.equal(await webhooksDb.deleteWebhook(created.id), true);
+  assert.equal(await webhooksDb.deleteWebhook(created.id), false);
 });
 
 test("webhooks record delivery success and failures", async () => {
@@ -86,7 +86,7 @@ test("webhooks disable only hooks above the failure threshold", async () => {
   const disabled = await webhooksDb.disableWebhooksWithHighFailures(2);
 
   assert.equal(disabled, 1);
-  assert.equal(webhooksDb.getWebhook(a.id).enabled, false);
-  assert.equal(webhooksDb.getWebhook(b.id).enabled, true);
-  assert.equal(webhooksDb.updateWebhook("ghost", { enabled: false }), null);
+  assert.equal((await webhooksDb.getWebhook(a.id)).enabled, false);
+  assert.equal((await webhooksDb.getWebhook(b.id)).enabled, true);
+  assert.equal(await webhooksDb.updateWebhook("ghost", { enabled: false }), null);
 });

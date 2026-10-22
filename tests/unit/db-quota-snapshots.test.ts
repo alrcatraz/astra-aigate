@@ -97,7 +97,7 @@ test("quotaSnapshots aggregates by provider or connection and rejects invalid bu
   assert.equal(providerAgg[0].remainingPct, 60);
   assert.equal(connectionAgg[0].provider, "openai:conn-a");
 
-  assert.throws(
+  await assert.rejects(
     () =>
       quotaSnapshotsDb.getAggregatedSnapshots({
         since: "2000-01-01T00:00:00.000Z",

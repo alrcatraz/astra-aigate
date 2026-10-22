@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "Neplatný typ súboru. Nahrajte PNG, JPG, SVG, GIF alebo WebP.",
     "invalidFaviconFileType": "Neplatný typ súboru. Nahrajte PNG, ICO, SVG, GIF alebo WebP.",
     "failedToReadFile": "Nepodarilo sa prečítať súbor",
-    "startOnLogin": "Spustiť pri prihlásení",
-    "startOnLoginDesc": "Automaticky spustiť AI Gate pri štarte systému a spustiť ho na pozadí v systémovej lište.",
     "flushCache": "Vyprázdniť vyrovnávaciu pamäť",
     "flushing": "Splachovanie…",
     "size": "Veľkosť",

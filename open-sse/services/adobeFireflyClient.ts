@@ -24,288 +24,29 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { resolvePublicCred } from "../utils/publicCreds.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
-
-export const ADOBE_FIREFLY_IMAGE_SUBMIT_URL =
-  "https://firefly-3p.ff.adobe.io/v2/3p-images/generate-async";
-export const ADOBE_FIREFLY_VIDEO_SUBMIT_URL =
-  "https://firefly-3p.ff.adobe.io/v2/3p-videos/generate-async";
-export const ADOBE_FIREFLY_IMAGE_UPLOAD_URL =
-  "https://firefly-3p.ff.adobe.io/v2/storage/image";
-export const ADOBE_FIREFLY_MODELS_DISCOVERY_URL =
-  "https://firefly-3p.ff.adobe.io/v2/models/discovery";
-export const ADOBE_FIREFLY_CREDITS_BALANCE_URL =
-  "https://firefly.adobe.io/v1/credits/balance";
-export const ADOBE_FIREFLY_IMS_REFRESH_URL =
-  "https://adobeid-na1.services.adobe.com/ims/check/v6/token?jslVersion=v2-v0.48.0-1-g1e322cb";
-/** Scope set observed on live firefly.adobe.com IMS access tokens. */
-export const ADOBE_FIREFLY_IMS_SCOPE =
-  "AdobeID,firefly_api,openid,pps.read,pps.write,additional_info.projectedProductContext," +
-  "additional_info.ownerOrg,uds_read,uds_write,ab.manage,read_organizations," +
-  "additional_info.roles,account_cluster.read,creative_production,tk_platform," +
-  "tk_platform_sync,profile";
-
-const DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
-const DEFAULT_SEC_CH_UA =
-  '"Not;A=Brand";v="8", "Chromium";v="150", "Google Chrome";v="150"';
-const DEFAULT_POLL_INTERVAL_MS = 3000;
-const DEFAULT_IMAGE_TIMEOUT_MS = 180_000;
-const DEFAULT_VIDEO_TIMEOUT_MS = 300_000;
-const FIREFLY_ORIGIN = "https://firefly.adobe.com";
-const FIREFLY_REFERER = "https://firefly.adobe.com/";
-
-export type AdobeFireflyImageModelId =
-  | "nano-banana-pro"
-  | "nano-banana"
-  | "nano-banana-2"
-  | "gpt-image"
-  | "gpt-image-2"
-  | "gpt-image-1.5"
-  | "flux-2"
-  | "flux-pro"
-  | "flux-ultra"
-  | "seedream-4"
-  | "seedream-5-lite"
-  | "runway-gen4-image";
-
-export type AdobeFireflyVideoModelId =
-  | "sora-2"
-  | "sora-2-pro"
-  | "veo-3.1"
-  | "veo-3.1-fast"
-  | "veo-3.1-ref"
-  | "kling-3";
-
-export interface AdobeFireflyImageModelSpec {
-  upstreamModelId: string;
-  upstreamModelVersion: string;
-  /** Payload builder family — nano uses Gemini-style size maps; gpt-image uses OpenAI detail levels. */
-  family: "nano" | "gpt-image" | "generic";
-}
-
-export interface AdobeFireflyVideoModelSpec {
-  engine: "sora2" | "sora2-pro" | "veo31-standard" | "veo31-fast" | "kling3";
-  upstreamModel: string;
-  modelId?: string;
-  modelVersion?: string;
-  referenceMode?: "frame" | "image";
-  defaultDuration: number;
-  defaultResolution: string;
-}
-
-/**
- * Upstream modelId/modelVersion pairs from firefly-3p models/discovery
- * (captured 2026-07 — see adobe/get_models.txt). Friendly catalog ids map here.
- */
-export const ADOBE_FIREFLY_IMAGE_MODELS: Record<AdobeFireflyImageModelId, AdobeFireflyImageModelSpec> =
-  {
-    // Gemini 3.0 (Nano Banana Pro) — discovery: gemini-flash / nano-banana-2
-    "nano-banana-pro": {
-      upstreamModelId: "gemini-flash",
-      upstreamModelVersion: "nano-banana-2",
-      family: "nano",
-    },
-    // Gemini 2.5 (Nano Banana) — discovery: gemini-flash / nano-banana
-    "nano-banana": {
-      upstreamModelId: "gemini-flash",
-      upstreamModelVersion: "nano-banana",
-      family: "nano",
-    },
-    // Gemini 3.1 (Nano Banana 2) — discovery: gemini-flash / nano-banana-3
-    "nano-banana-2": {
-      upstreamModelId: "gemini-flash",
-      upstreamModelVersion: "nano-banana-3",
-      family: "nano",
-    },
-    // GPT Image 2 — discovery modelVersion "2" (get_models: modelDisplayName "GPT Image 2")
-    "gpt-image": {
-      upstreamModelId: "gpt-image",
-      upstreamModelVersion: "2",
-      family: "gpt-image",
-    },
-    // Explicit catalog alias so pickers show "gpt-image-2" distinctly
-    "gpt-image-2": {
-      upstreamModelId: "gpt-image",
-      upstreamModelVersion: "2",
-      family: "gpt-image",
-    },
-    "gpt-image-1.5": {
-      upstreamModelId: "gpt-image",
-      upstreamModelVersion: "1.5",
-      family: "gpt-image",
-    },
-    "flux-2": {
-      upstreamModelId: "flux",
-      upstreamModelVersion: "2",
-      family: "generic",
-    },
-    "flux-pro": {
-      upstreamModelId: "flux",
-      upstreamModelVersion: "fluxPro",
-      family: "generic",
-    },
-    "flux-ultra": {
-      upstreamModelId: "flux",
-      upstreamModelVersion: "fluxUltra",
-      family: "generic",
-    },
-    "seedream-4": {
-      upstreamModelId: "seedream",
-      upstreamModelVersion: "seedream_v4",
-      family: "generic",
-    },
-    "seedream-5-lite": {
-      upstreamModelId: "seedream",
-      upstreamModelVersion: "seedream_v5_lite",
-      family: "generic",
-    },
-    "runway-gen4-image": {
-      upstreamModelId: "runway-gen4-image",
-      upstreamModelVersion: "gen4_image",
-      family: "generic",
-    },
-  };
-
-export const ADOBE_FIREFLY_VIDEO_MODELS: Record<AdobeFireflyVideoModelId, AdobeFireflyVideoModelSpec> =
-  {
-    "sora-2": {
-      engine: "sora2",
-      upstreamModel: "openai:firefly:colligo:sora2",
-      defaultDuration: 8,
-      defaultResolution: "720p",
-    },
-    "sora-2-pro": {
-      engine: "sora2-pro",
-      upstreamModel: "openai:firefly:colligo:sora2-pro",
-      defaultDuration: 8,
-      defaultResolution: "720p",
-    },
-    "veo-3.1": {
-      engine: "veo31-standard",
-      upstreamModel: "google:firefly:colligo:veo31",
-      modelId: "veo",
-      modelVersion: "3.1-generate",
-      defaultDuration: 6,
-      defaultResolution: "720p",
-    },
-    "veo-3.1-fast": {
-      engine: "veo31-fast",
-      upstreamModel: "google:firefly:colligo:veo31-fast",
-      modelId: "veo",
-      modelVersion: "3.1-fast-generate",
-      defaultDuration: 6,
-      defaultResolution: "720p",
-    },
-    "veo-3.1-ref": {
-      engine: "veo31-standard",
-      upstreamModel: "google:firefly:colligo:veo31",
-      modelId: "veo",
-      modelVersion: "3.1-generate",
-      referenceMode: "image",
-      defaultDuration: 6,
-      defaultResolution: "720p",
-    },
-    "kling-3": {
-      engine: "kling3",
-      upstreamModel: "kling:firefly:colligo:kling3",
-      modelId: "kling",
-      modelVersion: "kling_v3_standard_i2v",
-      defaultDuration: 5,
-      defaultResolution: "1080p",
-    },
-  };
-
-const NANO_SIZE_MAP: Record<string, Record<string, { width: number; height: number }>> = {
-  "1K": {
-    "1:1": { width: 1024, height: 1024 },
-    "16:9": { width: 1360, height: 768 },
-    "9:16": { width: 768, height: 1360 },
-    "4:3": { width: 1152, height: 864 },
-    "3:4": { width: 864, height: 1152 },
-    "1:8": { width: 384, height: 3072 },
-    "1:4": { width: 512, height: 2048 },
-    "4:1": { width: 2048, height: 512 },
-    "8:1": { width: 3072, height: 384 },
-  },
-  "2K": {
-    "1:1": { width: 2048, height: 2048 },
-    "16:9": { width: 2752, height: 1536 },
-    "9:16": { width: 1536, height: 2752 },
-    "4:3": { width: 2048, height: 1536 },
-    "3:4": { width: 1536, height: 2048 },
-    "1:8": { width: 768, height: 6144 },
-    "1:4": { width: 1024, height: 4096 },
-    "4:1": { width: 4096, height: 1024 },
-    "8:1": { width: 6144, height: 768 },
-  },
-  "4K": {
-    "1:1": { width: 4096, height: 4096 },
-    "16:9": { width: 5504, height: 3072 },
-    "9:16": { width: 3072, height: 5504 },
-    "4:3": { width: 4096, height: 3072 },
-    "3:4": { width: 3072, height: 4096 },
-    "1:8": { width: 1536, height: 12288 },
-    "1:4": { width: 2048, height: 8192 },
-    "4:1": { width: 8192, height: 2048 },
-    "8:1": { width: 12288, height: 1536 },
-  },
-};
-
-const GPT_SIZE_MAP: Record<string, Record<string, { width: number; height: number }>> = {
-  "1K": {
-    "1:1": { width: 1024, height: 1024 },
-    "5:4": { width: 1120, height: 896 },
-    "9:16": { width: 720, height: 1280 },
-    "21:9": { width: 1456, height: 624 },
-    "16:9": { width: 1280, height: 720 },
-    "4:3": { width: 1152, height: 864 },
-    "3:2": { width: 1248, height: 832 },
-    "4:5": { width: 896, height: 1120 },
-    "3:4": { width: 864, height: 1152 },
-    "2:3": { width: 832, height: 1248 },
-  },
-  "2K": {
-    "1:1": { width: 2048, height: 2048 },
-    "5:4": { width: 2240, height: 1792 },
-    "9:16": { width: 1440, height: 2560 },
-    "21:9": { width: 3024, height: 1296 },
-    "16:9": { width: 2560, height: 1440 },
-    "4:3": { width: 2304, height: 1728 },
-    "3:2": { width: 2496, height: 1664 },
-    "4:5": { width: 1792, height: 2240 },
-    "3:4": { width: 1728, height: 2304 },
-    "2:3": { width: 1664, height: 2496 },
-  },
-  "4K": {
-    "1:1": { width: 2880, height: 2880 },
-    "5:4": { width: 3200, height: 2560 },
-    "9:16": { width: 2160, height: 3840 },
-    "21:9": { width: 3696, height: 1584 },
-    "16:9": { width: 3840, height: 2160 },
-    "4:3": { width: 3264, height: 2448 },
-    "3:2": { width: 3504, height: 2336 },
-    "4:5": { width: 2560, height: 3200 },
-    "3:4": { width: 2448, height: 3264 },
-    "2:3": { width: 2336, height: 3504 },
-  },
-};
-
-const PIXEL_SIZE_TO_RATIO: Record<string, string> = {
-  "1024x1024": "1:1",
-  "1536x1536": "1:1",
-  "2048x2048": "1:1",
-  "1024x1792": "9:16",
-  "1536x2752": "9:16",
-  "1792x1024": "16:9",
-  "2752x1536": "16:9",
-  "2048x1536": "4:3",
-  "1536x2048": "3:4",
-  "1280x720": "16:9",
-  "720x1280": "9:16",
-  "1920x1080": "16:9",
-  "1080x1920": "9:16",
-};
-
+import {
+  ADOBE_FIREFLY_IMAGE_SUBMIT_URL,
+  ADOBE_FIREFLY_VIDEO_SUBMIT_URL,
+  ADOBE_FIREFLY_IMAGE_UPLOAD_URL,
+  ADOBE_FIREFLY_MODELS_DISCOVERY_URL,
+  ADOBE_FIREFLY_CREDITS_BALANCE_URL,
+  ADOBE_FIREFLY_IMS_REFRESH_URL,
+  ADOBE_FIREFLY_IMS_SCOPE,
+  DEFAULT_USER_AGENT,
+  DEFAULT_SEC_CH_UA,
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_IMAGE_TIMEOUT_MS,
+  DEFAULT_VIDEO_TIMEOUT_MS,
+  FIREFLY_ORIGIN,
+  FIREFLY_REFERER,
+  AdobeFireflyImageModelId,
+  AdobeFireflyVideoModelId,
+  ADOBE_FIREFLY_IMAGE_MODELS,
+  ADOBE_FIREFLY_VIDEO_MODELS,
+  NANO_SIZE_MAP,
+  GPT_SIZE_MAP,
+  PIXEL_SIZE_TO_RATIO,
+} from "./adobeFireflyCatalog.ts";
 export class AdobeFireflyError extends Error {
   status: number;
   code?: string;
@@ -318,7 +59,33 @@ export class AdobeFireflyError extends Error {
   }
 }
 
-/** Public x-api-key + primary IMS client_id for firefly.adobe.com (`clio-playground-web`). */
+export {
+  ADOBE_FIREFLY_IMAGE_SUBMIT_URL,
+  ADOBE_FIREFLY_VIDEO_SUBMIT_URL,
+  ADOBE_FIREFLY_IMAGE_UPLOAD_URL,
+  ADOBE_FIREFLY_MODELS_DISCOVERY_URL,
+  ADOBE_FIREFLY_CREDITS_BALANCE_URL,
+  ADOBE_FIREFLY_IMS_REFRESH_URL,
+  ADOBE_FIREFLY_IMS_SCOPE,
+  DEFAULT_USER_AGENT,
+  DEFAULT_SEC_CH_UA,
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_IMAGE_TIMEOUT_MS,
+  DEFAULT_VIDEO_TIMEOUT_MS,
+  FIREFLY_ORIGIN,
+  FIREFLY_REFERER,
+  ADOBE_FIREFLY_IMAGE_MODELS,
+  ADOBE_FIREFLY_VIDEO_MODELS,
+  NANO_SIZE_MAP,
+  GPT_SIZE_MAP,
+  PIXEL_SIZE_TO_RATIO,
+} from "./adobeFireflyCatalog.ts";
+import type {
+  AdobeFireflyImageModelSpec,
+  AdobeFireflyVideoModelSpec,
+} from "./adobeFireflyCatalog.ts";
+export type { AdobeFireflyImageModelId, AdobeFireflyVideoModelId } from "./adobeFireflyCatalog.ts";
+
 export function adobeFireflyApiKey(): string {
   return resolvePublicCred("adobe_firefly_api_key", "ADOBE_FIREFLY_API_KEY");
 }
@@ -328,7 +95,7 @@ export function adobeFireflyExpressClientId(): string {
   return resolvePublicCred("adobe_firefly_express_client_id", "ADOBE_FIREFLY_EXPRESS_CLIENT_ID");
 }
 
-/** Public x-api-key for GET firefly.adobe.io/v1/credits/balance (`SunbreakWebUI1`). */
+/** Public x-api-key for GET firefly.adobe.io/v1/credits/balance (embedded key `adobe_firefly_balance_api_key`). */
 export function adobeFireflyBalanceApiKey(): string {
   return resolvePublicCred("adobe_firefly_balance_api_key", "ADOBE_FIREFLY_BALANCE_API_KEY");
 }
@@ -337,7 +104,10 @@ export function adobeFireflyBalanceApiKey(): string {
 export function decodeAdobeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     // Do not call extractAdobeCredentialToken here (would recurse via guest checks).
-    let raw = String(token || "").trim().replace(/^bearer\s+/i, "").trim();
+    let raw = String(token || "")
+      .trim()
+      .replace(/^bearer\s+/i, "")
+      .trim();
     // If a blob was passed, take the first JWT-shaped segment.
     const m = raw.match(/eyJ[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}/);
     if (m) raw = m[0];
@@ -414,7 +184,11 @@ export function extractAdobeCredentialToken(raw: string): string {
   if (!value) return "";
 
   if (/^bearer\s+/i.test(value)) {
-    const bare = value.replace(/^bearer\s+/i, "").trim().split(/\s+/)[0] || "";
+    const bare =
+      value
+        .replace(/^bearer\s+/i, "")
+        .trim()
+        .split(/\s+/)[0] || "";
     if (looksLikeAdobeJwt(bare)) return bare;
   }
 
@@ -432,11 +206,15 @@ export function extractAdobeCredentialToken(raw: string): string {
   }
 
   // Authorization: Bearer eyJ...
-  const authMatch = value.match(/Authorization\s*:\s*Bearer\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/i);
+  const authMatch = value.match(
+    /Authorization\s*:\s*Bearer\s+([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/i
+  );
   if (authMatch?.[1] && looksLikeAdobeJwt(authMatch[1])) return authMatch[1];
 
   // Any eyJ… JWT in the blob (HAR / multi-line). Prefer user AdobeID tokens.
-  const jwtMatches = value.match(/eyJ[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}/g);
+  const jwtMatches = value.match(
+    /eyJ[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}/g
+  );
   if (jwtMatches && jwtMatches.length > 0) {
     const sorted = [...jwtMatches].sort((a, b) => b.length - a.length);
     const user = sorted.find((t) => looksLikeAdobeJwt(t) && isAdobeUserAccessToken(t));
@@ -485,7 +263,8 @@ export function extractAdobeCookieHeader(raw: string): string {
       if (/^bearer\s+/i.test(line)) return false;
       if (looksLikeAdobeJwt(line)) return false;
       // Drop standalone eyJ… segments
-      if (/^eyJ[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}$/.test(line)) return false;
+      if (/^eyJ[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}$/.test(line))
+        return false;
       return true;
     })
     .join("; ");
@@ -545,8 +324,13 @@ export function normalizeAdobeAspectRatio(sizeOrRatio: unknown, fallback = "1:1"
   return fallback;
 }
 
-export function normalizeAdobeOutputResolution(quality: unknown, size: unknown): "1K" | "2K" | "4K" {
-  const q = String(quality ?? "").trim().toLowerCase();
+export function normalizeAdobeOutputResolution(
+  quality: unknown,
+  size: unknown
+): "1K" | "2K" | "4K" {
+  const q = String(quality ?? "")
+    .trim()
+    .toLowerCase();
   if (q === "4k" || q === "ultra" || q === "high") return "4K";
   if (q === "2k" || q === "hd" || q === "standard" || q === "medium") return "2K";
   if (q === "1k" || q === "low") return "1K";
@@ -568,7 +352,11 @@ export function resolveAdobeImageModel(model: string): {
     .replace(/^firefly\//, "");
 
   // Accept long catalog ids like firefly-nano-banana-pro-2k-16x9
-  if (raw.includes("nano-banana2") || raw.includes("nano-banana-2") || raw.includes("nano-banana-3")) {
+  if (
+    raw.includes("nano-banana2") ||
+    raw.includes("nano-banana-2") ||
+    raw.includes("nano-banana-3")
+  ) {
     return { id: "nano-banana-2", spec: ADOBE_FIREFLY_IMAGE_MODELS["nano-banana-2"] };
   }
   if (raw.includes("nano-banana-pro")) {
@@ -592,7 +380,8 @@ export function resolveAdobeImageModel(model: string): {
     if (raw.includes("1.5")) {
       return { id: "gpt-image-1.5", spec: ADOBE_FIREFLY_IMAGE_MODELS["gpt-image-1.5"] };
     }
-    const id = raw.includes("gpt-image-2") || raw.includes("gptimage2") ? "gpt-image-2" : "gpt-image";
+    const id =
+      raw.includes("gpt-image-2") || raw.includes("gptimage2") ? "gpt-image-2" : "gpt-image";
     return { id: id as AdobeFireflyImageModelId, spec: ADOBE_FIREFLY_IMAGE_MODELS["gpt-image"] };
   }
   if (raw.includes("flux-ultra") || raw.includes("fluxultra")) {
@@ -667,7 +456,9 @@ export function resolveAdobeVideoModel(model: string): {
  * Explicit low/medium still honor the caller's choice.
  */
 function gptDetailLevel(quality: unknown): number {
-  const q = String(quality ?? "high").trim().toLowerCase();
+  const q = String(quality ?? "high")
+    .trim()
+    .toLowerCase();
   if (q === "low" || q === "1k" || q === "1") return 1;
   if (q === "medium" || q === "2k" || q === "standard" || q === "hd" || q === "3") return 3;
   // high / 4k / ultra / auto / empty / unknown → max detail
@@ -785,7 +576,10 @@ export function buildAdobeVideoPayload(opts: {
 }): Record<string, unknown> {
   const seedVal = typeof opts.seed === "number" ? opts.seed : Math.floor(Date.now() % 999999);
   const aspect = opts.aspectRatio === "auto" ? "16:9" : opts.aspectRatio || "16:9";
-  const duration = Math.max(1, Math.min(30, Math.floor(opts.duration || opts.modelSpec.defaultDuration)));
+  const duration = Math.max(
+    1,
+    Math.min(30, Math.floor(opts.duration || opts.modelSpec.defaultDuration))
+  );
   const resolution = opts.resolution || opts.modelSpec.defaultResolution;
   const vidSize = videoSize(aspect, resolution);
   const engine = opts.modelSpec.engine;
@@ -1039,7 +833,10 @@ export function buildAdobeUploadHeaders(
     cookie: extras?.cookie,
     prompt: extras?.prompt || "upload",
   });
-  const ct = String(contentType || "image/png").trim().toLowerCase() || "image/png";
+  const ct =
+    String(contentType || "image/png")
+      .trim()
+      .toLowerCase() || "image/png";
   return {
     ...base,
     "content-type": ct.startsWith("image/") ? ct : "image/png",
@@ -1055,7 +852,9 @@ export function extractAdobeSourceImageSources(body: unknown, max = 4): string[]
   if (!body || typeof body !== "object") return [];
   const b = body as Record<string, unknown>;
   const po =
-    b.provider_options && typeof b.provider_options === "object" && !Array.isArray(b.provider_options)
+    b.provider_options &&
+    typeof b.provider_options === "object" &&
+    !Array.isArray(b.provider_options)
       ? (b.provider_options as Record<string, unknown>)
       : {};
 
@@ -1171,7 +970,11 @@ export function parseAdobeImageSourceBytes(source: string): {
   }
 
   // Raw base64 without data: prefix
-  if (!/^https?:\/\//i.test(trimmed) && /^[A-Za-z0-9+/=\s]+$/.test(trimmed) && trimmed.length > 64) {
+  if (
+    !/^https?:\/\//i.test(trimmed) &&
+    /^[A-Za-z0-9+/=\s]+$/.test(trimmed) &&
+    trimmed.length > 64
+  ) {
     const buffer = Buffer.from(trimmed.replace(/\s/g, ""), "base64");
     if (buffer.length > 0 && buffer.length <= ADOBE_FIREFLY_MAX_UPLOAD_BYTES) {
       return { buffer, contentType: "image/png" };
@@ -1273,11 +1076,7 @@ export async function uploadAdobeFireflyImage(opts: {
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
-    throw new AdobeFireflyError(
-      "Adobe Firefly image upload returned non-JSON body",
-      502,
-      "upload"
-    );
+    throw new AdobeFireflyError("Adobe Firefly image upload returned non-JSON body", 502, "upload");
   }
   const id = parseAdobeStorageUploadResponse(json);
   if (!id) {
@@ -1441,7 +1240,8 @@ export function extractAdobeResultLink(
   if (override) return override;
 
   const data = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const links = data.links && typeof data.links === "object" ? (data.links as Record<string, unknown>) : {};
+  const links =
+    data.links && typeof data.links === "object" ? (data.links as Record<string, unknown>) : {};
   const result = links.result;
   if (typeof result === "string" && result) return result;
   if (result && typeof result === "object") {
@@ -1472,9 +1272,7 @@ export function normalizeAdobePollUrl(rawUrl: string): string {
 
     const path = parsed.pathname || "";
     const isJobPath =
-      path.includes("/jobs/result/") ||
-      path.includes("/v2/status") ||
-      path.includes("/status/");
+      path.includes("/jobs/result/") || path.includes("/v2/status") || path.includes("/status/");
     if (!isJobPath) return url;
 
     const jobId = path.split("/").filter(Boolean).pop() || "";
@@ -1489,14 +1287,12 @@ export function normalizeAdobePollUrl(rawUrl: string): string {
   }
 }
 
-export function extractAdobeMediaUrl(
-  latest: unknown,
-  kind: "image" | "video"
-): string | null {
+export function extractAdobeMediaUrl(latest: unknown, kind: "image" | "video"): string | null {
   const body = latest && typeof latest === "object" ? (latest as Record<string, unknown>) : {};
   const outputs = Array.isArray(body.outputs) ? body.outputs : [];
   if (outputs.length > 0) {
-    const first = outputs[0] && typeof outputs[0] === "object" ? (outputs[0] as Record<string, unknown>) : {};
+    const first =
+      outputs[0] && typeof outputs[0] === "object" ? (outputs[0] as Record<string, unknown>) : {};
     const media =
       kind === "image"
         ? first.image && typeof first.image === "object"
@@ -1510,7 +1306,10 @@ export function extractAdobeMediaUrl(
   }
 
   // Fallback recursive search for a presigned URL.
-  const found = findPresignedUrl(latest, kind === "image" ? [".png", ".jpg", ".jpeg", ".webp"] : [".mp4", ".webm"]);
+  const found = findPresignedUrl(
+    latest,
+    kind === "image" ? [".png", ".jpg", ".jpeg", ".webp"] : [".mp4", ".webm"]
+  );
   return found;
 }
 
@@ -1518,7 +1317,12 @@ function findPresignedUrl(obj: unknown, exts: string[]): string | null {
   if (!obj) return null;
   if (typeof obj === "string") {
     const s = obj.trim();
-    if (/^https?:\/\//i.test(s) && (exts.some((e) => s.toLowerCase().includes(e)) || s.includes("presigned") || s.includes("X-Amz"))) {
+    if (
+      /^https?:\/\//i.test(s) &&
+      (exts.some((e) => s.toLowerCase().includes(e)) ||
+        s.includes("presigned") ||
+        s.includes("X-Amz"))
+    ) {
       return s;
     }
     return null;
@@ -1732,7 +1536,11 @@ export async function resolveAdobeAccessToken(
     | {
         apiKey?: string;
         accessToken?: string;
-        providerSpecificData?: { cookie?: unknown; access_token?: unknown; accessToken?: unknown } | null;
+        providerSpecificData?: {
+          cookie?: unknown;
+          access_token?: unknown;
+          accessToken?: unknown;
+        } | null;
       }
     | null
     | undefined,
@@ -1950,7 +1758,11 @@ export async function discoverAdobeFireflyModels(
     body: JSON.stringify({ filters: { resolveSchema: true } }),
   });
   if (resp.status === 401 || resp.status === 403) {
-    throw new AdobeFireflyError("Adobe Firefly model discovery: token invalid or expired", 401, "auth");
+    throw new AdobeFireflyError(
+      "Adobe Firefly model discovery: token invalid or expired",
+      401,
+      "auth"
+    );
   }
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
@@ -1978,7 +1790,8 @@ async function pollAdobeJob(opts: {
 }): Promise<{ mediaUrl: string; latest: unknown }> {
   const fetchImpl = opts.fetchImpl || fetch;
   const deadline = Date.now() + opts.timeoutMs;
-  const interval = opts.pollIntervalMs && opts.pollIntervalMs > 0 ? opts.pollIntervalMs : DEFAULT_POLL_INTERVAL_MS;
+  const interval =
+    opts.pollIntervalMs && opts.pollIntervalMs > 0 ? opts.pollIntervalMs : DEFAULT_POLL_INTERVAL_MS;
   let attempt = 0;
   let latest: unknown = {};
 
@@ -1992,7 +1805,11 @@ async function pollAdobeJob(opts: {
     if (pollResp.status === 401 || pollResp.status === 403) {
       const accessError = pollResp.headers.get("x-access-error") || "";
       if (accessError === "taste_exhausted") {
-        throw new AdobeFireflyError("Adobe Firefly quota exhausted for this account", 429, "quota_exhausted");
+        throw new AdobeFireflyError(
+          "Adobe Firefly quota exhausted for this account",
+          429,
+          "quota_exhausted"
+        );
       }
       throw new AdobeFireflyError("Adobe Firefly token invalid or expired", 401, "auth");
     }
@@ -2037,7 +1854,10 @@ async function pollAdobeJob(opts: {
       );
     }
 
-    opts.log?.info?.("ADOBE-FIREFLY", `${opts.kind} pending #${attempt} status=${statusVal || "unknown"}`);
+    opts.log?.info?.(
+      "ADOBE-FIREFLY",
+      `${opts.kind} pending #${attempt} status=${statusVal || "unknown"}`
+    );
     await sleep(interval);
   }
 
@@ -2106,7 +1926,11 @@ export async function adobeFireflyGenerateImage(opts: {
     if (submitResp.status === 401 || submitResp.status === 403) {
       const accessError = submitResp.headers.get("x-access-error") || "";
       if (accessError === "taste_exhausted") {
-        throw new AdobeFireflyError("Adobe Firefly quota exhausted for this account", 429, "quota_exhausted");
+        throw new AdobeFireflyError(
+          "Adobe Firefly quota exhausted for this account",
+          429,
+          "quota_exhausted"
+        );
       }
       throw new AdobeFireflyError(
         "Adobe Firefly token invalid or expired. Paste a fresh IMS JWT (Authorization: Bearer on firefly-3p), not page cookies alone.",
@@ -2248,7 +2072,11 @@ export async function adobeFireflyGenerateVideo(opts: {
     if (submitResp.status === 401 || submitResp.status === 403) {
       const accessError = submitResp.headers.get("x-access-error") || "";
       if (accessError === "taste_exhausted") {
-        throw new AdobeFireflyError("Adobe Firefly quota exhausted for this account", 429, "quota_exhausted");
+        throw new AdobeFireflyError(
+          "Adobe Firefly quota exhausted for this account",
+          429,
+          "quota_exhausted"
+        );
       }
       throw new AdobeFireflyError(
         "Adobe Firefly token invalid or expired. Paste a fresh IMS JWT (Authorization: Bearer on firefly-3p), not page cookies alone.",

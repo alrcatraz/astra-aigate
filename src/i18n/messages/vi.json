@@ -1259,7 +1259,10 @@
     "analyticsLimits": "Limits",
     "analyticsLimitsSubtitle": "Rate limits and constraints",
     "gamificationAdmin": "Gamification Admin",
-    "gamificationAdminSubtitle": "Gamification administration"
+    "gamificationAdminSubtitle": "Gamification administration",
+    "context": "Ngữ cảnh",
+    "skillSources": "Skill Hub",
+    "skillSourcesSubtitle": "Nguồn và artifact của kỹ năng"
   },
   "webhooks": {
     "title": "Webhook",
@@ -2273,7 +2276,7 @@
     "mcpAdmin": "Manage MCP gateway (admin:mcp)",
     "mcpAdminDesc": "Full endpoint-level access to the aigate-mcp management endpoint. Grants the admin:mcp scope required to connect.",
     "serviceAccess": "Service Access",
-    "serviceAccessDesc": "Grant this key access to proxied services (svc:<id>)"
+    "serviceAccessDesc": "Grant this key access to proxied services (svc:'<id>':)"
   },
   "auditLog": {
     "title": "Nhật ký kiểm tra",
@@ -3018,8 +3021,10 @@
     "ccOnboardingTitle": "settings.json cho việc khám phá mô hình qua gateway",
     "ccOnboardingCopy": "Sao chép",
     "ccOnboardingCopied": "Đã sao chép",
-    "ccOnboardingKeyPlaceholder": "<khóa API AI Gate của bạn>",
-    "ccOnboardingWindowNote": "Claude Code mặc định coi mọi id mô hình mà nó không nhận ra là có cửa sổ ngữ cảnh 200K. Với mô hình có cửa sổ thực tế khác, hãy thêm CLAUDE_CODE_AUTO_COMPACT_WINDOW ngay bên dưới để việc nén ngữ cảnh tự động không kích hoạt quá sớm."
+    "ccOnboardingKeyPlaceholder": "'<khóa API AI Gate của bạn>'",
+    "ccOnboardingWindowNote": "Claude Code mặc định coi mọi id mô hình mà nó không nhận ra là có cửa sổ ngữ cảnh 200K. Với mô hình có cửa sổ thực tế khác, hãy thêm CLAUDE_CODE_AUTO_COMPACT_WINDOW ngay bên dưới để việc nén ngữ cảnh tự động không kích hoạt quá sớm.",
+    "hermesNotOmniRoute": "Không qua AI Gate (qua {provider})",
+    "hermesViaOmniRoute": "Định tuyến qua {provider}"
   },
   "combos": {
     "title": "Combo",
@@ -4430,7 +4435,36 @@
     "installSkillModalDesc": "Dán tệp kê khai JSON của kỹ năng hoặc tải tệp .json lên.",
     "uploadJson": "Tải JSON lên",
     "cancel": "Hủy",
-    "installSkill": "Cài đặt kỹ năng"
+    "installSkill": "Cài đặt kỹ năng",
+    "allKinds": "Tất cả nguồn",
+    "autoUpdateLabel": "Tự động cập nhật",
+    "builtinOnly": "Chỉ tích hợp sẵn",
+    "confirmDeleteSource": "Xóa nguồn \"{name}\"?",
+    "deleteSource": "Xóa",
+    "disableSource": "Tắt",
+    "discoverButton": "Khám phá",
+    "enableSource": "Bật",
+    "enabledLabel": "Đã bật",
+    "lastSync": "Đồng bộ lần cuối: {at}",
+    "no": "Không",
+    "noSources": "Chưa đăng ký nguồn nào. Đăng ký một nguồn Gitea hoặc GitHub để bắt đầu.",
+    "registerButton": "Đăng ký",
+    "registerSourceButton": "Đăng ký nguồn",
+    "registering": "Đang đăng ký...",
+    "skillHubSubtitle": "Đăng ký nguồn kỹ năng, khám phá kỹ năng và artifact đóng gói",
+    "skillHubTitle": "Skill Hub",
+    "sourceCredentialLabel": "Tham chiếu thông tin xác thực (tên biến môi trường)",
+    "sourceCredentialPlaceholder": "tùy chọn, ví dụ GITEA_SKILL_TOKEN",
+    "sourceKindLabel": "Loại nguồn",
+    "sourceNameLabel": "Tên",
+    "sourceNamePlaceholder": "ví dụ My Team Skills",
+    "sourcePathLabel": "Đường dẫn thư mục kỹ năng",
+    "sourceUrlLabel": "URL kho lưu trữ (git)",
+    "sourceUrlPlaceholder": "https://git.example.com/org/repo.git",
+    "sourcesTab": "Nguồn",
+    "sourcesTitle": "Nguồn kỹ năng",
+    "updateAvailable": "Có bản cập nhật",
+    "yes": "Có"
   },
   "health": {
     "title": "Trạng thái hệ thống",
@@ -4810,7 +4844,16 @@
     },
     "tierFlowDiagramAlt": "Sơ đồ dự phòng 3 cấp của AI Gate",
     "apiKeyMgmt": "Quản lý khóa API",
-    "loading": "Đang tải..."
+    "loading": "Đang tải...",
+    "apiKey": "Khóa API",
+    "apiUrl": "URL API",
+    "capsLockOn": "Caps Lock đang bật",
+    "launchDashboard": "Mở bảng điều khiển",
+    "passwordPlaceholder": "Mật khẩu",
+    "passwordsDoNotMatch": "Mật khẩu không khớp",
+    "skipSecurity": "Bỏ qua thiết lập bảo mật",
+    "testSuccess": "Kết nối thành công",
+    "testingProvider": "Đang kiểm tra kết nối nhà cung cấp..."
   },
   "providers": {
     "title": "Nhà cung cấp",
@@ -5372,7 +5415,7 @@
     "claudeImportBulkModePaste": "Dán mảng JSON",
     "claudeImportBulkModeZip": "Tải lên tệp ZIP",
     "claudeImportBulkUploadHint": "Kéo thả hoặc chọn tối đa 50 tệp .credentials.json (tối đa 256KB mỗi tệp, tổng cộng 10MB).",
-    "claudeImportBulkPasteHint": "Dán một mảng đối tượng: [{ json, name?, email? }...]",
+    "claudeImportBulkPasteHint": "Dán một mảng đối tượng: ['{ json, name?, email? }'...]",
     "claudeImportBulkZipHint": "Tệp ZIP chứa các mục .json. Tối đa 50 mục, giải nén tối đa 10MB.",
     "claudeImportBulkSubmit": "Nhập tất cả",
     "claudeImportBulkSuccess": "Đã nhập {count} kết nối Claude",
@@ -5404,7 +5447,7 @@
     "geminiImportBulkModePaste": "Dán mảng JSON",
     "geminiImportBulkModeZip": "Tải tệp ZIP lên",
     "geminiImportBulkUploadHint": "Thả hoặc chọn tối đa 50 tệp oauth_creds.json (tối đa 256KB mỗi tệp, tổng cộng 10MB).",
-    "geminiImportBulkPasteHint": "Dán một mảng các đối tượng: [{ json, name?, email? }...]",
+    "geminiImportBulkPasteHint": "Dán một mảng các đối tượng: ['{ json, name?, email? }'...]",
     "geminiImportBulkZipHint": "Tệp ZIP chứa các mục oauth_creds.json. Tối đa 50 mục, tối đa 10MB sau khi giải nén.",
     "geminiImportBulkSubmit": "Nhập tất cả",
     "geminiImportBulkSuccess": "Đã nhập {count} kết nối Gemini",
@@ -5453,7 +5496,7 @@
     "codexImportBulkModePaste": "Dán danh sách",
     "codexImportBulkModeZip": "Tệp nén ZIP",
     "codexImportBulkUploadHint": "Chọn nhiều tệp .json hoặc kéo và thả",
-    "codexImportBulkPasteHint": "Mảng JSON [ {...}, {...} ] hoặc nhiều JSON được phân tách bằng dấu --- trên một dòng riêng biệt",
+    "codexImportBulkPasteHint": "Mảng JSON ['{...}', '{...}'] hoặc nhiều JSON được phân tách bằng dấu --- trên một dòng riêng biệt",
     "codexImportBulkZipHint": "Tải lên tệp .zip chứa các tệp auth.json (tối đa 50 tệp, 10 MB)",
     "codexImportBulkSubmit": "Nhập {count} tài khoản",
     "codexImportBulkLimit": "Tối đa 50 tệp cho mỗi lần nhập",
@@ -5673,7 +5716,7 @@
     "validationModelIdHint": "Mô hình được sử dụng để xác minh khóa API. Để trống để sử dụng mô hình khả dụng đầu tiên của nhà cung cấp.",
     "validationModelIdLabel": "Mô hình xác thực",
     "validationModelIdPlaceholder": "Ví dụ: meta-llama/llama-3.1-8b-instruct",
-    "vertexServiceAccountPlaceholder": "Dán JSON Tài khoản dịch vụ của bạn ({\"type\":\"service_account\",\"project_id\":\"…\",\"client_email\":\"…\",\"private_key\":\"…\"}) hoặc access_token OAuth",
+    "vertexServiceAccountPlaceholder": "Dán JSON Tài khoản dịch vụ của bạn ('{\"type\":\"service_account\",\"project_id\":\"…\",\"client_email\":\"…\",\"private_key\":\"…\"}') hoặc access_token OAuth",
     "webCookieProviders": "Nhà cung cấp Web Cookie",
     "weeklyShort": "Hàng tuần",
     "xiaomiMimoBaseUrlHint": "Gợi ý URL cơ sở Xiaomi Mimo",
@@ -6398,8 +6441,6 @@
     "invalidLogoFileType": "Loại tệp không hợp lệ. Hãy tải lên PNG, JPG, SVG, GIF hoặc WebP.",
     "invalidFaviconFileType": "Loại tệp không hợp lệ. Hãy tải lên PNG, ICO, SVG, GIF hoặc WebP.",
     "failedToReadFile": "Không thể đọc tệp",
-    "startOnLogin": "Khởi chạy khi đăng nhập",
-    "startOnLoginDesc": "Tự động chạy AI Gate khi hệ thống khởi động và chạy ẩn trong khay nền.",
     "flushCache": "Xóa cache",
     "flushing": "Đang xóa cache…",
     "size": "Kích thước",
@@ -6458,7 +6499,7 @@
     "denoRelayOrgDomainRequired": "Yêu cầu phải có tên miền tổ chức",
     "denoRelayDeployFailed": "Triển khai Deno Deploy thất bại",
     "denoRelayTokenHint": "Token tổ chức (tiền tố ddo_) lấy từ console.deno.com → Organization → Settings → Organization Tokens. Chỉ được sử dụng một lần để triển khai và không bao giờ được lưu trữ.",
-    "denoRelayOrgDomainHint": "Tên miền mặc định của tổ chức Deno Deploy của bạn (ví dụ: acme.deno.net). Dịch vụ chuyển tiếp sẽ có thể truy cập tại https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Tên miền mặc định của tổ chức Deno Deploy của bạn (ví dụ: acme.deno.net). Dịch vụ chuyển tiếp sẽ có thể truy cập tại https://'<app-name>'.'<org-slug>'.deno.net.",
     "proxyFreePoolFilterProtocol": "Lọc theo giao thức",
     "proxyFreePoolProtocol": "Giao thức",
     "proxyFreePoolCountryPlaceholder": "Quốc gia (ví dụ: US)",
@@ -8847,7 +8888,7 @@
     "suiteBuilderCaseExpectedPlaceholder": "Ví dụ: def fibonacci",
     "suiteBuilderCaseExpectedPlaceholderContains": "Ví dụ: def fibonacci",
     "suiteBuilderCaseExpectedPlaceholderExact": "Dán chính xác phản hồi dự kiến",
-    "suiteBuilderCaseExpectedPlaceholderRegex": "Ví dụ: ^\\\\s*\\\\{.*\\\\}\\\\s*$",
+    "suiteBuilderCaseExpectedPlaceholderRegex": "e.g. ^\\s*'{'.*'}'\\s*$",
     "suiteBuilderCaseExpectedHintRegex": "Sử dụng biểu thức chính quy JavaScript mà không có các dấu gạch chéo bao quanh.",
     "suiteBuilderNamePlaceholder": "Ví dụ: Coding Quality Suite",
     "suiteBuilderAddCase": "Thêm trường hợp kiểm thử",
@@ -9124,7 +9165,12 @@
     "nodeIncompatibleHint": "AI Gate yêu cầu Node.js 22.22.2+ (22.x LTS) hoặc 24.0.0+ (24.x LTS). Khuyến nghị sử dụng Node 24 LTS.",
     "signInDescription": "Enter your password to continue",
     "passwordPlaceholder": "Password",
-    "signingIn": "Signing in..."
+    "signingIn": "Signing in...",
+    "continueWithSSO": "Tiếp tục với SSO",
+    "loginError": "Mật khẩu không hợp lệ",
+    "nodeIncompatibleText": "Phiên bản astra-aigate này yêu cầu môi trường chạy Node.js tương thích. Đã phát hiện",
+    "setPassword": "Đặt mật khẩu để tiếp tục",
+    "settingUp": "Đang thiết lập..."
   },
   "landing": {
     "brandName": "Astra AI Gate",
@@ -10334,7 +10380,15 @@
     "assistant": "Trợ lý",
     "errorLabel": "Lỗi",
     "requestFailed": "Yêu cầu thất bại",
-    "stop": "Dừng"
+    "stop": "Dừng",
+    "audioTranslation": "Dịch âm thanh",
+    "documents": "Tài liệu",
+    "documentsSample": "Paris là thủ đô của nước Pháp\nBerlin là thủ đô của nước Đức",
+    "moderation": "Kiểm duyệt",
+    "moderationSample": "Tôi đang muốn làm hại bản thân. Xin hãy giúp tôi.",
+    "rerank": "Xếp lại",
+    "rerankQuerySample": "Thủ đô của nước Pháp là gì?",
+    "topN": "Top N"
   },
   "requestLogger": {
     "recording": "Đang ghi",
@@ -11963,7 +12017,7 @@
         "description": "Sau khi đồng bộ mô hình nhà cung cấp, tạo lại các hồ sơ ~/.codex/*.config.toml từ danh mục trực tiếp. Không bao giờ thay đổi cấu hình Codex đang hoạt động hoặc cấu hình mặc định. Tính năng này mặc định tắt."
       },
       "OMNIROUTE_AUTO_SYNC_CLAUDE_PROFILES": {
-        "description": "Sau khi đồng bộ mô hình nhà cung cấp, tạo lại các hồ sơ Claude Code tại ~/.claude/profiles/<name>/settings.json từ danh mục trực tiếp. Không bao giờ thay đổi cấu hình Claude đang hoạt động hoặc cấu hình mặc định. Tính năng này mặc định tắt."
+        "description": "Sau khi đồng bộ mô hình nhà cung cấp, tạo lại các hồ sơ Claude Code tại ~/.claude/profiles/'<name>'/settings.json từ danh mục trực tiếp. Không bao giờ thay đổi cấu hình Claude đang hoạt động hoặc cấu hình mặc định. Tính năng này mặc định tắt."
       },
       "OMNIROUTE_DISABLE_LOCAL_HEALTHCHECK": {
         "description": "Tắt endpoint kiểm tra tình trạng của phiên bản cục bộ."

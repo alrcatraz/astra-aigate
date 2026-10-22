@@ -84,11 +84,11 @@ export async function selectSessionAffinityConnection<T extends SessionAffinityC
 ): Promise<T | null> {
   if (!sessionKey || connections.length === 0 || ttlMs <= 0) return null;
 
-  const existing = getSessionAccountAffinity(sessionKey, provider, ttlMs);
+  const existing = await getSessionAccountAffinity(sessionKey, provider, ttlMs);
   if (existing) {
     const connection = connections.find((candidate) => candidate.id === existing.connectionId);
     if (connection) {
-      touchSessionAccountAffinity(sessionKey, provider, Date.now(), ttlMs);
+      await touchSessionAccountAffinity(sessionKey, provider, Date.now(), ttlMs);
       await updateProviderConnection(connection.id, {
         lastUsedAt: new Date().toISOString(),
         consecutiveUseCount: (connection.consecutiveUseCount || 0) + 1,
@@ -103,7 +103,7 @@ export async function selectSessionAffinityConnection<T extends SessionAffinityC
       return connection;
     }
 
-    deleteSessionAccountAffinity(sessionKey, provider);
+    await deleteSessionAccountAffinity(sessionKey, provider);
     log.info(
       "AUTH",
       `affinity cleared for session_key=${formatSessionKeyForLog(sessionKey)} provider=${provider}`
@@ -113,7 +113,7 @@ export async function selectSessionAffinityConnection<T extends SessionAffinityC
   const connection = [...connections].sort(compareLruConnections)[0] ?? null;
   if (!connection) return null;
 
-  upsertSessionAccountAffinity(sessionKey, provider, connection.id, Date.now(), ttlMs);
+  await upsertSessionAccountAffinity(sessionKey, provider, connection.id, Date.now(), ttlMs);
   await updateProviderConnection(connection.id, {
     lastUsedAt: new Date().toISOString(),
     consecutiveUseCount: 1,
@@ -163,9 +163,7 @@ export function resolveSessionAffinityTtlMs(
 ): number {
   const override = Number(options.sessionAffinityTtlMs);
   if (Number.isFinite(override) && override > 0) return override;
-  const configured = Number(
-    settings.sessionAffinityTtlMs ?? settings.codexSessionAffinityTtlMs
-  );
+  const configured = Number(settings.sessionAffinityTtlMs ?? settings.codexSessionAffinityTtlMs);
   if (Number.isFinite(configured) && configured > 0) return configured;
   return 0;
 }
@@ -236,12 +234,14 @@ function isConnectionEligibleForAffinityPin(
  * `forcedConnectionId` — no session, TTL disabled, no pin, pin already equals
  * the forced id, pin absent from pool, or pin ineligible.
  */
-export function applySessionAffinityPin(params: ApplySessionAffinityPinParams): string | null {
+export async function applySessionAffinityPin(
+  params: ApplySessionAffinityPinParams
+): Promise<string | null> {
   const { forcedConnectionId, options, sessionAffinityTtlMs, connections, provider } = params;
   const sessionKey = options.sessionKey;
   if (!forcedConnectionId || !sessionKey || sessionAffinityTtlMs <= 0) return null;
 
-  const pinned = getSessionAccountAffinity(sessionKey, provider, sessionAffinityTtlMs);
+  const pinned = await getSessionAccountAffinity(sessionKey, provider, sessionAffinityTtlMs);
   if (!pinned || pinned.connectionId === forcedConnectionId) return null;
 
   const pinnedConnection = connections.find((conn) => conn.id === pinned.connectionId);

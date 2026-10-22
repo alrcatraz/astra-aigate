@@ -237,7 +237,7 @@ describe("featureFlags DB module", () => {
     setFeatureFlagOverride("REQUIRE_API_KEY", "true");
     setFeatureFlagOverride("INPUT_SANITIZER_ENABLED", "true");
     await clearAllFeatureFlagOverrides();
-    assert.deepStrictEqual(getFeatureFlagOverrides(), {});
+    assert.deepStrictEqual(await getFeatureFlagOverrides(), {});
   });
 
   it("setFeatureFlagOverride overwrites existing value", () => {

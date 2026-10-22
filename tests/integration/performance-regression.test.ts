@@ -37,6 +37,8 @@ const { GET: memoryRouteGET } = await import("../../src/app/api/memory/route.ts"
 // Also drop the memory_fts table since FTS5 can't work with TEXT rowids.
 // retrieveMemories() has a fallback that uses keyword scoring when FTS5 is unavailable.
 const _db = core.getDbInstance();
+// Fully drain migrations before the first test (memories/skills tables).
+await core.awaitDbMigrations();
 _db.exec("DROP TRIGGER IF EXISTS memory_fts_ai");
 _db.exec("DROP TRIGGER IF EXISTS memory_fts_ad");
 _db.exec("DROP TRIGGER IF EXISTS memory_fts_au");

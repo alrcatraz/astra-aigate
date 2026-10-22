@@ -474,13 +474,13 @@ test.describe("Combos flow", () => {
         kind: "model",
         providerId: "codex",
         model: "codex/gpt-5.5",
-        weight: 0,
+        weight: 1,
       },
       {
         kind: "model",
         providerId: "openrouter",
         model: "openrouter/openai/gpt-5.5",
-        weight: 0,
+        weight: 1,
       },
     ]);
     expect(state.lastPayload?.config?.failoverBeforeRetry).toBe(true);

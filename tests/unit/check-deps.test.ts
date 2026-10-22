@@ -33,17 +33,9 @@ test("6A.8: discoverManifests finds root and workspace package.json files", () =
   const manifests = discoverManifests(repoRoot);
   // Must include the root
   assert.ok(manifests.includes("package.json"), "root package.json must be included");
-  // Must include known workspaces
-  assert.ok(manifests.includes("electron/package.json"), "electron/package.json must be included");
+  // Must include known workspaces (electron/ and the @omniroute/* shells were
+  // removed by the Electron-shell prune; only open-sse remains a workspace).
   assert.ok(manifests.includes("open-sse/package.json"), "open-sse/package.json must be included");
-  assert.ok(
-    manifests.includes("@omniroute/opencode-plugin/package.json"),
-    "@omniroute/opencode-plugin/package.json must be included"
-  );
-  assert.ok(
-    manifests.includes("@omniroute/opencode-provider/package.json"),
-    "@omniroute/opencode-provider/package.json must be included"
-  );
 });
 
 test("6A.8: discoverManifests does NOT include node_modules, .next, or deep reference dirs", () => {

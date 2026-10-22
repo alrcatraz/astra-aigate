@@ -65,8 +65,15 @@ vi.mock("@/shared/components/ProviderIcon", () => ({
   ),
 }));
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => {
+vi.mock("next-intl", () => {
+  // Stable identity per namespace. The previous form returned a BRAND-NEW
+  // translator on every call, so any component keeping `t` in a dependency array
+  // re-fired its effect on every render; the first `await act(root.render())`
+  // therefore never settled and the whole file hung — vitest cannot even report a
+  // timeout while the work queue keeps refilling, which is why the CI UI job was
+  // cancelled at its ceiling with no verdict instead of failing here.
+  const cache = new Map<string, (key: string, values?: Record<string, unknown>) => string>();
+  const makeTranslator = () => {
     const messages: Record<string, string> = {
       title: "Runtime",
       description: "Realtime observability",
@@ -137,8 +144,18 @@ vi.mock("next-intl", () => ({
       }
       return message;
     };
-  },
-}));
+  };
+  return {
+    useTranslations: (ns = "default") => {
+      let translator = cache.get(ns);
+      if (!translator) {
+        translator = makeTranslator();
+        cache.set(ns, translator);
+      }
+      return translator;
+    },
+  };
+});
 
 describe("RuntimePageClient", () => {
   const fetchMock = vi.fn();

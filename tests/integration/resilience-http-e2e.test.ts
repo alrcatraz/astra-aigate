@@ -458,6 +458,14 @@ const TOKENS = {
 };
 
 test.before(async () => {
+  // Drain the async migration runner before seeding: provider_nodes gains
+  // columns (icon_url, ...) via migrations, so createProviderNode would fail
+  // with "no column named icon_url" on a fresh, not-yet-migrated table. Also
+  // keeps the runner from racing closeDbInstance() below
+  // ("Migration runner failed: connection is not open").
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+
   const fakeBaseUrl = await relay.start();
 
   relay.configureToken(TOKENS.p1, {
@@ -538,7 +546,7 @@ test.before(async () => {
 
   const warmup = await postChat(app.baseUrl, "p2/test-model", "warm up chat route");
   assert.equal(warmup.response.status, 200, JSON.stringify(warmup.json));
-  relay.resetState(TOKENS.p2);
+  await relay.resetState(TOKENS.p2);
 });
 
 test.after(async () => {
@@ -580,7 +588,7 @@ test("request queue serializes concurrent requests on the same connection", asyn
       },
     })
   );
-  relay.resetState(TOKENS.p8);
+  await relay.resetState(TOKENS.p8);
 
   const startedAt = Date.now();
   const [first, second] = await Promise.all([
@@ -588,7 +596,7 @@ test("request queue serializes concurrent requests on the same connection", asyn
     postChat(app.baseUrl, "p8/test-model", "queue-two"),
   ]);
   const elapsed = Date.now() - startedAt;
-  const state = relay.getState(TOKENS.p8);
+  const state = await relay.getState(TOKENS.p8);
 
   assert.equal(first.response.status, 200, JSON.stringify(first.json));
   assert.equal(second.response.status, 200, JSON.stringify(second.json));
@@ -603,14 +611,14 @@ test("request queue serializes concurrent requests on the same connection", asyn
 test("priority combo falls back on 503 and skips the cooled-down primary on the next request", async () => {
   assert.ok(app);
   await patchResilience(app.baseUrl, buildResilienceConfig());
-  relay.resetState(TOKENS.p1, [buildError(503, "primary transient failure")]);
-  relay.resetState(TOKENS.p2);
+  await relay.resetState(TOKENS.p1, [buildError(503, "primary transient failure")]);
+  await relay.resetState(TOKENS.p2);
 
   const first = await postChat(app.baseUrl, "res-priority-fallback", "priority fallback request");
   assert.equal(first.response.status, 200, JSON.stringify(first.json));
   assert.equal(first.json.choices[0].message.content, "secondary stable");
-  assert.equal(relay.getState(TOKENS.p1).hits, 1);
-  assert.equal(relay.getState(TOKENS.p2).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p1)).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p2)).hits, 1);
 
   // Brief pause to ensure the P1 connection cooldown write has been committed
   // and is visible to the second request's credential lookup.
@@ -619,8 +627,8 @@ test("priority combo falls back on 503 and skips the cooled-down primary on the 
   const second = await postChat(app.baseUrl, "res-priority-fallback", "priority fallback again");
   assert.equal(second.response.status, 200, JSON.stringify(second.json));
   assert.equal(second.json.choices[0].message.content, "secondary stable");
-  assert.equal(relay.getState(TOKENS.p1).hits, 1);
-  assert.equal(relay.getState(TOKENS.p2).hits, 2);
+  assert.equal((await relay.getState(TOKENS.p1)).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p2)).hits, 2);
 });
 
 test.skip("wait-for-cooldown honors upstream Retry-After when enabled", async () => {
@@ -641,10 +649,10 @@ test.skip("wait-for-cooldown honors upstream Retry-After when enabled", async ()
       },
     })
   );
-  relay.resetState(TOKENS.p3);
+  await relay.resetState(TOKENS.p3);
   const warmup = await postChat(app.baseUrl, "p3/test-model", "warm provider-specific route");
   assert.equal(warmup.response.status, 200, JSON.stringify(warmup.json));
-  relay.resetState(TOKENS.p3, [
+  await relay.resetState(TOKENS.p3, [
     buildError(429, "rate limited, retry after 1 second", { "Retry-After": "1" }),
   ]);
 
@@ -654,7 +662,7 @@ test.skip("wait-for-cooldown honors upstream Retry-After when enabled", async ()
 
   assert.equal(result.response.status, 200, JSON.stringify(result.json));
   assert.equal(result.json.choices[0].message.content, "wait-for-cooldown via upstream hint");
-  const hits = relay.getState(TOKENS.p3).hits;
+  const hits = (await relay.getState(TOKENS.p3)).hits;
   assert.ok(hits >= 2, `expected at least one retry after cooldown, got ${hits} hits`);
   assert.ok(elapsed >= 800, `expected upstream wait >= 800ms, got ${elapsed}ms`);
 });
@@ -677,10 +685,10 @@ test.skip("connection cooldown can ignore upstream Retry-After and use the confi
       },
     })
   );
-  relay.resetState(TOKENS.p4);
+  await relay.resetState(TOKENS.p4);
   const warmup = await postChat(app.baseUrl, "p4/test-model", "warm provider-specific route");
   assert.equal(warmup.response.status, 200, JSON.stringify(warmup.json));
-  relay.resetState(TOKENS.p4, [
+  await relay.resetState(TOKENS.p4, [
     buildError(429, "rate limited, retry after 30 seconds", { "Retry-After": "30" }),
   ]);
 
@@ -690,7 +698,7 @@ test.skip("connection cooldown can ignore upstream Retry-After and use the confi
 
   assert.equal(result.response.status, 200, JSON.stringify(result.json));
   assert.equal(result.json.choices[0].message.content, "ignored upstream retry hint");
-  const hits = relay.getState(TOKENS.p4).hits;
+  const hits = (await relay.getState(TOKENS.p4)).hits;
   assert.ok(hits >= 2, `expected at least one retry after cooldown, got ${hits} hits`);
   assert.ok(
     elapsed < 5_000,
@@ -717,7 +725,7 @@ test.skip("provider circuit breaker opens after repeated final failures and Heal
       },
     })
   );
-  relay.resetState(TOKENS.p5, [
+  await relay.resetState(TOKENS.p5, [
     buildError(503, "breaker failure #1"),
     buildError(503, "breaker failure #2"),
   ]);
@@ -731,7 +739,7 @@ test.skip("provider circuit breaker opens after repeated final failures and Heal
   assert.equal(third.response.status, 503);
   assert.match(String(second.json.error?.message || ""), /reset after/i);
   assert.match(String(third.json.error?.message || ""), /circuit breaker is open/i);
-  assert.equal(relay.getState(TOKENS.p5).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p5)).hits, 1);
 
   const health = await getJson(`${app.baseUrl}/api/monitoring/health`);
   assert.equal(health.response.status, 200);
@@ -751,7 +759,7 @@ test.skip("provider circuit breaker opens after repeated final failures and Heal
 
 test("combo respects the global provider breaker and falls through without a combo-local breaker", async () => {
   assert.ok(app);
-  relay.resetState(TOKENS.p2);
+  await relay.resetState(TOKENS.p2);
 
   const result = await postChat(
     app.baseUrl,
@@ -761,15 +769,15 @@ test("combo respects the global provider breaker and falls through without a com
 
   assert.equal(result.response.status, 200, JSON.stringify(result.json));
   assert.equal(result.json.choices[0].message.content, "secondary stable");
-  assert.equal(relay.getState(TOKENS.p5).hits, 1);
-  assert.equal(relay.getState(TOKENS.p2).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p5)).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p2)).hits, 1);
 });
 
 test("round-robin combo still alternates healthy providers after combo breaker removal", async () => {
   assert.ok(app);
   await patchResilience(app.baseUrl, buildResilienceConfig());
-  relay.resetState(TOKENS.p6);
-  relay.resetState(TOKENS.p7);
+  await relay.resetState(TOKENS.p6);
+  await relay.resetState(TOKENS.p7);
 
   const first = await postChat(app.baseUrl, "res-rr", "round robin one");
   const second = await postChat(app.baseUrl, "res-rr", "round robin two");
@@ -778,6 +786,6 @@ test("round-robin combo still alternates healthy providers after combo breaker r
   assert.equal(second.response.status, 200, JSON.stringify(second.json));
   assert.equal(first.json.choices[0].message.content, "round robin A");
   assert.equal(second.json.choices[0].message.content, "round robin B");
-  assert.equal(relay.getState(TOKENS.p6).hits, 1);
-  assert.equal(relay.getState(TOKENS.p7).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p6)).hits, 1);
+  assert.equal((await relay.getState(TOKENS.p7)).hits, 1);
 });

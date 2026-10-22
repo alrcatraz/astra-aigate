@@ -14,6 +14,10 @@ const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
+// getDbInstance() kicks migrations off lazily; join the barrier before the first
+// query or late tables (e.g. model_context_overrides) may not exist yet.
+core.getDbInstance();
+await core.awaitDbMigrations();
 const { saveModelsDevCapabilities, clearModelsDevCapabilities } =
   await import("../../src/lib/modelsDevSync.ts");
 const { filterTargetsByRequestCompatibility, getKnownContextOverflow, handleComboChat } =
@@ -196,7 +200,7 @@ test("known context overflow reports the largest target limit", async () => {
     },
   });
 
-  const overflow = getKnownContextOverflow(
+  const overflow = await getKnownContextOverflow(
     [target("unit-known-context/tiny"), target("unit-known-context/small")],
     largeContextBody()
   );
@@ -220,7 +224,7 @@ test("#7177 an empty messages array is not counted as real content at an exact-b
     },
   });
 
-  const overflow = getKnownContextOverflow([target("unit-known-context/exact")], {
+  const overflow = await getKnownContextOverflow([target("unit-known-context/exact")], {
     messages: [],
     max_tokens: 4_096,
   });
@@ -235,7 +239,7 @@ test("unknown context metadata keeps overflow detection fail-open", async () => 
     },
   });
 
-  const overflow = getKnownContextOverflow(
+  const overflow = await getKnownContextOverflow(
     [target("unit-known-context/tiny"), target("unit-unknown-context/mystery")],
     largeContextBody()
   );
@@ -384,7 +388,7 @@ test("model_context_override lets a small-catalog target survive a large-context
       capped: capabilityEntry(8_000),
     },
   });
-  setModelContextOverride("unit-override", "capped", 1_000_000);
+  await setModelContextOverride("unit-override", "capped", 1_000_000);
   try {
     const out = await filterTargetsByRequestCompatibility(
       [target("unit-override/capped"), target("unit-override/big")],

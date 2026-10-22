@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "અમાન્ય ફાઇલ પ્રકાર. કૃપા કરીને PNG, JPG, SVG, GIF અથવા WebP અપલોડ કરો.",
     "invalidFaviconFileType": "અમાન્ય ફાઇલ પ્રકાર. કૃપા કરીને PNG, ICO, SVG, GIF અથવા WebP અપલોડ કરો.",
     "failedToReadFile": "ફાઇલ વાંચવામાં નિષ્ફળ",
-    "startOnLogin": "લોગિન પર શરૂ કરો",
-    "startOnLoginDesc": "સિસ્ટમ સ્ટાર્ટઅપ પર આપમેળે AI Gate લોંચ કરો અને બેકગ્રાઉન્ડ ટ્રેમાં શાંતિથી ચલાવો.",
     "flushCache": "Flush Cache",
     "flushing": "Flushing…",
     "size": "Size",

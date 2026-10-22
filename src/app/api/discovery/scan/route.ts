@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const found = await scanProvider(validation.data.providerId);
-    const persisted = found.map((result) => persistDiscoveryResult(result));
+    const persisted = await Promise.all(found.map((result) => persistDiscoveryResult(result)));
     return Response.json({ results: persisted });
   } catch (error) {
     return createErrorResponseFromUnknown(error, "Failed to scan provider");

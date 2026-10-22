@@ -16,6 +16,11 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const chatRoute = await import("../../src/app/api/v1/chat/completions/route.ts");
 
+// isolateDataDir isolates DATA_DIR but never runs migrations — await them so the
+// fresh temp DB has the schema the route's provider lookup touches.
+const core = await import("../../src/lib/db/core.ts");
+await core.awaitDbMigrations();
+
 const bodyJson = JSON.stringify({
   model: "gpt-4o-mini",
   messages: [{ role: "user", content: "hi" }],

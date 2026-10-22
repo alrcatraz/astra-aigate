@@ -79,13 +79,6 @@ export function prefetchDashboardCsrfToken(): Promise<string | null> {
   return getDashboardCsrfToken();
 }
 
-export async function withDashboardCsrfHeader(headers?: HeadersInit): Promise<Headers> {
-  const result = new Headers(headers);
-  const token = await getDashboardCsrfToken();
-  if (token) result.set(DASHBOARD_CSRF_HEADER, token);
-  return result;
-}
-
 function requestFromInput(input: RequestInfo | URL): Request | null {
   return typeof Request !== "undefined" && input instanceof Request ? input : null;
 }

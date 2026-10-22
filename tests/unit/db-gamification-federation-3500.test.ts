@@ -47,6 +47,13 @@ function seedServers() {
   );
 }
 
+test.before(async () => {
+  // getDbInstance() kicks migrations off lazily; join the barrier before the
+  // first query or community_servers may not exist yet.
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   await new Promise<void>((resolve) => {

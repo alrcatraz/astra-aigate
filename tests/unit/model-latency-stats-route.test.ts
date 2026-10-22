@@ -207,7 +207,15 @@ test("model latency stats route returns sanitized 500 body when the aggregate th
     assert.ok(typeof body.error.message === "string");
     assert.ok(!body.error.message.includes("at /"));
   } finally {
-    await core.resetDbInstanceDrained();
+    // The raw handle was force-closed above, so the default WAL checkpoint
+    // inside resetDbInstanceDrained would run against a closed connection.
+    // checkpointDb uses the async adapter's pragma(), whose rejection escapes
+    // closeDbInstance's try/catch and surfaces as an unhandledRejection
+    // attributed to this test. Drain with checkpointing disabled instead
+    // (note: `checkpointMode: null` does NOT disable it — closeDbInstance
+    // normalises null back to "TRUNCATE" via `??`, so pass an empty string,
+    // which is falsy at the `if (checkpointMode)` guard).
+    await core.closeDbInstanceDrained({ checkpointMode: "" as never });
   }
   await core.awaitDbMigrations();
 });

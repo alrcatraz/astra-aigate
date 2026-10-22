@@ -71,11 +71,11 @@ test("skillExecutor executes a registered handler and persists execution history
   assert.equal(execution.errorMessage, null);
   assert.equal(typeof execution.durationMs, "number");
 
-  const stored = skillExecutor.getExecution(execution.id);
+  const stored = await skillExecutor.getExecution(execution.id);
   assert.equal(stored?.status, "success");
   assert.deepEqual(stored?.output, { echoed: "hello:key-a:session-1" });
 
-  const listed = skillExecutor.listExecutions("key-a");
+  const listed = await skillExecutor.listExecutions("key-a");
   assert.equal(listed.length, 1);
   assert.equal(listed[0].id, execution.id);
 });
@@ -98,7 +98,7 @@ test("skillExecutor records handler lookup failures as errored executions", asyn
     /Handler not found: echo-handler/
   );
 
-  const executions = skillExecutor.listExecutions("key-a");
+  const executions = await skillExecutor.listExecutions("key-a");
   assert.equal(executions.length, 1);
   assert.equal(executions[0].status, "error");
   assert.match(executions[0].errorMessage, /Handler not found/);
@@ -117,7 +117,7 @@ test("skillExecutor records disabled skills and missing skills as direct failure
     /Skill not found/
   );
 
-  assert.equal(skillExecutor.listExecutions("key-a").length, 0);
+  assert.equal((await skillExecutor.listExecutions("key-a")).length, 0);
 });
 
 test("skillExecutor turns handler errors and timeouts into error executions", async () => {

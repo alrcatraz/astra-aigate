@@ -106,7 +106,7 @@ test("#7274 a non-Codex provider with sessionAffinityTtlMs > 0 persists and reus
     "first request pins to the forced connection"
   );
   assert.equal(
-    affinityDb.getSessionAccountAffinity("session-generic", "glm", 60_000)?.connectionId,
+    (await affinityDb.getSessionAccountAffinity("session-generic", "glm", 60_000))?.connectionId,
     connectionA.id,
     "an affinity pin must now be created for a non-Codex provider (previously impossible)"
   );

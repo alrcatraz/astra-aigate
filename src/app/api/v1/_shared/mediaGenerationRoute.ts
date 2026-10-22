@@ -14,8 +14,7 @@ type MediaModelListEntry = {
 };
 
 type MediaGenerationResult =
-  | { success: true; data: unknown }
-  | { success: false; error: unknown; status: number };
+  { success: true; data: unknown } | { success: false; error: unknown; status: number };
 
 type MediaGenerationBody = {
   model: string;
@@ -24,8 +23,7 @@ type MediaGenerationBody = {
 } & Record<string, unknown>;
 
 type ValidatedMediaGenerationBody =
-  | { state: "ok"; body: MediaGenerationBody }
-  | { state: "invalid"; response: Response };
+  { state: "ok"; body: MediaGenerationBody } | { state: "invalid"; response: Response };
 
 export function mediaGenerationOptionsResponse() {
   return new Response(null, {
@@ -34,27 +32,6 @@ export function mediaGenerationOptionsResponse() {
       "Access-Control-Allow-Headers": "*",
     },
   });
-}
-
-export function mediaGenerationModelListResponse(
-  models: MediaModelListEntry[],
-  type: "music" | "video"
-) {
-  return new Response(
-    JSON.stringify({
-      object: "list",
-      data: models.map((m) => ({
-        id: m.id,
-        object: "model",
-        created: Math.floor(Date.now() / 1000),
-        owned_by: m.provider,
-        type,
-      })),
-    }),
-    {
-      headers: { "Content-Type": "application/json" },
-    }
-  );
 }
 
 export async function readMediaGenerationBody(

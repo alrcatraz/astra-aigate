@@ -64,7 +64,7 @@ async function bootstrapWithPassword(password: string): Promise<void> {
   });
 }
 
-function settingsRows() {
+async function settingsRows() {
   // `getAuditLog`'s `AuditLogEntry[]` return type now exposes `action`,
   // `actor`, `target`, `status`, `details`, etc. directly — no local cast
   // needed. See src/lib/compliance/index.ts.
@@ -90,7 +90,7 @@ test("AC-9: successful PATCH writes settings.update with diff of changed keys", 
 
   assert.equal(response.status, 200);
 
-  const rows = settingsRows();
+  const rows = await settingsRows();
   const successRows = rows.filter((r) => r.action === "settings.update");
   assert.equal(successRows.length, 1, `expected 1 success row, got: ${JSON.stringify(rows)}`);
   const row = successRows[0];
@@ -121,7 +121,7 @@ test("AC-10a: PASSWORD_REQUIRED failure writes settings.update_failed", async ()
   );
 
   assert.equal(response.status, 400);
-  const rows = settingsRows().filter((r) => r.action === "settings.update_failed");
+  const rows = (await settingsRows()).filter((r) => r.action === "settings.update_failed");
   assert.equal(rows.length, 1);
   const details = rows[0].details as { reason: string; attempted_keys: string[] };
   assert.equal(details.reason, "PASSWORD_REQUIRED");
@@ -154,7 +154,7 @@ test("AC-10b: PASSWORD_MISMATCH failure writes settings.update_failed", async ()
   );
 
   assert.equal(response.status, 401);
-  const rows = settingsRows().filter((r) => r.action === "settings.update_failed");
+  const rows = (await settingsRows()).filter((r) => r.action === "settings.update_failed");
   assert.equal(rows.length, 1);
   const details = rows[0].details as { reason: string; attempted_keys: string[] };
   assert.equal(details.reason, "PASSWORD_MISMATCH");
@@ -184,7 +184,7 @@ test("AC-10c: BYPASS_PREFIX_NOT_ALLOWED failure writes settings.update_failed", 
   );
 
   assert.equal(response.status, 400);
-  const rows = settingsRows().filter((r) => r.action === "settings.update_failed");
+  const rows = (await settingsRows()).filter((r) => r.action === "settings.update_failed");
   assert.equal(rows.length, 1);
   const details = rows[0].details as { reason: string };
   assert.equal(details.reason, "BYPASS_PREFIX_NOT_ALLOWED");
@@ -208,7 +208,7 @@ test("AC-10d: zod validation failure (wrong type) writes settings.update_failed"
   );
 
   assert.equal(response.status, 400);
-  const rows = settingsRows().filter((r) => r.action === "settings.update_failed");
+  const rows = (await settingsRows()).filter((r) => r.action === "settings.update_failed");
   assert.equal(rows.length, 1);
   const details = rows[0].details as { reason: string };
   assert.equal(details.reason, "VALIDATION_FAILED");
@@ -240,7 +240,7 @@ test("AC-11: diff records every changed key, including non-security keys", async
   );
 
   assert.equal(response.status, 200);
-  const rows = settingsRows().filter((r) => r.action === "settings.update");
+  const rows = (await settingsRows()).filter((r) => r.action === "settings.update");
   assert.equal(rows.length, 1);
   const details = rows[0].details as { diff: Record<string, { before: unknown; after: unknown }> };
   // Security key AND multiple non-security keys must all be in diff.
@@ -268,7 +268,7 @@ test("idempotent PATCH (body matches current state) writes NO audit row", async 
   );
 
   assert.equal(response.status, 200);
-  const rows = settingsRows();
+  const rows = await settingsRows();
   assert.equal(
     rows.length,
     0,
@@ -299,7 +299,7 @@ test("sequence: failure then success produces exactly 1 failure row + 1 success 
     })
   );
 
-  const rows = settingsRows();
+  const rows = await settingsRows();
   const failures = rows.filter((r) => r.action === "settings.update_failed");
   const successes = rows.filter((r) => r.action === "settings.update");
   assert.equal(failures.length, 1);

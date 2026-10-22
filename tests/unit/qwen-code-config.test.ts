@@ -19,7 +19,7 @@ test("writes the upstream V4 bare-array modelProviders contract without a secret
     openai: [
       {
         id: "qwen/qwen3.8-max-preview",
-        name: "qwen/qwen3.8-max-preview (OmniRoute)",
+        name: "qwen/qwen3.8-max-preview (AI Gate)",
         envKey: "OMNIROUTE_API_KEY",
         baseUrl: "http://localhost:20128/v1",
       },
@@ -87,7 +87,7 @@ test("replaces only the managed entry and unwraps the reverted V5 provider shape
           models: [
             {
               id: "old-model",
-              name: "old-model (OmniRoute)",
+              name: "old-model (AI Gate)",
               envKey: "OPENAI_API_KEY",
               baseUrl: "http://old-host/v1",
             },
@@ -111,7 +111,7 @@ test("replaces only the managed entry and unwraps the reverted V5 provider shape
     },
     {
       id: "new-model",
-      name: "new-model (OmniRoute)",
+      name: "new-model (AI Gate)",
       envKey: "OMNIROUTE_API_KEY",
       baseUrl: "http://new-host/v1",
     },
@@ -151,7 +151,7 @@ test("migrates the removed integration's root-array shape without dropping other
     },
     {
       id: "new-model",
-      name: "new-model (OmniRoute)",
+      name: "new-model (AI Gate)",
       envKey: "OMNIROUTE_API_KEY",
       baseUrl: "http://new/v1",
     },
@@ -209,7 +209,7 @@ test("detection is precise and does not claim arbitrary custom endpoints", () =>
         openai: [
           {
             id: "custom-model",
-            name: "custom-model (OmniRoute)",
+            name: "custom-model (AI Gate)",
             envKey: "OMNIROUTE_API_KEY",
             baseUrl: "https://omni.example/v1",
           },
@@ -289,7 +289,7 @@ test("reset also removes matching deprecated security.auth credentials", () => {
       openai: [
         {
           id: "managed",
-          name: "managed (OmniRoute)",
+          name: "managed (AI Gate)",
           envKey: "OMNIROUTE_API_KEY",
           baseUrl: "http://omni-host/v1",
         },
@@ -316,7 +316,7 @@ test("reset removes matching deprecated auth when the selected model is unrelate
       openai: [
         {
           id: "managed",
-          name: "managed (OmniRoute)",
+          name: "managed (AI Gate)",
           envKey: "OMNIROUTE_API_KEY",
           baseUrl: "http://omni-host/v1",
         },

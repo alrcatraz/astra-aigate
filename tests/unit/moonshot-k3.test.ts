@@ -32,7 +32,7 @@ function registryModelIds(provider: string): string[] {
   return (entry.models ?? []).map((model) => model.id);
 }
 
-function buildVideoRequest() {
+async function buildVideoRequest() {
   return {
     messages: [
       {
@@ -46,7 +46,7 @@ function buildVideoRequest() {
   };
 }
 
-test("Moonshot and hidden legacy Kimi ids share the curated model catalog", () => {
+test("Moonshot and hidden legacy Kimi ids share the curated model catalog", async () => {
   assert.deepEqual(registryModelIds("moonshot"), EXPECTED_MODELS);
   assert.deepEqual(registryModelIds("kimi"), EXPECTED_MODELS);
 });
@@ -65,14 +65,14 @@ test("Kimi K3 advertises its 1M context/output and native capabilities", async (
   assert.equal(capabilities.interleavedField, "reasoning_content");
 });
 
-test("Moonshot ids use the specialized request normalizer", () => {
+test("Moonshot ids use the specialized request normalizer", async () => {
   assert.equal(hasSpecializedExecutor("moonshot"), true);
   assert.equal(hasSpecializedExecutor("kimi"), true);
   assert.ok(getExecutor("moonshot") instanceof MoonshotExecutor);
   assert.ok(getExecutor("kimi") instanceof MoonshotExecutor);
 });
 
-test("Kimi K3 uses max reasoning, fixed sampling, and max_completion_tokens", () => {
+test("Kimi K3 uses max reasoning, fixed sampling, and max_completion_tokens", async () => {
   const input = {
     max_tokens: 2000000,
     temperature: 0.3,
@@ -105,7 +105,7 @@ test("Kimi K3 uses max reasoning, fixed sampling, and max_completion_tokens", ()
   assert.equal(input.max_tokens, 2000000, "normalization must not mutate the caller's object");
 });
 
-test("Kimi K2.7 forces preserved thinking and downgrades unsupported required tools", () => {
+test("Kimi K2.7 forces preserved thinking and downgrades unsupported required tools", async () => {
   const output = normalizeMoonshotRequest("kimi-k2.7-code-highspeed", {
     max_completion_tokens: 999999,
     thinking: { type: "disabled" },
@@ -121,7 +121,7 @@ test("Kimi K2.7 forces preserved thinking and downgrades unsupported required to
   assert.equal(output.tool_choice, "auto");
 });
 
-test("Kimi K2.6 maps effort to thinking and downgrades required tool choice", () => {
+test("Kimi K2.6 maps effort to thinking and downgrades required tool choice", async () => {
   const disabled = normalizeMoonshotRequest("kimi-k2.6", {
     reasoning: { effort: "none" },
     tool_choice: "required",
@@ -135,7 +135,7 @@ test("Kimi K2.6 maps effort to thinking and downgrades required tool choice", ()
   assert.deepEqual(enabled.thinking, { type: "enabled" });
 });
 
-test("Moonshot K2.6 keeps legacy reasoning replay while K3 never fabricates it", () => {
+test("Moonshot K2.6 keeps legacy reasoning replay while K3 never fabricates it", async () => {
   const executor = new MoonshotExecutor();
   const body = {
     thinking: { type: "enabled" },
@@ -165,7 +165,7 @@ test("Moonshot K2.6 keeps legacy reasoning replay while K3 never fabricates it",
   assert.equal(Object.hasOwn(k3.messages[0], "reasoning_content"), false);
 });
 
-test("Moonshot K3 keeps literal max effort through base sanitation", () => {
+test("Moonshot K3 keeps literal max effort through base sanitation", async () => {
   assert.equal(supportsXHighEffort("moonshot", "kimi-k3"), false);
   for (const provider of ["moonshot", "kimi"]) {
     const output = sanitizeReasoningEffortForProvider(
@@ -177,7 +177,7 @@ test("Moonshot K3 keeps literal max effort through base sanitation", () => {
   }
 });
 
-test("Moonshot K3 participates in reasoning replay", () => {
+test("Moonshot K3 participates in reasoning replay", async () => {
   assert.equal(
     requiresReasoningReplay({
       provider: "moonshot",
@@ -188,25 +188,25 @@ test("Moonshot K3 participates in reasoning replay", () => {
   );
 });
 
-test("video_url is preserved only for Moonshot's OpenAI-compatible extension", () => {
-  const moonshot = translateRequest(
+test("video_url is preserved only for Moonshot's OpenAI-compatible extension", async () => {
+  const moonshot = (await translateRequest(
     "openai",
     "openai",
     "kimi-k3",
-    buildVideoRequest(),
+    await buildVideoRequest(),
     false,
     null,
     "moonshot"
-  ) as { messages: Array<{ content: Array<{ type: string }> }> };
-  const generic = translateRequest(
+  )) as { messages: Array<{ content: Array<{ type: string }> }> };
+  const generic = (await translateRequest(
     "openai",
     "openai",
     "llama-model",
-    buildVideoRequest(),
+    await buildVideoRequest(),
     false,
     null,
     "groq"
-  ) as { messages: Array<{ content: Array<{ type: string }> }> };
+  )) as { messages: Array<{ content: Array<{ type: string }> }> };
 
   assert.deepEqual(
     moonshot.messages[0].content.map((part) => part.type),
@@ -218,13 +218,13 @@ test("video_url is preserved only for Moonshot's OpenAI-compatible extension", (
   );
 });
 
-test("Moonshot keeps empty partial assistant prefixes without replaying reasoning", () => {
+test("Moonshot keeps empty partial assistant prefixes without replaying reasoning", async () => {
   const requestId = "moonshot-partial-prefix";
   const cacheKey = `request:${requestId}:message:0`;
   cacheReasoningByKey(cacheKey, "moonshot", "kimi-k3", "unrelated prior reasoning");
 
   try {
-    const output = translateRequest(
+    const output = (await translateRequest(
       "openai",
       "openai",
       "kimi-k3",
@@ -242,7 +242,7 @@ test("Moonshot keeps empty partial assistant prefixes without replaying reasonin
       false,
       null,
       "moonshot"
-    ) as { messages: Array<Record<string, unknown>> };
+    )) as { messages: Array<Record<string, unknown>> };
 
     assert.equal(output.messages.length, 1);
     assert.equal(output.messages[0].content, "");
@@ -254,10 +254,10 @@ test("Moonshot keeps empty partial assistant prefixes without replaying reasonin
   }
 });
 
-test("Moonshot K3 and K2.7 replay only authentic reasoning content", () => {
+test("Moonshot K3 and K2.7 replay only authentic reasoning content", async () => {
   for (const model of ["kimi-k3", "kimi-k2.7-code"]) {
     const missingCacheId = `call_missing_${model.replace(/[^a-z0-9]/gi, "_")}`;
-    const withoutCache = translateRequest(
+    const withoutCache = (await translateRequest(
       "openai",
       "openai",
       model,
@@ -279,13 +279,13 @@ test("Moonshot K3 and K2.7 replay only authentic reasoning content", () => {
       false,
       null,
       "moonshot"
-    ) as { messages: Array<Record<string, unknown>> };
+    )) as { messages: Array<Record<string, unknown>> };
     assert.equal(Object.hasOwn(withoutCache.messages[0], "reasoning_content"), false);
 
     const cachedId = `call_cached_${model.replace(/[^a-z0-9]/gi, "_")}`;
     cacheReasoning(cachedId, "moonshot", model, `real reasoning for ${model}`);
     try {
-      const withCache = translateRequest(
+      const withCache = (await translateRequest(
         "openai",
         "openai",
         model,
@@ -307,7 +307,7 @@ test("Moonshot K3 and K2.7 replay only authentic reasoning content", () => {
         false,
         null,
         "moonshot"
-      ) as { messages: Array<Record<string, unknown>> };
+      )) as { messages: Array<Record<string, unknown>> };
       assert.equal(withCache.messages[0].reasoning_content, `real reasoning for ${model}`);
     } finally {
       deleteReasoningCacheEntry(cachedId);
@@ -315,7 +315,7 @@ test("Moonshot K3 and K2.7 replay only authentic reasoning content", () => {
   }
 });
 
-test("Moonshot flat cached_tokens survives non-streaming and streaming sanitization", () => {
+test("Moonshot flat cached_tokens survives non-streaming and streaming sanitization", async () => {
   const usage = {
     prompt_tokens: 20,
     completion_tokens: 5,

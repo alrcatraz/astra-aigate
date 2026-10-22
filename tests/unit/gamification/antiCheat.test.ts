@@ -1,6 +1,12 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import { validateScoreChange, getAnomalies } from "../../../src/lib/gamification/antiCheat";
+
+const core = await import("../../../src/lib/db/core.ts");
+before(async () => {
+  core.getDbInstance();
+  await core.awaitDbMigrations();
+});
 
 describe("Anti-Cheat", () => {
   describe("validateScoreChange", () => {

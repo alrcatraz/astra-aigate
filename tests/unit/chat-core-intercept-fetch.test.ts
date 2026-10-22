@@ -64,11 +64,11 @@ describe("chatCore.ts interceptFetch call site — flag-off regression guard (#7
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("leaves the outgoing body byte-identical when no interceptFetch rule is configured", () => {
+  it("leaves the outgoing body byte-identical when no interceptFetch rule is configured", async () => {
     const originalBody = buildRequestBody();
     const preChangeSerialized = JSON.stringify(originalBody);
 
-    const { body: nextBody, fallback } = runChatCoreInterceptFetchStep(
+    const { body: nextBody, fallback } = await runChatCoreInterceptFetchStep(
       "openai",
       "gpt-5",
       originalBody
@@ -88,7 +88,7 @@ describe("chatCore.ts interceptFetch call site — flag-off regression guard (#7
     };
     const preChangeSerialized = JSON.stringify(originalBody);
 
-    const { body: nextBody, fallback } = runChatCoreInterceptFetchStep(
+    const { body: nextBody, fallback } = await runChatCoreInterceptFetchStep(
       "openai",
       "gpt-5",
       originalBody
@@ -102,7 +102,7 @@ describe("chatCore.ts interceptFetch call site — flag-off regression guard (#7
     await setInterceptionRules("openai", { interceptFetch: true });
     const originalBody = buildRequestBody();
 
-    const { body: nextBody, fallback } = runChatCoreInterceptFetchStep(
+    const { body: nextBody, fallback } = await runChatCoreInterceptFetchStep(
       "openai",
       "gpt-5",
       originalBody

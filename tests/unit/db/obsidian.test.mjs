@@ -11,7 +11,7 @@ test("obsidian DB module exports expected functions", async () => {
 
 test("getObsidianConfig returns expected shape", async () => {
   const { getObsidianConfig } = await import("../../../src/lib/db/obsidian.ts");
-  const config = getObsidianConfig();
+  const config = await getObsidianConfig();
   assert.ok(typeof config === "object");
   assert.ok("connected" in config);
   assert.ok("token" in config);
@@ -20,6 +20,8 @@ test("getObsidianConfig returns expected shape", async () => {
 
 test("setObsidianToken and clearObsidianToken are callable without DB", async () => {
   const { setObsidianToken, clearObsidianToken } = await import("../../../src/lib/db/obsidian.ts");
-  assert.doesNotThrow(() => setObsidianToken("test"));
-  assert.doesNotThrow(() => clearObsidianToken());
+  // Both are async now — await so a rejected Promise actually fails the test
+  // instead of the sync doesNotThrow wrapper passing on a pending Promise.
+  await setObsidianToken("test");
+  await clearObsidianToken();
 });

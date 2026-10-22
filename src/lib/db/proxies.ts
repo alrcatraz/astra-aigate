@@ -514,7 +514,7 @@ export async function assignProxyToScope(
     await db
       .prepare("DELETE FROM proxy_assignments WHERE scope = ? AND scope_id IS ?")
       .run(normalizedScope, normalizedScopeId);
-    clearRotationState(db, normalizedScope, normalizedScopeId);
+    await clearRotationState(db, normalizedScope, normalizedScopeId);
     backupDbFile("pre-write");
     bumpProxyRegistryGeneration();
     return null;
@@ -531,8 +531,8 @@ export async function assignProxyToScope(
   // Replace semantics (#6365): a plain assignProxyToScope always yields a
   // 1-element pool. Reset any round-robin cursor so the fresh single assignment
   // starts clean. Multi-proxy pools are built via addProxyToScopePool().
-  replaceScopeWithSingleProxy(db, normalizedScope, normalizedScopeId, proxyId, now);
-  resetRotationCursor(db, normalizedScope, normalizedScopeId);
+  await replaceScopeWithSingleProxy(db, normalizedScope, normalizedScopeId, proxyId, now);
+  await resetRotationCursor(db, normalizedScope, normalizedScopeId);
 
   backupDbFile("pre-write");
   bumpProxyRegistryGeneration();

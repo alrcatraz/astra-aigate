@@ -53,19 +53,27 @@ function liteStripsImage(modelId: string): boolean {
 
 describe("#4072 vision detection is consistent across all three sources", () => {
   for (const id of VISION) {
-    it(`treats ${id} as vision everywhere`, () => {
+    it(`treats ${id} as vision everywhere`, async () => {
       assert.equal(isVisionModelId(id), true, `shared isVisionModelId(${id})`);
       assert.equal(catalogIsVisionModelId(id), true, `catalog isVisionModelId(${id})`);
-      assert.equal(modelIdLikelyVision(id), true, `modelCapabilities modelIdLikelyVision(${id})`);
+      assert.equal(
+        await modelIdLikelyVision(id),
+        true,
+        `modelCapabilities modelIdLikelyVision(${id})`
+      );
       assert.equal(liteStripsImage(id), false, `lite must KEEP the image for ${id}`);
     });
   }
 
   for (const id of NOT_VISION) {
-    it(`treats ${id} as non-vision everywhere`, () => {
+    it(`treats ${id} as non-vision everywhere`, async () => {
       assert.equal(isVisionModelId(id), false, `shared isVisionModelId(${id})`);
       assert.equal(catalogIsVisionModelId(id), false, `catalog isVisionModelId(${id})`);
-      assert.equal(modelIdLikelyVision(id), false, `modelCapabilities modelIdLikelyVision(${id})`);
+      assert.equal(
+        await modelIdLikelyVision(id),
+        false,
+        `modelCapabilities modelIdLikelyVision(${id})`
+      );
       assert.equal(liteStripsImage(id), true, `lite must STRIP the image for ${id}`);
     });
   }

@@ -116,7 +116,7 @@ export function normalizeContentToString(content: string | unknown[] | null | un
 }
 
 // Convert OpenAI request to Claude format
-export function openaiToClaudeRequest(model, body, stream, credentials = null) {
+export async function openaiToClaudeRequest(model, body, stream, credentials = null) {
   // Check if tool prefix should be disabled (configured per-provider or global)
   const disableToolPrefix = body?._disableToolPrefix === true;
   const routedProvider = credentials?._provider;
@@ -240,7 +240,11 @@ export function openaiToClaudeRequest(model, body, stream, credentials = null) {
   // could exceed model caps (e.g. Opus 4.7's 128000 ceiling) and trigger
   // HTTP 400 from Anthropic.
   if (!isKimiCoding) {
-    const fitted = fitThinkingToMaxTokens(model, Number(result.max_tokens) || 0, result.thinking);
+    const fitted = await fitThinkingToMaxTokens(
+      model,
+      Number(result.max_tokens) || 0,
+      result.thinking
+    );
     result.max_tokens = fitted.maxTokens;
     if (fitted.thinking === undefined) {
       delete result.thinking;
@@ -766,9 +770,9 @@ function stripCacheControl(value: unknown): unknown {
 }
 
 // OpenAI -> Claude format for Antigravity (without system prompt modifications)
-function openaiToClaudeRequestForAntigravity(model, body, stream) {
-  const result = stripCacheControl(openaiToClaudeRequest(model, body, stream)) as ReturnType<
-    typeof openaiToClaudeRequest
+async function openaiToClaudeRequestForAntigravity(model, body, stream) {
+  const result = stripCacheControl(await openaiToClaudeRequest(model, body, stream)) as Awaited<
+    ReturnType<typeof openaiToClaudeRequest>
   >;
 
   // Strip prefix from tool names for Antigravity (doesn't use Claude OAuth)

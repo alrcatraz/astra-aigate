@@ -27,29 +27,29 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("status lookup expires stale pending command-code auth sessions", () => {
+test("status lookup expires stale pending command-code auth sessions", async () => {
   const stateHash = commandCodeAuthDb.hashCommandCodeAuthState("expired-state");
-  const session = commandCodeAuthDb.createPendingCommandCodeAuthSession({
+  const session = await commandCodeAuthDb.createPendingCommandCodeAuthSession({
     stateHash,
     expiresAt: "2026-01-01T00:00:00.000Z",
   });
 
   assert.equal(session.status, "pending");
 
-  const status = commandCodeAuthDb.getCommandCodeAuthSessionSafeStatus(stateHash);
+  const status = await commandCodeAuthDb.getCommandCodeAuthSessionSafeStatus(stateHash);
 
   assert.equal(status?.status, "expired");
   assert.equal(status?.stateHash, stateHash);
 });
 
-test("consume returns the received api key once and marks the session applied", () => {
+test("consume returns the received api key once and marks the session applied", async () => {
   const stateHash = commandCodeAuthDb.hashCommandCodeAuthState("received-state");
-  commandCodeAuthDb.createPendingCommandCodeAuthSession({
+  await commandCodeAuthDb.createPendingCommandCodeAuthSession({
     stateHash,
     expiresAt: "2999-01-01T00:00:00.000Z",
   });
 
-  const received = commandCodeAuthDb.markCommandCodeAuthSessionReceived({
+  const received = await commandCodeAuthDb.markCommandCodeAuthSessionReceived({
     stateHash,
     apiKey: "sk-test-command-code",
     metadata: { userId: "user-1", userName: "Test User" },
@@ -58,11 +58,14 @@ test("consume returns the received api key once and marks the session applied", 
   assert.equal(received?.status, "received");
   assert.equal(received?.metadata?.userId, "user-1");
 
-  const consumed = commandCodeAuthDb.consumeCommandCodeAuthSecret(stateHash);
+  const consumed = await commandCodeAuthDb.consumeCommandCodeAuthSecret(stateHash);
 
   assert.equal(consumed?.apiKey, "sk-test-command-code");
   assert.equal(consumed?.status, "applied");
 
-  assert.equal(commandCodeAuthDb.consumeCommandCodeAuthSecret(stateHash), null);
-  assert.equal(commandCodeAuthDb.getCommandCodeAuthSessionSafeStatus(stateHash)?.status, "applied");
+  assert.equal(await commandCodeAuthDb.consumeCommandCodeAuthSecret(stateHash), null);
+  assert.equal(
+    (await commandCodeAuthDb.getCommandCodeAuthSessionSafeStatus(stateHash))?.status,
+    "applied"
+  );
 });

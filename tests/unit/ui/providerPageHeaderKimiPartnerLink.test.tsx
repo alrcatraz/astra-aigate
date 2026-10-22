@@ -6,6 +6,8 @@
  * featuredProviders.ts (isKimiPartnerProviderId) and the aff-link URLs
  * asserted in tests/unit/kimi-partner-aff-links.test.ts.
  */
+import "../../_setup/nextIntlDouble";
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -16,20 +18,35 @@ import ProviderPageHeader from "@/app/(dashboard)/dashboard/providers/[id]/compo
 // default, matching the pattern used in providerCardKimiPartnerAccent.test.tsx.
 const t = (key: string) => key;
 
+// The note is brand copy: compare against the real en.json message so the
+// component's fallback literal can never silently drift from the catalogue.
+const PARTNER_LINK_NOTE = resolveMessage("providers", "kimiPartnerLinkNote")!;
+
 describe("ProviderPageHeader — Kimi partner-link note", () => {
   let container: HTMLDivElement | null = null;
 
+  // Every root has to be unmounted inside act before its container leaves the DOM.
+  // Detaching a live root instead leaves React's scheduler with work queued against
+  // a torn-down jsdom, which surfaces as an unhandled "window is not defined" from
+  // react-dom's performWorkOnRootViaSchedulerTask — after this file has finished, so
+  // it fails the whole Vitest run rather than any one case. A test that renders twice
+  // also needs every root tracked, not just the newest container.
+  const mounted: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
+
   afterEach(() => {
-    if (container) {
-      document.body.removeChild(container);
-      container = null;
-    }
+    act(() => {
+      for (const { root } of mounted) root.unmount();
+    });
+    for (const { el } of mounted) el.remove();
+    mounted.length = 0;
+    container = null;
   });
 
   function renderHeader(id: string, name: string, website: string) {
     container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
+    mounted.push({ root, el: container });
     act(() => {
       root.render(
         <ProviderPageHeader
@@ -57,13 +74,9 @@ describe("ProviderPageHeader — Kimi partner-link note", () => {
     // first <a> in the tree.
     const link = el.querySelector(`a[href="${website}"]`);
     expect(link).not.toBeNull();
-    expect(link?.getAttribute("title")).toBe(
-      "Partner link — supports OmniRoute at no extra cost to you"
-    );
-    expect(link?.getAttribute("aria-label")).toBe(
-      `${name} — Partner link — supports OmniRoute at no extra cost to you`
-    );
-    expect(el.textContent).toContain("Partner link — supports OmniRoute at no extra cost to you");
+    expect(link?.getAttribute("title")).toBe(PARTNER_LINK_NOTE);
+    expect(link?.getAttribute("aria-label")).toBe(`${name} — ${PARTNER_LINK_NOTE}`);
+    expect(el.textContent).toContain(PARTNER_LINK_NOTE);
   });
 
   it("does NOT flag an unrelated provider's website link as a partner link", () => {

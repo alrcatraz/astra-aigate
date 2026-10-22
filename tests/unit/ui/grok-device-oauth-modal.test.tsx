@@ -274,16 +274,19 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
     vi.restoreAllMocks();
   });
 
-  function enterPasteMode(fetchMock: ReturnType<typeof vi.fn>) {
+  async function enterPasteMode(fetchMock: ReturnType<typeof vi.fn>) {
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(window, "open").mockImplementation(() => null);
     const { element } = renderModal(true);
+    // Modal children mount on the first effect flush; querying synchronously
+    // finds an empty container.
+    await flushEffects();
     const importButton = Array.from(element.querySelectorAll("button")).find(
       (b) => b.textContent === "Import auth.json"
     );
     expect(importButton).toBeTruthy();
-    act(async () => {
-      await importButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      importButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     const textarea = element.querySelector('textarea[aria-label="Grok Build auth.json"]');
     expect(textarea).toBeTruthy();
@@ -305,15 +308,15 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
 
   it("rejects a bare Grok JWT paste with the #7610 guidance message", async () => {
     const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
-    const { element, textarea, saveButton } = enterPasteMode(fetchMock);
+    const { element, textarea, saveButton } = await enterPasteMode(fetchMock);
 
-    act(() => {
-      setPasteValue(textarea, "eyJhbGciOiJIUzI1NiJ9.bare.jwt");
+    await act(async () => {
+      await setPasteValue(textarea, "eyJhbGciOiJIUzI1NiJ9.bare.jwt");
     });
     await flushEffects();
 
-    act(async () => {
-      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
@@ -324,18 +327,18 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
 
   it("rejects a full auth.json missing refresh_token", async () => {
     const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
-    const { element, textarea, saveButton } = enterPasteMode(fetchMock);
+    const { element, textarea, saveButton } = await enterPasteMode(fetchMock);
 
     const authJsonNoRefresh = JSON.stringify({
       "https://auth.x.ai::clientId": { key: "eyJhbGciOiJIUzI1NiJ9.no.refresh" },
     });
-    act(() => {
-      setPasteValue(textarea, authJsonNoRefresh);
+    await act(async () => {
+      await setPasteValue(textarea, authJsonNoRefresh);
     });
     await flushEffects();
 
-    act(async () => {
-      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
@@ -359,15 +362,15 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
         refresh_token: "refresh-abc-123",
       },
     };
-    const { element, textarea, saveButton } = enterPasteMode(fetchMock);
+    const { element, textarea, saveButton } = await enterPasteMode(fetchMock);
 
-    act(() => {
-      setPasteValue(textarea, JSON.stringify(validAuthJson));
+    await act(async () => {
+      await setPasteValue(textarea, JSON.stringify(validAuthJson));
     });
     await flushEffects();
 
-    act(async () => {
-      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 
@@ -397,15 +400,15 @@ describe("OAuthModal Grok Build paste-import auth.json (#7610)", () => {
         refresh_token: "refresh-xyz-789",
       },
     };
-    const { element, textarea, saveButton } = enterPasteMode(fetchMock);
+    const { element, textarea, saveButton } = await enterPasteMode(fetchMock);
 
-    act(() => {
-      setPasteValue(textarea, JSON.stringify(multiEntry));
+    await act(async () => {
+      await setPasteValue(textarea, JSON.stringify(multiEntry));
     });
     await flushEffects();
 
-    act(async () => {
-      await saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushEffects();
 

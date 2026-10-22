@@ -239,18 +239,6 @@ export const AGY_CONFIG = {
 // IMPORTANT: same Auth0 backend as Codex → same multi-account session-takeover
 // risk. `prompt: "login"` is mandatory to allow multiple OpenAI Native accounts
 // on the same device. See CODEX_CONFIG above for the full explanation.
-export const OPENAI_CONFIG = {
-  clientId: CODEX_CONFIG.clientId,
-  authorizeUrl: "https://auth.openai.com/oauth/authorize",
-  tokenUrl: "https://auth.openai.com/oauth/token",
-  scope: "openid profile email offline_access",
-  codeChallengeMethod: "S256",
-  extraParams: {
-    id_token_add_organizations: "true",
-    originator: "openai_native",
-    prompt: "login",
-  },
-};
 
 // GitHub Copilot OAuth Configuration (Device Code Flow)
 export const GITHUB_CONFIG = {

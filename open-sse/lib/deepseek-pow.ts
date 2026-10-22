@@ -176,14 +176,3 @@ export async function solveDeepSeekPowAsync(
 }
 
 // Sync wrapper kept for backward compat (uses JS fallback only)
-export function solveDeepSeekPow(
-  algorithm: string,
-  challenge: string,
-  salt: string,
-  difficulty: number,
-  expireAt: number
-): number {
-  if (algorithm !== "DeepSeekHashV1") throw new Error(`Unsupported: ${algorithm}`);
-  const prefix = `${salt}_${expireAt}_`;
-  return solveWithJS(challenge, prefix, difficulty);
-}

@@ -75,15 +75,14 @@ export const COLLECTORS = [
   // Órfãos religados (plano mestre QW-c): arquivos .test.mjs (top-level + db/ + feature-triage/) — fora do glob
   // *.test.ts histórico, nunca rodava em job nenhum (53 casos recuperados).
   { glob: "tests/unit/**/*.test.mjs", sources: ["package.json"] },
-  // Wiring CI→npm script (fonte única): os jobs de unit do ci.yml e o fast-unit do
-  // quality.yml DEVEM invocar o script canônico — se renomearem/inlinarem, este gate
+  // Wiring CI→npm script (fonte única): os jobs de unit do ci.yml DEVEM
+  // invocar o script canônico — se renomearem/inlinarem, este gate
   // exige o sync (substitui as âncoras textuais de glob que existiam nos workflows).
   {
     glob: "tests/unit/*.test.ts",
-    sources: ["package.json", ".github/workflows/ci.yml", ".github/workflows/quality.yml"],
+    sources: ["package.json", ".github/workflows/ci.yml"],
     anchors: {
       ".github/workflows/ci.yml": "test:unit:ci:shard",
-      ".github/workflows/quality.yml": "test:unit:ci:shard",
     },
   },
   // Node native runner — test:integration (top-level only; tests/integration/services/ NÃO roda)

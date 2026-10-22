@@ -37,8 +37,8 @@ test("T31: legacy Gemini aliases resolve to Gemini 3.1 IDs", () => {
   assert.equal(resolveDeprecatedAlias("gemini-3-pro-low"), "gemini-3.1-pro-low");
 });
 
-test("T33: thinkingLevel string is converted into numeric thinkingBudget", () => {
-  const converted = normalizeThinkingLevel({
+test("T33: thinkingLevel string is converted into numeric thinkingBudget", async () => {
+  const converted = await normalizeThinkingLevel({
     model: "gemini-3.1-pro-high",
     generationConfig: {
       thinkingConfig: { thinkingLevel: "HIGH" },

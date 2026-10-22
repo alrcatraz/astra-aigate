@@ -27,7 +27,7 @@ function makeReq(overrides: Partial<InterceptedRequest> = {}): InterceptedReques
 test("produces HAR v1.2 with creator + entries", () => {
   const har = toHar([makeReq()]);
   assert.equal(har.log.version, "1.2");
-  assert.ok(har.log.creator.name.includes("OmniRoute"));
+  assert.ok(har.log.creator.name.includes("AI Gate"));
   assert.equal(har.log.entries.length, 1);
 });
 
@@ -58,9 +58,7 @@ test("Bearer tokens in headers are masked", () => {
     },
   });
   const har = toHar([req]);
-  const authHeader = har.log.entries[0].request.headers.find(
-    (h) => h.name === "authorization"
-  );
+  const authHeader = har.log.entries[0].request.headers.find((h) => h.name === "authorization");
   assert.ok(authHeader);
   // Either Bearer regex (authorization:\sBearer prefix) or sk-/long-token regex must mask the value
   assert.ok(!authHeader.value.includes("supersecretvalueabc1234567890XYZ"));

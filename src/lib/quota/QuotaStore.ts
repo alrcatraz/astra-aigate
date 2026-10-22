@@ -14,10 +14,9 @@
 export type {
   QuotaStore,
   EnforceDecision,
-  ConsumeResult,
   PoolUsageSnapshot,
   EnforceInput,
   RecordConsumptionInput,
 } from "./types";
 
-export { getQuotaStore, getQuotaStoreSync, resetQuotaStoreSingleton } from "./storeFactory";
+export { getQuotaStore, resetQuotaStoreSingleton } from "./storeFactory";

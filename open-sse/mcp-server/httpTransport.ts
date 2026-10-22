@@ -88,7 +88,13 @@ const BUILTIN_DOMAINS: Record<string, McpToolDomain> = {
 
 function domainFor(row: McpServerRow): McpToolDomain {
   if (row.kind === "builtin") return BUILTIN_DOMAINS[row.id] ?? "all";
-  return "all";
+  // Registered (downstream) endpoints are ISOLATED to their own tool set:
+  // "none" disables every local builtin tool, so the endpoint's tools/list
+  // carries ONLY what registerDownstreamTools injects from the downstream
+  // server. Returning "all" here made a registered endpoint (e.g. the
+  // knowledge-base MCP) also advertise AIGate's full builtin catalog — the
+  // [id] route resolved correctly but the endpoint was not scoped to it.
+  return "none";
 }
 
 async function ensureEndpointRuntime(id: string): Promise<EndpointRuntime> {
@@ -151,6 +157,15 @@ function closeStreamableSession(endpointId: string, sessionId: string): void {
   _endpoints.get(endpointId)?.streamableSessions.delete(sessionId);
 }
 
+/** Close only ONE endpoint's streamable sessions (honours [id] scope). */
+function closeEndpointStreamableSessions(endpointId: string): void {
+  const endpoint = _endpoints.get(endpointId);
+  if (!endpoint) return;
+  for (const sessionId of endpoint.streamableSessions.keys()) {
+    closeStreamableSession(endpointId, sessionId);
+  }
+}
+
 function closeAllStreamableSessions(): void {
   for (const endpoint of _endpoints.values()) {
     for (const sessionId of endpoint.streamableSessions.keys()) {
@@ -178,7 +193,10 @@ function ensureSseServer(runtime: EndpointRuntime): {
     return runtime.sse;
   }
 
-  closeAllStreamableSessions();
+  // Close ONLY this endpoint's streamable sessions — the old
+  // closeAllStreamableSessions() killed sessions on EVERY endpoint, so
+  // opening SSE on one [id] evicted live sessions on the others.
+  closeEndpointStreamableSessions(runtime.id);
 
   const server = createEndpointServer(runtime);
   const transport = new WebStandardStreamableHTTPServerTransport({

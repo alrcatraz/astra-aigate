@@ -9,16 +9,15 @@ import assert from "node:assert/strict";
 // `gemma-4-*` model still triggered the 400.
 // Port of the thinkingConfig-guard half of decolua/9router#2480 (the
 // signature-replay half of that PR is out of scope and NOT ported here).
-const { openaiToGeminiRequest } = await import(
-  "../../open-sse/translator/request/openai-to-gemini.ts"
-);
+const { openaiToGeminiRequest } =
+  await import("../../open-sse/translator/request/openai-to-gemini.ts");
 
 type GeminiRequestResult = {
   generationConfig?: { thinkingConfig?: unknown };
 };
 
-test("gemma-4 model: reasoning_effort does NOT produce a thinkingConfig", () => {
-  const result = openaiToGeminiRequest(
+test("gemma-4 model: reasoning_effort does NOT produce a thinkingConfig", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemma-4-31b-it",
     {
       model: "gemma-4-31b-it",
@@ -27,7 +26,7 @@ test("gemma-4 model: reasoning_effort does NOT produce a thinkingConfig", () => 
       stream: false,
     },
     false
-  ) as GeminiRequestResult;
+  )) as GeminiRequestResult;
 
   assert.equal(
     result.generationConfig?.thinkingConfig,
@@ -36,8 +35,8 @@ test("gemma-4 model: reasoning_effort does NOT produce a thinkingConfig", () => 
   );
 });
 
-test("gemma-4 model: Claude-style thinking.budget_tokens does NOT produce a thinkingConfig", () => {
-  const result = openaiToGeminiRequest(
+test("gemma-4 model: Claude-style thinking.budget_tokens does NOT produce a thinkingConfig", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemma-4-31b-it",
     {
       model: "gemma-4-31b-it",
@@ -46,7 +45,7 @@ test("gemma-4 model: Claude-style thinking.budget_tokens does NOT produce a thin
       stream: false,
     },
     false
-  ) as GeminiRequestResult;
+  )) as GeminiRequestResult;
 
   assert.equal(
     result.generationConfig?.thinkingConfig,
@@ -55,8 +54,8 @@ test("gemma-4 model: Claude-style thinking.budget_tokens does NOT produce a thin
   );
 });
 
-test("non-gemma gemini model: reasoning_effort STILL produces a thinkingConfig (no regression)", () => {
-  const result = openaiToGeminiRequest(
+test("non-gemma gemini model: reasoning_effort STILL produces a thinkingConfig (no regression)", async () => {
+  const result = (await openaiToGeminiRequest(
     "gemini-2.5-flash",
     {
       model: "gemini-2.5-flash",
@@ -65,7 +64,7 @@ test("non-gemma gemini model: reasoning_effort STILL produces a thinkingConfig (
       stream: false,
     },
     false
-  ) as GeminiRequestResult;
+  )) as GeminiRequestResult;
 
   assert.ok(
     result.generationConfig?.thinkingConfig,

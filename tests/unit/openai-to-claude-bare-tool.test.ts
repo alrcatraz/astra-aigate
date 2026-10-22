@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiToClaudeRequest } = await import(
-  "../../open-sse/translator/request/openai-to-claude.ts"
-);
+const { openaiToClaudeRequest } =
+  await import("../../open-sse/translator/request/openai-to-claude.ts");
 
 // Regression: some OpenAI-shape clients send a tool as a BARE
 // `{ function: { name, description, parameters } }` object, omitting the
@@ -15,7 +14,7 @@ const { openaiToClaudeRequest } = await import(
 // dropped from the translated request (worse than a 400: the caller has no
 // idea the tool never made it upstream).
 
-test("openaiToClaudeRequest: bare {function:{...}} tool (no parent type) is NOT dropped", () => {
+test("openaiToClaudeRequest: bare {function:{...}} tool (no parent type) is NOT dropped", async () => {
   const request = {
     messages: [{ role: "user", content: "hi" }],
     tools: [
@@ -29,13 +28,21 @@ test("openaiToClaudeRequest: bare {function:{...}} tool (no parent type) is NOT 
     ],
   };
 
-  const translated = openaiToClaudeRequest("claude-sonnet-4", request, false);
+  const translated = await openaiToClaudeRequest("claude-sonnet-4", request, false);
 
   assert.ok(Array.isArray(translated.tools), "expected translated.tools to be an array");
-  assert.equal(translated.tools.length, 1, "expected the bare-function tool to survive translation");
+  assert.equal(
+    translated.tools.length,
+    1,
+    "expected the bare-function tool to survive translation"
+  );
 
   const tool = translated.tools[0];
-  assert.match(tool.name, /get_weather$/, "expected the original tool name to be preserved (prefixed)");
+  assert.match(
+    tool.name,
+    /get_weather$/,
+    "expected the original tool name to be preserved (prefixed)"
+  );
   assert.equal(tool.description, "Get the current weather");
   assert.deepEqual(tool.input_schema, {
     type: "object",
@@ -43,7 +50,7 @@ test("openaiToClaudeRequest: bare {function:{...}} tool (no parent type) is NOT 
   });
 });
 
-test("openaiToClaudeRequest: spec-shape {type:'function', function:{...}} tool still converts (no regression)", () => {
+test("openaiToClaudeRequest: spec-shape {type:'function', function:{...}} tool still converts (no regression)", async () => {
   const request = {
     messages: [{ role: "user", content: "hi" }],
     tools: [
@@ -58,7 +65,7 @@ test("openaiToClaudeRequest: spec-shape {type:'function', function:{...}} tool s
     ],
   };
 
-  const translated = openaiToClaudeRequest("claude-sonnet-4", request, false);
+  const translated = await openaiToClaudeRequest("claude-sonnet-4", request, false);
 
   assert.equal(translated.tools.length, 1);
   assert.match(translated.tools[0].name, /get_weather$/);

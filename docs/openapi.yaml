@@ -96,6 +96,10 @@ tags:
       HAR export, SSE merge, and conversation normalization.
       All routes are LOCAL_ONLY + SPAWN_CAPABLE (hard rules #15, #17).
       See docs/frameworks/TRAFFIC_INSPECTOR.md.
+  - name: Webhooks
+    description: Outbound webhook endpoints — CRUD, delivery log, and SSRF-safe URL validation.
+  - name: A2A
+    description: Agent-to-agent subsystem — status and task management.
 
 paths:
   # --- Playground + Search Tools (plans 17+18) ---
@@ -5815,6 +5819,467 @@ paths:
       responses:
         "200":
           description: CodeWhale config entry removed.
+
+  # --- Webhooks + A2A status ---
+  /api/webhooks/validate-url:
+    post:
+      tags:
+        - Webhooks
+      summary: Validate a webhook target URL
+      description: |
+        Runs the outbound URL guard over the supplied URL and reports whether
+        it is safe to register as a webhook endpoint. Private-network targets
+        are rejected by the SSRF guard (`blocked_private`).
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        "200":
+          description: Validation verdict
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - valid
+                properties:
+                  valid:
+                    type: boolean
+                  reason:
+                    type: string
+                    enum:
+                      - blocked_private
+                      - invalid_url
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/a2a/status:
+    get:
+      tags:
+        - A2A
+      summary: A2A subsystem status
+      description: |
+        Reports whether the A2A (agent-to-agent) subsystem is enabled, the
+        current task-manager statistics, and a summary of the published agent
+        card when A2A is online.
+      responses:
+        "200":
+          description: Current A2A status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - ok
+                      - disabled
+                  online:
+                    type: boolean
+                  enabled:
+                    type: boolean
+                  tasks:
+                    type: object
+                    description: Task-manager statistics snapshot
+                  agent:
+                    type: object
+                    description: Agent-card summary (null when A2A is disabled)
+                    properties:
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      version:
+                        type: string
+                      url:
+                        type: string
+                  capabilities: {}
+                  skills:
+                    type: array
+                    items: {}
+        "500":
+          description: Failed to load A2A status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/settings/cache-metrics:
+    get:
+      summary: Read cache metrics
+      description: Returns the collected cache performance metrics.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current cache metrics
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      summary: Clear cache metrics
+      description: Removes the collected cache performance metrics.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Metrics cleared
+
+  /api/settings/model-aliases:
+    get:
+      summary: List model aliases
+      description: Returns the built-in, custom and combined model-alias sets.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Alias sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  builtIn: {}
+                  custom: {}
+                  all: {}
+    put:
+      summary: Replace custom model aliases
+      description: Replaces the custom alias set with the supplied entries.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Updated custom aliases
+    post:
+      summary: Create a custom model alias
+      description: Adds or updates a single custom model alias.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Updated custom aliases
+    delete:
+      summary: Delete custom model aliases
+      description: Removes custom model aliases.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Updated custom aliases
+
+  /api/context/combos:
+    get:
+      summary: List compression combos
+      description: Returns every stored compression combo (pipeline, language packs, output mode).
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Compression combos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  combos:
+                    type: array
+                    items: {}
+    post:
+      summary: Create a compression combo
+      description: Creates a new compression combo definition.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Created combo
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/gamification/leaderboard:
+    get:
+      summary: Read the leaderboard
+      description: Returns the ranked gamification leaderboard entries.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items: {}
+
+  /api/gamification/level:
+    get:
+      summary: Read the current level
+      description: Returns the gamification level for the active identity.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current level
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  level: {}
+
+  /api/gamification/badges:
+    get:
+      summary: List badges
+      description: Returns the configured gamification badges.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Badge catalogue
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  badges:
+                    type: array
+                    items: {}
+
+  /api/logs/detail:
+    get:
+      summary: Read detailed request logs
+      description: |
+        Returns whether detailed request-artifact capture is enabled together
+        with the stored detailed log entries (total + logs).
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Capture state and detailed log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  total:
+                    type: integer
+                  logs:
+                    type: array
+                    items: {}
+    post:
+      summary: Toggle detailed log capture
+      description: Enables or disables detailed request-artifact capture.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: New capture state
+
+  /api/discovery/results:
+    get:
+      summary: List discovery results
+      description: |
+        Returns stored provider-discovery scan results. Part of the
+        loopback-only discovery tool surface.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Discovery results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items: {}
+
+  /api/skills:
+    get:
+      summary: List skills
+      description: |
+        Returns the skills catalogue (marketplace feed) with the popular
+        per-provider defaults for the requested provider.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Skills catalogue
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skills:
+                    type: array
+                    items: {}
+                  popularDefaults: {}
+
+  /api/settings/feature-flags:
+    get:
+      summary: Read feature flags
+      description: Returns the current feature-flag state.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Feature flags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flags: {}
+    put:
+      summary: Update feature flags
+      description: Applies the supplied feature-flag changes.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Updated flags
+    delete:
+      summary: Reset feature flags
+      description: Clears customised feature flags.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Flags reset
+
+  /api/settings/models-dev:
+    get:
+      summary: Read models.dev sync status
+      description: Returns the models.dev synchronisation status and row counts.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {}
+                  providerCount:
+                    type: integer
+                  modelCount:
+                    type: integer
+                  capabilityCount:
+                    type: integer
+    post:
+      summary: Start or stop the models.dev sync
+      description: Starts or stops the periodic models.dev synchronisation job.
+      security:
+        - ManagementSessionAuth: []
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Sync control result
+
+  /api/usage/quota:
+    get:
+      summary: Read quota state per connection
+      description: |
+        Returns the quota state of active provider connections, optionally
+        filtered by provider or connectionId. Auth and CORS are enforced by
+        the central authz pipeline.
+      responses:
+        "200":
+          description: Per-connection quota state
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/usage/cache-health:
+    get:
+      summary: Read cache health
+      description: |
+        Returns the cache-health report for the requested range and model
+        (query parameters). Auth and CORS are enforced by the central authz
+        pipeline.
+      responses:
+        "200":
+          description: Cache health report
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/usage/token-limits:
+    get:
+      summary: List per-key token limits
+      description: |
+        Returns the token-limit rules configured per API key. Auth and CORS
+        are enforced by the central authz pipeline.
+      responses:
+        "200":
+          description: Token limits
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      summary: Create a token limit
+      description: Creates a token-limit rule for an API key.
+      responses:
+        "200":
+          description: Created
+    delete:
+      summary: Delete a token limit
+      description: Removes a token-limit rule for an API key.
+      responses:
+        "200":
+          description: Deleted
 
 components:
   securitySchemes:

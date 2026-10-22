@@ -372,8 +372,21 @@ export function getCacheStats() {
  * Requires explicit numeric `temperature: 0` — omitted temperature is NOT cached
  * because the provider default may be non-deterministic (e.g. random/creative tasks).
  */
+/**
+ * True when the client asked to bypass the semantic cache for this request.
+ * The no-cache bypass was renamed to X-AI-Gate-No-Cache (matching the X-AI-Gate-*
+ * header rebrand); the original x-omniroute-no-cache is still accepted for
+ * legacy clients — mirroring how executors/base.ts and the compression/memory
+ * resolvers honour both names (see 6de470ce).
+ */
+function isNoCacheRequested(headers): boolean {
+  return ["x-ai-gate-no-cache", "x-omniroute-no-cache"].some(
+    (name) => (getHeaderValue(headers, name) || "").toLowerCase() === "true"
+  );
+}
+
 export function isCacheableForRead(body, headers) {
-  if ((getHeaderValue(headers, "x-omniroute-no-cache") || "").toLowerCase() === "true") {
+  if (isNoCacheRequested(headers)) {
     return false;
   }
   if (typeof body.temperature !== "number" || body.temperature !== 0) return false;
@@ -387,7 +400,7 @@ export function isCacheableForRead(body, headers) {
  * because the provider default may be non-deterministic.
  */
 export function isCacheableForWrite(body, headers) {
-  if ((getHeaderValue(headers, "x-omniroute-no-cache") || "").toLowerCase() === "true") {
+  if (isNoCacheRequested(headers)) {
     return false;
   }
   if (body.temperature !== 0) return false;

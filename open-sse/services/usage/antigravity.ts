@@ -112,12 +112,12 @@ const ANTIGRAVITY_LOCAL_USAGE_TOKENS_PER_UNIT = 1000;
 // source of truth in open-sse/config/antigravityModelAliases.ts (imported above), shared
 // with the provider-limits cache sanitizer. (#3821-review LEDGER-5)
 
-function getAntigravityLocalUsageUnits(
+async function getAntigravityLocalUsageUnits(
   provider: "antigravity" | "agy",
   connectionId: string | undefined,
   modelId: string,
   resetAt: string | null
-): number {
+): Promise<number> {
   if (!connectionId || !modelId || !resetAt) return 0;
 
   const resetMs = Date.parse(resetAt);
@@ -127,10 +127,14 @@ function getAntigravityLocalUsageUnits(
   const windowEnd = new Date(resetMs).toISOString();
 
   try {
+    // getAsyncDb() resolves rows through a Promise in BOTH drivers (the SQLite
+    // handle is wrapped in an async adapter), so the row MUST be awaited — an
+    // un-awaited Promise is truthy but yields `undefined` for `.tokens`, which
+    // silently degraded this fallback to "no local usage".
     const db = getAsyncDb() as unknown as {
-      prepare: (sql: string) => { get: (...params: unknown[]) => unknown };
+      prepare: (sql: string) => { get: (...params: unknown[]) => Promise<unknown> };
     };
-    const row = db
+    const row = (await db
       .prepare(
         `SELECT COALESCE(SUM(
            COALESCE(tokens_input, 0) + COALESCE(tokens_output, 0) + COALESCE(tokens_reasoning, 0)
@@ -143,7 +147,7 @@ function getAntigravityLocalUsageUnits(
            AND timestamp >= ?
            AND timestamp < ?`
       )
-      .get(provider, connectionId, modelId, windowStart, windowEnd) as
+      .get(provider, connectionId, modelId, windowStart, windowEnd)) as
       { tokens?: unknown } | undefined;
 
     const tokens = Number(row?.tokens || 0);
@@ -154,17 +158,22 @@ function getAntigravityLocalUsageUnits(
   }
 }
 
-function applyLocalUsageFallback(
+async function applyLocalUsageFallback(
   quota: UsageQuota,
   provider: "antigravity" | "agy",
   connectionId: string | undefined,
   modelId: string
-): UsageQuota {
+): Promise<UsageQuota> {
   if (quota.quotaSource !== "fetchAvailableModels" || quota.used > 0 || quota.unlimited) {
     return quota;
   }
 
-  const localUsed = getAntigravityLocalUsageUnits(provider, connectionId, modelId, quota.resetAt);
+  const localUsed = await getAntigravityLocalUsageUnits(
+    provider,
+    connectionId,
+    modelId,
+    quota.resetAt
+  );
   if (localUsed <= 0 || quota.total <= 0) return quota;
 
   const used = Math.min(quota.total, localUsed);
@@ -675,7 +684,7 @@ export async function getAntigravityUsage(
       const remaining = Math.round(total * remainingFraction);
       const used = isUnlimited ? 0 : Math.max(0, total - remaining);
 
-      quotas[modelKey] = applyLocalUsageFallback(
+      quotas[modelKey] = await applyLocalUsageFallback(
         {
           used,
           total: isUnlimited ? 0 : total,

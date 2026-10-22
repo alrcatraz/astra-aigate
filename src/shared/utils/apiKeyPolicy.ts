@@ -572,11 +572,11 @@ async function validateComboAccess(
   }
 }
 
-function validateBudget(context: PolicyContext): Response | null {
+async function validateBudget(context: PolicyContext): Promise<Response | null> {
   const { apiKeyInfo } = context;
   if (!apiKeyInfo.id) return null;
   try {
-    const budgetOk = checkBudget(apiKeyInfo.id);
+    const budgetOk = await checkBudget(apiKeyInfo.id);
     return budgetOk.allowed
       ? null
       : errorResponse(HTTP_STATUS.RATE_LIMITED, budgetOk.reason || "Budget limit exceeded");
@@ -683,7 +683,7 @@ export async function enforceApiKeyPolicy(
   const modelRejection = await validateModelAccess(context);
   if (modelRejection) return { apiKey, apiKeyInfo, rejection: modelRejection };
 
-  const budgetRejection = validateBudget(context);
+  const budgetRejection = await validateBudget(context);
   if (budgetRejection) return { apiKey, apiKeyInfo, rejection: budgetRejection };
   const tokenRejection = await validateTokenLimit(context);
   if (tokenRejection) return { apiKey, apiKeyInfo, rejection: tokenRejection };

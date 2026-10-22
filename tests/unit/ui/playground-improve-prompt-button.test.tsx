@@ -1,15 +1,61 @@
 // @vitest-environment jsdom
+import { resolveMessage } from "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { DEFAULT_PARAMS } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/components/ParamSliders"
-);
-const { default: ImprovePromptButton } = await import(
-  "../../../src/app/(dashboard)/dashboard/playground/components/ImprovePromptButton"
-);
+const { DEFAULT_PARAMS } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/components/ParamSliders");
+const { default: ImprovePromptButton } =
+  await import("../../../src/app/(dashboard)/dashboard/playground/components/ImprovePromptButton");
+
+// The shared next-intl double returns `t.rich()` as plain text, so the `<model>`
+// tag in `improvePromptDescription` comes out as an empty element and the
+// configured model name never reaches the DOM. The component renders the model
+// through that tag, so give this file's (cached, stable) translator the same
+// `<tag>…</tag>` handling real next-intl provides.
+type RichValues = Record<string, unknown>;
+type PlaygroundTranslator = ((key: string) => string) & {
+  raw: (key: string) => string;
+  rich: (key: string, values?: RichValues) => React.ReactNode;
+};
+
+// Built straight from the message catalogue rather than by calling the hook at
+// module scope: `useTranslations` is a React hook, and invoking it outside a
+// component is both a lint error and a false claim about how the component
+// resolves its copy.
+const playgroundT = ((key: string) =>
+  resolveMessage("playground", key) ?? key) as PlaygroundTranslator;
+playgroundT.raw = (key: string) => resolveMessage("playground", key) ?? key;
+playgroundT.rich = (key, values = {}) => {
+  // Interpolate scalars first: the catalogue stores the confirmation as
+  // "… <model>{model}</model> …", so without this the tag renders its own
+  // placeholder text instead of the configured model name.
+  const template = (playgroundT.raw(key) ?? key).replace(/\{(\w+)\}/g, (whole, name: string) => {
+    const value = values[name];
+    return typeof value === "string" || typeof value === "number" ? String(value) : whole;
+  });
+  const nodes: React.ReactNode[] = [];
+  const tagRe = /<(\w+)>([\s\S]*?)<\/\1>/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null = null;
+
+  while ((match = tagRe.exec(template)) !== null) {
+    if (match.index > cursor) nodes.push(template.slice(cursor, match.index));
+    const renderTag = values[match[1]];
+    const inner = match[2] || undefined;
+    nodes.push(
+      typeof renderTag === "function"
+        ? (renderTag as (children?: React.ReactNode) => React.ReactNode)(inner)
+        : inner
+    );
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < template.length) nodes.push(template.slice(cursor));
+
+  return React.createElement(React.Fragment, null, ...nodes);
+};
 
 const BASE_CONFIG = {
   endpoint: "chat.completions" as const,
@@ -26,9 +72,7 @@ function renderButton(config = BASE_CONFIG, setConfig = vi.fn()): HTMLDivElement
   document.body.appendChild(el);
   const root = createRoot(el);
   act(() => {
-    root.render(
-      <ImprovePromptButton configState={config} setConfigState={setConfig} />,
-    );
+    root.render(<ImprovePromptButton configState={config} setConfigState={setConfig} />);
   });
   containers.push({ root, el });
   return el;
@@ -68,7 +112,9 @@ describe("ImprovePromptButton", () => {
     const el = renderButton();
     const btn = el.querySelector("[aria-label='Improve prompt using AI']") as HTMLButtonElement;
 
-    await act(async () => { btn.click(); });
+    await act(async () => {
+      btn.click();
+    });
 
     const modal = el.querySelector("[role='dialog']");
     expect(modal).not.toBeNull();
@@ -79,7 +125,9 @@ describe("ImprovePromptButton", () => {
     const el = renderButton();
     const btn = el.querySelector("[aria-label='Improve prompt using AI']") as HTMLButtonElement;
 
-    await act(async () => { btn.click(); });
+    await act(async () => {
+      btn.click();
+    });
 
     const modal = el.querySelector("[role='dialog']");
     expect(modal?.textContent).toContain("quota");
@@ -89,7 +137,9 @@ describe("ImprovePromptButton", () => {
     const el = renderButton();
     const btn = el.querySelector("[aria-label='Improve prompt using AI']") as HTMLButtonElement;
 
-    await act(async () => { btn.click(); });
+    await act(async () => {
+      btn.click();
+    });
 
     const modal = el.querySelector("[role='dialog']");
     expect(modal?.textContent).toContain("openai/gpt-4o");
@@ -100,10 +150,14 @@ describe("ImprovePromptButton", () => {
     const el = renderButton();
     const btn = el.querySelector("[aria-label='Improve prompt using AI']") as HTMLButtonElement;
 
-    await act(async () => { btn.click(); });
+    await act(async () => {
+      btn.click();
+    });
 
     const cancelBtn = el.querySelector("[role='dialog'] button:first-child") as HTMLButtonElement;
-    await act(async () => { cancelBtn.click(); });
+    await act(async () => {
+      cancelBtn.click();
+    });
 
     // Modal should close
     expect(el.querySelector("[role='dialog']")).toBeNull();
@@ -124,26 +178,30 @@ describe("ImprovePromptButton", () => {
           new Response(JSON.stringify(mockResponse), {
             status: 200,
             headers: { "content-type": "application/json" },
-          }),
-        ),
-      ) as typeof fetch,
+          })
+        )
+      ) as typeof fetch
     );
 
     const setConfig = vi.fn();
     const el = renderButton(BASE_CONFIG, setConfig);
 
     const btn = el.querySelector("[aria-label='Improve prompt using AI']") as HTMLButtonElement;
-    await act(async () => { btn.click(); });
+    await act(async () => {
+      btn.click();
+    });
 
     // Click confirm (Improve button)
     const modal = el.querySelector("[role='dialog']");
     const allBtns = modal?.querySelectorAll("button") ?? [];
     const improveBtn = Array.from(allBtns).find(
-      (b) => b.textContent?.includes("Improve") && !b.textContent?.includes("Improve prompt"),
+      (b) => b.textContent?.includes("Improve") && !b.textContent?.includes("Improve prompt")
     ) as HTMLButtonElement;
     expect(improveBtn).not.toBeNull();
 
-    await act(async () => { improveBtn.click(); });
+    await act(async () => {
+      improveBtn.click();
+    });
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
@@ -151,7 +209,10 @@ describe("ImprovePromptButton", () => {
 
     // fetch should have been called with POST to improve-prompt
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
-    const [url, opts] = (vi.mocked(fetch) as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const [url, opts] = (vi.mocked(fetch) as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
     expect(url).toContain("improve-prompt");
     expect(opts.method).toBe("POST");
 

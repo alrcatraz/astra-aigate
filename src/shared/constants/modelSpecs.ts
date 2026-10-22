@@ -447,6 +447,17 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsVision: true,
     aliases: ["qwen3.7-max", "qwen3-max-2026-01-23"],
   },
+  // No shorter spec key prefixes this id; added so synced lookups that miss
+  // (e.g. dmxapi-cn aggregators) still resolve 1M/128K instead of falling to
+  // DEFAULT_LIMITS (128K in / would also misstate output).
+  "qwen3.8-flash": {
+    maxOutputTokens: 131072,
+    contextWindow: 1000000,
+    thinkingBudgetCap: 38912,
+    supportsThinking: true,
+    supportsTools: true,
+    supportsVision: true,
+  },
   "qwen3.8-max-preview": {
     maxOutputTokens: 65536,
     contextWindow: 1000000,
@@ -484,6 +495,15 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsVision: false,
   },
   "mimo-v2.5": {
+    maxOutputTokens: 131072,
+    contextWindow: 1048576,
+    supportsTools: true,
+    supportsVision: true,
+  },
+  // No shorter spec key prefixes this id (mimo-v2.5 diverges at the version
+  // digit), so the canonical lookup returned null and a synced miss — dmxapi-cn
+  // has no models.dev channel — fell to DEFAULT_LIMITS (128K).
+  "mimo-v2.6-flash": {
     maxOutputTokens: 131072,
     contextWindow: 1048576,
     supportsTools: true,
@@ -617,6 +637,17 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
   },
   "deepseek-v4-flash": {
     aliases: ["deepseek-v4-flash-0731"],
+    maxOutputTokens: 384000,
+    contextWindow: 1000000,
+    thinkingBudgetCap: 380000,
+    supportsThinking: true,
+    supportsTools: true,
+  },
+  // No shorter spec key prefixes this id (deepseek-v4-flash diverges at ".1"),
+  // so getCanonicalModelSpecId() returned null: a synced-capability miss — dmxapi-cn
+  // aggregates it but models.dev has no dmxapi channel — fell straight to
+  // DEFAULT_LIMITS (128K), capping every combo containing it at 128K.
+  "deepseek-v4.1-flash": {
     maxOutputTokens: 384000,
     contextWindow: 1000000,
     thinkingBudgetCap: 380000,

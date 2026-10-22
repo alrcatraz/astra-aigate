@@ -58,11 +58,16 @@ async function seedMemory(apiKeyId = "api-key-1") {
 // ── Test lifecycle ──
 
 test.beforeEach(async () => {
+  // Let the route's fire-and-forget reindex batch (setImmediate) finish while
+  // the current DATA_DIR still exists, before resetStorage() wipes it —
+  // otherwise the background write races the rebuild ("no such table: memories").
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await resetStorage();
   await localDb.updateSettings({ requireLogin: false });
 });
 
 test.after(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await resetStorage();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });

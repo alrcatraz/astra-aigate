@@ -2,7 +2,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { applyStrategyOrdering } from "@omniroute/open-sse/services/combo/applyStrategyOrdering.ts";
-import { resetDbInstance } from "@/lib/db/core.ts";
+import { resetDbInstanceDrained } from "@/lib/db/core.ts";
 
 // Split guard for Block J Task 3: the non-`auto` strategy-ordering chain
 // (lkgp / strict-random / random / fill-first / p2c / ... / quota-share) was

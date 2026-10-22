@@ -85,7 +85,7 @@ async function makePool() {
 // Scenario 1: cap N requests on model M → block after N uses
 // ---------------------------------------------------------------------------
 test("per-(key,model) cap — keyA blocked on model M after N requests", async () => {
-  const pool = makePool();
+  const pool = await makePool();
   await setModelCap({
     poolId: pool.id,
     apiKeyId: KEY_A,
@@ -125,7 +125,7 @@ test("per-(key,model) cap — keyA blocked on model M after N requests", async (
 // Scenario 2: keyA blocked on M still allowed on M2
 // ---------------------------------------------------------------------------
 test("per-(key,model) cap — keyA blocked on M, still allowed on M2 same pool", async () => {
-  const pool = makePool();
+  const pool = await makePool();
   await setModelCap({
     poolId: pool.id,
     apiKeyId: KEY_A,
@@ -172,7 +172,7 @@ test("per-(key,model) cap — keyA blocked on M, still allowed on M2 same pool",
 // Scenario 3: no cap configured → behaviour unchanged (allow)
 // ---------------------------------------------------------------------------
 test("per-(key,model) cap — no cap configured → no block (unchanged behaviour)", async () => {
-  makePool();
+  await makePool();
   // No setModelCap call — cap table is empty
 
   const result = await enforceQuotaShare({
@@ -192,7 +192,7 @@ test("per-(key,model) cap — no cap configured → no block (unchanged behaviou
 // Scenario 4: cap ≤ EPSILON → ignored (placeholder skip)
 // ---------------------------------------------------------------------------
 test("per-(key,model) cap — EPSILON cap value → ignored, request allowed", async () => {
-  const pool = makePool();
+  const pool = await makePool();
 
   // Insert a placeholder cap directly (Number.EPSILON > 0 passes DB CHECK constraint
   // but enforce.ts skips it: !(capValue > Number.EPSILON) → true for EPSILON).

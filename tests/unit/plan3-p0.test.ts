@@ -85,19 +85,19 @@ test("getModelInfoCore canonicalizes github legacy alias with explicit provider 
   assert.equal(info.model, "claude-opus-4-5-20251101");
 });
 
-test("GithubExecutor routes codex-family model to /responses", () => {
+test("GithubExecutor routes codex-family model to /responses", async () => {
   const executor = new GithubExecutor();
   const url = executor.buildUrl("gpt-5.3-codex", true);
   assert.match(url, /\/responses$/);
 });
 
-test("GithubExecutor keeps non-codex model on /chat/completions", () => {
+test("GithubExecutor keeps non-codex model on /chat/completions", async () => {
   const executor = new GithubExecutor();
   const url = executor.buildUrl("gpt-5", true);
   assert.match(url, /\/chat\/completions$/);
 });
 
-test("DefaultExecutor uses x-api-key for kimi-coding-apikey", () => {
+test("DefaultExecutor uses x-api-key for kimi-coding-apikey", async () => {
   const executor = new DefaultExecutor("kimi-coding-apikey");
   const headers = executor.buildHeaders({ apiKey: "sk-kimi-test" }, true);
 
@@ -139,7 +139,7 @@ test("DefaultExecutor execute honors connection-level custom User-Agent", async 
   assert.equal(capturedHeaders["User-Agent"], "OmniRouteCustomUA/2.0");
 });
 
-test("CodexExecutor forces stream=true for upstream compatibility", () => {
+test("CodexExecutor forces stream=true for upstream compatibility", async () => {
   const executor = new CodexExecutor();
   const transformed = executor.transformRequest(
     "gpt-5.1-codex",
@@ -150,9 +150,9 @@ test("CodexExecutor forces stream=true for upstream compatibility", () => {
   assert.equal(transformed.stream, true);
 });
 
-test("Claude native messages can be round-tripped through OpenAI into Claude OAuth format", () => {
+test("Claude native messages can be round-tripped through OpenAI into Claude OAuth format", async () => {
   const normalizeOptions = { normalizeToolCallId: false, preserveDeveloperRole: undefined };
-  const openaiBody = translateRequest(
+  const openaiBody = await translateRequest(
     FORMATS.CLAUDE,
     FORMATS.OPENAI,
     "claude-sonnet-4-6",
@@ -167,7 +167,7 @@ test("Claude native messages can be round-tripped through OpenAI into Claude OAu
     null,
     normalizeOptions
   );
-  const translated = translateRequest(
+  const translated = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.CLAUDE,
     "claude-sonnet-4-6",
@@ -188,7 +188,7 @@ test("Claude native messages can be round-tripped through OpenAI into Claude OAu
   assert.equal(translated.system, undefined);
 });
 
-test("CodexExecutor maps fast service tier to priority", () => {
+test("CodexExecutor maps fast service tier to priority", async () => {
   const executor = new CodexExecutor();
   const transformed = executor.transformRequest(
     "gpt-5.1-codex",
@@ -199,7 +199,7 @@ test("CodexExecutor maps fast service tier to priority", () => {
   assert.equal(transformed.service_tier, "priority");
 });
 
-test("shouldUseNativeCodexPassthrough only enables responses-native Codex requests", () => {
+test("shouldUseNativeCodexPassthrough only enables responses-native Codex requests", async () => {
   assert.equal(
     shouldUseNativeCodexPassthrough({
       provider: "codex",
@@ -255,7 +255,7 @@ test("shouldUseNativeCodexPassthrough only enables responses-native Codex reques
   );
 });
 
-test("CodexExecutor can apply per-connection fast service tier defaults", () => {
+test("CodexExecutor can apply per-connection fast service tier defaults", async () => {
   const executor = new CodexExecutor();
   const transformed = executor.transformRequest(
     "gpt-5.1-codex",
@@ -270,13 +270,13 @@ test("CodexExecutor can apply per-connection fast service tier defaults", () => 
   assert.equal(transformed.service_tier, "priority");
 });
 
-test("CodexExecutor always requests SSE accept header", () => {
+test("CodexExecutor always requests SSE accept header", async () => {
   const executor = new CodexExecutor();
   const headers = executor.buildHeaders({ accessToken: "test-token" }, false);
   assert.equal(headers.Accept, "text/event-stream");
 });
 
-test("CodexExecutor does not request SSE accept header for compact requests", () => {
+test("CodexExecutor does not request SSE accept header for compact requests", async () => {
   const executor = new CodexExecutor();
   const headers = executor.buildHeaders(
     {
@@ -288,7 +288,7 @@ test("CodexExecutor does not request SSE accept header for compact requests", ()
   assert.equal(headers.Accept, "application/json");
 });
 
-test("CodexExecutor preserves native responses payloads for Codex passthrough", () => {
+test("CodexExecutor preserves native responses payloads for Codex passthrough", async () => {
   const executor = new CodexExecutor();
   const transformed = executor.transformRequest(
     "gpt-5.1-codex",
@@ -317,7 +317,7 @@ test("CodexExecutor preserves native responses payloads for Codex passthrough", 
   assert.ok(!("_nativeCodexPassthrough" in transformed));
 });
 
-test("CodexExecutor gives model reasoning suffix precedence over client defaults", () => {
+test("CodexExecutor gives model reasoning suffix precedence over client defaults", async () => {
   const executor = new CodexExecutor();
   const transformed = executor.transformRequest(
     "gpt-5.5-xhigh",
@@ -336,7 +336,7 @@ test("CodexExecutor gives model reasoning suffix precedence over client defaults
   assert.equal(transformed.reasoning_effort, undefined);
 });
 
-test("CodexExecutor strips streaming fields for compact passthrough", () => {
+test("CodexExecutor strips streaming fields for compact passthrough", async () => {
   const executor = new CodexExecutor();
   const transformed = executor.transformRequest(
     "gpt-5.1-codex",
@@ -358,7 +358,7 @@ test("CodexExecutor strips streaming fields for compact passthrough", () => {
   assert.ok(!("_nativeCodexPassthrough" in transformed));
 });
 
-test("CodexExecutor routes responses subpaths to matching upstream paths", () => {
+test("CodexExecutor routes responses subpaths to matching upstream paths", async () => {
   const executor = new CodexExecutor();
   const compactUrl = executor.buildUrl("gpt-5.1-codex", true, 0, {
     requestEndpointPath: "/v1/responses/compact",
@@ -371,7 +371,7 @@ test("CodexExecutor routes responses subpaths to matching upstream paths", () =>
   assert.match(genericSubpathUrl, /\/responses\/items\/history$/);
 });
 
-test("translateNonStreamingResponse converts Responses API payload to OpenAI chat.completion", () => {
+test("translateNonStreamingResponse converts Responses API payload to OpenAI chat.completion", async () => {
   const responseBody = {
     id: "resp_123",
     object: "response",
@@ -417,7 +417,7 @@ test("translateNonStreamingResponse converts Responses API payload to OpenAI cha
   assert.equal((translated as any).usage.total_tokens, 18);
 });
 
-test("extractUsageFromResponse reads usage from Responses API payload", () => {
+test("extractUsageFromResponse reads usage from Responses API payload", async () => {
   const responseBody = {
     object: "response",
     usage: {
@@ -435,7 +435,7 @@ test("extractUsageFromResponse reads usage from Responses API payload", () => {
   assert.equal(usage.reasoning_tokens, 3);
 });
 
-test("detectFormat identifies OpenAI Responses when input is string", () => {
+test("detectFormat identifies OpenAI Responses when input is string", async () => {
   const format = detectFormat({
     model: "gpt-5.1-codex",
     input: "hello world",
@@ -444,7 +444,7 @@ test("detectFormat identifies OpenAI Responses when input is string", () => {
   assert.equal(format, FORMATS.OPENAI_RESPONSES);
 });
 
-test("detectFormat identifies OpenAI Responses by max_output_tokens without input array", () => {
+test("detectFormat identifies OpenAI Responses by max_output_tokens without input array", async () => {
   const format = detectFormat({
     model: "gpt-5.1-codex",
     max_output_tokens: 256,
@@ -453,7 +453,7 @@ test("detectFormat identifies OpenAI Responses by max_output_tokens without inpu
   assert.equal(format, FORMATS.OPENAI_RESPONSES);
 });
 
-test("detectFormatFromEndpoint uses chat completions endpoint for OpenAI chat protocol", () => {
+test("detectFormatFromEndpoint uses chat completions endpoint for OpenAI chat protocol", async () => {
   const format = detectFormatFromEndpoint(
     {
       model: "test-model",
@@ -467,7 +467,7 @@ test("detectFormatFromEndpoint uses chat completions endpoint for OpenAI chat pr
   assert.equal(format, FORMATS.OPENAI);
 });
 
-test("detectFormatFromEndpoint forces Claude for /v1/messages", () => {
+test("detectFormatFromEndpoint forces Claude for /v1/messages", async () => {
   const format = detectFormatFromEndpoint(
     {
       model: "claude-opus-4-6",
@@ -480,8 +480,8 @@ test("detectFormatFromEndpoint forces Claude for /v1/messages", () => {
   assert.equal(format, FORMATS.CLAUDE);
 });
 
-test("translateRequest normalizes openai-responses input string into list payload", () => {
-  const translated = translateRequest(
+test("translateRequest normalizes openai-responses input string into list payload", async () => {
+  const translated = await translateRequest(
     FORMATS.OPENAI_RESPONSES,
     FORMATS.OPENAI_RESPONSES,
     "gpt-5.1-codex",
@@ -501,8 +501,8 @@ test("translateRequest normalizes openai-responses input string into list payloa
   assert.equal(translated.input[0].content[0].text, "hello from responses");
 });
 
-test("translateRequest preserves service_tier when converting openai to openai-responses", () => {
-  const translated = translateRequest(
+test("translateRequest preserves service_tier when converting openai to openai-responses", async () => {
+  const translated = await translateRequest(
     FORMATS.OPENAI,
     FORMATS.OPENAI_RESPONSES,
     "gpt-5.1-codex",
@@ -519,7 +519,7 @@ test("translateRequest preserves service_tier when converting openai to openai-r
   assert.ok(Array.isArray(translated.input));
 });
 
-test("parseSSEToResponsesOutput parses completed response from SSE payload", () => {
+test("parseSSEToResponsesOutput parses completed response from SSE payload", async () => {
   const rawSSE = [
     "event: response.created",
     'data: {"type":"response.created","response":{"id":"resp_1","object":"response","model":"gpt-5.1-codex","status":"in_progress","output":[]}}',
@@ -541,12 +541,12 @@ test("parseSSEToResponsesOutput parses completed response from SSE payload", () 
   assert.equal(parsed.usage.output_tokens, 3);
 });
 
-test("parseSSEToResponsesOutput returns null for invalid payload", () => {
+test("parseSSEToResponsesOutput returns null for invalid payload", async () => {
   const parsed = parseSSEToResponsesOutput("data: not-json\n\ndata: [DONE]\n", "fallback-model");
   assert.equal(parsed, null);
 });
 
-test("parseSSEToOpenAIResponse merges split tool call chunks by id without duplication", () => {
+test("parseSSEToOpenAIResponse merges split tool call chunks by id without duplication", async () => {
   const rawSSE = [
     `data: ${JSON.stringify({
       id: "chatcmpl_1",
@@ -599,7 +599,7 @@ test("parseSSEToOpenAIResponse merges split tool call chunks by id without dupli
   assert.equal(parsed.choices[0].message.tool_calls[0].function.arguments, '{"a":1}');
 });
 
-test("parseSSEToOpenAIResponse normalizes delta.reasoning alias to reasoning_content", () => {
+test("parseSSEToOpenAIResponse normalizes delta.reasoning alias to reasoning_content", async () => {
   const rawSSE = [
     `data: ${JSON.stringify({
       id: "chatcmpl_2",

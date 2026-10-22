@@ -1,13 +1,11 @@
 // @vitest-environment jsdom
+// Faithful next-intl double: resolves the real English copy from src/i18n/messages/en.json.
+// Must be the first import so the mock is registered before the component is evaluated.
+import "../../_setup/nextIntlDouble";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-// next-intl → echo the key so we can assert on stable identifiers.
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -87,12 +85,30 @@ async function renderTab() {
   });
 }
 
+/**
+ * Writes are debounced by ~400ms (rapid slider edits coalesce into one PUT), so a
+ * single setTimeout(0) tick is not enough — poll until the PUT lands or time out.
+ */
+async function waitForPut(timeoutMs = 3000) {
+  const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+  const findPut = () =>
+    fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PUT");
+  const start = Date.now();
+  while (!findPut()) {
+    if (Date.now() - start > timeoutMs) throw new Error("waitForPut timed out");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+  }
+  return findPut()!;
+}
+
 describe("CompressionSettingsTab — compression controls consolidation (T11)", () => {
   it("renders the read-only TokenSaver summary that links to the unified panel", async () => {
     await renderTab();
     const hrefs = Array.from(container.querySelectorAll("a")).map((a) => a.getAttribute("href"));
     expect(hrefs).toContain("/dashboard/context/settings");
-    expect(container.textContent).toContain("tokenSaverTitle");
+    expect(container.textContent).toContain("Token Saver");
   });
 
   it("does not render a duplicate caveman engine on/off toggle (panel owns on/off)", async () => {
@@ -107,9 +123,12 @@ describe("CompressionSettingsTab — compression controls consolidation (T11)", 
 
   it("keeps the advanced caveman tuning the panel does not expose", async () => {
     await renderTab();
-    expect(container.textContent).toContain("compressionRoleUser");
-    expect(container.textContent).toContain("compressionSkipRules");
-    expect(container.textContent).toContain("compressionPreservePatterns");
+    const buttonLabels = Array.from(container.querySelectorAll("button")).map((b) =>
+      b.textContent?.trim()
+    );
+    expect(buttonLabels).toContain("User");
+    expect(container.textContent).toContain("Skip Compression Rules");
+    expect(container.textContent).toContain("Preserve Patterns");
   });
 
   it("renders the preserveSystemPrompt 3-way mode select reflecting the shim (T05/C5)", async () => {
@@ -134,11 +153,8 @@ describe("CompressionSettingsTab — compression controls consolidation (T11)", 
       await select!.dispatchEvent(new Event("change", { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    const putCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
-      ([, init]) => (init as RequestInit | undefined)?.method === "PUT"
-    );
-    expect(putCall).toBeTruthy();
-    const body = JSON.parse(String((putCall![1] as RequestInit).body));
+    const putCall = await waitForPut();
+    const body = JSON.parse(String((putCall[1] as RequestInit).body));
     expect(body.preserveSystemPromptMode).toBe("never");
   });
 });

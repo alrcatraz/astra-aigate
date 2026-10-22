@@ -7,6 +7,10 @@ import {
   sanitizeForensicHeader,
 } from "../../../../src/app/api/v1/relay/chat/completions/relaySecurity.ts";
 import { getDbInstance } from "../../../../src/lib/db/core.ts";
+
+// Open + fully drain migrations before the first DB write.
+getDbInstance();
+await (await import("../../../../src/lib/db/core.ts")).awaitDbMigrations();
 import { getRelayLogs } from "../../../../src/lib/db/relayProxies.ts";
 
 // ─── T-12 (#3932 PR-4): bifrost sidecar proxy route ──────────────────────
@@ -230,7 +234,7 @@ test("bifrost route: records relay usage after SSE stream completion", async () 
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("X-Routed-By"), "bifrost");
   assert.equal(forwardedRequestId, "bifrost-sse-lifecycle-test");
-  assert.equal(getRelayLogs(relayToken.id, 10).length, 0);
+  assert.equal((await getRelayLogs(relayToken.id, 10)).length, 0);
 
   assert.match(await res.text(), /delta/);
 

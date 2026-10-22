@@ -137,7 +137,11 @@ export default function CreatePoolModal({
                       : "border-border text-text-muted hover:text-text-main"
                   }`}
                 >
-                  {p === "hard" ? t("policyHard") : p === "soft" ? t("policySoft") : t("policyBurst")}
+                  {p === "hard"
+                    ? t("policyHard")
+                    : p === "soft"
+                      ? t("policySoft")
+                      : t("policyBurst")}
                 </button>
               ))}
             </div>

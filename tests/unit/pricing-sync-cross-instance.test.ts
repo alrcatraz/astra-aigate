@@ -25,6 +25,12 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test
+// (the sync persists its status into key_value; the reader must see the
+// migrated schema, not a half-created table).
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const originalFetch = globalThis.fetch;
 
 function buildLiteLLMFixture() {

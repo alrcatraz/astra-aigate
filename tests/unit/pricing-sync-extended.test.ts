@@ -95,7 +95,7 @@ test("synced pricing round-trips through SQLite and skips corrupted rows", async
   assert.equal(warnings.length, 1);
 
   await pricingSync.clearSyncedPricing();
-  assert.deepEqual(pricingSync.getSyncedPricing(), {});
+  assert.deepEqual(await pricingSync.getSyncedPricing(), {});
 });
 
 test("syncPricingFromSources rejects unsupported sources", async () => {
@@ -123,7 +123,7 @@ test("syncPricingFromSources supports dry runs with warnings without persisting 
   assert.equal(result.success, true);
   assert.ok(result.data.openai);
   assert.deepEqual(result.warnings, ["Unknown sources ignored: bogus-source"]);
-  assert.deepEqual(pricingSync.getSyncedPricing(), {});
+  assert.deepEqual(await pricingSync.getSyncedPricing(), {});
 });
 
 test("syncPricingFromSources persists data and updates sync status", async () => {

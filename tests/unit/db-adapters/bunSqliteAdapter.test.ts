@@ -19,29 +19,38 @@ test("bun:sqlite adapter supports CRUD, pragmas, transactions, and close", async
   const adapter = createBunSqliteAdapter(new Database(":memory:"), ":memory:");
   t.after(() => adapter.close());
 
-  adapter.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)");
-  const result = adapter.prepare("INSERT INTO items (name) VALUES (?)").run("bun");
+  await adapter.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)");
+  const result = await adapter.prepare("INSERT INTO items (name) VALUES (?)").run("bun");
   assert.equal(result.changes, 1);
-  assert.equal((adapter.prepare("SELECT name FROM items").get() as { name: string }).name, "bun");
+  assert.equal(
+    ((await adapter.prepare("SELECT name FROM items").get()) as { name: string }).name,
+    "bun"
+  );
   assert.equal(adapter.driver, "bun:sqlite");
-  assert.equal(adapter.pragma("user_version", { simple: true }), 0);
+  assert.equal(await adapter.pragma("user_version", { simple: true }), 0);
 
-  adapter.prepare("INSERT INTO items (name) VALUES (@name)").run({ name: "named" });
+  await adapter.prepare("INSERT INTO items (name) VALUES (@name)").run({ name: "named" });
   assert.equal(
     (
-      adapter.prepare("SELECT name FROM items WHERE name = :name").get({ name: "named" }) as {
+      (await adapter
+        .prepare("SELECT name FROM items WHERE name = :name")
+        .get({ name: "named" })) as {
         name: string;
       }
     ).name,
     "named"
   );
 
-  adapter.transaction(() => {
-    adapter.prepare("INSERT INTO items (name) VALUES (?)").run("transaction");
+  await adapter.transaction(async () => {
+    await adapter.prepare("INSERT INTO items (name) VALUES (?)").run("transaction");
   })();
-  assert.equal(adapter.prepare("SELECT COUNT(*) AS count FROM items").get().count, 3);
+  assert.equal(
+    ((await adapter.prepare("SELECT COUNT(*) AS count FROM items").get()) as { count: number })
+      .count,
+    3
+  );
   assert.equal(adapter.open, true);
-  adapter.close();
+  await adapter.close();
   assert.equal(adapter.open, false);
 });
 

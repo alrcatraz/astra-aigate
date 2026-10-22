@@ -3,6 +3,13 @@ import assert from "node:assert/strict";
 
 import { recordCacheStats, getCacheStatsSummary } from "../../src/lib/db/compressionCacheStats.ts";
 
+// `compression_cache_stats` is provisioned by migration 039, and the migration
+// runner is fired off asynchronously by the first DB open — join the barrier
+// before the first query or the table does not exist yet.
+const core = await import("../../src/lib/db/core.ts");
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 describe("compressionCacheStats", () => {
   it("getCacheStatsSummary returns summary", async () => {
     const summary = await getCacheStatsSummary();

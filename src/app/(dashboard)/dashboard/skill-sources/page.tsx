@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { JSX } from "react";
 import { OmniSourcesTab } from "../omni-skills/components/OmniSourcesTab";
 
 /**

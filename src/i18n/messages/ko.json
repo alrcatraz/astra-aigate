@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "잘못된 파일 형식입니다. PNG, JPG, SVG, GIF 또는 WebP 파일을 업로드해 주세요.",
     "invalidFaviconFileType": "잘못된 파일 형식입니다. PNG, ICO, SVG, GIF 또는 WebP 파일을 업로드해 주세요.",
     "failedToReadFile": "파일을 읽지 못했습니다",
-    "startOnLogin": "로그인 시 시작",
-    "startOnLoginDesc": "시스템 시작 시 AI Gate를 자동으로 실행하고 백그라운드 트레이에서 조용히 실행합니다.",
     "flushCache": "캐시 플러시",
     "flushing": "플러싱…",
     "size": "크기",

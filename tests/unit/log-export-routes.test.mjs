@@ -19,9 +19,12 @@ async function resetStorage() {
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
-  await settingsDb.updateSettings({ requireLogin: false });
+  // Open + drain migrations BEFORE writing settings: on a brand-new dir the
+  // settings row cannot exist until the schema does, and exportAll needs a
+  // settings row to serialize (settings === undefined → 500 in the route).
   core.getDbInstance();
   await core.awaitDbMigrations();
+  await settingsDb.updateSettings({ requireLogin: false });
 }
 
 test.beforeEach(async () => {

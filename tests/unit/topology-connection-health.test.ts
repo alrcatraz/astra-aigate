@@ -7,8 +7,7 @@ import { fileURLToPath } from "node:url";
 // (and right after a restart) the map went blank even though connections were healthy.
 // These guard the connection-health base layer that keeps "what is connected" visible.
 
-const read = (rel: string) =>
-  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
 const homePageClientSrc = read("../../src/app/(dashboard)/dashboard/HomePageClient.tsx");
 const providerTopologySrc = read("../../src/app/(dashboard)/home/ProviderTopology.tsx");
@@ -82,7 +81,7 @@ test("ProviderTopology marks the last-routed provider with an amber dot, not a g
   );
   assert.match(
     providerTopologySrc,
-    /borderColor: error \? RED : active \? color : healthy \? GREEN : "var\(--color-border\)"/,
+    /borderColor: error \? RED : active \? color : healthy \? GREEN : "#e0e1e6"/,
     "border stays health-driven — grey is reserved for genuinely idle/unconfigured"
   );
 });

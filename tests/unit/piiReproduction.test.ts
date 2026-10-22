@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { resetDbInstance } from "../../src/lib/db/core";
+import { resetDbInstance, resetDbInstanceDrained } from "../../src/lib/db/core";
 
 // Isolate DB state
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-test-repro-"));

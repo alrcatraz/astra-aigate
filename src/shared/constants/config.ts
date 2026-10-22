@@ -39,9 +39,7 @@ export {
   APIKEY_PROVIDERS,
   WEB_COOKIE_PROVIDERS,
   SEARCH_PROVIDERS,
-  AUDIO_ONLY_PROVIDERS,
   AI_PROVIDERS,
-  AUTH_METHODS,
 } from "./providers";
 
 // Re-export from models.js for backward compatibility

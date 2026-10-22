@@ -38,7 +38,10 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 
-const CONNECTION_CREDENTIAL_FIELDS = ["apiKey", "accessToken", "refreshToken", "idToken"] as const;
+import {
+  CONNECTION_CREDENTIAL_FIELDS,
+  PROVIDER_CONNECTIONS_COLUMNS,
+} from "./providerConnectionColumns";
 
 interface StatementLike<TRow = unknown> {
   all: (...params: unknown[]) => TRow[];
@@ -50,58 +53,6 @@ interface DbLike {
   prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
   transaction: <T>(fn: () => T) => () => T;
 }
-
-// Real column set for provider_connections (must match the CREATE TABLE in
-// core.ts's SCHEMA_SQL). getProviderConnections()'s optional `columns`
-// projection is interpolated directly into the SELECT clause, so every
-// requested name must be validated against this allowlist before use —
-// there is no current caller that passes untrusted input, but the
-// projection API itself must never accept an arbitrary string.
-const PROVIDER_CONNECTIONS_COLUMNS = new Set([
-  "id",
-  "provider",
-  "auth_type",
-  "name",
-  "email",
-  "priority",
-  "is_active",
-  "access_token",
-  "refresh_token",
-  "expires_at",
-  "token_expires_at",
-  "scope",
-  "project_id",
-  "test_status",
-  "error_code",
-  "last_error",
-  "last_error_at",
-  "last_error_type",
-  "last_error_source",
-  "backoff_level",
-  "rate_limited_until",
-  "health_check_interval",
-  "last_health_check_at",
-  "last_tested",
-  "api_key",
-  "id_token",
-  "provider_specific_data",
-  "expires_in",
-  "display_name",
-  "global_priority",
-  "default_model",
-  "token_type",
-  "consecutive_use_count",
-  "rate_limit_protection",
-  "last_used_at",
-  "group",
-  "max_concurrent",
-  "proxy_enabled",
-  "per_key_proxy_enabled",
-  "quota_window_thresholds_json",
-  "rate_limit_overrides_json",
-  "created_at",
-  "updated_at",
-]);
 
 // ──────────────── Provider Connections ────────────────
 

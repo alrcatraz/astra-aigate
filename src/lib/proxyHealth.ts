@@ -123,20 +123,6 @@ export function invalidateProxyHealth(proxyUrl: string): void {
 /**
  * Get all currently cached proxy health entries (for dashboard display).
  */
-export function getAllProxyHealthStatuses(): Array<{
-  proxyUrl: string;
-  healthy: boolean;
-  checkedAt: number;
-  stale: boolean;
-}> {
-  const now = Date.now();
-  return [...proxyHealthCache.entries()].map(([proxyUrl, entry]) => ({
-    proxyUrl,
-    healthy: entry.healthy,
-    checkedAt: entry.checkedAt,
-    stale: now - entry.checkedAt >= entry.ttlMs,
-  }));
-}
 
 // ─── Internals ────────────────────────────────────────────────────────────────
 

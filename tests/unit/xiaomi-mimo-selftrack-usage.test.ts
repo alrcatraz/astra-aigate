@@ -68,13 +68,13 @@ describe("xiaomi-mimo self-tracked quota", () => {
     }
   });
 
-  it("aggregates only current-month tokens for the given provider+connection", () => {
+  it("aggregates only current-month tokens for the given provider+connection", async () => {
     // 1.0M + 0.5M + 0.1M = 1.6M; excludes last-month, conn-y, and minimax rows.
-    assert.equal(getMonthlyProviderTokensForConnection("xiaomi-mimo", "conn-x"), 1_600_000);
+    assert.equal(await getMonthlyProviderTokensForConnection("xiaomi-mimo", "conn-x"), 1_600_000);
   });
 
-  it("returns 0 for an unknown connection (fail-open, no bleed)", () => {
-    assert.equal(getMonthlyProviderTokensForConnection("xiaomi-mimo", "conn-none"), 0);
+  it("returns 0 for an unknown connection (fail-open, no bleed)", async () => {
+    assert.equal(await getMonthlyProviderTokensForConnection("xiaomi-mimo", "conn-none"), 0);
   });
 
   it("getXiaomiMimoUsage returns a monthly quota against the 4.1B limit", async () => {

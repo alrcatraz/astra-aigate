@@ -60,6 +60,12 @@ test.after(async () => {
   }
 });
 
+// ── Join deferred migrations BEFORE any prepare() ────────────────────────────
+// core.ts defers runMigrations behind setTimeout(0); upsertPlan() below would
+// otherwise race the migration transaction and hit "no such table".
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const LIMIT = 100; // per-account plan limit; accountCount=1 → effectiveLimit=100
 const store = new SqliteQuotaStore();

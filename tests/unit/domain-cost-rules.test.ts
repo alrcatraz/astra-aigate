@@ -13,6 +13,12 @@ const domainState = await import("../../src/lib/db/domainState.ts");
 
 async function resetStorage() {
   costRules.resetCostData();
+  // resetCostData() fires domainState.deleteAllCostData() WITHOUT awaiting it
+  // (src/domain/costRules.ts), so the floating DELETE can land after the next
+  // resetDbInstanceDrained() closes the handle ("The database connection is
+  // not open" -> unhandledRejection attributed to this hook). Give it a beat
+  // to finish while the current connection is still open.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await core.resetDbInstanceDrained();
 
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -41,37 +47,43 @@ test.beforeEach(async () => {
 
 test.after(async () => {
   costRules.resetCostData();
+  // resetCostData() fires domainState.deleteAllCostData() WITHOUT awaiting it
+  // (src/domain/costRules.ts), so the floating DELETE can land after the next
+  // resetDbInstanceDrained() closes the handle ("The database connection is
+  // not open" -> unhandledRejection attributed to this hook). Give it a beat
+  // to finish while the current connection is still open.
+  await new Promise((resolve) => setTimeout(resolve, 250));
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("setBudget normalizes defaults and getBudget returns the stored config", () => {
-  costRules.setBudget("key-budget", { dailyLimitUsd: 12.5 });
+test("setBudget normalizes defaults and getBudget returns the stored config", async () => {
+  await costRules.setBudget("key-budget", { dailyLimitUsd: 12.5 });
 
-  assert.deepEqual(costRules.getBudget("key-budget"), {
+  assert.deepEqual(await costRules.getBudget("key-budget"), {
     dailyLimitUsd: 12.5,
     weeklyLimitUsd: 0,
     monthlyLimitUsd: 0,
     warningThreshold: 0.8,
     resetInterval: "daily",
     resetTime: "00:00",
-    budgetResetAt: costRules.getBudget("key-budget")?.budgetResetAt ?? null,
-    lastBudgetResetAt: costRules.getBudget("key-budget")?.lastBudgetResetAt ?? null,
+    budgetResetAt: (await costRules.getBudget("key-budget"))?.budgetResetAt ?? null,
+    lastBudgetResetAt: (await costRules.getBudget("key-budget"))?.lastBudgetResetAt ?? null,
     warningEmittedAt: null,
     warningPeriodStart: null,
   });
-  assert.equal(costRules.getBudget("missing-key"), null);
+  assert.equal(await costRules.getBudget("missing-key"), null);
 });
 
-test("checkBudget reports warning and blocks when projected spend exceeds the daily cap", () => {
-  costRules.setBudget("key-warning", {
+test("checkBudget reports warning and blocks when projected spend exceeds the daily cap", async () => {
+  await costRules.setBudget("key-warning", {
     dailyLimitUsd: 10,
     warningThreshold: 0.6,
   });
   costRules.recordCost("key-warning", 5);
 
-  const warning = costRules.checkBudget("key-warning", 1);
-  const denied = costRules.checkBudget("key-warning", 6);
+  const warning = await costRules.checkBudget("key-warning", 1);
+  const denied = await costRules.checkBudget("key-warning", 6);
 
   assert.deepEqual(warning, {
     allowed: true,
@@ -110,7 +122,7 @@ test("getDailyTotal and getCostSummary split daily and monthly totals correctly"
       }
     } as any;
 
-    costRules.setBudget("key-summary", {
+    await costRules.setBudget("key-summary", {
       dailyLimitUsd: 50,
       monthlyLimitUsd: 100,
       warningThreshold: 0.75,
@@ -126,8 +138,8 @@ test("getDailyTotal and getCostSummary split daily and monthly totals correctly"
     await domainState.saveCostEntry("key-summary", 1.5, yesterday);
     await domainState.saveCostEntry("key-summary", 9.9, lastMonth.getTime());
 
-    assert.equal(costRules.getDailyTotal("key-summary"), 2.5);
-    assert.deepEqual(costRules.getCostSummary("key-summary"), {
+    assert.equal(await costRules.getDailyTotal("key-summary"), 2.5);
+    assert.deepEqual(await costRules.getCostSummary("key-summary"), {
       dailyTotal: 2.5,
       monthlyTotal: 4,
       totalEntries: 2,
@@ -138,8 +150,8 @@ test("getDailyTotal and getCostSummary split daily and monthly totals correctly"
         warningThreshold: 0.75,
         resetInterval: "daily",
         resetTime: "00:00",
-        budgetResetAt: costRules.getBudget("key-summary")?.budgetResetAt ?? null,
-        lastBudgetResetAt: costRules.getBudget("key-summary")?.lastBudgetResetAt ?? null,
+        budgetResetAt: (await costRules.getBudget("key-summary"))?.budgetResetAt ?? null,
+        lastBudgetResetAt: (await costRules.getBudget("key-summary"))?.lastBudgetResetAt ?? null,
         warningEmittedAt: null,
         warningPeriodStart: null,
       },
@@ -149,10 +161,10 @@ test("getDailyTotal and getCostSummary split daily and monthly totals correctly"
       activeLimitUsd: 50,
       resetInterval: "daily",
       resetTime: "00:00",
-      budgetResetAt: costRules.getBudget("key-summary")?.budgetResetAt ?? null,
-      lastBudgetResetAt: costRules.getBudget("key-summary")?.lastBudgetResetAt ?? null,
-      periodStartAt: costRules.getBudget("key-summary")?.lastBudgetResetAt ?? null,
-      nextResetAt: costRules.getBudget("key-summary")?.budgetResetAt ?? null,
+      budgetResetAt: (await costRules.getBudget("key-summary"))?.budgetResetAt ?? null,
+      lastBudgetResetAt: (await costRules.getBudget("key-summary"))?.lastBudgetResetAt ?? null,
+      periodStartAt: (await costRules.getBudget("key-summary"))?.lastBudgetResetAt ?? null,
+      nextResetAt: (await costRules.getBudget("key-summary"))?.budgetResetAt ?? null,
       dailyLimitUsd: 50,
       weeklyLimitUsd: 0,
       monthlyLimitUsd: 100,
@@ -174,20 +186,20 @@ test("costRules covers DB-loaded budgets, malformed entries and storage failure 
     budgetResetAt: 111,
     lastBudgetResetAt: 99,
   });
-  assert.deepEqual(costRules.getBudget("db-loaded"), {
+  assert.deepEqual(await await costRules.getBudget("db-loaded"), {
     dailyLimitUsd: 7,
     weeklyLimitUsd: 14,
     monthlyLimitUsd: 21,
     warningThreshold: 0.7,
     resetInterval: "weekly",
     resetTime: "06:30",
-    budgetResetAt: costRules.getBudget("db-loaded")?.budgetResetAt ?? null,
-    lastBudgetResetAt: costRules.getBudget("db-loaded")?.lastBudgetResetAt ?? null,
+    budgetResetAt: (await costRules.getBudget("db-loaded"))?.budgetResetAt ?? null,
+    lastBudgetResetAt: (await costRules.getBudget("db-loaded"))?.lastBudgetResetAt ?? null,
     warningEmittedAt: null,
     warningPeriodStart: null,
   });
 
-  assert.deepEqual(costRules.checkBudget("missing-budget"), {
+  assert.deepEqual(await costRules.checkBudget("missing-budget"), {
     allowed: true,
     dailyUsed: 0,
     dailyLimit: 0,
@@ -220,8 +232,8 @@ test("costRules covers DB-loaded budgets, malformed entries and storage failure 
     "not-a-timestamp"
   );
 
-  assert.equal(costRules.getDailyTotal("malformed-costs"), 2.25);
-  assert.deepEqual(costRules.getCostSummary("malformed-costs"), {
+  assert.equal(await costRules.getDailyTotal("malformed-costs"), 2.25);
+  assert.deepEqual(await costRules.getCostSummary("malformed-costs"), {
     dailyTotal: 2.25,
     monthlyTotal: 2.25,
     totalEntries: 1,
@@ -243,8 +255,8 @@ test("costRules covers DB-loaded budgets, malformed entries and storage failure 
   });
 
   db.exec("DROP TABLE domain_cost_history");
-  assert.equal(costRules.getDailyTotal("malformed-costs"), 0);
-  assert.deepEqual(costRules.getCostSummary("malformed-costs"), {
+  assert.equal(await costRules.getDailyTotal("malformed-costs"), 0);
+  assert.deepEqual(await costRules.getCostSummary("malformed-costs"), {
     dailyTotal: 0,
     monthlyTotal: 0,
     totalEntries: 0,
@@ -266,17 +278,17 @@ test("costRules covers DB-loaded budgets, malformed entries and storage failure 
   });
 });
 
-test("weekly budgets use the weekly window limit and expose the next reset metadata", () => {
-  costRules.setBudget("key-weekly", {
+test("weekly budgets use the weekly window limit and expose the next reset metadata", async () => {
+  await costRules.setBudget("key-weekly", {
     dailyLimitUsd: 5,
     weeklyLimitUsd: 20,
     resetInterval: "weekly",
     resetTime: "06:30",
   });
 
-  const budget = costRules.getBudget("key-weekly");
-  const summary = costRules.getCostSummary("key-weekly");
-  const check = costRules.checkBudget("key-weekly", 0);
+  const budget = await costRules.getBudget("key-weekly");
+  const summary = await costRules.getCostSummary("key-weekly");
+  const check = await costRules.checkBudget("key-weekly", 0);
 
   assert.equal(budget?.resetInterval, "weekly");
   assert.equal(budget?.resetTime, "06:30");
@@ -305,8 +317,8 @@ test("syncAllBudgetSchedules advances overdue budgets and records a reset log", 
     });
     await domainState.saveCostEntry("key-reset", 3.5, Date.UTC(2026, 3, 15, 12, 0, 0));
 
-    const result = costRules.syncAllBudgetSchedules(now);
-    const synced = costRules.getBudget("key-reset");
+    const result = await costRules.syncAllBudgetSchedules(now);
+    const synced = await costRules.getBudget("key-reset");
     const logs = await domainState.loadBudgetResetLogs("key-reset", 5);
 
     assert.equal(result.processed, 1);

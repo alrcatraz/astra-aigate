@@ -111,15 +111,60 @@ test("#3578 every MCP-server source file is covered by package.json files", () =
 // `!**/*.test.*` negations in package.json `files`.
 function packedFilePaths(): string[] {
   // --dry-run writes no tarball; --json emits [{ files: [{ path }] }] on stdout.
-  const out = execFileSync("npm", ["pack", "--dry-run", "--json"], {
-    cwd: ROOT,
-    encoding: "utf8",
-    maxBuffer: 32 * 1024 * 1024,
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-  const parsed = JSON.parse(out) as Array<{ files?: Array<{ path: string }> }>;
-  const entry = parsed[0];
-  assert.ok(entry?.files?.length, "npm pack --dry-run returned no files");
+  let out = "";
+  let stderr = "";
+  let failure: unknown = null;
+  try {
+    out = execFileSync("npm", ["pack", "--dry-run", "--json"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    // npm pack can exit non-zero (prepare/build hook failing on a runner). Keep
+    // both streams so the assertion below reports WHY instead of a bare "no files".
+    failure = error;
+    out = (error as { stdout?: string })?.stdout ?? "";
+    stderr = (error as { stderr?: string })?.stderr ?? "";
+  }
+
+  // npm's pack --json payload has changed shape across versions: an array of
+  // entries (npm ≤ 10), a flat file array, and — as of npm 12 — an object keyed
+  // by package name. Accept all three, and tolerate notice lines before the JSON.
+  let parsed: unknown = null;
+  for (const open of ["[", "{"]) {
+    for (let i = out.indexOf(open); i !== -1; i = out.indexOf(open, i + 1)) {
+      try {
+        parsed = JSON.parse(out.slice(i));
+        break;
+      } catch {
+        /* keep scanning */
+      }
+    }
+    if (parsed !== null) break;
+  }
+
+  let entry: { files?: Array<{ path: string }> } | undefined;
+  if (Array.isArray(parsed)) {
+    const first = parsed[0] as unknown;
+    entry =
+      first && typeof first === "object" && "path" in (first as object)
+        ? { files: parsed as Array<{ path: string }> }
+        : (first as { files?: Array<{ path: string }> } | undefined);
+  } else if (parsed && typeof parsed === "object") {
+    const keyed = Object.values(parsed as Record<string, unknown>).find(
+      (v) => v && typeof v === "object" && Array.isArray((v as { files?: unknown }).files)
+    );
+    entry = keyed as { files?: Array<{ path: string }> } | undefined;
+  }
+  assert.ok(
+    entry?.files?.length,
+    `npm pack --dry-run returned no files\n` +
+      `  failure: ${failure instanceof Error ? failure.message : String(failure ?? "none")}\n` +
+      `  stdout(head): ${out.slice(0, 500)}\n` +
+      `  stderr(head): ${stderr.slice(0, 500)}`
+  );
   return entry.files!.map((f) => f.path);
 }
 

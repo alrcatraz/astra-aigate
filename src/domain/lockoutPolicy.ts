@@ -38,13 +38,13 @@ const DEFAULT_CONFIG = {
  * @param {string} identifier
  * @returns {{ attempts: number[], lockedUntil: number|null }}
  */
-function getState(identifier) {
+async function getState(identifier) {
   if (lockoutCache.has(identifier)) {
     return lockoutCache.get(identifier);
   }
 
   try {
-    const fromDb = loadLockoutState(identifier);
+    const fromDb = await loadLockoutState(identifier);
     if (fromDb) {
       lockoutCache.set(identifier, fromDb);
       return fromDb;
@@ -61,10 +61,10 @@ function getState(identifier) {
  * @param {string} identifier
  * @param {{ attempts: number[], lockedUntil: number|null }} state
  */
-function persistState(identifier, state) {
+async function persistState(identifier, state) {
   lockoutCache.set(identifier, state);
   try {
-    saveLockoutState(identifier, state);
+    await saveLockoutState(identifier, state);
   } catch {
     // Non-critical
   }
@@ -77,8 +77,8 @@ function persistState(identifier, state) {
  * @param {LockoutConfig} [config]
  * @returns {{ locked: boolean, remainingMs?: number, attempts?: number }}
  */
-export function checkLockout(identifier, config = DEFAULT_CONFIG) {
-  const state = getState(identifier);
+export async function checkLockout(identifier, config = DEFAULT_CONFIG) {
+  const state = await getState(identifier);
   if (!state) {
     return { locked: false, attempts: 0 };
   }
@@ -96,14 +96,14 @@ export function checkLockout(identifier, config = DEFAULT_CONFIG) {
   if (state.lockedUntil) {
     state.lockedUntil = null;
     state.attempts = [];
-    persistState(identifier, state);
+    await persistState(identifier, state);
   }
 
   // Count recent attempts within the window
   const windowStart = Date.now() - config.attemptWindowMs;
   const recentAttempts = state.attempts.filter((t) => t > windowStart);
   state.attempts = recentAttempts;
-  persistState(identifier, state);
+  await persistState(identifier, state);
 
   return { locked: false, attempts: recentAttempts.length };
 }
@@ -115,8 +115,8 @@ export function checkLockout(identifier, config = DEFAULT_CONFIG) {
  * @param {LockoutConfig} [config]
  * @returns {{ locked: boolean, remainingMs?: number }}
  */
-export function recordFailedAttempt(identifier, config = DEFAULT_CONFIG) {
-  let state = getState(identifier);
+export async function recordFailedAttempt(identifier, config = DEFAULT_CONFIG) {
+  let state = await getState(identifier);
   if (!state) {
     state = { attempts: [], lockedUntil: null };
   }
@@ -131,14 +131,14 @@ export function recordFailedAttempt(identifier, config = DEFAULT_CONFIG) {
   // Check if threshold exceeded
   if (state.attempts.length >= config.maxAttempts) {
     state.lockedUntil = Date.now() + config.lockoutDurationMs;
-    persistState(identifier, state);
+    await persistState(identifier, state);
     return {
       locked: true,
       remainingMs: config.lockoutDurationMs,
     };
   }
 
-  persistState(identifier, state);
+  await persistState(identifier, state);
   return { locked: false };
 }
 
@@ -147,7 +147,7 @@ export function recordFailedAttempt(identifier, config = DEFAULT_CONFIG) {
  *
  * @param {string} identifier
  */
-export function recordSuccess(identifier) {
+export async function recordSuccess(identifier) {
   lockoutCache.delete(identifier);
   try {
     deleteLockoutState(identifier);
@@ -161,7 +161,7 @@ export function recordSuccess(identifier) {
  *
  * @param {string} identifier
  */
-export function forceUnlock(identifier) {
+export async function forceUnlock(identifier) {
   lockoutCache.delete(identifier);
   try {
     deleteLockoutState(identifier);
@@ -175,12 +175,12 @@ export function forceUnlock(identifier) {
  *
  * @returns {Array<{ identifier: string, lockedUntil: number, remainingMs: number }>}
  */
-export function getLockedIdentifiers() {
+export async function getLockedIdentifiers() {
   const now = Date.now();
 
   // Merge cache and DB
   try {
-    const fromDb = loadAllLockedIdentifiers();
+    const fromDb = await loadAllLockedIdentifiers();
     for (const entry of fromDb) {
       if (!lockoutCache.has(entry.identifier)) {
         lockoutCache.set(entry.identifier, {

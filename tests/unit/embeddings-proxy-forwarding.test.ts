@@ -15,6 +15,11 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const { createEmbeddingResponse } = await import("../../src/lib/embeddings/service.ts");
 const { resolveProxyForRequest } = await import("../../open-sse/utils/proxyFetch.ts");
 
+// Bootstrap: open the DB and drain async migrations before the first test
+// (setProxyForLevel persists proxy config; unmigrated schema loses the write).
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

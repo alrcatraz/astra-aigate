@@ -6398,8 +6398,6 @@
     "invalidLogoFileType": "نوع ملف غير صالح. يرجى تحميل PNG أو JPG أو SVG أو GIF أو WebP.",
     "invalidFaviconFileType": "نوع ملف غير صالح. يرجى تحميل PNG أو ICO أو SVG أو GIF أو WebP.",
     "failedToReadFile": "فشل في قراءة الملف",
-    "startOnLogin": "البدء عند تسجيل الدخول",
-    "startOnLoginDesc": "تشغيل AI Gate تلقائيًا عند بدء تشغيل النظام والتشغيل بصمت في علبة النظام الخلفية.",
     "flushCache": "مسح ذاكرة التخزين المؤقت",
     "flushing": "تفريغ…",
     "size": "الحجم",

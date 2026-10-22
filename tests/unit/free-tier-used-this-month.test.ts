@@ -11,7 +11,7 @@ const { sumUsageTokensThisMonth } = await import("../../src/lib/db/usageSummary.
 
 test.after(async () => await resetDbInstanceDrained());
 
-test("sumUsageTokensThisMonth sums only the current calendar month's rolled-up tokens", () => {
+test("sumUsageTokensThisMonth sums only the current calendar month's rolled-up tokens", async () => {
   const db = getDbInstance();
   // Ensure the table exists (migrations run on getDbInstance; if not present, create defensively).
   db.exec(
@@ -24,5 +24,7 @@ test("sumUsageTokensThisMonth sums only the current calendar month's rolled-up t
   insert.run("groq", "llama", `${thisMonth}-05`, 100, 200);
   insert.run("cerebras", "qwen", `${thisMonth}-12`, 50, 50);
   insert.run("groq", "llama", "2000-01-01", 9999, 9999); // long ago — excluded
-  assert.equal(sumUsageTokensThisMonth(), 400);
+  // sumUsageTokensThisMonth went async with the SqliteAdapter migration —
+  // awaiting is required, otherwise strictEqual compares a pending Promise.
+  assert.equal(await sumUsageTokensThisMonth(), 400);
 });

@@ -196,8 +196,7 @@ exported alongside the types and are used by the route handlers.
 ## Database
 
 Source: `src/lib/cloudAgent/db.ts` — table is created lazily via
-`createCloudAgentTaskTable()` (also called from `src/lib/cloudAgent/index.ts` at
-module import).
+`createCloudAgentTaskTable()`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS cloud_agent_tasks (

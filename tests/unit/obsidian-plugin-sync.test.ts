@@ -109,77 +109,77 @@ function resolveKeepBoth(conflictPaths: string[]): { action: string; conflictPat
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("Sync Pull — Manifest Diff", () => {
-  test("returns all files when local manifest is empty", () => {
+  test("returns all files when local manifest is empty", async () => {
     const serverFiles: ManifestEntry[] = [
       { path: "a.md", mtime: 1000, size: 100 },
       { path: "b.md", mtime: 2000, size: 200 },
     ];
-    const result = buildPullResult(serverFiles, [], [], new Map(), 0);
+    const result = await buildPullResult(serverFiles, [], [], new Map(), 0);
     assert.equal(result.filesToPull.length, 2);
   });
 
-  test("skips files where both mtime and size match", () => {
+  test("skips files where both mtime and size match", async () => {
     const serverFiles: ManifestEntry[] = [{ path: "a.md", mtime: 1000, size: 100 }];
     const localMap = new Map([["a.md", { path: "a.md", mtime: 1000, size: 100 }]]);
-    const result = buildPullResult(serverFiles, [], [], localMap, 0);
+    const result = await buildPullResult(serverFiles, [], [], localMap, 0);
     assert.equal(result.filesToPull.length, 0);
   });
 
-  test("returns file when mtime differs even if size matches", () => {
+  test("returns file when mtime differs even if size matches", async () => {
     const serverFiles: ManifestEntry[] = [{ path: "a.md", mtime: 2000, size: 100 }];
     const localMap = new Map([["a.md", { path: "a.md", mtime: 1000, size: 100 }]]);
-    const result = buildPullResult(serverFiles, [], [], localMap, 0);
+    const result = await buildPullResult(serverFiles, [], [], localMap, 0);
     assert.equal(result.filesToPull.length, 1);
     assert.equal(result.filesToPull[0].path, "a.md");
   });
 
-  test("returns file when size differs even if mtime matches", () => {
+  test("returns file when size differs even if mtime matches", async () => {
     const serverFiles: ManifestEntry[] = [{ path: "a.md", mtime: 1000, size: 200 }];
     const localMap = new Map([["a.md", { path: "a.md", mtime: 1000, size: 100 }]]);
-    const result = buildPullResult(serverFiles, [], [], localMap, 0);
+    const result = await buildPullResult(serverFiles, [], [], localMap, 0);
     assert.equal(result.filesToPull.length, 1);
   });
 
-  test("returns file when local has no entry for it", () => {
+  test("returns file when local has no entry for it", async () => {
     const serverFiles: ManifestEntry[] = [{ path: "new.md", mtime: 1000, size: 50 }];
     const localMap = new Map([["other.md", { path: "other.md", mtime: 1000, size: 100 }]]);
-    const result = buildPullResult(serverFiles, [], [], localMap, 0);
+    const result = await buildPullResult(serverFiles, [], [], localMap, 0);
     assert.equal(result.filesToPull.length, 1);
     assert.equal(result.filesToPull[0].path, "new.md");
   });
 
-  test("returns only folders not tracked in local manifest", () => {
+  test("returns only folders not tracked in local manifest", async () => {
     const localMap = new Map([
       ["existing-folder/note.md", { path: "existing-folder/note.md", mtime: 1000, size: 100 }],
       ["existing-folder", { path: "existing-folder", mtime: 0, size: 0 }],
     ]);
-    const result = buildPullResult([], ["existing-folder", "new-folder"], [], localMap, 0);
+    const result = await buildPullResult([], ["existing-folder", "new-folder"], [], localMap, 0);
     assert.deepEqual(result.folders, ["new-folder"]);
   });
 
-  test("returns all folders when local manifest has none", () => {
-    const result = buildPullResult([], ["folder-a", "folder-b"], [], new Map(), 0);
+  test("returns all folders when local manifest has none", async () => {
+    const result = await buildPullResult([], ["folder-a", "folder-b"], [], new Map(), 0);
     assert.deepEqual(result.folders, ["folder-a", "folder-b"]);
   });
 
-  test("filters tombstones by since timestamp", () => {
+  test("filters tombstones by since timestamp", async () => {
     const tombstones: TombstoneEntry[] = [
       { path: "old.md", deletedAt: 1000, deletedBy: "desktop" },
       { path: "new.md", deletedAt: 2000, deletedBy: "mobile" },
     ];
-    const result = buildPullResult([], [], tombstones, new Map(), 1500);
+    const result = await buildPullResult([], [], tombstones, new Map(), 1500);
     assert.equal(result.tombstones.length, 1);
     assert.equal(result.tombstones[0].path, "new.md");
   });
 
-  test("returns empty when all tombstones are older than since", () => {
+  test("returns empty when all tombstones are older than since", async () => {
     const tombstones: TombstoneEntry[] = [{ path: "a.md", deletedAt: 100, deletedBy: "desktop" }];
-    const result = buildPullResult([], [], tombstones, new Map(), 9999);
+    const result = await buildPullResult([], [], tombstones, new Map(), 9999);
     assert.equal(result.tombstones.length, 0);
   });
 
-  test("empty server and empty local returns nothing", () => {
-    const result = buildPullResult([], [], [], new Map(), 0);
+  test("empty server and empty local returns nothing", async () => {
+    const result = await buildPullResult([], [], [], new Map(), 0);
     assert.equal(result.filesToPull.length, 0);
     assert.equal(result.folders.length, 0);
     assert.equal(result.tombstones.length, 0);
@@ -411,7 +411,7 @@ describe("Conflict Resolution", () => {
 });
 
 describe("End-to-End Sync Scenarios", () => {
-  test("full pull: server has files local lacks", () => {
+  test("full pull: server has files local lacks", async () => {
     const serverFiles: ManifestEntry[] = [
       { path: "a.md", mtime: 2000, size: 100 },
       { path: "b.md", mtime: 1000, size: 200 },
@@ -420,7 +420,7 @@ describe("End-to-End Sync Scenarios", () => {
       ["a.md", { path: "a.md", mtime: 1000, size: 100 }],
     ]);
 
-    const pullResult = buildPullResult(serverFiles, [], [], localMap, 0);
+    const pullResult = await buildPullResult(serverFiles, [], [], localMap, 0);
     assert.equal(pullResult.filesToPull.length, 2);
     const paths = pullResult.filesToPull.map((f) => f.path).sort();
     assert.deepEqual(paths, ["a.md", "b.md"]);
@@ -438,13 +438,13 @@ describe("End-to-End Sync Scenarios", () => {
     assert.equal(result.conflict, false);
   });
 
-  test("tombstone propagation: delete on desktop, pull on mobile", () => {
+  test("tombstone propagation: delete on desktop, pull on mobile", async () => {
     const tombstones: TombstoneEntry[] = [
       { path: "deleted.md", deletedAt: 5000, deletedBy: "desktop" },
     ];
     const localMap = new Map([["deleted.md", { path: "deleted.md", mtime: 1000, size: 100 }]]);
 
-    const pullResult = buildPullResult([], [], tombstones, localMap, 0);
+    const pullResult = await buildPullResult([], [], tombstones, localMap, 0);
     assert.equal(pullResult.tombstones.length, 1);
     assert.equal(pullResult.tombstones[0].path, "deleted.md");
   });
@@ -456,7 +456,7 @@ describe("End-to-End Sync Scenarios", () => {
     assert.equal(afterRename[0].path, "old-name.md");
   });
 
-  test("large manifest: 5000 files, only 3 changed", () => {
+  test("large manifest: 5000 files, only 3 changed", async () => {
     const serverFiles: ManifestEntry[] = [];
     const localMap = new Map<string, ManifestEntry>();
 
@@ -468,13 +468,13 @@ describe("End-to-End Sync Scenarios", () => {
       }
     }
 
-    const result = buildPullResult(serverFiles, [], [], localMap, 0);
+    const result = await buildPullResult(serverFiles, [], [], localMap, 0);
     assert.equal(result.filesToPull.length, 3);
     const paths = result.filesToPull.map((f) => f.path).sort();
     assert.deepEqual(paths, ["file-42.md", "file-4999.md", "file-99.md"]);
   });
 
-  test("identical manifests produce zero diff", () => {
+  test("identical manifests produce zero diff", async () => {
     const serverFiles: ManifestEntry[] = [];
     const localMap = new Map<string, ManifestEntry>();
 
@@ -484,7 +484,7 @@ describe("End-to-End Sync Scenarios", () => {
       localMap.set(entry.path, { ...entry });
     }
 
-    const result = buildPullResult(serverFiles, [], [], localMap, 0);
+    const result = await buildPullResult(serverFiles, [], [], localMap, 0);
     assert.equal(result.filesToPull.length, 0);
   });
 });

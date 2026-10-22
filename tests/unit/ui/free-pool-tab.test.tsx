@@ -6,9 +6,24 @@ import deMessages from "../../../src/i18n/messages/de.json";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => Object.assign((key: string) => key, { has: () => false }),
-}));
+// next-intl's real useTranslations returns a stable function per namespace across
+// renders. Handing out a fresh closure each time breaks consumers that keep `t`
+// in a useCallback/useEffect dependency: the callback identity changes every
+// render, the effect re-fires, and the component never settles — the helper's
+// waitForCondition then times out. Memoise per namespace.
+vi.mock("next-intl", () => {
+  const cache = new Map<string, ((key: string) => string) & { has: (key: string) => boolean }>();
+  return {
+    useTranslations: (ns: string) => {
+      let fn = cache.get(ns);
+      if (!fn) {
+        fn = Object.assign((key: string) => key, { has: () => false });
+        cache.set(ns, fn);
+      }
+      return fn;
+    },
+  };
+});
 
 // Stub localStorage before importing the component
 const lsStore: Record<string, string> = {};
@@ -143,7 +158,7 @@ describe("FreePoolTab source toggles", () => {
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const bar = el.querySelector("[role='group']")!;
     const first = bar.querySelectorAll("button")[0];
-    act(async () => {
+    await act(async () => {
       await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(first.getAttribute("aria-pressed")).toBe("false");
@@ -154,11 +169,11 @@ describe("FreePoolTab source toggles", () => {
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const bar = el.querySelector("[role='group']")!;
     const first = bar.querySelectorAll("button")[0];
-    act(async () => {
+    await act(async () => {
       await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(first.getAttribute("aria-pressed")).toBe("false");
-    act(async () => {
+    await act(async () => {
       await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(first.getAttribute("aria-pressed")).toBe("true");
@@ -168,10 +183,10 @@ describe("FreePoolTab source toggles", () => {
     const el = renderTab();
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const buttons = el.querySelector("[role='group']")!.querySelectorAll("button");
-    act(async () => {
+    await act(async () => {
       await buttons[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    act(async () => {
+    await act(async () => {
       await buttons[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(buttons[0].getAttribute("aria-pressed")).toBe("false");
@@ -183,7 +198,7 @@ describe("FreePoolTab source toggles", () => {
     const el = renderTab();
     await waitForCondition(() => el.querySelector("[role='group']") !== null);
     const first = el.querySelector("[role='group']")!.querySelectorAll("button")[0];
-    act(async () => {
+    await act(async () => {
       await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     const stored = JSON.parse(localStorageMock.getItem("freePool.disabledSources") ?? "[]");
@@ -246,7 +261,7 @@ describe("FreePoolTab data loading", () => {
 
     const bar = el.querySelector("[role='group']")!;
     const first = bar.querySelectorAll("button")[0]; // disable 1proxy
-    act(async () => {
+    await act(async () => {
       await first.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
@@ -296,7 +311,7 @@ describe("FreePoolTab sync error surfacing (#5595)", () => {
       b.textContent?.includes("Sync all")
     )!;
     expect(syncBtn).toBeTruthy();
-    act(async () => {
+    await act(async () => {
       await syncBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 

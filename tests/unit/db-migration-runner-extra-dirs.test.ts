@@ -68,6 +68,10 @@ process.env.OMNIROUTE_MIGRATIONS_DIR = CORE_DIR;
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
 const { runMigrations } = await import("../../src/lib/db/migrationRunner.ts");
+// The runner's contract is the async `DatabaseAdapter` (whose `transaction`
+// accepts async bodies). A raw better-sqlite3 handle rejects them with
+// "Transaction function cannot return a promise".
+const { sqliteAsyncAdapter } = await import("../../src/lib/db/core.ts");
 
 // Cleanup on process exit, NOT via test.after(): the root after-hook fires as soon
 // as the first top-level test settles, while a later test has already registered its
@@ -96,7 +100,7 @@ async function runWithExtras(extraSpec: string | null): RunResult {
 
   const db = new Database(":memory:");
   try {
-    const count = await runMigrations(db as never, { isNewDb: true });
+    const count = await runMigrations(sqliteAsyncAdapter(db) as never, { isNewDb: true });
     const rows = db
       .prepare("SELECT version, name FROM _omniroute_migrations ORDER BY rowid")
       .all() as Array<{ version: string; name: string }>;
@@ -114,7 +118,7 @@ async function runWithExtras(extraSpec: string | null): RunResult {
 }
 
 test("sem a env, o runner só enxerga o diretório core (comportamento atual)", async () => {
-  const r = runWithExtras(null);
+  const r = await runWithExtras(null);
   assert.deepEqual(
     r.rows.map((x) => x.version),
     ["001", "002"]
@@ -126,7 +130,7 @@ test("migration de diretório extra é aplicada e gravada com versão namespaced
   const eeDir = mkTempDir("mig-ee-");
   writeMigrations(eeDir, { "001_ee_lending.sql": "CREATE TABLE ee_lending (id INTEGER);" });
 
-  const r = runWithExtras(`ee=${eeDir}`);
+  const r = await runWithExtras(`ee=${eeDir}`);
 
   assert.ok(
     r.tables.includes("ee_lending"),
@@ -147,7 +151,7 @@ test("o mesmo número em core e em diretório extra NÃO colide — ambas rodam"
   // faz uma das duas ser silenciosamente considerada já aplicada.
   writeMigrations(eeDir, { "002_ee_same_slot.sql": "CREATE TABLE ee_same_slot (id INTEGER);" });
 
-  const r = runWithExtras(`ee=${eeDir}`);
+  const r = await runWithExtras(`ee=${eeDir}`);
 
   assert.ok(r.tables.includes("core_two"), "a core 002 deve ter rodado");
   assert.ok(r.tables.includes("ee_same_slot"), "a extra 002 deve ter rodado também");
@@ -163,7 +167,7 @@ test("dois namespaces extras coexistem, cada um no seu espaço de versão", asyn
   writeMigrations(a, { "001_from_a.sql": "CREATE TABLE from_a (id INTEGER);" });
   writeMigrations(b, { "001_from_b.sql": "CREATE TABLE from_b (id INTEGER);" });
 
-  const r = runWithExtras(`ee=${a}${path.delimiter}lab=${b}`);
+  const r = await runWithExtras(`ee=${a}${path.delimiter}lab=${b}`);
 
   assert.ok(r.tables.includes("from_a") && r.tables.includes("from_b"));
   assert.deepEqual(
@@ -179,7 +183,7 @@ test("número duplicado DENTRO de um namespace extra é erro (não pode ser pula
     "003_second.sql": "CREATE TABLE ee_second (id INTEGER);",
   });
 
-  assert.throws(
+  assert.rejects(
     () => runWithExtras(`ee=${eeDir}`),
     /collision/i,
     "duas migrations com o mesmo número no mesmo namespace têm que estourar"
@@ -190,7 +194,7 @@ test("spec malformada estoura em vez de ignorar o diretório", async () => {
   const eeDir = mkTempDir("mig-malformed-");
   writeMigrations(eeDir, { "001_x.sql": "CREATE TABLE x (id INTEGER);" });
 
-  assert.throws(
+  assert.rejects(
     () => runWithExtras(eeDir), // sem "namespace="
     /OMNIROUTE_EXTRA_MIGRATIONS_DIRS/,
     "entrada sem namespace= é configuração inválida, não um diretório a ignorar"
@@ -201,7 +205,7 @@ test("namespace inválido estoura (só minúsculas/dígitos, começando por letr
   const eeDir = mkTempDir("mig-badns-");
   writeMigrations(eeDir, { "001_x.sql": "CREATE TABLE x (id INTEGER);" });
 
-  assert.throws(
+  assert.rejects(
     () => runWithExtras(`EE Corp=${eeDir}`),
     /namespace/i,
     "namespace fora de [a-z][a-z0-9]* tem que estourar"
@@ -210,7 +214,7 @@ test("namespace inválido estoura (só minúsculas/dígitos, começando por letr
 
 test("diretório configurado que não existe estoura (schema faltando em silêncio é o bug)", async () => {
   const missing = path.join(os.tmpdir(), `mig-nao-existe-${process.pid}`);
-  assert.throws(
+  assert.rejects(
     () => runWithExtras(`ee=${missing}`),
     /does not exist/i,
     "um diretório explicitamente configurado e ausente é erro de configuração"
@@ -225,7 +229,7 @@ test("arquivos que não casam NNN_nome.sql são ignorados, como no diretório co
     "rascunho.sql": "CREATE TABLE nope (id INTEGER);",
   });
 
-  const r = runWithExtras(`ee=${eeDir}`);
+  const r = await runWithExtras(`ee=${eeDir}`);
 
   assert.ok(r.tables.includes("ee_ok"));
   assert.ok(!r.tables.includes("nope"), "arquivo .sql sem prefixo numérico não deve rodar");
@@ -250,7 +254,7 @@ test("diretório core ausente não impede as migrations dos extras", async () =>
   }));
   fs.rmSync(CORE_DIR, { recursive: true, force: true });
   try {
-    const r = runWithExtras(`ee=${eeDir}`);
+    const r = await runWithExtras(`ee=${eeDir}`);
     assert.ok(r.tables.includes("ee_solo"), `tabelas: ${r.tables.join(", ")}`);
     assert.deepEqual(
       r.rows.map((x) => x.version),
@@ -269,9 +273,10 @@ test("rodar duas vezes não reaplica as migrations do diretório extra", async (
   const prev = process.env.OMNIROUTE_EXTRA_MIGRATIONS_DIRS;
   process.env.OMNIROUTE_EXTRA_MIGRATIONS_DIRS = `ee=${eeDir}`;
   const db = new Database(":memory:");
+  const adapter = sqliteAsyncAdapter(db);
   try {
-    const first = await runMigrations(db as never, { isNewDb: true });
-    const second = await runMigrations(db as never);
+    const first = await runMigrations(adapter as never, { isNewDb: true });
+    const second = await runMigrations(adapter as never);
     assert.equal(first, 3, "primeira execução aplica core 001/002 + ee-001");
     assert.equal(second, 0, "segunda execução não tem nada pendente");
   } finally {

@@ -38,12 +38,17 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-warm-cata
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
+const { invalidateDbCache } = await import("../../src/lib/db/readCache.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const { warmModelCatalogCache } = await import("../../src/instrumentation-node.ts");
 const { getUnifiedModelsResponse } = await import("../../src/app/api/v1/models/catalog.ts");
 
 async function resetStorage() {
   await core.resetDbInstanceDrained();
+  // resetDbInstanceDrained() leaves the module-level read caches intact (only
+  // the sync resetDbInstance() invalidates them), so the previous test's
+  // openrouter connection row would otherwise still look "configured" here.
+  invalidateDbCache();
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
       if (fs.existsSync(TEST_DATA_DIR)) {

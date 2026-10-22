@@ -20,6 +20,13 @@ const core = await import("../../src/lib/db/core.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
 const { getComboBuilderOptions } = await import("../../src/lib/combos/builderOptions.ts");
 
+// A fresh DATA_DIR means core's deferred migration runner (setTimeout(0)) has not
+// run yet; production joins it at boot (instrumentation-node awaits awaitDbMigrations),
+// so without this barrier getCombos reads a half-migrated schema and throws
+// `no such column: context_cache_protection`.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 test.after(async () => {
   await core.resetDbInstanceDrained();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });

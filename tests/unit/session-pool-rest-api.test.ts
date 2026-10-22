@@ -9,14 +9,16 @@ import assert from "node:assert/strict";
 import type { WebSessionPoolHealthDeps } from "../../open-sse/services/webSessionPoolHealth.ts";
 import { getWebSessionPoolHealth } from "../../open-sse/services/webSessionPoolHealth.ts";
 
-function createMockDeps(overrides: {
-  providers?: string[];
-  stats?: Record<string, any>;
-  sessionDetails?: Record<string, any[]>;
-  breakerCooldown?: Record<string, boolean>;
-  breakerRemaining?: Record<string, number | null>;
-  breakerStates?: Record<string, any>;
-} = {}): WebSessionPoolHealthDeps {
+function createMockDeps(
+  overrides: {
+    providers?: string[];
+    stats?: Record<string, any>;
+    sessionDetails?: Record<string, any[]>;
+    breakerCooldown?: Record<string, boolean>;
+    breakerRemaining?: Record<string, number | null>;
+    breakerStates?: Record<string, any>;
+  } = {}
+): WebSessionPoolHealthDeps {
   const providers = overrides.providers ?? [];
   const stats = overrides.stats ?? {};
   const sessionDetails = overrides.sessionDetails ?? {};
@@ -35,14 +37,14 @@ function createMockDeps(overrides: {
 }
 
 describe("GET /api/session-pools (list all)", () => {
-  it("returns empty report when no pools registered", () => {
+  it("returns empty report when no pools registered", async () => {
     const deps = createMockDeps();
-    const report = getWebSessionPoolHealth(undefined, deps);
+    const report = await getWebSessionPoolHealth(undefined, deps);
     assert.equal(report.providers.length, 0);
     assert.ok(report.checkedAt);
   });
 
-  it("returns all registered pools", () => {
+  it("returns all registered pools", async () => {
     const now = Date.now();
     const deps = createMockDeps({
       providers: ["pollinations", "longcat"],
@@ -73,13 +75,13 @@ describe("GET /api/session-pools (list all)", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth(undefined, deps);
+    const report = await getWebSessionPoolHealth(undefined, deps);
     assert.equal(report.providers.length, 2);
     assert.equal(report.providers[0].provider, "pollinations");
     assert.equal(report.providers[1].provider, "longcat");
   });
 
-  it("includes health summary for each pool", () => {
+  it("includes health summary for each pool", async () => {
     const deps = createMockDeps({
       providers: ["pollinations"],
       stats: {
@@ -99,7 +101,7 @@ describe("GET /api/session-pools (list all)", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth(undefined, deps);
+    const report = await getWebSessionPoolHealth(undefined, deps);
     const pool = report.providers[0];
     assert.ok(pool.pool);
     assert.equal(pool.pool.totalSessions, 6);
@@ -109,7 +111,7 @@ describe("GET /api/session-pools (list all)", () => {
 });
 
 describe("GET /api/session-pools/[provider] (single pool)", () => {
-  it("returns specific pool when provider arg given", () => {
+  it("returns specific pool when provider arg given", async () => {
     const deps = createMockDeps({
       providers: ["pollinations", "longcat"],
       stats: {
@@ -129,12 +131,12 @@ describe("GET /api/session-pools/[provider] (single pool)", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     assert.equal(report.providers.length, 1);
     assert.equal(report.providers[0].provider, "pollinations");
   });
 
-  it("returns pool with session details", () => {
+  it("returns pool with session details", async () => {
     const deps = createMockDeps({
       providers: ["pollinations"],
       stats: {
@@ -179,14 +181,14 @@ describe("GET /api/session-pools/[provider] (single pool)", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     const pool = report.providers[0];
     assert.equal(pool.sessions.length, 2);
     assert.equal(pool.sessions[0].id, "s1");
     assert.equal(pool.sessions[1].id, "s2");
   });
 
-  it("returns pool with breaker state when available", () => {
+  it("returns pool with breaker state when available", async () => {
     const now = Date.now();
     const deps = createMockDeps({
       providers: ["pollinations"],
@@ -214,7 +216,7 @@ describe("GET /api/session-pools/[provider] (single pool)", () => {
       },
     });
 
-    const report = getWebSessionPoolHealth("pollinations", deps);
+    const report = await getWebSessionPoolHealth("pollinations", deps);
     const pool = report.providers[0];
     assert.ok(pool.breaker);
     assert.equal(pool.breaker.state, "OPEN");
@@ -223,9 +225,9 @@ describe("GET /api/session-pools/[provider] (single pool)", () => {
     assert.equal(pool.health, "down");
   });
 
-  it("returns provider entry even when no pool registered (for 404 detection)", () => {
+  it("returns provider entry even when no pool registered (for 404 detection)", async () => {
     const deps = createMockDeps();
-    const report = getWebSessionPoolHealth("nonexistent", deps);
+    const report = await getWebSessionPoolHealth("nonexistent", deps);
     assert.equal(report.providers.length, 1);
     assert.equal(report.providers[0].provider, "nonexistent");
     assert.equal(report.providers[0].pool, null);

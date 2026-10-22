@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 // fields (reasoning / refusal / annotations / cache_control) leaked through.
 const { translateRequest } = await import("../../open-sse/translator/index.ts");
 
-test("#1649: assistant echo fields are stripped on the OpenAI target path", () => {
+test("#1649: assistant echo fields are stripped on the OpenAI target path", async () => {
   const body = {
     messages: [
       { role: "user", content: "hi" },
@@ -25,7 +25,7 @@ test("#1649: assistant echo fields are stripped on the OpenAI target path", () =
     ],
   };
 
-  const out = translateRequest(
+  const out = (await translateRequest(
     "openai",
     "openai",
     "mistral/codestral-latest",
@@ -33,7 +33,7 @@ test("#1649: assistant echo fields are stripped on the OpenAI target path", () =
     false,
     null,
     "mistral"
-  ) as { messages: Record<string, unknown>[] };
+  )) as { messages: Record<string, unknown>[] };
 
   const asst = out.messages[1];
   assert.equal(asst.reasoning_content, undefined, "reasoning_content stripped");

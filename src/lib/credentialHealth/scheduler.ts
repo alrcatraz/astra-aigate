@@ -67,7 +67,6 @@ function isBuildProcess(): boolean {
   return typeof process !== "undefined" && process.env.NEXT_PHASE === "phase-production-build";
 }
 
-
 function isCredentialHealthCheckDisabled(): boolean {
   if (isBuildProcess() || isAutomatedTestProcess()) return true;
   const val = process.env.OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK;
@@ -298,24 +297,10 @@ export function initCredentialHealthCheck(): void {
 /**
  * Stop the scheduler (for tests / hot-reload).
  */
-export function stopCredentialHealthCheck(): void {
-  const state = getSchedulerState();
-  if (state.sweepTimer) {
-    clearTimeout(state.sweepTimer);
-    state.sweepTimer = null;
-  }
-  state.initialized = false;
-}
 
 /**
  * Force an immediate sweep (for manual refresh / testing).
  */
-export async function forceSweep(): Promise<void> {
-  const state = getSchedulerState();
-  state.initialized = true;
-  initCredentialCache();
-  await sweep();
-}
 
 // Auto-initialize on first import
 initCredentialHealthCheck();

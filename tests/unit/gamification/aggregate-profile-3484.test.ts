@@ -20,6 +20,10 @@ const gami = await import("../../../src/lib/db/gamification.ts");
 const { seedBuiltinBadges, BUILTIN_BADGES } =
   await import("../../../src/lib/gamification/badges.ts");
 
+// Open + fully drain migrations before the first test statement.
+getDbInstance();
+await awaitDbMigrations();
+
 test.after(async () => {
   try {
     getDbInstance().close();

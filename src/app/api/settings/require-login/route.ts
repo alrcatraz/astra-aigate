@@ -69,7 +69,7 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   const settings = await getSettings();
-  if (!isBootstrapSecurityWindow(settings) && !(await isAuthenticated(request))) {
+  if (!isBootstrapSecurityWindow(settings) && !(await isDashboardSessionAuthenticated(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

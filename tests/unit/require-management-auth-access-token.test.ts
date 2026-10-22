@@ -18,6 +18,11 @@ const core = await import("../../src/lib/db/core.ts");
 const at = await import("../../src/lib/db/accessTokens.ts");
 const { requireManagementAuth } = await import("../../src/lib/api/requireManagementAuth.ts");
 
+// getDbInstance() kicks migrations off lazily; join the barrier before the first
+// query or cli_access_tokens may not exist yet.
+core.getDbInstance();
+await core.awaitDbMigrations();
+
 const BASE = "http://localhost:20128";
 
 function req(method: string, pathname: string, token?: string): Request {

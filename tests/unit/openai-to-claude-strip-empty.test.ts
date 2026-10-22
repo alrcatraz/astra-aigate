@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const { stripEmptyTextBlocks, openaiToClaudeRequest, normalizeContentToString } =
   await import("../../open-sse/translator/request/openai-to-claude.ts");
 
-test("stripEmptyTextBlocks removes empty text recursively inside tool_result content", () => {
+test("stripEmptyTextBlocks removes empty text recursively inside tool_result content", async () => {
   const input = [
     { type: "text", text: "" },
     { type: "text", text: "keep-top-level" },
@@ -40,7 +40,7 @@ test("stripEmptyTextBlocks removes empty text recursively inside tool_result con
   ]);
 });
 
-test("openaiToClaudeRequest applies strip to tool message array content", () => {
+test("openaiToClaudeRequest applies strip to tool message array content", async () => {
   const request = {
     messages: [
       { role: "user", content: "run tool" },
@@ -66,7 +66,7 @@ test("openaiToClaudeRequest applies strip to tool message array content", () => 
     ],
   };
 
-  const translated = openaiToClaudeRequest("claude-sonnet-4", request, false);
+  const translated = await openaiToClaudeRequest("claude-sonnet-4", request, false);
   const toolMessage = translated.messages.find(
     (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "tool_result")
   );
@@ -75,7 +75,7 @@ test("openaiToClaudeRequest applies strip to tool message array content", () => 
   assert.deepEqual(toolResult.content, [{ type: "text", text: "tool ok" }]);
 });
 
-test("T15: normalizeContentToString supports array-form content blocks", () => {
+test("T15: normalizeContentToString supports array-form content blocks", async () => {
   const text = normalizeContentToString([
     { type: "text", text: "line 1" },
     { type: "image_url", image_url: { url: "data:image/png;base64,abc" } },
@@ -85,7 +85,7 @@ test("T15: normalizeContentToString supports array-form content blocks", () => {
   assert.equal(text, "line 1\nline 2");
 });
 
-test("T15: openaiToClaudeRequest converts system array content into a Claude system text block", () => {
+test("T15: openaiToClaudeRequest converts system array content into a Claude system text block", async () => {
   const request = {
     messages: [
       {
@@ -100,7 +100,7 @@ test("T15: openaiToClaudeRequest converts system array content into a Claude sys
     ],
   };
 
-  const translated = openaiToClaudeRequest("claude-sonnet-4", request, false);
+  const translated = await openaiToClaudeRequest("claude-sonnet-4", request, false);
   assert.ok(Array.isArray(translated.system));
   assert.equal(translated.system[0].text, "System rules A\nSystem rules B");
 });

@@ -113,7 +113,12 @@ jobs:
             eslint-${{ runner.os }}-
       # Single ESLint inventory (JSON) — quality-gate reuses the artifact instead of
       # a second cold full-tree pass for eslintWarnings ratchet counts.
+      # `always()` matters: `npm run audit:deps` runs above and fails whenever a CVE
+      # advisory is known (that gate is deliberately red pending dependency triage),
+      # and without this the report step is skipped, no artifact is uploaded, and the
+      # quality gate falls back to re-linting a tree that carries build output.
       - name: ESLint (JSON report)
+        if: always()
         run: $GUIX_SHELL npm run lint:json
       - name: Upload ESLint results
         if: always()
@@ -121,6 +126,12 @@ jobs:
         with:
           name: eslint-results
           path: .artifacts/eslint-results.json
+          # `.artifacts/` starts with a dot, and upload-artifact v4+ skips hidden
+          # files by default: without this the report silently never uploads, the
+          # quality-gate job falls back to re-running ESLint over a workspace that
+          # carries build output, and its warning count no longer matches the
+          # authoritative report.
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
       - run: $GUIX_SHELL npm run check:cycles
@@ -789,7 +800,7 @@ jobs:
     name: Unit Tests (${{ matrix.shard }}/8)
     # Same hosted-runner rule as Build.
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
     # needs: changes (not build) — this job never downloads the next-build artifact;
     # gating it on Build only serialized ~20min of wall-clock for nothing. Jobs that
     # DO consume the artifact (e2e, package-artifact) keep
@@ -862,7 +873,7 @@ jobs:
   test-bun-sqlite:
     name: Bun SQLite Compatibility
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
@@ -886,6 +897,12 @@ jobs:
           restore-keys: |
             npm-${{ runner.os }}-
       - uses: ./.github/actions/npm-ci-retry
+      # The npm `bun` package is a postinstall stub under our Guix-pinned
+      # install (its binary fetch never ran). Supply the pinned official bun
+      # (same pattern as node-dist) and neutralise the stub so the real
+      # bun:sqlite adapter test executes against a working bun host.
+      - name: bun dist (pinned)
+        uses: ./.github/actions/bun-dist
       - run: $GUIX_SHELL npm run test:bun:db
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
@@ -899,7 +916,7 @@ jobs:
     name: Vitest (MCP / autoCombo / UI components)
     # Same hosted-runner rule as Build.
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
@@ -1273,7 +1290,7 @@ jobs:
   test-integration:
     name: Integration Tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}

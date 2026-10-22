@@ -33,14 +33,19 @@ test(
       await probe!
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
         .get();
-      probe!.close();
+      await probe!.close();
 
-      // Same module-global singleton — a raw .close() poisons it for good.
+      // Same module-global singleton — a raw .close() leaves it dead for every
+      // later caller. Assert the stable contract (same handle, closed) rather
+      // than sql.js's internal error string: the adapter now reports closed
+      // state through `open` and refuses work, and #6560 additionally evicts
+      // stale handles on the next preInitSqlJs().
       const real = getSqlJsAdapter(sqliteFile);
-      assert.throws(
-        () => real!.pragma("journal_mode = WAL"),
-        /Database closed/,
-        "sanity: confirms the underlying sql.js singleton mechanism this bug exploits"
+      assert.equal(real, probe, "getSqlJsAdapter() hands back the same cached handle");
+      assert.equal(
+        real!.open,
+        false,
+        "sanity: a raw .close() on the shared sql.js singleton leaves it closed for later callers"
       );
     } finally {
       fs.rmSync(dataDir, { recursive: true, force: true });
