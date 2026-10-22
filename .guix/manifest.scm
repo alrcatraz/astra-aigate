@@ -50,6 +50,19 @@
  (list
   ;; Language runtime (support side): python for gates that need it.
        (@ (gnu packages python) python)
+  ;; GNU make — needed by npm's implicit node-gyp builds. npm treats
+  ;; gypfile:true packages (better-sqlite3) specially: it runs
+  ;; `node-gyp rebuild` whether or not the script was approved, and node-gyp
+  ;; shells out to make. Without make the build fails, and because
+  ;; better-sqlite3 is an optionalDependency npm DROPS IT SILENTLY — npm ci
+  ;; still exits 0 and the first check that imports it dies with
+  ;; "Cannot find package 'better-sqlite3'". The executor image ships
+  ;; python3/gcc/g++ but no make, so this only ever failed in CI (a host with
+  ;; make never reproduces it). The VARIABLE is gnu-make while the package
+  ;; name is make — exactly the name-vs-variable trap the packaging note
+  ;; above warns about; verified by loading the module in image v0.2.2
+  ;; (package-version gnu-make -> 4.4.1).
+       (@ (gnu packages base) gnu-make)
   ;; Version control, search and data tools the gates shell out to.
        (@ (gnu packages version-control) git)
        (@ (gnu packages rust-apps) ripgrep)
