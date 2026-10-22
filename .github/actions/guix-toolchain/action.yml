@@ -121,6 +121,39 @@ runs:
     # exports NODE_DIST_* plus a PATH whose head holds the dist's bin — the
     # wrapper below inherits it, so `$GUIX_SHELL node` resolves to the dist
     # once the manifest stops carrying node.
+    # Two executor-container facts, declared once for every job that uses this
+    # action (both pass silently on a bare ubuntu runner, which is why they only
+    # surfaced after the container move):
+    # 1) git — the workspace is a mount owned by a different uid than the
+    #    process, and checkout's safe.directory entry went into a throwaway
+    #    HOME, so every later `git` inside checks died with "detected dubious
+    #    ownership" (check:tracked-artifacts, pr-test-policy's fetch).
+    #    GIT_CONFIG_* exported through GITHUB_ENV reaches every subsequent step
+    #    and its children; config supplied this way counts as command-line
+    #    config, which is one of the scopes git honours safe.directory in.
+    # 2) native-addon cache root — the swc loader refuses a cache whose parent
+    #    is writable by another user without trusted sticky protection
+    #    (ERR_SWC_NATIVE_CACHE on /github/home/.cache, which killed next build
+    #    and four unit shards). Give tools a root-owned XDG cache and mark the
+    #    mounted parents sticky — exactly the protection the message asks for.
+    - name: "Container trust: git safe.directory + native cache root"
+      if: steps.detect.outputs.preinstalled == 'true'
+      shell: bash
+      run: |
+        set -eu
+        {
+          printf 'GIT_CONFIG_COUNT=1\n'
+          printf 'GIT_CONFIG_KEY_0=safe.directory\n'
+          printf 'GIT_CONFIG_VALUE_0=*\n'
+          printf 'XDG_CACHE_HOME=/root/.cache\n'
+        } >> "$GITHUB_ENV"
+        mkdir -p /root/.cache "$HOME/.cache"
+        chmod 700 /root/.cache "$HOME/.cache" || true
+        for d in /github /github/home; do
+          if [ -d "$d" ]; then chmod +t "$d" 2>/dev/null || true; fi
+        done
+        echo "git trust exported (safe.directory=*), XDG cache -> /root/.cache, mounted parents marked sticky"
+
     - name: node dist (image-identical runtime)
       uses: ./.github/actions/node-dist
 

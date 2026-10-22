@@ -1848,7 +1848,13 @@ jobs:
         SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
         CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
         GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
-    timeout-minutes: 30
+    # 30 → 45 (measured, not guessed): inside the executor container npm ci alone
+    # runs ~15 min this round (was 18.8 min before the substitute-source work), the
+    # time-machine env another ~3 min, so the shard got under 10 min of its 30 —
+    # run 39794869888 was killed at exactly 30 min (log ends
+    # "The operation was canceled."). Headroom while the fleet substitute cache
+    # absorbs the install phase; test-vitest keeps its own 30.
+    timeout-minutes: 45
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}

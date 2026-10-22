@@ -112,8 +112,15 @@ runs:
         fi
 
         BIN_DIR="$DEST_ROOT/bun-linux-x64"
-        test -x "$BIN_DIR/bun" || { echo "FATAL: bun missing after unpack"; exit 1; }
+        # Restore the executable bit BEFORE the check: the executor image ships
+        # no unzip, so the python zipfile fallback runs, and zipfile.extractall
+        # drops the mode bits the release zip carries (reproduced locally: file
+        # present at the right path, `test -x` false). Bare ubuntu has unzip —
+        # which preserves modes — so this never surfaced before the container
+        # move. If the file is genuinely absent the chmod is a no-op and the
+        # check below still fails loudly.
         chmod +x "$BIN_DIR/bun" 2>/dev/null || true
+        test -x "$BIN_DIR/bun" || { echo "FATAL: bun missing after unpack"; exit 1; }
 
         # Prove it runs (glibc compatibility with the runner image) and that
         # it is the PINNED release, not a stub that silently reports nothing.
