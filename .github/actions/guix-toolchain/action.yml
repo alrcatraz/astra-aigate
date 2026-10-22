@@ -224,40 +224,85 @@ runs:
       id: daemon
       if: steps.detect.outputs.preinstalled == 'true'
       shell: bash
+      env:
+        CACHE_URL: ${{ inputs.cache-url }}
       run: |
         set -eu
+        # The runner starts this container with `--entrypoint tail`: no boot, no
+        # shepherd, so /var/guix/daemon-socket/socket never exists until something
+        # starts the daemon. Every job therefore starts it here, in the shape the
+        # image's own build workflow uses. Authorize first — without the ACL the
+        # client refuses every substitute regardless of source — and give the
+        # daemon a signing keypair, as the image project's stage 1 does.
         for F in /run/current-system/profile/share/guix/*.pub; do
           guix archive --authorize < "$F"
         done
-        if guix gc --list-roots >/dev/null 2>&1; then
-          echo "guix-daemon already responding"
-          exit 0
+        if timeout 30 guix archive --generate-key; then
+          echo "daemon keypair generated"
+        else
+          echo "::warning title=generate-key failed::rc=$? — daemon has no signing keypair"
         fi
-        echo "no daemon in this container — starting guix-daemon"
-        guix-daemon --build-users-group=guixbuild --discover=no >"$RUNNER_TEMP/guix-daemon.log" 2>&1 &
+
+        # Same list, same order as the wrapper step: the private cache leads
+        # because Guix queries in sequence and stops at the first hit, the public
+        # mirrors fall back. (Reachability caveat for a home-served cache is
+        # documented in guix/ci/guix-to-work.md — GitHub-hosted runners have no
+        # IPv6 egress.)
+        PUBLIC_URLS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
+        if [ -n "${CACHE_URL:-}" ]; then SUBS="$CACHE_URL $PUBLIC_URLS"; else SUBS="$PUBLIC_URLS"; fi
+        printf '%s' "$SUBS" > /tmp/guix-subs.txt
+
+        # Deliberately NOT --allow-aslr: the job runs --privileged, so
+        # personality(ADDR_NO_RANDOMIZE) IS available and guix disables ASLR
+        # itself — the reproducible default. --allow-aslr would tell guix to
+        # build with ASLR on, i.e. accept non-reproducible output for no reason
+        # (and as an argument to `guix time-machine` it is rejected outright as
+        # unrecognized — it is a daemon flag only).
+        # fds to a file, stdin from /dev/null: a plain `&` already survives
+        # across steps, but binding the daemon's output to this step's pipe is
+        # what makes its death invisible later.
+        export SSL_CERT_FILE="${SSL_CERT_FILE:-/run/current-system/profile/etc/ssl/certs/ca-certificates.crt}"
+        guix-daemon --build-users-group=guixbuild --substitute-urls="$SUBS" \
+          >/tmp/guix-daemon.log 2>&1 </dev/null &
+        DAEMON_PID=$!
+        ready=""
         for i in $(seq 1 30); do
-          if guix gc --list-roots >/dev/null 2>&1; then
-            echo "guix-daemon up after ${i}s"
-            exit 0
+          if [ -S /var/guix/daemon-socket/socket ] && kill -0 "$DAEMON_PID" 2>/dev/null; then
+            ready=1; echo "guix-daemon up after ${i}s (PID $DAEMON_PID)"; break
+          fi
+          if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
+            echo "FATAL: guix-daemon exited while starting — log:"; cat /tmp/guix-daemon.log; exit 1
+          fi
+          if [ "$i" = 30 ]; then
+            echo "FATAL: no daemon socket after 30s — log:"; cat /tmp/guix-daemon.log; exit 1
           fi
           sleep 1
         done
-        echo "FATAL: guix-daemon did not respond within 30s — log:"
-        cat "$RUNNER_TEMP/guix-daemon.log" || true
-        exit 1
+        # Readiness is socket-exists AND pid-alive. `guix gc --list-roots` is
+        # NOT a readiness test: it returns 0 with no daemon at all (it reads the
+        # local gcroot symlinks), which is exactly how the previous version of
+        # this step printed "already responding" in 313 ms and started nothing,
+        # leaving every job to die at the first time-machine call.
+        [ -n "$ready" ] || { echo "FATAL: daemon readiness loop exited unexpectedly"; exit 1; }
+        guix gc --list-roots >/dev/null 2>&1 && echo "client RPC reaches the daemon" \
+          || echo "::warning title=client RPC check::guix gc --list-roots failed though the socket exists"
 
-    # Canary for the one container-side risk a local probe COULD confirm but
+    # Canary for the container-side risk that a local probe could confirm but
     # not fix unilaterally (2026-10-22, image v0.2.2): `guix time-machine`
     # sets personality(ADDR_NO_RANDOMIZE) and refuses to run if that fails
     # ("ADDR_NO_RANDOMIZE appears blocked … --allow-aslr was not passed").
     # Docker's default seccomp profile allows personality only for
     # {0, 8, 131072, 131080, 4294967295} (moby profiles/seccomp/default.json,
-    # v27.5.1) — 0x40000 is not among them, so the first $GUIX_SHELL step is
-    # expected to fail until the owner picks a fix (options in the ci.yml
-    # header): A container.options seccomp=unconfined (runtime, preferred) /
-    # B --allow-aslr (weakens reproducibility — not applied without
-    # sign-off) / C derived image with an adjusted profile. Warning only —
-    # whether the runner's docker actually blocks it is a CI fact.
+    # v27.5.1) — 0x40000 is not among them. RESOLVED: every container job now
+    # runs `options: --privileged`, which lifts seccomp and also grants the
+    # CAP_SYS_ADMIN the daemon's build sandbox needs (clone(2)) — the same
+    # shape the image project's own build workflow uses, where
+    # `seccomp=unconfined` alone was found insufficient because it lifts the
+    # syscall filter but not the capability. --allow-aslr is deliberately NOT
+    # passed: with seccomp lifted guix disables ASLR itself, and that flag
+    # would accept non-reproducible builds instead. The probe stays as a
+    # one-line fact check — if it ever reports "blocked" again, something
+    # regressed the options block.
     - name: ASLR/personality canary (container seccomp)
       if: steps.detect.outputs.preinstalled == 'true'
       shell: bash

@@ -48,17 +48,24 @@ env:
 # emits a matching ::warning canary on job start so the failure is
 # self-explanatory.
 #
-# RESOLVED (owner-approved change, decided A over B and C):
-#   A) applied — `options: --security-opt seccomp=unconfined` on all 19
-#      container jobs. A keeps guix's guarantee: with the syscall permitted
-#      guix really does disable ASLR, so builds stay reproducible, whereas
-#      B (`--allow-aslr`) is guix itself saying it accepts non-reproducible
-#      builds — the opposite of this executor's purpose. C was not available:
-#      a seccomp profile is runtime input, not image content, and
-#      `--security-opt seccomp=<file>` would need the file on the runner
-#      before the container starts, which is before any step can write one.
-#   Cost recorded: those jobs lose seccomp mediation. Accepted because they
-#   run the repo's own test suite on an ephemeral GitHub-hosted VM.
+# RESOLVED (owner-approved change, decided A over B and C, then refined by the
+# image project's own build workflow):
+#   A) applied as `options: --privileged` on all 19 container jobs. A keeps
+#      guix's guarantee: with the syscall permitted guix really does disable
+#      ASLR, so builds stay reproducible, whereas B (`--allow-aslr`) is guix
+#      itself saying it accepts non-reproducible builds — the opposite of this
+#      executor's purpose. C was not available: a seccomp profile is runtime
+#      input, not image content, and `--security-opt seccomp=<file>` would
+#      need the file on the runner before the container starts, which is
+#      before any step can write one.
+#   The first attempt used `--security-opt seccomp=unconfined` (the literal
+#   form of A) and that alone is insufficient: it lifts the syscall filter but
+#   not the capability, so the daemon's build sandbox still cannot clone(2).
+#   `--privileged` lifts seccomp AND grants CAP_SYS_ADMIN — exactly what the
+#   image project's own build-executor-guixsd.yml runs this same image with.
+#   Cost recorded: those jobs lose seccomp mediation and run with full
+#   capabilities in the job container. Accepted because they run the repo's
+#   own test suite on an ephemeral GitHub-hosted VM.
 
 jobs:
   changes:
@@ -105,13 +112,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -259,13 +272,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -424,13 +443,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -594,13 +619,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -671,13 +702,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -755,13 +792,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -826,13 +869,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -885,13 +934,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -958,13 +1013,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -1051,13 +1112,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -1134,13 +1201,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -1234,13 +1307,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -1304,13 +1383,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -1380,13 +1465,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -1732,13 +1823,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
@@ -1808,13 +1905,19 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
-      # Decision A for ADDR_NO_RANDOMIZE: guix refuses to run when it cannot disable
-      # ASLR (it would silently weaken reproducibility), and the runner's default
-      # seccomp allowlists personality args without 0x40000. Permitting the runtime
-      # call keeps guix's guarantee; --allow-aslr would have surrendered it. The
-      # alternative (a custom seccomp profile file) is unreachable here because
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
       # containers start before any step can place a file on the runner.
-      options: --security-opt seccomp=unconfined
+      options: --privileged
       # This image ships a CA bundle but no default openssl/curl trust path, so
       # git over https dies with `CAfile: none` and checkout never happens (first
       # container round, all 19 jobs). `container.env` is used rather than a step
