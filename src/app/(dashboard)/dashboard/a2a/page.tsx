@@ -162,9 +162,15 @@ export default function A2APage() {
   }, []);
 
   useEffect(() => {
-    void refreshStatus();
+    // First poll deferred a tick: the synchronous call is react-hooks/
+    // set-state-in-effect (state update in the same commit). The interval already
+    // runs outside the commit phase.
+    const initial = setTimeout(() => void refreshStatus(), 0);
     const interval = setInterval(() => void refreshStatus(), 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [refreshStatus]);
 
   const toggleA2a = useCallback(async () => {
