@@ -35,8 +35,8 @@ export function useProviderModels(providerId: string): UseProviderModelsResult {
 
   useEffect(() => {
     if (!providerId) {
-      setLoading(false);
-      return;
+      const initial = setTimeout(() => setLoading(false), 0);
+      return () => clearTimeout(initial);
     }
 
     let cancelled = false;

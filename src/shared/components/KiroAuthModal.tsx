@@ -37,13 +37,16 @@ export default function KiroAuthModal({
 
   useEffect(() => {
     if (isOpen) return;
-    setSelectedMethod(null);
-    setIdcStartUrl("");
-    setIdcRegion("us-east-1");
-    setRefreshToken("");
-    setApiKey("");
-    setApiKeyRegion("us-east-1");
-    setError(null);
+    const initial = setTimeout(() => {
+      setSelectedMethod(null);
+      setIdcStartUrl("");
+      setIdcRegion("us-east-1");
+      setRefreshToken("");
+      setApiKey("");
+      setApiKeyRegion("us-east-1");
+      setError(null);
+    }, 0);
+    return () => clearTimeout(initial);
   }, [isOpen]);
 
   // Auto-detect token when import method is selected
