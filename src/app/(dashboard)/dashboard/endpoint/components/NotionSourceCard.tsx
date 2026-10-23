@@ -32,10 +32,12 @@ export default function NotionSourceCard() {
   }, [fetchConfig]);
 
   useEffect(() => {
-    if (message) {
+    if (!message) return;
+    const initial = setTimeout(() => {
       const timer = setTimeout(() => setMessage(null), 5000);
       return () => clearTimeout(timer);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [message]);
 
   const handleSaveToken = async () => {

@@ -239,7 +239,8 @@ export default function EditConnectionModal({
   );
 
   useEffect(() => {
-    if (isOpen && connection) {
+    if (!(isOpen && connection)) return;
+    const initial = setTimeout(() => {
       const effectiveProvider = connection.provider || providerId;
       const existingBaseUrl = stringField(connection.providerSpecificData?.baseUrl);
       const existingTargetFormat = stringField(connection.providerSpecificData?.targetFormat);
@@ -360,7 +361,8 @@ export default function EditConnectionModal({
       setTestResult(null);
       setValidationResult(null);
       setSaveError(null);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [
     isOpen,
     connection,

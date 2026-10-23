@@ -30,14 +30,16 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSaved }: Pr
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (memory && isOpen) {
+    if (!(memory && isOpen)) return;
+    const initial = setTimeout(() => {
       setType(memory.type);
       setKey(memory.key);
       setContent(memory.content);
       setMetadataStr(JSON.stringify(memory.metadata ?? {}, null, 2));
       setMetadataError("");
       setError("");
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [memory, isOpen]);
 
   const handleMetadataChange = (value: string) => {
@@ -151,9 +153,7 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSaved }: Pr
               metadataError ? "border-red-500" : "border-border"
             }`}
           />
-          {metadataError && (
-            <p className="text-xs text-red-400 mt-1">{metadataError}</p>
-          )}
+          {metadataError && <p className="text-xs text-red-400 mt-1">{metadataError}</p>}
         </div>
       </div>
     </Modal>

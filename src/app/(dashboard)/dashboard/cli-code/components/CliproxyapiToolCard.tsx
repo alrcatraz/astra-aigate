@@ -54,10 +54,12 @@ export default function CliproxyapiToolCard({ isExpanded = false, onToggle = () 
   }, []);
 
   useEffect(() => {
-    if (isExpanded) {
+    if (!isExpanded) return;
+    const initial = setTimeout(() => {
       fetchStatus();
       fetchUpdateInfo();
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [isExpanded, fetchStatus, fetchUpdateInfo]);
 
   const apiCall = async (action: string, body?: Record<string, unknown>) => {
