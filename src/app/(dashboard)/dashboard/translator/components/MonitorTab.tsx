@@ -115,13 +115,16 @@ export default function MonitorTab({ onGoToTranslate }: MonitorTabProps) {
   }, []);
 
   useEffect(() => {
-    void fetchHistory();
-    if (autoRefresh) {
-      intervalRef.current = setInterval(() => {
-        void fetchHistory();
-      }, 3000);
-    }
+    const initial = setTimeout(() => {
+      void fetchHistory();
+      if (autoRefresh) {
+        intervalRef.current = setInterval(() => {
+          void fetchHistory();
+        }, 3000);
+      }
+    }, 0);
     return () => {
+      clearTimeout(initial);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;

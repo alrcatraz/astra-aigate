@@ -38,13 +38,14 @@ export function usePoolUsage(poolId: string, pollIntervalMs = 15_000): UsePoolUs
 
   useEffect(() => {
     mountedRef.current = true;
-    void fetchUsage();
-
     const interval = setInterval(() => {
       void fetchUsage();
     }, pollIntervalMs);
-
+    const initial = setTimeout(() => {
+      void fetchUsage();
+    }, 0);
     return () => {
+      clearTimeout(initial);
       mountedRef.current = false;
       clearInterval(interval);
     };

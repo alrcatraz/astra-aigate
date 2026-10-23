@@ -43,14 +43,17 @@ export function useToolBatchStatuses(): UseToolBatchStatusesResult {
   }, [fetchStatuses]);
 
   useEffect(() => {
-    void fetchStatuses();
-
-    function handleFocus() {
+    const initial = setTimeout(() => {
       void fetchStatuses();
-    }
 
-    window.addEventListener("focus", handleFocus);
+      function handleFocus() {
+        void fetchStatuses();
+      }
+
+      window.addEventListener("focus", handleFocus);
+    }, 0);
     return () => {
+      clearTimeout(initial);
       window.removeEventListener("focus", handleFocus);
     };
   }, [fetchStatuses]);

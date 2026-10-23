@@ -51,20 +51,23 @@ export default function ModelsDevSyncTab() {
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchStatus(), fetch("/api/settings").then((r) => (r.ok ? r.json() : null))])
-      .then(([, settingsData]) => {
-        if (settingsData) {
-          setEnabled(settingsData.modelsDevSyncEnabled === true);
-          const intervalMs = settingsData.modelsDevSyncInterval || 86400000;
-          const hours = Math.round(intervalMs / 3600000);
-          setIntervalHours(hours);
-          setDraftIntervalHours(hours);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch models.dev settings:", err);
-        setFeedback({ type: "error", message: "Failed to load settings" });
-      });
+    const initial = setTimeout(() => {
+      Promise.all([fetchStatus(), fetch("/api/settings").then((r) => (r.ok ? r.json() : null))])
+        .then(([, settingsData]) => {
+          if (settingsData) {
+            setEnabled(settingsData.modelsDevSyncEnabled === true);
+            const intervalMs = settingsData.modelsDevSyncInterval || 86400000;
+            const hours = Math.round(intervalMs / 3600000);
+            setIntervalHours(hours);
+            setDraftIntervalHours(hours);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to fetch models.dev settings:", err);
+          setFeedback({ type: "error", message: "Failed to load settings" });
+        });
+    }, 0);
+    return () => clearTimeout(initial);
   }, [fetchStatus]);
 
   const triggerSync = async () => {

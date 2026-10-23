@@ -850,8 +850,13 @@ export default function ComboHealthTab() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchData(controller, false);
-    return () => controller.abort();
+    const initial = setTimeout(() => {
+      fetchData(controller, false);
+    }, 0);
+    return () => {
+      clearTimeout(initial);
+      controller.abort();
+    };
   }, [fetchData]);
 
   const combos = data?.combos ?? [];

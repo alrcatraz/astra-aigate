@@ -250,9 +250,14 @@ export default function ProviderHealthAutopilotCard() {
   }, [t]);
 
   useEffect(() => {
-    void load();
     const timer = setInterval(() => void load(), 15000);
-    return () => clearInterval(timer);
+    const initial = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
   }, [load]);
 
   const topProviders = useMemo(

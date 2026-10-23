@@ -129,10 +129,13 @@ export default function ProviderUtilizationTab() {
 
   useEffect(() => {
     const controller = new AbortController();
-
-    fetchUtilization(range, aggregateBy, controller.signal);
-
-    return () => controller.abort();
+    const initial = setTimeout(() => {
+      fetchUtilization(range, aggregateBy, controller.signal);
+    }, 0);
+    return () => {
+      clearTimeout(initial);
+      controller.abort();
+    };
   }, [fetchUtilization, range, aggregateBy]);
 
   const providerColors = useMemo(() => {

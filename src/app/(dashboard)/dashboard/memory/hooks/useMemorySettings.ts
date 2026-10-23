@@ -39,9 +39,12 @@ export function useMemorySettings(): UseMemorySettingsResult {
   }, []);
 
   useEffect(() => {
-    mounted.current = true;
-    void fetchOnce();
+    const initial = setTimeout(() => {
+      mounted.current = true;
+      void fetchOnce();
+    }, 0);
     return () => {
+      clearTimeout(initial);
       mounted.current = false;
     };
   }, [fetchOnce]);
