@@ -165,14 +165,21 @@ export default function ProxyConfigModal({
   };
 
   // Load existing proxy config when modal opens
+  // Reset on the open edge during render (React's documented pattern) instead of in
+  // the effect body: these resets must land BEFORE the async load starts — deferring
+  // them a tick let the load finish first and get overwritten.
+  const [openEdgeSeen, setOpenEdgeSeen] = useState(false);
+  if (isOpen && !openEdgeSeen) {
+    setOpenEdgeSeen(true);
+    setTestResult(null);
+    setFormError(null);
+    setLoading(true);
+  } else if (!isOpen && openEdgeSeen) {
+    setOpenEdgeSeen(false);
+  }
+
   useEffect(() => {
     if (!isOpen) return;
-    // Deferred a tick (react-hooks/set-state-in-effect).
-    const initial = setTimeout(() => {
-      setTestResult(null);
-      setFormError(null);
-      setLoading(true);
-    }, 0);
 
     const loadProxy = async () => {
       try {
