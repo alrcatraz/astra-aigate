@@ -137,7 +137,10 @@ export default function ModelSelectModal({
   };
 
   useEffect(() => {
-    if (isOpen) fetchCombos();
+    if (!isOpen) return;
+    // Deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(fetchCombos, 0);
+    return () => clearTimeout(initial);
   }, [isOpen]);
 
   const fetchProviderNodes = async () => {
@@ -153,7 +156,10 @@ export default function ModelSelectModal({
   };
 
   useEffect(() => {
-    if (isOpen) fetchProviderNodes();
+    if (!isOpen) return;
+    // Deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(fetchProviderNodes, 0);
+    return () => clearTimeout(initial);
   }, [isOpen]);
 
   const fetchCustomModels = async () => {
@@ -169,7 +175,10 @@ export default function ModelSelectModal({
   };
 
   useEffect(() => {
-    if (isOpen) fetchCustomModels();
+    if (!isOpen) return;
+    // Deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(fetchCustomModels, 0);
+    return () => clearTimeout(initial);
   }, [isOpen]);
 
   // Fetch the live model catalog for one custom provider from its connection's
@@ -526,11 +535,9 @@ export default function ModelSelectModal({
     if (
       shouldConfirmSelectAll(toAdd.length) &&
       !confirm(
-        labelOrFallback(
-          "selectAllConfirm",
-          `Add ${toAdd.length} models to this combo?`,
-          { count: toAdd.length }
-        )
+        labelOrFallback("selectAllConfirm", `Add ${toAdd.length} models to this combo?`, {
+          count: toAdd.length,
+        })
       )
     ) {
       return;
