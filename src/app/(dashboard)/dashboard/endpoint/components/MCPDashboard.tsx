@@ -300,13 +300,16 @@ export default function McpDashboardPage() {
   // Kept outside refreshSummary so a state change here never re-fires the
   // summary fetch (previously created a redundant mount double-fetch).
   useEffect(() => {
-    if (!selectedComboId && combos.length > 0) {
+    if (!(!selectedComboId && combos.length > 0)) return;
+    const initial = setTimeout(() => {
       setSelectedComboId(combos[0].id);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [selectedComboId, combos]);
 
   useEffect(() => {
-    refreshAudit();
+    const initial = setTimeout(() => refreshAudit(), 0);
+    return () => clearTimeout(initial);
   }, [refreshAudit]);
 
   const handleSwitchCombo = async () => {

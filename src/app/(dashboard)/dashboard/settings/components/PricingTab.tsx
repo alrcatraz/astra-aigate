@@ -128,7 +128,8 @@ export default function PricingTab() {
   }, [showStatus, t]);
 
   useEffect(() => {
-    void loadData();
+    const initial = setTimeout(() => void loadData(), 0);
+    return () => clearTimeout(initial);
   }, [loadData]);
 
   const allProviders = useMemo(() => {
@@ -210,7 +211,8 @@ export default function PricingTab() {
 
   // Reset visible count when filters change
   useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE);
+    const initial = setTimeout(() => setVisibleCount(INITIAL_VISIBLE), 0);
+    return () => clearTimeout(initial);
   }, [searchQuery, coverageFilter, authFilter, sortKey]);
 
   const stats = useMemo(() => {

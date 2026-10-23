@@ -115,14 +115,13 @@ export function useProviderSettings(providerId: string): UseProviderSettingsRetu
     } catch (error) {
       if (!isCurrentRequest()) return;
       setCodexSettingsLoaded(false);
-      setCodexSettingsLoadError(
-        error instanceof Error ? error.message : "Failed to load settings"
-      );
+      setCodexSettingsLoadError(error instanceof Error ? error.message : "Failed to load settings");
     }
   }, [providerId]);
 
   useEffect(() => {
-    void loadCodexSettings();
+    const initial = setTimeout(() => void loadCodexSettings(), 0);
+    return () => clearTimeout(initial);
   }, [loadCodexSettings]);
 
   // ── Claude routing settings loader ───────────────────────────────────────
@@ -158,7 +157,8 @@ export function useProviderSettings(providerId: string): UseProviderSettingsRetu
   }, [providerId]);
 
   useEffect(() => {
-    void loadClaudeRoutingSettings();
+    const initial = setTimeout(() => void loadClaudeRoutingSettings(), 0);
+    return () => clearTimeout(initial);
   }, [loadClaudeRoutingSettings]);
 
   // ── Codex service mode handler ───────────────────────────────────────────
@@ -234,7 +234,11 @@ export function useProviderSettings(providerId: string): UseProviderSettingsRetu
       setPreferClaudeCodeForUnprefixedClaudeModels(previous);
       console.error("Error updating Claude Code routing preference:", error);
       notify.error(
-        providerText(t, "failedUpdateClaudeRoutingPreference", "Failed to update Claude Code routing preference")
+        providerText(
+          t,
+          "failedUpdateClaudeRoutingPreference",
+          "Failed to update Claude Code routing preference"
+        )
       );
     } finally {
       setSavingClaudeRoutingPreference(false);

@@ -56,7 +56,8 @@ export default function McpAuditTab() {
   }, []);
 
   useEffect(() => {
-    void fetchStats();
+    const initial = setTimeout(() => void fetchStats(), 0);
+    return () => clearTimeout(initial);
   }, [fetchStats]);
 
   const fetchAudit = useCallback(async () => {
@@ -86,7 +87,8 @@ export default function McpAuditTab() {
   }, [offset, successFilter, t, toolFilter]);
 
   useEffect(() => {
-    void fetchAudit();
+    const initial = setTimeout(() => void fetchAudit(), 0);
+    return () => clearTimeout(initial);
   }, [fetchAudit]);
 
   return (
