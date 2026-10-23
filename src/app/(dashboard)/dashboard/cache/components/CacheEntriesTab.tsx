@@ -63,7 +63,10 @@ export default function CacheEntriesTab() {
   );
 
   useEffect(() => {
-    fetchEntries();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => fetchEntries(), 0);
+    return () => clearTimeout(initial);
   }, [fetchEntries]);
 
   const handleDelete = async (signature: string) => {
