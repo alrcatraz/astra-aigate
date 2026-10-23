@@ -268,9 +268,8 @@
     "marked": "^18.0.4",
     "marked-terminal": "^7.3.0",
     "material-symbols": "^0.45.2",
-    "mermaid": "^11.15.0",
     "monaco-editor": "^0.56.0",
-    "next": "^16.3.6",
+    "next": "16.4.2",
     "next-intl": "^4.12.0",
     "next-themes": "^0.4.6",
     "node-machine-id": "^1.1.12",
@@ -291,7 +290,7 @@
     "recharts": "^3.8.1",
     "safe-regex": "^2.1.1",
     "selfsigned": "^5.5.0",
-    "smol-toml": "1.7.1",
+    "smol-toml": "1.9.1",
     "socks": "^2.8.7",
     "sql.js": "^1.14.1",
     "sqlite-vec": "^0.1.9",
@@ -422,6 +421,7 @@
     },
     "proxy-addr": "^2.0.8",
     "shell-quote": "^1.12.0",
-    "brace-expansion@<2": "1.1.21"
+    "brace-expansion@<2": "1.1.21",
+    "eslint-plugin-react-hooks": "7.0.1"
   }
 }
