@@ -74,6 +74,14 @@
   ;; module. Verified by evaluating the symbol after use-modules in image v0.2.2
   ;; (package-version lsof -> 4.99.6).
        (@ (gnu packages lsof) lsof)
+  ;; gnupg — codecov/codecov-action self-checks bash/git/curl/gpg and exits 1
+  ;; with "The following required dependencies are missing: gpg" when gpg is
+  ;; absent, which is how the Coverage job failed on the executor image (every
+  ;; other coverage step had already succeeded by then). Module verified with
+  ;; the use-modules evaluation, not module-variable: (gnu packages gnupg)
+  ;; exports gnupg -> 2.5.21; (gnu packages version-control) does not, and
+  ;; (gnu packages gpg) does not exist.
+       (@ (gnu packages gnupg) gnupg)
   ;; Version control, search and data tools the gates shell out to.
        (@ (gnu packages version-control) git)
        (@ (gnu packages rust-apps) ripgrep)
