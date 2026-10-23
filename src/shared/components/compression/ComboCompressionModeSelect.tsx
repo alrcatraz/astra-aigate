@@ -54,7 +54,10 @@ export function ComboCompressionModeSelect({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setCompressionOverride(initialCompressionMode);
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => setCompressionOverride(initialCompressionMode), 0);
+    return () => clearTimeout(initial);
   }, [initialCompressionMode]);
 
   const handleChange = async (value: string) => {
