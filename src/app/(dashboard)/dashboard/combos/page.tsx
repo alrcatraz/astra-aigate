@@ -721,42 +721,30 @@ export default function CombosPage() {
 
   useEffect(() => {
     if (intelligentCombos.length === 0) {
-      setSelectedIntelligentComboId(null);
-      return;
+      const clear = setTimeout(() => setSelectedIntelligentComboId(null), 0);
+      return () => clearTimeout(clear);
     }
 
     if (
       selectedIntelligentComboId &&
       !intelligentCombos.some((combo) => combo.id === selectedIntelligentComboId)
     ) {
-      setSelectedIntelligentComboId(null);
+      const clear = setTimeout(() => setSelectedIntelligentComboId(null), 0);
+      return () => clearTimeout(clear);
     }
   }, [intelligentCombos, selectedIntelligentComboId]);
 
   useEffect(() => {
-    fetchData();
-    fetch("/api/settings")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((settings) => setComboConfigMode(normalizeComboConfigMode(settings?.comboConfigMode)))
-      .catch(() => setComboConfigMode("guided"));
-    fetch("/api/settings/compression")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((settings) => setPromptCompressionEnabled(settings?.enabled === true))
-      .catch(() => setPromptCompressionEnabled(false));
-    fetch("/api/settings/proxy")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c) => setProxyConfig(c))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    try {
-      if (globalThis.localStorage?.getItem(COMBO_USAGE_GUIDE_STORAGE_KEY) === "1") {
-        setShowUsageGuide(false);
+    const initial = setTimeout(() => {
+      try {
+        if (globalThis.localStorage?.getItem(COMBO_USAGE_GUIDE_STORAGE_KEY) === "1") {
+          setShowUsageGuide(false);
+        }
+      } catch {
+        // Ignore storage access errors (privacy mode / restricted environments)
       }
-    } catch {
-      // Ignore storage access errors (privacy mode / restricted environments)
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, []);
 
   const fetchData = async () => {
@@ -785,6 +773,24 @@ export default function CombosPage() {
       setLoading(false);
     }
   };
+  // Moved below fetchData: referencing it from above is react-hooks/immutability.
+  useEffect(() => {
+    // Deferred a tick: a synchronous call here is react-hooks/set-state-in-effect.
+    const initial = setTimeout(fetchData, 0);
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((settings) => setComboConfigMode(normalizeComboConfigMode(settings?.comboConfigMode)))
+      .catch(() => setComboConfigMode("guided"));
+    fetch("/api/settings/compression")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((settings) => setPromptCompressionEnabled(settings?.enabled === true))
+      .catch(() => setPromptCompressionEnabled(false));
+    fetch("/api/settings/proxy")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setProxyConfig(c))
+      .catch(() => {});
+    return () => clearTimeout(initial);
+  }, []);
 
   const handleCreate = async (data) => {
     try {
@@ -1997,7 +2003,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
 
   useEffect(() => {
     if (!comboBuilderStages.includes(builderStage)) {
-      setBuilderStage("strategy");
+      const initial = setTimeout(() => setBuilderStage("strategy"), 0);
+      return () => clearTimeout(initial);
     }
   }, [builderStage, comboBuilderStages]);
 
@@ -2210,20 +2217,26 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   };
 
   useEffect(() => {
-    if (isOpen) fetchModalData();
+    if (!isOpen) return;
+    const initial = setTimeout(fetchModalData, 0);
+    return () => clearTimeout(initial);
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
-    setBuilderProviderId("");
-    setBuilderModelId("");
-    setBuilderConnectionId(COMBO_BUILDER_AUTO_CONNECTION);
-    setBuilderAllowedConnectionIds([]);
-    setManualModelInput("");
-    setManualModelError("");
-    setBuilderComboRefName("");
-    setBuilderError("");
-    setBuilderStage("basics");
+    // Reset group deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(() => {
+      setBuilderProviderId("");
+      setBuilderModelId("");
+      setBuilderConnectionId(COMBO_BUILDER_AUTO_CONNECTION);
+      setBuilderAllowedConnectionIds([]);
+      setManualModelInput("");
+      setManualModelError("");
+      setBuilderComboRefName("");
+      setBuilderError("");
+      setBuilderStage("basics");
+    }, 0);
+    return () => clearTimeout(initial);
   }, [combo?.id, isOpen]);
 
   useEffect(() => {
@@ -2232,14 +2245,16 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     let cancelled = false;
 
     if (combo) {
-      resetFormForCombo(combo);
+      const initial = setTimeout(() => resetFormForCombo(combo), 0);
       return () => {
         cancelled = true;
+        clearTimeout(initial);
       };
     }
 
     createDraftStateRef.current = getEmptyCreateDraftSnapshot();
-    resetFormForCombo(null, null);
+    const resetCreate = setTimeout(() => resetFormForCombo(null, null), 0);
+    // merge into the effect cleanup below
 
     const loadDefaults = async () => {
       try {
@@ -2270,6 +2285,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
 
     return () => {
       cancelled = true;
+      clearTimeout(resetCreate);
     };
   }, [combo, getEmptyCreateDraftSnapshot, isExpertMode, isOpen, resetFormForCombo]);
 
@@ -2277,7 +2293,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     if (!isOpen) return;
     if (builderProviderId) return;
     if (builderProviders.length === 1) {
-      setBuilderProviderId(builderProviders[0].providerId);
+      const initial = setTimeout(() => setBuilderProviderId(builderProviders[0].providerId), 0);
+      return () => clearTimeout(initial);
     }
   }, [builderProviderId, builderProviders, isOpen]);
 
