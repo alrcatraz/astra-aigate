@@ -50,7 +50,7 @@ export default function AntigravityToolCard({
 
   // Derived, not stored: a default-selection effect is derived state
   // (react-hooks/set-state-in-effect) and costs an extra render.
-  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
 
   // (#523) Store the key *id* (not the masked string) so the backend can
   // resolve the real secret from DB before writing to config files.

@@ -40,7 +40,7 @@ export default function OpenClawToolCard({
 
   // Derived, not stored: a default-selection effect is derived state
   // (react-hooks/set-state-in-effect) and costs an extra render.
-  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
   const cliReady = !!(openclawStatus?.installed && openclawStatus?.runnable);
 
   const getConfigStatus = () => {
@@ -73,29 +73,28 @@ export default function OpenClawToolCard({
     }
   };
 
-  useEffect(() => {
-    if (openclawStatus?.installed && !hasInitializedModel.current) {
-      hasInitializedModel.current = true;
-      const provider = openclawStatus.settings?.models?.providers?.["omniroute"];
-      if (provider) {
-        const primaryModel = openclawStatus.settings?.agents?.defaults?.model?.primary;
-        if (primaryModel) {
-          const modelId = primaryModel.replace("omniroute/", "");
-          setSelectedModel(modelId);
-        }
-        // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
-        // Match by prefix/suffix instead of exact comparison.
-        if (provider.apiKey) {
-          const fileKeyPrefix = provider.apiKey.slice(0, 8);
-          const fileKeySuffix = provider.apiKey.slice(-4);
-          const matchedKey = apiKeys?.find(
-            (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
-          );
-          if (matchedKey) setSelectedApiKeyId(matchedKey.id);
-        }
+  const [modelHydrated, setModelHydrated] = useState(false);
+  if (openclawStatus?.installed && !modelHydrated) {
+    setModelHydrated(true);
+    const provider = openclawStatus.settings?.models?.providers?.["omniroute"];
+    if (provider) {
+      const primaryModel = openclawStatus.settings?.agents?.defaults?.model?.primary;
+      if (primaryModel) {
+        const modelId = primaryModel.replace("omniroute/", "");
+        setSelectedModel(modelId);
+      }
+      // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
+      // Match by prefix/suffix instead of exact comparison.
+      if (provider.apiKey) {
+        const fileKeyPrefix = provider.apiKey.slice(0, 8);
+        const fileKeySuffix = provider.apiKey.slice(-4);
+        const matchedKey = apiKeys?.find(
+          (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
+        );
+        if (matchedKey) setSelectedApiKeyId(matchedKey.id);
       }
     }
-  }, [openclawStatus, apiKeys]);
+  }
 
   const checkOpenclawStatus = async () => {
     setCheckingOpenclaw(true);

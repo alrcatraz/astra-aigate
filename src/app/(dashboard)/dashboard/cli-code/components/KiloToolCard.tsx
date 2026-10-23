@@ -41,7 +41,7 @@ export default function KiloToolCard({
 
   // Derived, not stored: a default-selection effect is derived state
   // (react-hooks/set-state-in-effect) and costs an extra render.
-  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
   const cliReady = !!(kiloStatus?.installed && kiloStatus?.runnable);
 
   const getConfigStatus = () => {

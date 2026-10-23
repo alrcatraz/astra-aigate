@@ -41,7 +41,7 @@ export default function ClineToolCard({
 
   // Derived, not stored: a default-selection effect is derived state
   // (react-hooks/set-state-in-effect) and costs an extra render.
-  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
   const cliReady = !!(clineStatus?.installed && clineStatus?.runnable);
 
   const getConfigStatus = () => {
@@ -62,15 +62,16 @@ export default function ClineToolCard({
   // (#523) Store the key *id* (not the masked string) so the backend can
   // resolve the real secret from DB before writing to config files.
 
-  useEffect(() => {
-    if (clineStatus?.settings && !hasInitializedModel.current) {
-      const currentModel = clineStatus.settings.openAiModelId;
-      if (currentModel) {
-        setSelectedModel(currentModel);
-        hasInitializedModel.current = true;
-      }
+  // Adjusting state on a prop change during render (React's documented
+  // pattern) instead of in an effect: the model id is correct on the first paint.
+  const [modelInitialized, setModelInitialized] = useState(false);
+  if (clineStatus?.settings && !modelInitialized) {
+    const currentModel = clineStatus.settings.openAiModelId;
+    if (currentModel) {
+      setSelectedModel(currentModel);
+      setModelInitialized(true);
     }
-  }, [clineStatus]);
+  }
 
   const fetchModelAliases = async () => {
     try {

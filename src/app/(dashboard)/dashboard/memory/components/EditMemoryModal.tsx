@@ -29,18 +29,19 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSaved }: Pr
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!(memory && isOpen)) return;
-    const initial = setTimeout(() => {
-      setType(memory.type);
-      setKey(memory.key);
-      setContent(memory.content);
-      setMetadataStr(JSON.stringify(memory.metadata ?? {}, null, 2));
-      setMetadataError("");
-      setError("");
-    }, 0);
-    return () => clearTimeout(initial);
-  }, [memory, isOpen]);
+  // Adjusting state when the prop changes, during render (React's documented
+  // pattern), instead of in an effect: the fields are correct on the very first
+  // paint after the modal opens, with no extra commit.
+  const [hydratedMemory, setHydratedMemory] = useState<Props["memory"] | null>(null);
+  if (memory && isOpen && hydratedMemory !== memory) {
+    setHydratedMemory(memory);
+    setType(memory.type);
+    setKey(memory.key);
+    setContent(memory.content);
+    setMetadataStr(JSON.stringify(memory.metadata ?? {}, null, 2));
+    setMetadataError("");
+    setError("");
+  }
 
   const handleMetadataChange = (value: string) => {
     setMetadataStr(value);

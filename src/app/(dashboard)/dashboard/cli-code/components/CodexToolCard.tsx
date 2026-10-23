@@ -53,7 +53,7 @@ export default function CodexToolCard({
   // Derived, not stored: an effect that sets the first key as the default is
   // react-hooks/set-state-in-effect (derived state). `activeApiKeyId` remains the
   // explicit user choice; the read path falls back to the first available key.
-  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+  const activeApiKeyId = selectedApiKey || (apiKeys?.length ? apiKeys[0].id : "");
 
   const fetchModelAliases = async () => {
     try {
@@ -66,32 +66,31 @@ export default function CodexToolCard({
   };
 
   // Parse config content
-  useEffect(() => {
-    if (codexStatus?.config) {
-      const modelMatch = codexStatus.config.match(/^model\s*=\s*"([^"]+)"/im);
-      if (modelMatch) setSelectedModel(modelMatch[1]);
+  const [configHydrated, setConfigHydrated] = useState(false);
+  if (codexStatus?.config) {
+    const modelMatch = codexStatus.config.match(/^model\s*=\s*"([^"]+)"/im);
+    if (modelMatch) setSelectedModel(modelMatch[1]);
 
-      const effortMatch = codexStatus.config.match(/^model_reasoning_effort\s*=\s*"([^"]+)"/im);
-      if (effortMatch) setReasoningEffort(effortMatch[1]);
+    const effortMatch = codexStatus.config.match(/^model_reasoning_effort\s*=\s*"([^"]+)"/im);
+    if (effortMatch) setReasoningEffort(effortMatch[1]);
 
-      const wireMatch = codexStatus.config.match(/^wire_api\s*=\s*"([^"]+)"/im);
-      if (wireMatch) setWireApi(wireMatch[1]);
+    const wireMatch = codexStatus.config.match(/^wire_api\s*=\s*"([^"]+)"/im);
+    if (wireMatch) setWireApi(wireMatch[1]);
 
-      const newMappings: Record<string, string> = {};
-      const migrationsBlock = codexStatus.config.split("[notice.model_migrations]")[1];
-      if (migrationsBlock) {
-        const nextSectionIdx = migrationsBlock.indexOf("[");
-        const chunk =
-          nextSectionIdx === -1 ? migrationsBlock : migrationsBlock.substring(0, nextSectionIdx);
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          const match = line.match(/^"([^"]+)"\s*=\s*"([^"]+)"/);
-          if (match) newMappings[match[1]] = match[2];
-        }
+    const newMappings: Record<string, string> = {};
+    const migrationsBlock = codexStatus.config.split("[notice.model_migrations]")[1];
+    if (migrationsBlock) {
+      const nextSectionIdx = migrationsBlock.indexOf("[");
+      const chunk =
+        nextSectionIdx === -1 ? migrationsBlock : migrationsBlock.substring(0, nextSectionIdx);
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        const match = line.match(/^"([^"]+)"\s*=\s*"([^"]+)"/);
+        if (match) newMappings[match[1]] = match[2];
       }
-      setModelMappings(newMappings);
     }
-  }, [codexStatus]);
+    setModelMappings(newMappings);
+  }
 
   const getConfigStatus = () => {
     if (!cliReady) return null;
@@ -714,7 +713,7 @@ openai_base_url = "${getEffectiveBaseUrl()}"
                   onClick={handleApplySettings}
                   disabled={isApplyDisabled({
                     selectedModel,
-                    activeApiKeyId,
+                    selectedApiKey: activeApiKeyId,
                     cloudEnabled,
                     apiKeys,
                   })}

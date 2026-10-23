@@ -53,7 +53,7 @@ export default function ClaudeToolCard({
   // react-hooks/set-state-in-effect (derived state), and it costs a redundant
   // render. `activeApiKeyId` stays the explicit user choice; the fallback lives
   // in the read path.
-  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+  const activeApiKeyId = selectedApiKey || (apiKeys?.length ? apiKeys[0].id : "");
 
   const getConfigStatus = () => {
     if (!cliReady) return null;
@@ -80,31 +80,33 @@ export default function ClaudeToolCard({
     }
   };
 
-  useEffect(() => {
-    if (claudeStatus?.installed && !hasInitializedModels.current) {
-      hasInitializedModels.current = true;
-      const env = claudeStatus.settings?.env || {};
+  // Adjusting state during render on a prop change (React's documented pattern),
+  // not in an effect: this both satisfies react-hooks/set-state-in-effect and makes
+  // the restored key/model values available on the first paint.
+  const [modelsInitialized, setModelsInitialized] = useState(false);
+  if (claudeStatus?.installed && !modelsInitialized) {
+    setModelsInitialized(true);
+    const env = claudeStatus.settings?.env || {};
 
-      tool.defaultModels.forEach((model) => {
-        if (model.envKey) {
-          const value = env[model.envKey] || model.defaultValue || "";
-          // Only sync initial values from file once
-          if (value) {
-            onModelMappingChange(model.alias, value);
-          }
+    tool.defaultModels.forEach((model) => {
+      if (model.envKey) {
+        const value = env[model.envKey] || model.defaultValue || "";
+        // Only sync initial values from file once
+        if (value) {
+          onModelMappingChange(model.alias, value);
         }
-      });
-      // Restore selected key from file: match token stored in file against known keys
-      const tokenFromFile = getStoredClaudeAuthValue(env);
-      if (tokenFromFile) {
-        // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
-        // Mask the token from file to compare against the masked list.
-        const maskedToken = tokenFromFile.slice(0, 8) + "****" + tokenFromFile.slice(-4);
-        const matchedKey = apiKeys?.find((k) => k.key === maskedToken);
-        if (matchedKey) setSelectedApiKey(matchedKey.id);
       }
+    });
+    // Restore selected key from file: match token stored in file against known keys
+    const tokenFromFile = getStoredClaudeAuthValue(env);
+    if (tokenFromFile) {
+      // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
+      // Mask the token from file to compare against the masked list.
+      const maskedToken = tokenFromFile.slice(0, 8) + "****" + tokenFromFile.slice(-4);
+      const matchedKey = apiKeys?.find((k) => k.key === maskedToken);
+      if (matchedKey) setSelectedApiKey(matchedKey.id);
     }
-  }, [claudeStatus, apiKeys, tool.defaultModels, onModelMappingChange]);
+  }
 
   const checkClaudeStatus = async () => {
     setCheckingClaude(true);

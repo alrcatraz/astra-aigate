@@ -43,15 +43,13 @@ export function useToolBatchStatuses(): UseToolBatchStatusesResult {
   }, [fetchStatuses]);
 
   useEffect(() => {
-    const initial = setTimeout(() => {
+    // The listener is registered synchronously so it is never missed; only the
+    // first fetch is deferred (react-hooks/set-state-in-effect).
+    const handleFocus = () => {
       void fetchStatuses();
-
-      function handleFocus() {
-        void fetchStatuses();
-      }
-
-      window.addEventListener("focus", handleFocus);
-    }, 0);
+    };
+    window.addEventListener("focus", handleFocus);
+    const initial = setTimeout(() => void fetchStatuses(), 0);
     return () => {
       clearTimeout(initial);
       window.removeEventListener("focus", handleFocus);

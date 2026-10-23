@@ -46,7 +46,7 @@ export default function DroidToolCard({
 
   // Derived, not stored: a default-selection effect is derived state
   // (react-hooks/set-state-in-effect) and costs an extra render.
-  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
   const cliReady = !!(droidStatus?.installed && droidStatus?.runnable);
 
   // (#618) Match any custom:AI Gate-<i> entry (multi-model).
@@ -81,30 +81,29 @@ export default function DroidToolCard({
     }
   };
 
-  useEffect(() => {
-    if (droidStatus?.installed && !hasInitializedModel.current) {
-      hasInitializedModel.current = true;
-      // (#618) Pre-fill the multi-model list from every custom:AI Gate-<i>
-      // entry, preserving the original index order.
-      const existing = (droidStatus.settings?.customModels || [])
-        .filter(isOmniRouteEntry)
-        .slice()
-        .sort((a, b) => (a.index || 0) - (b.index || 0));
-      if (existing.length > 0) {
-        setModelList(existing.map((m) => m.model).filter(Boolean));
-        const first = existing[0];
-        if (first?.apiKey) {
-          // (#523) Keys from /api/keys are masked. Match by prefix/suffix.
-          const fileKeyPrefix = first.apiKey.slice(0, 8);
-          const fileKeySuffix = first.apiKey.slice(-4);
-          const matchedKey = apiKeys?.find(
-            (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
-          );
-          if (matchedKey) setSelectedApiKeyId(matchedKey.id);
-        }
+  const [modelHydrated, setModelHydrated] = useState(false);
+  if (droidStatus?.installed && !modelHydrated) {
+    setModelHydrated(true);
+    // (#618) Pre-fill the multi-model list from every custom:AI Gate-<i>
+    // entry, preserving the original index order.
+    const existing = (droidStatus.settings?.customModels || [])
+      .filter(isOmniRouteEntry)
+      .slice()
+      .sort((a, b) => (a.index || 0) - (b.index || 0));
+    if (existing.length > 0) {
+      setModelList(existing.map((m) => m.model).filter(Boolean));
+      const first = existing[0];
+      if (first?.apiKey) {
+        // (#523) Keys from /api/keys are masked. Match by prefix/suffix.
+        const fileKeyPrefix = first.apiKey.slice(0, 8);
+        const fileKeySuffix = first.apiKey.slice(-4);
+        const matchedKey = apiKeys?.find(
+          (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
+        );
+        if (matchedKey) setSelectedApiKeyId(matchedKey.id);
       }
     }
-  }, [droidStatus, apiKeys]);
+  }
 
   // (#618) Multi-model list manipulation helpers.
   const addModel = (value) => {
