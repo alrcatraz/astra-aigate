@@ -92,18 +92,23 @@ export function ApiKeyUsageLimitCard({
 
   useEffect(() => {
     if (!payload) return;
-    setEnabled(payload.key.usageLimitEnabled);
-    setDailyLimit(
-      typeof payload.key.dailyUsageLimitUsd === "number"
-        ? String(payload.key.dailyUsageLimitUsd)
-        : ""
-    );
-    setWeeklyLimit(
-      typeof payload.key.weeklyUsageLimitUsd === "number"
-        ? String(payload.key.weeklyUsageLimitUsd)
-        : ""
-    );
-    setError(null);
+    // Deferred a tick (react-hooks/set-state-in-effect): the form fields are
+    // hydrated from the payload after the commit, not during it.
+    const initial = setTimeout(() => {
+      setEnabled(payload.key.usageLimitEnabled);
+      setDailyLimit(
+        typeof payload.key.dailyUsageLimitUsd === "number"
+          ? String(payload.key.dailyUsageLimitUsd)
+          : ""
+      );
+      setWeeklyLimit(
+        typeof payload.key.weeklyUsageLimitUsd === "number"
+          ? String(payload.key.weeklyUsageLimitUsd)
+          : ""
+      );
+      setError(null);
+    }, 0);
+    return () => clearTimeout(initial);
   }, [payload]);
 
   const formatter = useMemo(() => createCurrencyFormatter(locale, currency), [locale, currency]);
