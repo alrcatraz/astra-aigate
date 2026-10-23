@@ -288,7 +288,31 @@ runs:
         # Same list, same order as the wrapper step: the daemon and the client
         # must agree, and the wrapper reuses this step's /tmp/guix-subs.txt.
         PUBLIC_URLS="https://mirrors.sjtug.sjtu.edu.cn/guix https://mirror.sjtu.edu.cn/guix/ https://hydra-guix-129.guix.gnu.org https://bordeaux.guix.gnu.org https://ci.guix.gnu.org https://mirrors.sjtug.sjtu.edu.cn/guix-bordeaux"
-        if [ -n "${CACHE_URL:-}" ]; then SUBS="$CACHE_URL $PUBLIC_URLS"; else SUBS="$PUBLIC_URLS"; fi
+        # A cache URL that does not answer costs one failed connect PER STORE
+        # ITEM, not once per job: on 2026-10-23 two jobs sat in npm ci for ~50 min
+        # and one died on a guix &nar-error after three attempts, because the
+        # configured caches are IPv6-only (cache01) or overlay-only
+        # (<internal>.nb.internal) while GitHub-hosted runners have no IPv6
+        # egress. "Unreachable is silently skipped" is only true if the failure
+        # is fast, so prove reachability first, with a hard per-URL ceiling.
+        # A 404 counts as reachable — the base path need not exist.
+        # Hostnames are NOT printed: these run logs are public on a public repo.
+        REACH=""
+        CACHE_N=0
+        for u in ${CACHE_URL:-}; do
+          CACHE_N=$((CACHE_N + 1))
+          code=$(curl -s -o /dev/null -m 4 -w '%{http_code}' "$u" 2>/dev/null || true)
+          case "${code:-000}" in
+            000|"") echo "cache URL #$CACHE_N unreachable, skipped";;
+            *)      REACH="$REACH $u"; echo "cache URL #$CACHE_N reachable (HTTP $code)";;
+          esac
+        done
+        if [ -n "$REACH" ]; then
+          SUBS="${REACH# } $PUBLIC_URLS"
+        else
+          SUBS="$PUBLIC_URLS"
+          [ "${CACHE_N:-0}" -gt 0 ] && echo "no reachable cache URL — public mirrors only"
+        fi
         printf '%s' "$SUBS" > /tmp/guix-subs.txt
 
         # Deliberately NOT --allow-aslr: the job runs --privileged, so
