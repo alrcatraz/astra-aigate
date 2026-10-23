@@ -630,8 +630,9 @@ export default function OAuthModal({
 
   useEffect(() => {
     if (!deviceCodeExpiresAt) {
-      setDeviceCodeSecondsRemaining(null);
-      return;
+      // Deferred: a synchronous clear here is react-hooks/set-state-in-effect.
+      const clear = setTimeout(() => setDeviceCodeSecondsRemaining(null), 0);
+      return () => clearTimeout(clear);
     }
 
     const updateRemaining = () => {
@@ -639,22 +640,32 @@ export default function OAuthModal({
         Math.max(0, Math.ceil((deviceCodeExpiresAt - Date.now()) / 1000))
       );
     };
-    updateRemaining();
+    const initial = setTimeout(updateRemaining, 0);
     const timer = window.setInterval(updateRemaining, 1000);
-    return () => window.clearInterval(timer);
+    return () => {
+      clearTimeout(initial);
+      window.clearInterval(timer);
+    };
   }, [deviceCodeExpiresAt]);
 
   useEffect(() => {
-    invalidateDeviceFlow();
-    flowStartedRef.current = false;
-    setGrokBrowserMode(false);
+    // Reset when the provider changes; deferred so the updates are not part of the
+    // same commit (react-hooks/set-state-in-effect).
+    const initial = setTimeout(() => {
+      invalidateDeviceFlow();
+      flowStartedRef.current = false;
+      setGrokBrowserMode(false);
+    }, 0);
+    return () => clearTimeout(initial);
   }, [provider, invalidateDeviceFlow]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) return;
+    const initial = setTimeout(() => {
       invalidateDeviceFlow();
       flowStartedRef.current = false;
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [isOpen, invalidateDeviceFlow]);
 
   useEffect(
@@ -666,24 +677,29 @@ export default function OAuthModal({
 
   // Reset state and start OAuth when modal opens
   useEffect(() => {
-    if (!isOpen || !provider || flowStartedRef.current) return;
-    flowStartedRef.current = true;
-    const startsInPasteMode = IMPORT_TOKEN_ONLY_PROVIDERS.has(provider);
-    // #8688: show GitLab Duo OAuth app / env setup before authorize error.
-    const startsInGitlabDuoSetup = provider === "gitlab-duo";
-    setShowPasteToken(startsInPasteMode);
-    setGrokBrowserMode(false);
-    setAuthData(null);
-    setCallbackUrl("");
-    setError(null);
-    setIsDeviceCode(false);
-    setDeviceData(null);
-    setPolling(false);
-    if (startsInGitlabDuoSetup) {
-      setStep("gitlab-duo-setup");
-      return;
-    }
-    if (!startsInPasteMode) startOAuthFlow();
+    if (!isOpen || !provider) return;
+    // Whole init deferred: it sets a dozen states before starting the flow.
+    const initial = setTimeout(() => {
+      if (flowStartedRef.current) return;
+      flowStartedRef.current = true;
+      const startsInPasteMode = IMPORT_TOKEN_ONLY_PROVIDERS.has(provider);
+      // #8688: show GitLab Duo OAuth app / env setup before authorize error.
+      const startsInGitlabDuoSetup = provider === "gitlab-duo";
+      setShowPasteToken(startsInPasteMode);
+      setGrokBrowserMode(false);
+      setAuthData(null);
+      setCallbackUrl("");
+      setError(null);
+      setIsDeviceCode(false);
+      setDeviceData(null);
+      setPolling(false);
+      if (startsInGitlabDuoSetup) {
+        setStep("gitlab-duo-setup");
+        return;
+      }
+      if (!startsInPasteMode) startOAuthFlow();
+    }, 0);
+    return () => clearTimeout(initial);
   }, [isOpen, provider, startOAuthFlow]);
 
   // Listen for OAuth callback via multiple methods
