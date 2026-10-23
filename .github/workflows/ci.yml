@@ -1493,7 +1493,12 @@ jobs:
     # 10min was sized before #7114 added the lcov reporter (Codecov/Sonar need it);
     # merging 8 shard JSONs + text+json+lcov now takes ~10-12min — three consecutive
     # release-tip runs died at exactly 10m as job-timeout "cancelled" (2026-07-15/16).
-    timeout-minutes: 20
+    # 20 -> 45 (measured 2026-10-22): inside the executor container npm ci alone runs
+    # ~15 min before this job reaches its merge step, so a 20-minute ceiling left it
+    # ~5 minutes and run 39900122813 cancelled "Merge + report + gate" at 20m15s.
+    # Same reasoning as test-integration's 45; the install phase shrinks once the
+    # fleet substitute cache is reachable, at which point this can come back down.
+    timeout-minutes: 45
     needs: test-unit
     if: ${{ !cancelled() && needs.test-unit.result == 'success' && !contains(github.event.pull_request.labels.*.name, 'hotfix') }}
     env:
@@ -1595,6 +1600,15 @@ jobs:
           files: coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          # skip_validation: the action self-checks bash/git/curl/gpg in the RAW
+          # step environment. gpg now lives in the toolchain profile, but that
+          # profile is on PATH only inside `$GUIX_SHELL` — a composite/JS action
+          # cannot be wrapped by it, so the check fails on a perfectly good image
+          # ("missing: gpg") while the upload itself is unaffected. The check
+          # guards the action's own runtime, not the integrity of our report
+          # (which this step does not sign), and the upload is informational
+          # (fail_ci_if_error: false), so skipping it changes nothing we gate on.
+          skip_validation: true
       - name: Upload coverage artifacts
         if: always()
         uses: actions/upload-artifact@v7
