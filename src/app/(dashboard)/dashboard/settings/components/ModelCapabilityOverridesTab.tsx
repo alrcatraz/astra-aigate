@@ -114,7 +114,10 @@ function useModelCapabilityOverridesData() {
   );
 
   useEffect(() => {
-    void loadData();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void loadData(), 0);
+    return () => clearTimeout(initial);
   }, [loadData]);
 
   return { catalog, overrides, loading, statusMessage, saveOverride, removeOverride };

@@ -50,7 +50,10 @@ export default function FallbackChainsEditor() {
   }, []);
 
   useEffect(() => {
-    fetchChains();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => fetchChains(), 0);
+    return () => clearTimeout(initial);
   }, [fetchChains]);
 
   const handleCreate = async () => {

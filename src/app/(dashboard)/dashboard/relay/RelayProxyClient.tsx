@@ -44,7 +44,10 @@ export default function RelayProxyClient() {
   }, []);
 
   useEffect(() => {
-    void fetchTokens();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void fetchTokens(), 0);
+    return () => clearTimeout(initial);
   }, [fetchTokens]);
 
   const createToken = async () => {
