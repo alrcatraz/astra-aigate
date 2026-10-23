@@ -42,7 +42,10 @@ export function CustomHostsManager({ onClose }: CustomHostsManagerProps) {
   };
 
   useEffect(() => {
-    void fetchHosts();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void fetchHosts(), 0);
+    return () => clearTimeout(initial);
   }, []);
 
   const addHost = async () => {

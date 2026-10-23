@@ -45,7 +45,10 @@ function useProviderAccountRoutingState(providerKey: string) {
   }, [providerKey]);
 
   useEffect(() => {
-    load().catch(console.error);
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => load().catch(console.error), 0);
+    return () => clearTimeout(initial);
   }, [load]);
 
   const save = useCallback(
