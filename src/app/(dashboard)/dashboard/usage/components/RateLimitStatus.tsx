@@ -22,9 +22,12 @@ export default function RateLimitStatus() {
   }, []);
 
   useEffect(() => {
-    load();
+    const initial = setTimeout(() => load(), 0);
     const interval = setInterval(load, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [load]);
 
   const formatMs = (ms) => {

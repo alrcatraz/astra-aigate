@@ -291,9 +291,12 @@ export default function McpDashboardPage() {
   }, [auditOffset, toolFilter, successFilter, apiKeyFilter]);
 
   useEffect(() => {
-    refreshSummary();
+    const initial = setTimeout(() => refreshSummary(), 0);
     const interval = setInterval(refreshSummary, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [refreshSummary]);
 
   // C: pick the first combo once the initial combos list has been fetched.
