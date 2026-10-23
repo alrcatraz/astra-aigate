@@ -81,7 +81,10 @@ export default function AgentsPage() {
   }, []);
 
   useEffect(() => {
-    fetchAgents();
+    // Deferred a tick: the synchronous call is react-hooks/set-state-in-effect
+    // (state update in the same commit).
+    const initial = setTimeout(() => fetchAgents(), 0);
+    return () => clearTimeout(initial);
   }, [fetchAgents]);
 
   const handleRefresh = async () => {
