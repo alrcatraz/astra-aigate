@@ -38,6 +38,10 @@ export default function KiloToolCard({
   const [backups, setBackups] = useState([]);
   const [showBackups, setShowBackups] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(null);
+
+  // Derived, not stored: a default-selection effect is derived state
+  // (react-hooks/set-state-in-effect) and costs an extra render.
+  const activeApiKeyId = activeApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
   const cliReady = !!(kiloStatus?.installed && kiloStatus?.runnable);
 
   const getConfigStatus = () => {
@@ -53,19 +57,6 @@ export default function KiloToolCard({
 
   // (#523) Store the key *id* (not the masked string) so the backend can
   // resolve the real secret from DB before writing to config files.
-  useEffect(() => {
-    if (apiKeys?.length > 0 && !selectedApiKeyId) {
-      setSelectedApiKeyId(apiKeys[0].id);
-    }
-  }, [apiKeys, selectedApiKeyId]);
-
-  useEffect(() => {
-    if (isExpanded && !kiloStatus) {
-      checkKiloStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, kiloStatus]);
 
   const fetchModelAliases = async () => {
     try {
@@ -131,6 +122,17 @@ export default function KiloToolCard({
       setCheckingKilo(false);
     }
   };
+  // After the handlers it calls (immutability); calls deferred a tick so the
+  // state updates are not part of the same commit (set-state-in-effect).
+  useEffect(() => {
+    if (!(isExpanded && !kiloStatus)) return;
+    const initial = setTimeout(() => {
+      checkKiloStatus();
+      fetchModelAliases();
+      fetchBackups();
+    }, 0);
+    return () => clearTimeout(initial);
+  }, [isExpanded, kiloStatus]);
 
   const getEffectiveBaseUrl = () => {
     if (customBaseUrl) return customBaseUrl;
@@ -147,7 +149,7 @@ export default function KiloToolCard({
         : `${effectiveBaseUrl}/v1`;
 
       // (#523) Prefer keyId lookup so the backend writes the real key to disk.
-      const selectedKeyId = selectedApiKeyId?.trim() || null;
+      const selectedKeyId = activeApiKeyId?.trim() || null;
 
       const res = await fetch("/api/cli-tools/kilo-settings", {
         method: "POST",
@@ -365,7 +367,7 @@ export default function KiloToolCard({
                     <label className="text-sm text-text-muted">{t("apiKey")}</label>
                     {apiKeys && apiKeys.length > 0 ? (
                       <select
-                        value={selectedApiKeyId}
+                        value={activeApiKeyId}
                         onChange={(e) => setSelectedApiKeyId(e.target.value)}
                         className="px-3 py-2 bg-bg-secondary rounded-lg text-sm border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
                       >
@@ -483,7 +485,7 @@ export default function KiloToolCard({
             onApply: handleManualConfig,
             currentConfig: {
               model: selectedModel,
-              apiKey: apiKeys?.find((k) => k.id === selectedApiKeyId)?.key || "",
+              apiKey: apiKeys?.find((k) => k.id === activeApiKeyId)?.key || "",
               baseUrl: customBaseUrl || baseUrl,
             },
           } as any)}
