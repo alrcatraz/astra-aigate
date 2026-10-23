@@ -248,24 +248,22 @@ export default function PoolWizard({
     [connections, existingPoolConnectionIds, lockedProvider]
   );
 
+  // 计划维度解析：effect 与 edit 分支原本各写一遍，合并为一处。
+  const resolveDimensions = (connectionId: string | undefined) => {
+    if (!connectionId) return [];
+    const existingPlan = plans[connectionId];
+    if (existingPlan && existingPlan.dimensions.length > 0) return [...existingPlan.dimensions];
+    const catalogPlan = selectedConn ? getKnownPlan(selectedConn.provider) : null;
+    return catalogPlan ? [...catalogPlan.dimensions] : [];
+  };
+
   // ── Load dimensions when primary connection changes ───────────────────────
 
   useEffect(() => {
     // Deferred: every branch here is a synchronous state reset
     // (react-hooks/set-state-in-effect).
     const initial = setTimeout(() => {
-      if (!primaryConnectionId) {
-        setEditDimensions([]);
-        setDimensionsEdited(false);
-        return;
-      }
-      const existingPlan = plans[primaryConnectionId];
-      if (existingPlan && existingPlan.dimensions.length > 0) {
-        setEditDimensions([...existingPlan.dimensions]);
-      } else {
-        const catalogPlan = selectedConn ? getKnownPlan(selectedConn.provider) : null;
-        setEditDimensions(catalogPlan ? [...catalogPlan.dimensions] : []);
-      }
+      setEditDimensions(resolveDimensions(primaryConnectionId));
       setDimensionsEdited(false);
     }, 0);
     return () => clearTimeout(initial);
@@ -275,8 +273,7 @@ export default function PoolWizard({
   // ── Reset wizard on open/close ────────────────────────────────────────────
 
   useEffect(() => {
-    // Deferred: open/close both reset a dozen states synchronously
-    // (react-hooks/set-state-in-effect).
+    // Deferred: open/close reset a dozen states synchronously (set-state-in-effect).
     const initial = setTimeout(() => {
       if (!open) {
         // Closing: always reset to defaults.
@@ -306,13 +303,7 @@ export default function PoolWizard({
         setExclusive(editPoolExclusive ?? false);
         // Pre-load plan dimensions for the primary connection (same as create path).
         // dimensionsEdited stays false so the PUT is skipped unless the user actively edits.
-        const primaryId = ids[0];
-        const existingPlan = plans[primaryId];
-        if (existingPlan && existingPlan.dimensions.length > 0) {
-          setEditDimensions([...existingPlan.dimensions]);
-        } else {
-          setEditDimensions([]);
-        }
+        setEditDimensions(resolveDimensions(ids[0]));
         setDimensionsEdited(false);
         setError(null);
         setSaving(false);
