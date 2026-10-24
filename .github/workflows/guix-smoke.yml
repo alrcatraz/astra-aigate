@@ -147,6 +147,12 @@ jobs:
       - name: PATH provenance (node dist vs Guix profile vs runner)
         run: |
           echo "outside shell:"
+          echo "diagnostic: dist dir listing"
+          ls -l "$NODE_DIST_BIN" 2>&1 | head -6 || echo "MISSING DIR: $NODE_DIST_BIN"
+          test -x "$NODE_DIST_BIN/node" && echo "dist node executable: yes" || echo "dist node executable: NO"
+          test -x "$NODE_DIST_BIN/npm" && echo "dist npm executable: yes" || echo "dist npm executable: NO"
+          echo "diagnostic: PATH order"
+          printf '%s\n' "$PATH" | tr ':' '\n' | head -4
           OUT_NODE=$(command -v node); OUT_NPM=$(command -v npm)
           echo "  node -> $OUT_NODE $(node --version)"
           echo "  npm  -> $OUT_NPM $(npm --version)"
