@@ -169,7 +169,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -262,7 +262,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -335,7 +335,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -433,7 +433,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -497,7 +497,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -609,7 +609,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -669,7 +669,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -692,7 +692,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -782,7 +782,7 @@ jobs:
       # key as the restore; a hit skips the re-upload.
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -856,7 +856,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -918,7 +918,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1003,7 +1003,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1061,7 +1061,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1102,7 +1102,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1160,7 +1160,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1190,7 +1190,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1262,7 +1262,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1297,7 +1297,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1355,7 +1355,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1372,7 +1372,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1436,7 +1436,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1455,7 +1455,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1524,7 +1524,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1595,7 +1595,7 @@ jobs:
       # (if-no-files-found: warn) — Sonar consumes the same file.
       - name: Upload coverage to Codecov (informational)
         if: always()
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@2320916714171c258d01dbd81040d64d798c6f8e # v7.1.1
         with:
           files: coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -1622,7 +1622,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1790,7 +1790,7 @@ jobs:
       # the migrated jobs use).
       - uses: ./.github/actions/node-dist
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1902,7 +1902,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1915,7 +1915,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1977,7 +1977,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1989,7 +1989,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}

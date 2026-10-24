@@ -38,7 +38,7 @@ jobs:
       # the production image runs).
       - uses: ./.github/actions/node-dist
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
