@@ -200,12 +200,12 @@ export default function OpenClawToolCard({
   // state updates are not part of the same commit (set-state-in-effect).
   useEffect(() => {
     if (!(isExpanded && !openclawStatus)) return;
-    const initial = setTimeout(() => {
+    // Microtask: outside the effect body, applied before the next paint.
+    queueMicrotask(() => {
       checkOpenclawStatus();
       fetchModelAliases();
       fetchBackups();
-    }, 0);
-    return () => clearTimeout(initial);
+    });
   }, [isExpanded, openclawStatus]);
 
   const handleRestoreBackup = async (backupId) => {

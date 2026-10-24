@@ -629,10 +629,8 @@ export default function OAuthModal({
   );
 
   useEffect(() => {
-    // No clear branch: it cannot run synchronously (set-state-in-effect) and a deferred
-    // clear races the countdown it is meant to replace — the macrotask lands after the
-    // microtask that computes the fresh value. The panel below renders a countdown only
-    // while a deadline exists, which expresses the same thing without the race.
+    // No clear branch: a deferred clear races the countdown it should replace; the panel
+    // shows a countdown only while a deadline exists.
     if (!deviceCodeExpiresAt) return;
 
     const updateRemaining = () => {
@@ -640,8 +638,7 @@ export default function OAuthModal({
         Math.max(0, Math.ceil((deviceCodeExpiresAt - Date.now()) / 1000))
       );
     };
-    // Microtask rather than a timeout: still outside the effect body (so not a
-    // synchronous setState), but applied before the next paint and flushed by act().
+    // Microtask: outside the effect body, applied before the next paint.
     queueMicrotask(updateRemaining);
     const timer = window.setInterval(updateRemaining, 1000);
     return () => {
@@ -652,8 +649,7 @@ export default function OAuthModal({
   useEffect(() => {
     // Reset when the provider changes; deferred so the updates are not part of the
     // same commit (react-hooks/set-state-in-effect).
-    // Microtask, not a timeout: a pending macrotask reset would fire on the next timer
-    // advance and cancel a flow that started in between.
+    // Microtask, not a timeout: a pending macrotask would cancel a flow started between.
     queueMicrotask(() => {
       invalidateDeviceFlow();
       flowStartedRef.current = false;
@@ -676,9 +672,7 @@ export default function OAuthModal({
     []
   );
 
-  // Reset on the open/provider edge during render (React's documented pattern).
-  // These are pure resets; doing them here rather than in the effect keeps them ordered
-  // BEFORE the flow starts, which a deferred call could not guarantee.
+  // Reset on the open/provider edge during render: keeps them ordered before the flow.
   const oauthInitKey = isOpen && provider ? provider : null;
   const [oauthInitSeen, setOauthInitSeen] = useState<string | null>(null);
   if (oauthInitKey !== oauthInitSeen) {
@@ -698,8 +692,7 @@ export default function OAuthModal({
     }
   }
 
-  // Start the flow once per open/provider session. Nothing here sets state
-  // synchronously, so the reset above and the start stay in the intended order.
+  // Start the flow once per session; nothing here sets state synchronously.
   useEffect(() => {
     if (!isOpen || !provider) return;
     if (flowStartedRef.current) return;
