@@ -27,9 +27,11 @@ activeApiKeyId || …`), which passed eslint and failed the dashboard typecheck.
 - **The memory edit form hydrated from an object reference**, so a parent re-render could
   re-hydrate and overwrite what the user had typed; it is keyed by the record now.
 - **A comment naming a fleet host and its private domain** was removed from the public tree.
-- **Migration runs retry on SQLITE_BUSY** (bounded) and a persistent failure is now surfaced
-  by `awaitDbMigrations()` instead of being logged and swallowed, which had left a
-  half-migrated database behind and surfaced later as "no such table".
+- **Migration runs retry on SQLITE_BUSY** (bounded, with backoff). The intermittent
+  "no such table: model_intelligence" in CI was a migration run losing a write lock and
+  being dropped by the error path; the retry removes the window. Surfacing a persistent
+  failure to `awaitDbMigrations()` was attempted and reverted: callers rely on that promise
+  never throwing, and changing it broke instance-close semantics.
 
 ### Security
 
