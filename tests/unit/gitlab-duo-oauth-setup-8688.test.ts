@@ -54,19 +54,26 @@ test("#8688 OAuthModal skips auto-start and renders GitlabDuoSetupStep (#8688)",
   assert.match(modal, /setStep\("gitlab-duo-setup"\)/);
   assert.match(modal, /step === "gitlab-duo-setup"/);
 
-  // Auto-start must be skipped when the setup step is active.
-  const openEffect = modal.match(
-    /\/\/ Reset state and start OAuth when modal opens[\s\S]*?}, \[isOpen, provider, startOAuthFlow\]\);/
+  // The open-edge reset and the auto-start now live in two places: the reset runs during
+  // render (so it stays ordered before the flow starts), the effect only starts the flow.
+  const initBlock = modal.match(
+    /\/\/ Reset on the open\/provider edge[\s\S]*?setStep\("gitlab-duo-setup"\)/
   );
-  assert.ok(openEffect, "expected the modal-open useEffect");
-  assert.match(openEffect![0], /startsInGitlabDuoSetup/);
-  assert.match(openEffect![0], /setStep\("gitlab-duo-setup"\)/);
-  assert.match(openEffect![0], /return;/);
+  assert.ok(initBlock, "expected the open-edge reset block");
+  assert.match(initBlock![0], /startsInGitlabDuoSetup/);
+  assert.match(initBlock![0], /setStep\("gitlab-duo-setup"\)/);
+
+  // Auto-start must be skipped when the provider is gitlab-duo.
+  const autoStart = modal.match(
+    /\/\/ Start the flow once per session[\s\S]*?}, \[isOpen, provider, startOAuthFlow\]\);/
+  );
+  assert.ok(autoStart, "expected the auto-start useEffect");
   assert.match(
-    openEffect![0],
-    /if \(!startsInPasteMode\) startOAuthFlow\(\)/,
-    "other providers still auto-start"
+    autoStart![0],
+    /provider === "gitlab-duo"\) return;/,
+    "gitlab-duo must not auto-start"
   );
+  assert.match(autoStart![0], /startOAuthFlow/, "other providers still auto-start");
 
   const setup = read("../../src/shared/components/oauthModal/GitlabDuoSetupStep.tsx");
   assert.match(setup, /GITLAB_DUO_OAUTH_SETUP_MESSAGE/);
@@ -82,8 +89,5 @@ test("#8688 error Try Again returns gitlab-duo to the setup step", () => {
   const errorStep = read("../../src/shared/components/oauthModal/OAuthErrorStep.tsx");
   assert.match(errorStep, /returnToGitlabDuoSetup/);
   assert.match(errorStep, /onReturnToGitlabDuoSetup/);
-  assert.match(
-    errorStep,
-    /if \(returnToGitlabDuoSetup\)[\s\S]{0,80}?onReturnToGitlabDuoSetup\(\)/
-  );
+  assert.match(errorStep, /if \(returnToGitlabDuoSetup\)[\s\S]{0,80}?onReturnToGitlabDuoSetup\(\)/);
 });

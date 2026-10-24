@@ -63,7 +63,10 @@ export function useRiskAcknowledged(providerId: string) {
   const [acknowledged, setAcknowledged] = useState(() => isRiskAcknowledged(providerId));
 
   useEffect(() => {
-    setAcknowledged(isRiskAcknowledged(providerId));
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => setAcknowledged(isRiskAcknowledged(providerId)), 0);
+    return () => clearTimeout(initial);
   }, [providerId]);
 
   const acknowledge = useCallback(() => {

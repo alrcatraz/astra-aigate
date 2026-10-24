@@ -24,6 +24,49 @@ env:
   # ARG NPM_VERSION are the single source, delivered by the node-dist action
   # (embedded in guix-toolchain; also used standalone by the non-guix jobs).
 
+# Guix lanes run in the CI executor container (2026-10): every job that
+# activates ./.github/actions/guix-toolchain declares
+#   container: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+# — a PUBLIC GHCR image (no registry login exists or is needed) that supplies
+# only the Guix binary + base userland. The environment still resolves from
+# .guix/channels.scm via `guix time-machine -C` inside the action, so the scm
+# stays the single source of truth; the tag is pinned (never `latest`) because
+# the image must not silently become the toolchain source. Jobs WITHOUT a
+# container key (changes, sonarqube, coverage-pr-comment, test-e2e,
+# ci-summary) never touch Guix and stay on bare ubuntu-latest.
+#
+# OPEN DECISION — ADDR_NO_RANDOMIZE vs container seccomp (probed 2026-10-22,
+# image v0.2.2): `guix time-machine` calls personality(ADDR_NO_RANDOMIZE) for
+# reproducible builds and REFUSES to run when the call fails ("ADDR_NO_
+# RANDOMIZE appears blocked … --allow-aslr was not passed"). Docker's default
+# seccomp profile (moby profiles/seccomp/default.json, verified v27.5.1:
+# defaultAction SCMP_ACT_ERRNO; personality allowed only for arg values
+# {0, 8, 131072, 131080, 4294967295}) does NOT include 0x40000 — so container
+# jobs are expected to fail at their first $GUIX_SHELL step with exactly that
+# message (locally reproduced: rootless podman default profile fails, the
+# same container with seccomp=unconfined succeeds). The guix-toolchain action
+# emits a matching ::warning canary on job start so the failure is
+# self-explanatory.
+#
+# RESOLVED (owner-approved change, decided A over B and C, then refined by the
+# image project's own build workflow):
+#   A) applied as `options: --privileged` on all 19 container jobs. A keeps
+#      guix's guarantee: with the syscall permitted guix really does disable
+#      ASLR, so builds stay reproducible, whereas B (`--allow-aslr`) is guix
+#      itself saying it accepts non-reproducible builds — the opposite of this
+#      executor's purpose. C was not available: a seccomp profile is runtime
+#      input, not image content, and `--security-opt seccomp=<file>` would
+#      need the file on the runner before the container starts, which is
+#      before any step can write one.
+#   The first attempt used `--security-opt seccomp=unconfined` (the literal
+#   form of A) and that alone is insufficient: it lifts the syscall filter but
+#   not the capability, so the daemon's build sandbox still cannot clone(2).
+#   `--privileged` lifts seccomp AND grants CAP_SYS_ADMIN — exactly what the
+#   image project's own build-executor-guixsd.yml runs this same image with.
+#   Cost recorded: those jobs lose seccomp mediation and run with full
+#   capabilities in the job container. Accepted because they run the repo's
+#   own test suite on an ephemeral GitHub-hosted VM.
+
 jobs:
   changes:
     name: Change Classification
@@ -67,6 +110,33 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -80,6 +150,12 @@ jobs:
       API_KEY_SECRET: ci-lint-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -93,7 +169,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -149,11 +225,24 @@ jobs:
       - run: $GUIX_SHELL npm run check:route-guard-membership
       - run: $GUIX_SHELL npm run check:test-discovery
       - run: $GUIX_SHELL npm run check:tracked-artifacts
-      # WS1.7 (v3.8.49 plan): Dockerfile lint (hadolint, pinned by digest).
+      # WS1.7 (v3.8.49 plan): Dockerfile lint (hadolint, pinned by SHA-256).
       # failure-threshold=error keeps the 5 pre-existing warnings (DL3008/DL3003/
       # DL3016 version pinning / WORKDIR) visible without blocking; any ERROR fails.
+      # Container note: this job runs INSIDE the executor container, where there is
+      # no Docker daemon — so `docker run hadolint/hadolint@sha256:…` is replaced
+      # by the official static binary pinned by in-file digest (the node-dist
+      # layer-1 pattern; hadolint publishes no SHASUMS file to cross-check).
+      # Verified to execute inside image v0.2.2 (hadolint 2.12.0).
       - name: hadolint (Dockerfile)
-        run: docker run --rm -i hadolint/hadolint@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e hadolint --failure-threshold error - < Dockerfile
+        run: |
+          set -euo pipefail
+          HADOLINT_VERSION=2.12.0
+          EXPECTED_HEX=56de6d5e5ec427e17b74fa48d51271c7fc0d61244bf5c90e828aab8362d55010
+          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o /tmp/hadolint
+          echo "$EXPECTED_HEX  /tmp/hadolint" | sha256sum --check --quiet \
+            || { echo "FATAL: hadolint bytes != in-file digest $EXPECTED_HEX"; exit 1; }
+          chmod +x /tmp/hadolint
+          /tmp/hadolint --failure-threshold error Dockerfile
       - run: $GUIX_SHELL npm run check:lockfile
       - run: $GUIX_SHELL npm run check:licenses
       # check:docs-all runs in the docs-sync-strict job (renamed gate — the
@@ -173,7 +262,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -181,6 +270,33 @@ jobs:
   quality-gate:
     name: Quality Ratchet
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     # needs lint so eslint-results artifact is available (same inventory as the
     # blocking lint step). Allow lint failure so other ratchets still run.
     needs: [changes, test-coverage, lint]
@@ -200,6 +316,12 @@ jobs:
       contents: read
       security-events: read
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -213,7 +335,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -311,7 +433,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -319,12 +441,45 @@ jobs:
   quality-extended:
     name: Quality Gates (Extended)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
     # Path filter: code-only (scanners/ratchets target production surface).
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'hotfix') && (github.event_name != 'pull_request' || (github.event.pull_request.draft == false && needs.changes.outputs.code == 'true')) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       # fetch-depth: 0 — the OpenAPI breaking-change gate (oasdiff) reads the base
       # spec via `git show <base_ref>:docs/openapi.yaml`; a shallow clone
       # would lack the base ref and the gate would self-skip (base-unresolved).
@@ -342,7 +497,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -384,6 +539,18 @@ jobs:
         run: |
           set +e
           mkdir -p "$HOME/.local/bin"
+          # gh — preinstalled on GitHub runner IMAGES, but not in the executor
+          # container; bootstrap the official binary (pinned by in-file SHA-256,
+          # same layer-1 pattern as node-dist) so the `gh release download`
+          # calls below keep their authenticated rate limit via GH_TOKEN.
+          # Verified to execute inside image v0.2.2.
+          GH_VERSION=2.103.0
+          GH_HEX=fdd768eb70f6409f80fcfa9f3a1c0adf0fc98d827ab3ce0bed2ac22762c5d786
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION#v}_linux_amd64.tar.gz" -o /tmp/gh.tgz
+          echo "$GH_HEX  /tmp/gh.tgz" | sha256sum --check --quiet || echo "WARNING: gh tarball digest mismatch — scanners below will self-skip"
+          tar -xzf /tmp/gh.tgz -C /tmp
+          cp "/tmp/gh_${GH_VERSION#v}_linux_amd64/bin/gh" "$HOME/.local/bin/gh"
+          gh --version || true
           # gitleaks — download latest linux x64 tarball via gh (authed), extract binary
           rm -rf /tmp/gl && mkdir -p /tmp/gl
           gh release download --repo gitleaks/gitleaks --pattern '*linux_x64.tar.gz' --dir /tmp/gl
@@ -442,7 +609,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -450,12 +617,45 @@ jobs:
   docs-sync-strict:
     name: Docs Sync (Strict)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
     # Run when docs OR code change: API/route code can break doc/OpenAPI contract gates.
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && (needs.changes.outputs.docs == 'true' || needs.changes.outputs.code == 'true')) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -469,7 +669,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -492,7 +692,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -500,6 +700,33 @@ jobs:
   docs-lint:
     name: Docs Lint (prose — advisory)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -509,6 +736,12 @@ jobs:
     # existing doc corpus is brought up to style. Promote to blocking once it converges.
     continue-on-error: true
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -516,7 +749,8 @@ jobs:
       # Scope here: prose lint shells out to `git` (markdownlint-cli2 gitignores
       # via it), and `npx` must not silently fall back to the runner's node —
       # the whole npx fetch+run is pinned to the node dist (26.7.0) + its npm.
-      # Vale below is a Docker composite action and keeps its own toolchain by
+      # Vale below is a node action (using: node24) that installs its own
+      # vale binary and keeps its own toolchain by
       # design; this job never runs npm ci, so there is no native-addon ABI
       # surface to clash. (No setup-node step: node-dist — embedded in the
       # guix-toolchain action below — provides the runtime, and this job runs
@@ -548,7 +782,7 @@ jobs:
       # key as the restore; a hit skips the re-upload.
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -556,6 +790,33 @@ jobs:
   i18n-ui-coverage:
     name: i18n UI Coverage
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     # P3 (plano mestre): a release-PR viva fica DRAFT o ciclo inteiro — jobs pesados pulam
     # drafts (ciclo v3.8.44: 123 runs pesados re-disparados por merges na release, 88 cancelados).
@@ -565,6 +826,12 @@ jobs:
       # fetch-depth: 0 — the value-drift gate diffs en.json against the merge base to
       # find rewritten English strings. On a shallow clone the base ref is missing and
       # the gate self-skips (base-unresolved), so it would never actually run.
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -589,7 +856,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -600,9 +867,42 @@ jobs:
   i18n-glossary-zhcn:
     name: i18n Glossary (zh-CN)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.draft == false && (needs.changes.outputs.i18n == 'true' || needs.changes.outputs.code == 'true')) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -618,7 +918,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -632,7 +932,40 @@ jobs:
     name: PR Test Policy
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -670,7 +1003,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -678,9 +1011,42 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -695,7 +1061,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -736,7 +1102,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -744,10 +1110,43 @@ jobs:
   package-artifact:
     name: Package Artifact
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     needs: build
     env:
       JWT_SECRET: ci-build-secret-with-sufficient-length-for-validation
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -761,7 +1160,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -791,7 +1190,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -800,6 +1199,33 @@ jobs:
     name: Unit Tests (${{ matrix.shard }}/8)
     # Same hosted-runner rule as Build.
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 60
     # needs: changes (not build) — this job never downloads the next-build artifact;
     # gating it on Build only serialized ~20min of wall-clock for nothing. Jobs that
@@ -817,6 +1243,12 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -830,7 +1262,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -865,7 +1297,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -873,10 +1305,43 @@ jobs:
   test-bun-sqlite:
     name: Bun SQLite Compatibility
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 25
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -890,7 +1355,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -907,7 +1372,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -916,6 +1381,33 @@ jobs:
     name: Vitest (MCP / autoCombo / UI components)
     # Same hosted-runner rule as Build.
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 30
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
@@ -925,6 +1417,12 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -938,7 +1436,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -957,7 +1455,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -965,16 +1463,54 @@ jobs:
   test-coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     # 10min was sized before #7114 added the lcov reporter (Codecov/Sonar need it);
     # merging 8 shard JSONs + text+json+lcov now takes ~10-12min — three consecutive
     # release-tip runs died at exactly 10m as job-timeout "cancelled" (2026-07-15/16).
-    timeout-minutes: 20
+    # 20 -> 45 (measured 2026-10-22): inside the executor container npm ci alone runs
+    # ~15 min before this job reaches its merge step, so a 20-minute ceiling left it
+    # ~5 minutes and run 39900122813 cancelled "Merge + report + gate" at 20m15s.
+    # Same reasoning as test-integration's 45; the install phase shrinks once the
+    # fleet substitute cache is reachable, at which point this can come back down.
+    timeout-minutes: 45
     needs: test-unit
     if: ${{ !cancelled() && needs.test-unit.result == 'success' && !contains(github.event.pull_request.labels.*.name, 'hotfix') }}
     env:
       JWT_SECRET: ci-test-secret-with-sufficient-length-for-validation
       API_KEY_SECRET: ci-test-api-key-secret-long
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -988,7 +1524,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1059,11 +1595,20 @@ jobs:
       # (if-no-files-found: warn) — Sonar consumes the same file.
       - name: Upload coverage to Codecov (informational)
         if: always()
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@2320916714171c258d01dbd81040d64d798c6f8e # v7.1.1
         with:
           files: coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          # skip_validation: the action self-checks bash/git/curl/gpg in the RAW
+          # step environment. gpg now lives in the toolchain profile, but that
+          # profile is on PATH only inside `$GUIX_SHELL` — a composite/JS action
+          # cannot be wrapped by it, so the check fails on a perfectly good image
+          # ("missing: gpg") while the upload itself is unaffected. The check
+          # guards the action's own runtime, not the integrity of our report
+          # (which this step does not sign), and the upload is informational
+          # (fail_ci_if_error: false), so skipping it changes nothing we gate on.
+          skip_validation: true
       - name: Upload coverage artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -1077,7 +1622,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1245,7 +1790,7 @@ jobs:
       # the migrated jobs use).
       - uses: ./.github/actions/node-dist
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1290,7 +1835,40 @@ jobs:
   test-integration:
     name: Integration Tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+    # 30 → 45 (measured, not guessed): inside the executor container npm ci alone
+    # runs ~15 min this round (was 18.8 min before the substitute-source work), the
+    # time-machine env another ~3 min, so the shard got under 10 min of its 30 —
+    # run 39794869888 was killed at exactly 30 min (log ends
+    # "The operation was canceled."). Headroom while the fleet substitute cache
+    # absorbs the install phase; test-vitest keeps its own 30.
+    timeout-minutes: 45
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
@@ -1305,6 +1883,12 @@ jobs:
       DATA_DIR: /tmp/astra-aigate-ci-${{ matrix.shard }}
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -1318,7 +1902,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1331,7 +1915,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -1339,6 +1923,33 @@ jobs:
   test-security:
     name: Security Tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     # needs: changes (not build) — no artifact consumed; see test-unit note.
     needs: changes
     if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
@@ -1347,6 +1958,12 @@ jobs:
       API_KEY_SECRET: ci-test-api-key-secret-long
       DISABLE_SQLITE_AUTO_BACKUP: "true"
     steps:
+      # Executor-container PATH bootstrap: the CI image keeps its Guix
+      # toolchain under /run/current-system/profile/bin (not on the image's
+      # default PATH) — expose it BEFORE checkout so git resolves and the
+      # gates keep a real .git (no REST-download fallback).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -1360,7 +1977,7 @@ jobs:
         with:
           cache-url: ${{ secrets.GUIX_CACHE_URL }}
       - name: npm registry cache (tarballs)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -1372,7 +1989,7 @@ jobs:
       # Save half of the checkout cache pair (action restores, job saves).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}

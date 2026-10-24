@@ -43,13 +43,15 @@ export function useToolBatchStatuses(): UseToolBatchStatusesResult {
   }, [fetchStatuses]);
 
   useEffect(() => {
-    void fetchStatuses();
-
-    function handleFocus() {
+    // The listener is registered synchronously so it is never missed; only the
+    // first fetch is deferred (react-hooks/set-state-in-effect).
+    const handleFocus = () => {
       void fetchStatuses();
-    }
-
+    };
     window.addEventListener("focus", handleFocus);
+    // Microtask rather than a timeout: still outside the effect body, but it runs
+    // before the next paint and is flushed by act() in tests.
+    queueMicrotask(() => void fetchStatuses());
     return () => {
       window.removeEventListener("focus", handleFocus);
     };

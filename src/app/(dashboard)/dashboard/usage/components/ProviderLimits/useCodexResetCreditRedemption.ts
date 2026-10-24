@@ -106,15 +106,18 @@ function useOpenCodexResetCredits(
   );
 }
 
-function useRedeemCodexResetCredit(state: ResetCreditRequestState) {
+function useRedeemCodexResetCredit(
+  state: ResetCreditRequestState,
+  idempotencyKeysRef: React.MutableRefObject<Record<string, string>>
+) {
   const notify = useNotificationStore();
   return useCallback(
     async (selectionToken: string) => {
       const picker = state.resetCreditPicker;
       if (!picker || state.redeemingResetCreditId || !selectionToken) return;
       const idempotencyKey =
-        state.idempotencyKeysRef.current[selectionToken] ??
-        (state.idempotencyKeysRef.current[selectionToken] = createIdempotencyKey());
+        idempotencyKeysRef.current[selectionToken] ??
+        (idempotencyKeysRef.current[selectionToken] = createIdempotencyKey());
       state.setRedeemingResetCreditId(picker.connectionId);
       state.setErrors((prev) => ({ ...prev, [picker.connectionId]: null }));
       try {
@@ -145,7 +148,7 @@ function useRedeemCodexResetCredit(state: ResetCreditRequestState) {
           [picker.connectionId]: new Date().toISOString(),
         }));
         state.setResetCreditPicker(null);
-        state.idempotencyKeysRef.current = {};
+        idempotencyKeysRef.current = {};
         notify.success(state.tr("resetCreditRedeemed", "Reset redeemed"));
       } catch (error) {
         const message = getRequestErrorMessage(
@@ -158,7 +161,7 @@ function useRedeemCodexResetCredit(state: ResetCreditRequestState) {
         state.setRedeemingResetCreditId(null);
       }
     },
-    [notify, state]
+    [idempotencyKeysRef, notify, state]
   );
 }
 
@@ -182,17 +185,20 @@ export function useCodexResetCreditRedemption(
     idempotencyKeysRef,
     tr
   );
-  const redeemCodexResetCredit = useRedeemCodexResetCredit({
-    idempotencyKeysRef,
-    redeemingResetCreditId,
-    resetCreditPicker,
-    setErrors,
-    setLastRefreshedAt,
-    setQuotaData,
-    setRedeemingResetCreditId,
-    setResetCreditPicker,
-    tr,
-  });
+  const redeemCodexResetCredit = useRedeemCodexResetCredit(
+    {
+      idempotencyKeysRef,
+      redeemingResetCreditId,
+      resetCreditPicker,
+      setErrors,
+      setLastRefreshedAt,
+      setQuotaData,
+      setRedeemingResetCreditId,
+      setResetCreditPicker,
+      tr,
+    },
+    idempotencyKeysRef
+  );
 
   return {
     closeResetCreditPicker: () => setResetCreditPicker(null),

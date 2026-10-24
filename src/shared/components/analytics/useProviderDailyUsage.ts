@@ -39,7 +39,10 @@ export function useProviderDailyUsage(range: string, dateFilter: string) {
   }, [range, dateFilter, tCommon]);
 
   useEffect(() => {
-    fetchRows();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => fetchRows(), 0);
+    return () => clearTimeout(initial);
   }, [fetchRows]);
 
   return { rows, loading, error };

@@ -81,7 +81,10 @@ function useProviderInterceptionToggles(providerId: string, t: Translate) {
   }, [providerId, notify, t]);
 
   useEffect(() => {
-    loadToggles();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => loadToggles(), 0);
+    return () => clearTimeout(initial);
   }, [loadToggles]);
 
   const handleToggle = useCallback(

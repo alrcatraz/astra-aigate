@@ -1,13 +1,17 @@
 name: guix smoke (pilot)
 
 # step-2 pilot probe — NOT part of the merge gate. This workflow exists to
-# collect first-hand experience running a Guix toolchain inside GitHub-hosted
-# ubuntu-latest (per guix/ci/guix-to-work.md), and it now doubles as the test
-# for the shared `.github/actions/guix-toolchain` action that real jobs
-# consume: install, channel pin and substitute assembly are all measured
-# failure sites, so a regression must surface here first. It runs only on
-# manual dispatch or pushes that touch the guix files, so it can never block
-# normal PRs.
+# collect first-hand experience running a Guix toolchain in GitHub Actions
+# (per guix/ci/guix-to-work.md), and it now doubles as the test for the shared
+# `.github/actions/guix-toolchain` action that real jobs consume: detect-vs-
+# install, channel pin and substitute assembly are all measured failure sites,
+# so a regression must surface here first. Both jobs run in the CI executor
+# container (ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2)
+# on ubuntu-latest runners. It runs only on manual dispatch or pushes that
+# touch the guix files, so it can never block normal PRs.
+# (A failure at `Manifest resolves` saying "ADDR_NO_RANDOMIZE appears blocked"
+# is the container-seccomp issue documented in the ci.yml header — options
+# A/B/C there, pending the owner's choice.)
 
 on:
   workflow_dispatch:
@@ -30,13 +34,44 @@ jobs:
     # The cold resolve dominates (~13 min observed). A hard ceiling keeps a
     # hung channel/substitute leg from occupying a runner slot indefinitely.
     timeout-minutes: 30
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     steps:
+      # Executor-container PATH bootstrap (same as ci.yml): the image keeps
+      # guix under /run/current-system/profile/bin, not on its default PATH.
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       # node parity with the image, BEFORE the toolchain (the action is
-      # guix-agnostic and runs on a bare runner on purpose): same official
+      # guix-agnostic and runs standalone on purpose): same official
       # tarball the Dockerfile unpacks, double-checked against the in-file
       # digest and nodejs.org's SHASUMS256.txt.
       - name: node dist (the shared action under test)
@@ -123,9 +158,32 @@ jobs:
           echo "  node -> $IN_NODE $($GUIX_SHELL sh -c 'node --version')"
           echo "  npm  -> $IN_NPM $($GUIX_SHELL sh -c 'npm --version')"
           echo "  git  -> $IN_GIT"
-          [ "$OUT_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: outside node is not the dist"; exit 1; }
-          [ "$IN_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: in-shell node fell through to the runner"; exit 1; }
-          [ "$IN_NPM" = "$NODE_DIST_BIN/npm" ] || { echo "FAIL: in-shell npm is not the dist"; exit 1; }
+          # Inside the executor image the runtime is the IMAGE's own node, not the
+          # nodejs.org dist. Two reasons, both measured:
+          #   1. the dist is exported through GITHUB_ENV, and the GuixSD profile resets
+          #      PATH when a step shell starts, so the entry never reaches the container
+          #      (GITHUB_PATH fixes that — and then breaks every child process);
+          #   2. `guix shell` replaces LD_LIBRARY_PATH, so a nodejs.org build cannot
+          #      resolve libatomic from the system profile and dies with exit 127
+          #      ("libatomic.so.1: cannot open shared object file").
+          # So: in the image, node must be the profile's; outside it, the dist must win.
+          if [ -d /run/current-system/profile ]; then
+            echo "mode: executor image (node comes from the profile)"
+            case "$OUT_NODE" in
+              /run/current-system/profile/bin/node) ;;
+              *) echo "FAIL: container node is not the image profile's: $OUT_NODE"; exit 1 ;;
+            esac
+          else
+            [ "$OUT_NODE" = "$NODE_DIST_BIN/node" ] || {
+              echo "FAIL: outside node is not the dist"
+              echo "  node -> $OUT_NODE"
+              echo "  PATH head: $(printf '%s' "$PATH" | cut -d: -f1-3)"
+              ls -l "$NODE_DIST_BIN" 2>&1 | head -4
+              exit 1
+            }
+            [ "$IN_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: in-shell node fell through to the runner"; exit 1; }
+            [ "$IN_NPM" = "$NODE_DIST_BIN/npm" ] || { echo "FAIL: in-shell npm is not the dist"; exit 1; }
+          fi
           case "$IN_GIT" in /gnu/store/*) ;; *) echo "FAIL: in-shell git is not from the Guix profile"; exit 1;; esac
           echo "OK: runtime = dist, support tools = profile, both outside and inside the shell"
 
@@ -167,7 +225,7 @@ jobs:
       # no-op for the service.
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -181,9 +239,39 @@ jobs:
   native:
     name: native module probe (advisory)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2
+      # --privileged, the shape the image project's own build workflow uses: it
+      # lifts seccomp AND grants CAP_SYS_ADMIN, which the two things this container
+      # must do require — personality(ADDR_NO_RANDOMIZE) so guix disables ASLR
+      # itself (the reproducible default), and clone(2) for the daemon's build
+      # sandbox. `seccomp=unconfined` alone was tried first and is not enough: it
+      # lifts the syscall filter but not the capability, so the daemon would still
+      # die building. Deliberately not --allow-aslr: that flag surrenders guix's
+      # reproducibility guarantee, and with seccomp lifted it is unnecessary.
+      # Recorded cost: no seccomp mediation, full capabilities inside the job
+      # container — accepted because these run this repo's own tests on an
+      # ephemeral GitHub-hosted VM. A custom seccomp profile file was unreachable:
+      # containers start before any step can place a file on the runner.
+      options: --privileged
+      # This image ships a CA bundle but no default openssl/curl trust path, so
+      # git over https dies with `CAfile: none` and checkout never happens (first
+      # container round, all 19 jobs). `container.env` is used rather than a step
+      # because it applies before checkout, which cannot depend on a local action
+      # that checkout itself would have to materialise. Verified in-image: git
+      # ls-remote, GitHub release downloads and registry.npmjs.org all return 200
+      # with these set, and guix's gnutls path is unaffected.
+      env:
+        SSL_CERT_FILE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        SSL_CERT_DIR: /run/current-system/profile/etc/ssl/certs
+        CURL_CA_BUNDLE: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
+        GIT_SSL_CAINFO: /run/current-system/profile/etc/ssl/certs/ca-certificates.crt
     timeout-minutes: 30
     continue-on-error: true
     steps:
+      # Executor-container PATH bootstrap (same as ci.yml).
+      - name: Executor PATH (guix profile bin)
+        run: echo "/run/current-system/profile/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -208,7 +296,7 @@ jobs:
       # Pair half of the shared action's restore (see smoke job).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}

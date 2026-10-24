@@ -110,7 +110,10 @@ export default function ComplianceTab() {
   }, [actor, eventType, from, offset, t, to]);
 
   useEffect(() => {
-    void fetchEntries();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void fetchEntries(), 0);
+    return () => clearTimeout(initial);
   }, [fetchEntries]);
 
   const visibleEntries = useMemo(() => {
@@ -330,7 +333,9 @@ export default function ComplianceTab() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="rounded-md border border-border bg-surface px-2 py-1 font-mono text-xs text-text-main">
-                          {t.has(`eventTypes.${entry.action}`) ? t(`eventTypes.${entry.action}`) : entry.action}
+                          {t.has(`eventTypes.${entry.action}`)
+                            ? t(`eventTypes.${entry.action}`)
+                            : entry.action}
                         </span>
                       </td>
                       <td className="px-4 py-3">

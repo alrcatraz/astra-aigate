@@ -45,7 +45,10 @@ export function WebhooksPageClient() {
   }, [t]);
 
   useEffect(() => {
-    void load();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void load(), 0);
+    return () => clearTimeout(initial);
   }, [load]);
 
   const stats = useMemo(

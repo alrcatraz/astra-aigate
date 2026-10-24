@@ -49,6 +49,12 @@ export default function ClaudeToolCard({
   const [restoringBackup, setRestoringBackup] = useState(null);
   const cliReady = !!(claudeStatus?.installed && claudeStatus?.runnable);
 
+  // Derived, not stored: setting the first key as a default from an effect is
+  // react-hooks/set-state-in-effect (derived state), and it costs a redundant
+  // render. `activeApiKeyId` stays the explicit user choice; the fallback lives
+  // in the read path.
+  const activeApiKeyId = selectedApiKey || (apiKeys?.length ? apiKeys[0].id : "");
+
   const getConfigStatus = () => {
     if (!cliReady) return null;
     const currentUrl = claudeStatus.settings?.env?.ANTHROPIC_BASE_URL;
@@ -64,22 +70,6 @@ export default function ClaudeToolCard({
   // Use batch status as fallback when card hasn't been expanded yet
   const effectiveConfigStatus = configStatus || batchStatus?.configStatus || null;
 
-  useEffect(() => {
-    // (#523) Store the key *id* (not the masked string) so the backend can
-    // resolve the real secret from DB before writing to settings.json.
-    if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].id);
-    }
-  }, [apiKeys, selectedApiKey]);
-
-  useEffect(() => {
-    if (isExpanded && !claudeStatus) {
-      checkClaudeStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, claudeStatus]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -90,31 +80,33 @@ export default function ClaudeToolCard({
     }
   };
 
-  useEffect(() => {
-    if (claudeStatus?.installed && !hasInitializedModels.current) {
-      hasInitializedModels.current = true;
-      const env = claudeStatus.settings?.env || {};
+  // Adjusting state during render on a prop change (React's documented pattern),
+  // not in an effect: this both satisfies react-hooks/set-state-in-effect and makes
+  // the restored key/model values available on the first paint.
+  const [modelsInitialized, setModelsInitialized] = useState(false);
+  if (claudeStatus?.installed && !modelsInitialized) {
+    setModelsInitialized(true);
+    const env = claudeStatus.settings?.env || {};
 
-      tool.defaultModels.forEach((model) => {
-        if (model.envKey) {
-          const value = env[model.envKey] || model.defaultValue || "";
-          // Only sync initial values from file once
-          if (value) {
-            onModelMappingChange(model.alias, value);
-          }
+    tool.defaultModels.forEach((model) => {
+      if (model.envKey) {
+        const value = env[model.envKey] || model.defaultValue || "";
+        // Only sync initial values from file once
+        if (value) {
+          onModelMappingChange(model.alias, value);
         }
-      });
-      // Restore selected key from file: match token stored in file against known keys
-      const tokenFromFile = getStoredClaudeAuthValue(env);
-      if (tokenFromFile) {
-        // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
-        // Mask the token from file to compare against the masked list.
-        const maskedToken = tokenFromFile.slice(0, 8) + "****" + tokenFromFile.slice(-4);
-        const matchedKey = apiKeys?.find((k) => k.key === maskedToken);
-        if (matchedKey) setSelectedApiKey(matchedKey.id);
       }
+    });
+    // Restore selected key from file: match token stored in file against known keys
+    const tokenFromFile = getStoredClaudeAuthValue(env);
+    if (tokenFromFile) {
+      // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
+      // Mask the token from file to compare against the masked list.
+      const maskedToken = tokenFromFile.slice(0, 8) + "****" + tokenFromFile.slice(-4);
+      const matchedKey = apiKeys?.find((k) => k.key === maskedToken);
+      if (matchedKey) setSelectedApiKey(matchedKey.id);
     }
-  }, [claudeStatus, apiKeys, tool.defaultModels, onModelMappingChange]);
+  }
 
   const checkClaudeStatus = async () => {
     setCheckingClaude(true);
@@ -148,7 +140,7 @@ export default function ClaudeToolCard({
       // (#523) Prefer keyId lookup so the backend writes the real key to disk.
       // If no key is selected, leave auth unset so local installs can rely on
       // anonymous access instead of persisting a fake placeholder token.
-      const selectedKeyId = selectedApiKey?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
+      const selectedKeyId = activeApiKeyId?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
 
       tool.defaultModels.forEach((model) => {
         const targetModel = modelMappings[model.alias] || model.defaultValue || "";
@@ -225,7 +217,7 @@ export default function ClaudeToolCard({
   // Generate settings.json content for manual copy
   const getManualConfigs = () => {
     const env = { ANTHROPIC_BASE_URL: getEffectiveBaseUrl() };
-    if (selectedApiKey && selectedApiKey.trim()) {
+    if (activeApiKeyId && activeApiKeyId.trim()) {
       env.ANTHROPIC_AUTH_TOKEN = "<API_KEY_FROM_DASHBOARD>";
     } else if (cloudEnabled) {
       env.ANTHROPIC_AUTH_TOKEN = "<API_KEY_FROM_DASHBOARD>";
@@ -254,6 +246,16 @@ export default function ClaudeToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+  // After the handlers it calls (immutability) and deferred a tick
+  // (a synchronous setState in the effect body is set-state-in-effect).
+  useEffect(() => {
+    if (!(isExpanded && !claudeStatus)) return;
+    queueMicrotask(() => {
+      checkClaudeStatus();
+      fetchModelAliases();
+      fetchBackups();
+    });
+  }, [isExpanded, claudeStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);
@@ -436,7 +438,7 @@ export default function ClaudeToolCard({
                   </span>
                   {apiKeys.length > 0 ? (
                     <select
-                      value={selectedApiKey}
+                      value={activeApiKeyId}
                       onChange={(e) => setSelectedApiKey(e.target.value)}
                       className="flex-1 px-2 py-1.5 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
                     >

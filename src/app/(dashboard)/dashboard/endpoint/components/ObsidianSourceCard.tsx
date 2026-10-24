@@ -50,15 +50,20 @@ export default function ObsidianSourceCard() {
   }, []);
 
   useEffect(() => {
-    void fetchConfig();
-    void fetchWebdavStatus();
+    const initial = setTimeout(() => {
+      void fetchConfig();
+      void fetchWebdavStatus();
+    }, 0);
+    return () => clearTimeout(initial);
   }, [fetchConfig, fetchWebdavStatus]);
 
   useEffect(() => {
-    if (message) {
+    if (!message) return;
+    const initial = setTimeout(() => {
       const timer = setTimeout(() => setMessage(null), 5000);
       return () => clearTimeout(timer);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [message]);
 
   const handleSaveToken = async () => {

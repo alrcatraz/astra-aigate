@@ -22,30 +22,35 @@ export default function JsonlValidationStep({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    setResult(null);
-    try {
-      const r = validateJsonl(jsonl, { endpoint });
-      setResult(r);
-      onResult(r);
-    } catch (err) {
-      console.error("[JsonlValidationStep] validate error:", err);
-      // Provide a minimal failed result on exception
-      const errResult: ValidationResult = {
-        ok: false,
-        totalLines: 0,
-        sampledLines: 0,
-        uniqueCustomIds: 0,
-        duplicateCustomIds: [],
-        errors: [{ lineNumber: 0, reason: t("wizardValidationParseFailed") }],
-        preview: [],
-        byteSize: 0,
-      };
-      setResult(errResult);
-      onResult(errResult);
-    } finally {
-      setLoading(false);
-    }
+    // Deferred a tick (react-hooks/set-state-in-effect): validation and its
+    // two setStates + parent callback run after the commit, not during it.
+    const initial = setTimeout(() => {
+      setLoading(true);
+      setResult(null);
+      try {
+        const r = validateJsonl(jsonl, { endpoint });
+        setResult(r);
+        onResult(r);
+      } catch (err) {
+        console.error("[JsonlValidationStep] validate error:", err);
+        // Provide a minimal failed result on exception
+        const errResult: ValidationResult = {
+          ok: false,
+          totalLines: 0,
+          sampledLines: 0,
+          uniqueCustomIds: 0,
+          duplicateCustomIds: [],
+          errors: [{ lineNumber: 0, reason: t("wizardValidationParseFailed") }],
+          preview: [],
+          byteSize: 0,
+        };
+        setResult(errResult);
+        onResult(errResult);
+      } finally {
+        setLoading(false);
+      }
+    }, 0);
+    return () => clearTimeout(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jsonl, endpoint]);
 

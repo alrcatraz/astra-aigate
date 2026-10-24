@@ -42,13 +42,25 @@ name: guix toolchain
 #       path: ~/.cache/guix
 #       key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
 #
-# Cost honesty: first run after a bump pays installer download + incremental
-# git fetch + store re-download (~5-13 min); a warm run should land near
-# 2-4 minutes (installer tarball + substitutes for store drift only).
+# Execution modes (2026-10): declaring jobs run in the CI executor container
+# (ghcr.io/zhen-linhuo/reproducible-executors/executor-guixsd:v0.2.2 — public,
+# no registry login), whose GuixSD system profile carries `guix` under
+# /run/current-system/profile/bin. The detect step below finds it, puts it on
+# PATH and skips the installer; on bare ubuntu-latest nothing preinstalled is
+# found and the historical install path runs unchanged. In BOTH modes the
+# environment resolves through `guix time-machine -C <repo pin>` — the
+# container supplies the binary only, never the channel identity, so
+# .guix/channels.scm + .guix/manifest.scm remain the single source of truth.
+#
+# Cost honesty: a container run pays no installer download — first run after
+# a bump = incremental git fetch + store re-download (~5-13 min cold); a warm
+# run should land near 2-4 minutes (substitutes for store drift only). The
+# Ubuntu fallback still pays the installer download + systemd bring-up on top.
 
 description: >-
-  Install the pinned node dist (image parity) and Guix, verify the repo pin,
-  cache the checkout, export $GUIX_SHELL
+  Pin the node dist (image parity), reuse a preinstalled Guix (executor
+  container) or install it (bare Ubuntu), verify the repo pin, cache the
+  checkout, export $GUIX_SHELL
 author: alrcatraz
 branding:
   icon: box
@@ -74,11 +86,74 @@ inputs:
 runs:
   using: composite
   steps:
-    # First: the image-identical node runtime. It is guix-agnostic (works on
+    # FIRST: detect a preinstalled Guix. The executor container keeps its
+    # GuixSD system profile at /run/current-system/profile/bin, which is NOT
+    # on the image's default PATH: prepend it (export for this step,
+    # GITHUB_PATH for every later step — idempotent) so node-dist's curl and
+    # every consumer resolve through it, and mark whether the install step
+    # below must run. On bare ubuntu-latest the directory does not exist
+    # (a nonexistent PATH entry is silently skipped) and no guix is found,
+    # so the historical install path runs unchanged.
+    - name: Detect preinstalled Guix (executor container)
+      id: detect
+      shell: bash
+      run: |
+        set -eu
+        PROFILE_BIN=/run/current-system/profile/bin
+        if [ -d "$PROFILE_BIN" ]; then
+          case ":$PATH:" in
+            *":$PROFILE_BIN:"*) : ;;                          # already on PATH
+            *) echo "$PROFILE_BIN" >> "$GITHUB_PATH"; export PATH="$PROFILE_BIN:$PATH" ;;
+          esac
+        fi
+        GUIX_BIN=$(command -v guix || true)
+        if [ -n "$GUIX_BIN" ]; then
+          echo "preinstalled=true" >> "$GITHUB_OUTPUT"
+          echo "executor container: guix at $GUIX_BIN ($("$GUIX_BIN" --version | head -1))"
+          echo "the BINARY is a bootstrap only — the environment still resolves from .guix/channels.scm"
+        else
+          echo "preinstalled=false" >> "$GITHUB_OUTPUT"
+          echo "no preinstalled guix — using the bare-runner install path below"
+        fi
+
+    # The image-identical node runtime. It is guix-agnostic (works on
     # a bare runner), fails fast before the expensive installer runs, and
     # exports NODE_DIST_* plus a PATH whose head holds the dist's bin — the
     # wrapper below inherits it, so `$GUIX_SHELL node` resolves to the dist
     # once the manifest stops carrying node.
+    # Two executor-container facts, declared once for every job that uses this
+    # action (both pass silently on a bare ubuntu runner, which is why they only
+    # surfaced after the container move):
+    # 1) git — the workspace is a mount owned by a different uid than the
+    #    process, and checkout's safe.directory entry went into a throwaway
+    #    HOME, so every later `git` inside checks died with "detected dubious
+    #    ownership" (check:tracked-artifacts, pr-test-policy's fetch).
+    #    GIT_CONFIG_* exported through GITHUB_ENV reaches every subsequent step
+    #    and its children; config supplied this way counts as command-line
+    #    config, which is one of the scopes git honours safe.directory in.
+    # 2) native-addon cache root — the swc loader refuses a cache whose parent
+    #    is writable by another user without trusted sticky protection
+    #    (ERR_SWC_NATIVE_CACHE on /github/home/.cache, which killed next build
+    #    and four unit shards). Give tools a root-owned XDG cache and mark the
+    #    mounted parents sticky — exactly the protection the message asks for.
+    - name: "Container trust: git safe.directory + native cache root"
+      if: steps.detect.outputs.preinstalled == 'true'
+      shell: bash
+      run: |
+        set -eu
+        {
+          printf 'GIT_CONFIG_COUNT=1\n'
+          printf 'GIT_CONFIG_KEY_0=safe.directory\n'
+          printf 'GIT_CONFIG_VALUE_0=*\n'
+          printf 'XDG_CACHE_HOME=/root/.cache\n'
+        } >> "$GITHUB_ENV"
+        mkdir -p /root/.cache "$HOME/.cache"
+        chmod 700 /root/.cache "$HOME/.cache" || true
+        for d in /github /github/home; do
+          if [ -d "$d" ]; then chmod +t "$d" 2>/dev/null || true; fi
+        done
+        echo "git trust exported (safe.directory=*), XDG cache -> /root/.cache, mounted parents marked sticky"
+
     - name: node dist (image-identical runtime)
       uses: ./.github/actions/node-dist
 
@@ -98,7 +173,11 @@ runs:
     # Per guix-to-work.md 定案 1 the tarball is only a bootstrap, so a release
     # binary boots the identical pinned env as nightly. Drop-in reversible:
     # restore the `uses:` line above to go back upstream.
-    - name: Install Guix (Berkeley mirror)
+    # Bare-Ubuntu fallback only: the executor container already carries guix
+    # (detect step above) and this script assumes sudo + systemd — neither
+    # exists in a job container.
+    - name: Install Guix (Berkeley mirror, bare-Ubuntu fallback)
+      if: steps.detect.outputs.preinstalled != 'true'
       shell: bash
       env:
         GUIX_TARBALL_URL: "https://mirrors.ocf.berkeley.edu/gnu/guix/guix-binary-1.5.0.x86_64-linux.tar.xz"
@@ -166,6 +245,140 @@ runs:
         echo "$GUIX_PATH/bin" >> "$GITHUB_PATH"
         echo "guix installed from Berkeley mirror"
 
+    # Executor-container leg of the same contract: the image ships no running
+    # daemon (its entrypoint is `tail -f /dev/null`, no init) and writes no
+    # substitute trust (/etc/guix does not exist until authorized) — both are
+    # the systemd unit's job on the Ubuntu path. `guix gc --list-roots` is
+    # the daemon health probe (this Guix build exposes no `guix store ping`
+    # subcommand — measured locally in image v0.2.2). A daemon started here
+    # survives across steps: each step is a fresh `exec` into the SAME
+    # container.
+    - name: Authorize substitutes + start guix-daemon (executor container)
+      id: daemon
+      if: steps.detect.outputs.preinstalled == 'true'
+      shell: bash
+      env:
+        CACHE_URL: ${{ inputs.cache-url }}
+      run: |
+        set -eu
+        # The runner starts this container with `--entrypoint tail`: no boot, no
+        # shepherd, so /var/guix/daemon-socket/socket never exists until something
+        # starts the daemon. Every job therefore starts it here, in the shape the
+        # image's own build workflow uses. Authorize first — without the ACL the
+        # client refuses every substitute regardless of source — and give the
+        # daemon a signing keypair, as the image project's stage 1 does.
+        for F in /run/current-system/profile/share/guix/*.pub; do
+          guix archive --authorize < "$F"
+        done
+        if timeout 30 guix archive --generate-key; then
+          echo "daemon keypair generated"
+        else
+          echo "::warning title=generate-key failed::rc=$? — daemon has no signing keypair"
+        fi
+
+        # Same six sources as astra-guix `common/substitute-urls.scm`
+        # %image-substitute-urls-base, but ORDERED official-first, which is a
+        # deliberate, measured departure from that file's mirrors-first rule:
+        # mirrors-first is right for latency because lookups are hash-keyed, but
+        # on 2026-10-23 mirrors.sjtug.sjtu.edu.cn served a truncated nar
+        # (`…/nar/zstd/67f5yg8…-module-import-compiled`) on all three retries —
+        # guix read it as &nar-error and the job died — while a plain curl of the
+        # same object did not finish in 300 s. A mirror that aborts mid-stream is
+        # worse than a 6-second authoritative fetch, so hydra-129/bordeaux/ci.guix
+        # lead and the two domestic mirrors remain as fallbacks. Private entries never appear in this file —
+        # the repository is public — they arrive only via the cache-url input
+        # (secret), in fleet order: the internal relay first, then the fallback cache.
+        # Same list, same order as the wrapper step: the daemon and the client
+        # must agree, and the wrapper reuses this step's /tmp/guix-subs.txt.
+        PUBLIC_URLS="https://hydra-guix-129.guix.gnu.org https://bordeaux.guix.gnu.org https://ci.guix.gnu.org https://mirror.sjtu.edu.cn/guix/ https://mirrors.sjtug.sjtu.edu.cn/guix https://mirrors.sjtug.sjtu.edu.cn/guix-bordeaux"
+        # A cache URL that does not answer costs one failed connect PER STORE
+        # ITEM, not once per job: on 2026-10-23 two jobs sat in npm ci for ~50 min
+        # and one died on a guix &nar-error after three attempts, because the
+        # configured caches are IPv6-only or reachable only over the fleet overlay
+        # while GitHub-hosted runners have no IPv6
+        # egress. "Unreachable is silently skipped" is only true if the failure
+        # is fast, so prove reachability first, with a hard per-URL ceiling.
+        # A 404 counts as reachable — the base path need not exist.
+        # Hostnames are NOT printed: these run logs are public on a public repo.
+        REACH=""
+        CACHE_N=0
+        for u in ${CACHE_URL:-}; do
+          CACHE_N=$((CACHE_N + 1))
+          code=$(curl -s -o /dev/null -m 4 -w '%{http_code}' "$u" 2>/dev/null || true)
+          case "${code:-000}" in
+            000|"") echo "cache URL #$CACHE_N unreachable, skipped";;
+            *)      REACH="$REACH $u"; echo "cache URL #$CACHE_N reachable (HTTP $code)";;
+          esac
+        done
+        if [ -n "$REACH" ]; then
+          SUBS="${REACH# } $PUBLIC_URLS"
+        else
+          SUBS="$PUBLIC_URLS"
+          [ "${CACHE_N:-0}" -gt 0 ] && echo "no reachable cache URL — public mirrors only"
+        fi
+        printf '%s' "$SUBS" > /tmp/guix-subs.txt
+
+        # Deliberately NOT --allow-aslr: the job runs --privileged, so
+        # personality(ADDR_NO_RANDOMIZE) IS available and guix disables ASLR
+        # itself — the reproducible default. --allow-aslr would tell guix to
+        # build with ASLR on, i.e. accept non-reproducible output for no reason
+        # (and as an argument to `guix time-machine` it is rejected outright as
+        # unrecognized — it is a daemon flag only).
+        # fds to a file, stdin from /dev/null: a plain `&` already survives
+        # across steps, but binding the daemon's output to this step's pipe is
+        # what makes its death invisible later.
+        export SSL_CERT_FILE="${SSL_CERT_FILE:-/run/current-system/profile/etc/ssl/certs/ca-certificates.crt}"
+        guix-daemon --build-users-group=guixbuild --substitute-urls="$SUBS" \
+          >/tmp/guix-daemon.log 2>&1 </dev/null &
+        DAEMON_PID=$!
+        ready=""
+        for i in $(seq 1 30); do
+          if [ -S /var/guix/daemon-socket/socket ] && kill -0 "$DAEMON_PID" 2>/dev/null; then
+            ready=1; echo "guix-daemon up after ${i}s (PID $DAEMON_PID)"; break
+          fi
+          if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
+            echo "FATAL: guix-daemon exited while starting — log:"; cat /tmp/guix-daemon.log; exit 1
+          fi
+          if [ "$i" = 30 ]; then
+            echo "FATAL: no daemon socket after 30s — log:"; cat /tmp/guix-daemon.log; exit 1
+          fi
+          sleep 1
+        done
+        # Readiness is socket-exists AND pid-alive. `guix gc --list-roots` is
+        # NOT a readiness test: it returns 0 with no daemon at all (it reads the
+        # local gcroot symlinks), which is exactly how the previous version of
+        # this step printed "already responding" in 313 ms and started nothing,
+        # leaving every job to die at the first time-machine call.
+        [ -n "$ready" ] || { echo "FATAL: daemon readiness loop exited unexpectedly"; exit 1; }
+        guix gc --list-roots >/dev/null 2>&1 && echo "client RPC reaches the daemon" \
+          || echo "::warning title=client RPC check::guix gc --list-roots failed though the socket exists"
+
+    # Canary for the container-side risk that a local probe could confirm but
+    # not fix unilaterally (2026-10-22, image v0.2.2): `guix time-machine`
+    # sets personality(ADDR_NO_RANDOMIZE) and refuses to run if that fails
+    # ("ADDR_NO_RANDOMIZE appears blocked … --allow-aslr was not passed").
+    # Docker's default seccomp profile allows personality only for
+    # {0, 8, 131072, 131080, 4294967295} (moby profiles/seccomp/default.json,
+    # v27.5.1) — 0x40000 is not among them. RESOLVED: every container job now
+    # runs `options: --privileged`, which lifts seccomp and also grants the
+    # CAP_SYS_ADMIN the daemon's build sandbox needs (clone(2)) — the same
+    # shape the image project's own build workflow uses, where
+    # `seccomp=unconfined` alone was found insufficient because it lifts the
+    # syscall filter but not the capability. --allow-aslr is deliberately NOT
+    # passed: with seccomp lifted guix disables ASLR itself, and that flag
+    # would accept non-reproducible builds instead. The probe stays as a
+    # one-line fact check — if it ever reports "blocked" again, something
+    # regressed the options block.
+    - name: ASLR/personality canary (container seccomp)
+      if: steps.detect.outputs.preinstalled == 'true'
+      shell: bash
+      run: |
+        if python3 -c 'import ctypes,sys; sys.exit(0 if ctypes.CDLL("libc.so.6",use_errno=True).personality(0x40000)!=-1 else 1)' 2>/dev/null; then
+          echo "personality(ADDR_NO_RANDOMIZE) OK — seccomp does not block it on this runner"
+        else
+          echo "::warning title=ADDR_NO_RANDOMIZE blocked by container seccomp::guix time-machine will refuse at the first \$GUIX_SHELL step ('ADDR_NO_RANDOMIZE appears blocked ... was not passed'). Options: A=container.options --security-opt seccomp=unconfined (runtime fix, preferred); B=--allow-aslr (weakens reproducibility, needs sign-off); C=derived image with adjusted seccomp profile. See the ci.yml header note."
+        fi
+
     - name: Verify the repository channel pin
       id: pin
       shell: bash
@@ -192,6 +405,9 @@ runs:
         } >> "$GITHUB_ENV"
         echo "channel pin: $CHANNELS_FILE (cache key …$pin_hash)"
 
+    # In the executor container HOME points at the runner-provided home
+    # mount, so `~/.cache/guix` resolves the same way there; the key stays
+    # derived from the scm pin — no key change for the container migration.
     # The channel checkout under ~/.cache/guix is owned by the runner user
     # (measured, run 36863496262: runner:runner, 571M) — unlike /gnu/store,
     # which is root-owned and whose absolute-path restore fails outright (the
@@ -229,13 +445,21 @@ runs:
         # Reachability note: a home-served cache is typically IPv6-only, while
         # GitHub-hosted runners have no IPv6 egress — see
         # guix/ci/guix-to-work.md before expecting a private URL to work here.
-        PUBLIC_URLS="https://mirror.sjtu.edu.cn/guix/ https://bordeaux.guix.gnu.org https://ci.guix.gnu.org"
-        if [ -n "${CACHE_URL:-}" ]; then
+        # Fallback list — same canonical base as the daemon step (keep the two
+        # literals identical; both derive from substitute-urls.scm).
+        PUBLIC_URLS="https://hydra-guix-129.guix.gnu.org https://bordeaux.guix.gnu.org https://ci.guix.gnu.org https://mirror.sjtu.edu.cn/guix/ https://mirrors.sjtug.sjtu.edu.cn/guix https://mirrors.sjtug.sjtu.edu.cn/guix-bordeaux"
+        if [ -f /tmp/guix-subs.txt ]; then
+          # Container path: reuse the exact list the daemon step wrote, cache
+          # entries included, so client and daemon can never disagree about
+          # sources — and the public literal below is never re-derived here.
+          SUBS="$(cat /tmp/guix-subs.txt)"
+          echo "substitute sources: reused /tmp/guix-subs.txt ($(printf '%s' "$SUBS" | wc -w) entries)"
+        elif [ -n "${CACHE_URL:-}" ]; then
           SUBS="$CACHE_URL $PUBLIC_URLS"
-          echo "substitute sources: private cache first, then public mirrors"
+          echo "substitute sources: cache first, then public mirrors"
         else
           SUBS="$PUBLIC_URLS"
-          echo "NOTE: no cache secret configured — substituting from public mirrors only."
+          echo "NOTE: no cache configured — public mirrors only."
         fi
 
         # `--substitute-urls` carries a WHITESPACE-separated list, so the

@@ -104,7 +104,7 @@ export default function ApiManagerPageClient() {
   const createKeyNameFieldRef = useRef<HTMLDivElement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeOnly, setActiveOnly] = useState(false);
+  const [activeOnly, setActiveOnly] = useState(() => readActiveOnlyPreference());
   const [statusFilter, setStatusFilter] = useState<KeyStatus | null>(null);
   const [typeFilter, setTypeFilter] = useState<KeyType | null>(null);
   const [quotaPoolGroup, setQuotaPoolGroup] = useState<Record<string, string>>({});
@@ -121,13 +121,6 @@ export default function ApiManagerPageClient() {
     input?.scrollIntoView({ block: "nearest", inline: "nearest" });
     input?.focus({ preventScroll: true });
   }, [newKeyNameInputId]);
-
-  useEffect(() => {
-    fetchData();
-    fetchModels();
-    fetchCombos();
-    fetchConnections();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial dashboard load only
 
   // Proxied services once — shared by the create-form Service Access section
   // and the edit PermissionsModal (svc:<id> scopes).
@@ -164,10 +157,6 @@ export default function ApiManagerPageClient() {
       createKeyNameFieldRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
     });
   }, [nameError, showAddModal]);
-
-  useEffect(() => {
-    setActiveOnly(readActiveOnlyPreference());
-  }, []);
 
   useEffect(() => {
     writeActiveOnlyPreference(activeOnly);
@@ -312,25 +301,6 @@ export default function ApiManagerPageClient() {
     }
   };
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/keys");
-      if (res.ok) {
-        const data = await res.json();
-        setKeys(data.keys || []);
-        setAllowKeyReveal(data.allowKeyReveal === true);
-        // Fetch usage stats after keys are loaded
-        fetchUsageStats(data.keys || []);
-        fetchSessionCounts(data.keys || []);
-        fetchDeviceCounts(data.keys || []);
-      }
-    } catch (error) {
-      console.log("Error fetching keys:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchUsageStats = async (apiKeys: ApiKey[]) => {
     if (apiKeys.length === 0) return;
     try {
@@ -403,10 +373,6 @@ export default function ApiManagerPageClient() {
     }
   };
 
-  // Per-key device/connection counts (port of upstream 9router#931, thanks
-  // @mugnimaestra). One lightweight GET per key against
-  // /api/keys/[id]/devices — device counts are in-memory + TTL-evicted, so
-  // this is a much smaller payload than session data.
   const fetchDeviceCounts = async (apiKeys: ApiKey[]) => {
     if (apiKeys.length === 0) {
       setDeviceCounts({});
@@ -432,6 +398,41 @@ export default function ApiManagerPageClient() {
       console.log("Error fetching device counts:", error);
     }
   };
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch("/api/keys");
+      if (res.ok) {
+        const data = await res.json();
+        setKeys(data.keys || []);
+        setAllowKeyReveal(data.allowKeyReveal === true);
+        // Fetch usage stats after keys are loaded
+        fetchUsageStats(data.keys || []);
+        fetchSessionCounts(data.keys || []);
+        fetchDeviceCounts(data.keys || []);
+      }
+    } catch (error) {
+      console.log("Error fetching keys:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Below the loaders it calls (immutability) and deferred a tick.
+  useEffect(() => {
+    const initial = setTimeout(() => {
+      fetchData();
+      fetchModels();
+      fetchCombos();
+      fetchConnections();
+    }, 0);
+    return () => clearTimeout(initial);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial dashboard load only
+
+  // Per-key device/connection counts (port of upstream 9router#931, thanks
+  // @mugnimaestra). One lightweight GET per key against
+  // /api/keys/[id]/devices — device counts are in-memory + TTL-evicted, so
+  // this is a much smaller payload than session data.
 
   const clearPageError = useCallback(() => setPageError(null), []);
 

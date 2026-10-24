@@ -69,7 +69,10 @@ export function NinerouterModelList() {
   );
 
   useEffect(() => {
-    void fetchModels(false);
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void fetchModels(false), 0);
+    return () => clearTimeout(initial);
   }, [fetchModels]);
 
   const totalPages = Math.max(1, Math.ceil(models.length / PAGE_SIZE));

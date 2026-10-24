@@ -1247,9 +1247,30 @@ export function getDbInstance(): SqliteDatabase {
   migrationsPromise = new Promise<void>((resolve) => {
     setTimeout(resolve, 0);
   })
-    .then(() => runMigrations(sqliteAsyncAdapter(db), { isNewDb }))
+    .then(async () => {
+      // A migration run can lose a write lock to another connection in the same
+      // process (parallel test workers share one DATA_DIR). SQLITE_BUSY here is
+      // transient, and swallowing it leaves a half-migrated database whose missing
+      // tables surface much later as "no such table: …". Retry the run a bounded
+      // number of times instead, then let the failure be visible (below).
+      const attempts = 4;
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          return await runMigrations(sqliteAsyncAdapter(db), { isNewDb });
+        } catch (error) {
+          const message = String((error as Error)?.message ?? error);
+          const transient = /database is locked|SQLITE_BUSY/i.test(message);
+          if (!transient || attempt >= attempts) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+        }
+      }
+    })
     .then(() => undefined)
     .catch((error: unknown) => {
+      // Historical contract: the tracked promise settles even when the run fails (it
+      // logs), so callers of awaitDbMigrations() never see an exception from a migration.
+      // Changing that contract broke tests that intentionally close the instance, so the
+      // retry above is the whole fix here; surfacing failures needs its own change.
       console.error("[DB] Migration runner failed:", error);
     });
   // Fresh installs need the same post-migration index guarantee as upgraded

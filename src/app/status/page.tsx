@@ -53,7 +53,10 @@ export default function StatusPage() {
   }
 
   useEffect(() => {
-    void loadHealth();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void loadHealth(), 0);
+    return () => clearTimeout(initial);
   }, []);
 
   const providerStats = useMemo(() => {

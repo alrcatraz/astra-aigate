@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    target-branch: "development"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -50,11 +51,13 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "development"
     schedule:
       interval: "weekly"
 
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "development"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -67,6 +70,7 @@ updates:
   # entry (the root workspaces array lists only open-sse).
   - package-ecosystem: "npm"
     directory: "/@omniroute/opencode-plugin"
+    target-branch: "development"
     schedule:
       interval: "weekly"
       day: "monday"

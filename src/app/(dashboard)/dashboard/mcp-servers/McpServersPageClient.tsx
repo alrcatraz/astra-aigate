@@ -70,7 +70,10 @@ export default function McpServersPageClient() {
   }, []);
 
   useEffect(() => {
-    fetchServers();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => fetchServers(), 0);
+    return () => clearTimeout(initial);
   }, [fetchServers]);
 
   const patchServer = async (id: string, body: Record<string, unknown>) => {

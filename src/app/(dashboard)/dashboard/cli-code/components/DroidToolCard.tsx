@@ -43,6 +43,10 @@ export default function DroidToolCard({
   const [backups, setBackups] = useState([]);
   const [showBackups, setShowBackups] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(null);
+
+  // Derived, not stored: a default-selection effect is derived state
+  // (react-hooks/set-state-in-effect) and costs an extra render.
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
   const cliReady = !!(droidStatus?.installed && droidStatus?.runnable);
 
   // (#618) Match any custom:AI Gate-<i> entry (multi-model).
@@ -66,19 +70,6 @@ export default function DroidToolCard({
 
   // (#523) Store the key *id* (not the masked string) so the backend can
   // resolve the real secret from DB before writing to config files.
-  useEffect(() => {
-    if (apiKeys?.length > 0 && !selectedApiKeyId) {
-      setSelectedApiKeyId(apiKeys[0].id);
-    }
-  }, [apiKeys, selectedApiKeyId]);
-
-  useEffect(() => {
-    if (isExpanded && !droidStatus) {
-      checkDroidStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, droidStatus]);
 
   const fetchModelAliases = async () => {
     try {
@@ -90,30 +81,29 @@ export default function DroidToolCard({
     }
   };
 
-  useEffect(() => {
-    if (droidStatus?.installed && !hasInitializedModel.current) {
-      hasInitializedModel.current = true;
-      // (#618) Pre-fill the multi-model list from every custom:AI Gate-<i>
-      // entry, preserving the original index order.
-      const existing = (droidStatus.settings?.customModels || [])
-        .filter(isOmniRouteEntry)
-        .slice()
-        .sort((a, b) => (a.index || 0) - (b.index || 0));
-      if (existing.length > 0) {
-        setModelList(existing.map((m) => m.model).filter(Boolean));
-        const first = existing[0];
-        if (first?.apiKey) {
-          // (#523) Keys from /api/keys are masked. Match by prefix/suffix.
-          const fileKeyPrefix = first.apiKey.slice(0, 8);
-          const fileKeySuffix = first.apiKey.slice(-4);
-          const matchedKey = apiKeys?.find(
-            (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
-          );
-          if (matchedKey) setSelectedApiKeyId(matchedKey.id);
-        }
+  const [modelHydrated, setModelHydrated] = useState(false);
+  if (droidStatus?.installed && !modelHydrated) {
+    setModelHydrated(true);
+    // (#618) Pre-fill the multi-model list from every custom:AI Gate-<i>
+    // entry, preserving the original index order.
+    const existing = (droidStatus.settings?.customModels || [])
+      .filter(isOmniRouteEntry)
+      .slice()
+      .sort((a, b) => (a.index || 0) - (b.index || 0));
+    if (existing.length > 0) {
+      setModelList(existing.map((m) => m.model).filter(Boolean));
+      const first = existing[0];
+      if (first?.apiKey) {
+        // (#523) Keys from /api/keys are masked. Match by prefix/suffix.
+        const fileKeyPrefix = first.apiKey.slice(0, 8);
+        const fileKeySuffix = first.apiKey.slice(-4);
+        const matchedKey = apiKeys?.find(
+          (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
+        );
+        if (matchedKey) setSelectedApiKeyId(matchedKey.id);
       }
     }
-  }, [droidStatus, apiKeys]);
+  }
 
   // (#618) Multi-model list manipulation helpers.
   const addModel = (value) => {
@@ -152,8 +142,7 @@ export default function DroidToolCard({
     setMessage(null);
     try {
       // (#523) Prefer keyId lookup so the backend writes the real key to disk.
-      const selectedKeyId =
-        selectedApiKeyId?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
+      const selectedKeyId = activeApiKeyId?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
 
       const res = await fetch("/api/cli-tools/droid-settings", {
         method: "POST",
@@ -235,6 +224,17 @@ export default function DroidToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+  // After the handlers it calls (immutability); calls deferred a tick so the
+  // state updates are not part of the same commit (set-state-in-effect).
+  useEffect(() => {
+    if (!(isExpanded && !droidStatus)) return;
+    const initial = setTimeout(() => {
+      checkDroidStatus();
+      fetchModelAliases();
+      fetchBackups();
+    }, 0);
+    return () => clearTimeout(initial);
+  }, [isExpanded, droidStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);
@@ -267,7 +267,7 @@ export default function DroidToolCard({
 
   const getManualConfigs = () => {
     // (#523) Look up the key object by id to get the masked display value.
-    const selectedKeyObj = apiKeys?.find((k) => k.id === selectedApiKeyId);
+    const selectedKeyObj = apiKeys?.find((k) => k.id === activeApiKeyId);
     const keyToDisplay =
       selectedKeyObj?.key || (!cloudEnabled ? "sk_omniroute" : "<API_KEY_FROM_DASHBOARD>");
 
@@ -413,7 +413,7 @@ export default function DroidToolCard({
                   </span>
                   {apiKeys.length > 0 ? (
                     <select
-                      value={selectedApiKeyId}
+                      value={activeApiKeyId}
                       onChange={(e) => setSelectedApiKeyId(e.target.value)}
                       className="flex-1 px-2 py-1.5 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
                     >

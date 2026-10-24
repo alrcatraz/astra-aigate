@@ -45,13 +45,16 @@ export default function EditCompatibleNodeModal({
   const [checkKey, setCheckKey] = useState("");
   const [checkModelId, setCheckModelId] = useState("");
   const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<
-    null | { valid: boolean; error?: string | null; method?: string | null }
-  >(null);
+  const [validationResult, setValidationResult] = useState<null | {
+    valid: boolean;
+    error?: string | null;
+    method?: string | null;
+  }>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
-    if (node) {
+    if (!node) return;
+    const initial = setTimeout(() => {
       setFormData({
         name: node.name || "",
         prefix: node.prefix || "",
@@ -74,7 +77,8 @@ export default function EditCompatibleNodeModal({
           (isCcCompatible && !node.chatPath)
         )
       );
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [node, isAnthropic, isCcCompatible]);
 
   const apiTypeOptions = [

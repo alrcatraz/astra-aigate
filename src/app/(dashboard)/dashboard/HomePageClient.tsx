@@ -180,9 +180,11 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   }, []);
 
   useEffect(() => {
-    if (typeof globalThis.window !== "undefined") {
+    if (!(typeof globalThis.window !== "undefined")) return;
+    const initial = setTimeout(() => {
       setBaseUrl(`${globalThis.location.origin}/v1`);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -212,7 +214,8 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    const initial = setTimeout(() => fetchData(), 0);
+    return () => clearTimeout(initial);
   }, [fetchData]);
 
   // Fetch provider nodes for display labels (compat providers)

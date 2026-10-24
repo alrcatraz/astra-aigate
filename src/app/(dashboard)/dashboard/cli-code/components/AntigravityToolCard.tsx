@@ -48,21 +48,12 @@ export default function AntigravityToolCard({
   // providers don't surface in the picker even when active.
   const [modelAliases, setModelAliases] = useState({});
 
+  // Derived, not stored: a default-selection effect is derived state
+  // (react-hooks/set-state-in-effect) and costs an extra render.
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
+
   // (#523) Store the key *id* (not the masked string) so the backend can
   // resolve the real secret from DB before writing to config files.
-  useEffect(() => {
-    if (apiKeys?.length > 0 && !selectedApiKeyId) {
-      setSelectedApiKeyId(apiKeys[0].id);
-    }
-  }, [apiKeys, selectedApiKeyId]);
-
-  useEffect(() => {
-    if (isExpanded && !status) {
-      fetchStatus();
-      loadSavedMappings();
-      fetchModelAliases();
-    }
-  }, [isExpanded, status]);
 
   const loadSavedMappings = async () => {
     try {
@@ -102,6 +93,17 @@ export default function AntigravityToolCard({
       console.log("Error fetching model aliases:", error);
     }
   };
+  // After the handlers it calls (immutability); calls deferred a tick so the
+  // state updates are not part of the same commit (set-state-in-effect).
+  useEffect(() => {
+    if (!(isExpanded && !status)) return;
+    const initial = setTimeout(() => {
+      fetchStatus();
+      loadSavedMappings();
+      fetchModelAliases();
+    }, 0);
+    return () => clearTimeout(initial);
+  }, [isExpanded, status]);
 
   // MITM elevation is decided by the *server* OS, not by this browser's user
   // agent. The server reports `isWin` and `needsSudoPassword` in GET status —
@@ -134,8 +136,7 @@ export default function AntigravityToolCard({
     setMessage(null);
     try {
       // (#523) Prefer keyId lookup so the backend writes the real key to disk.
-      const selectedKeyId =
-        selectedApiKeyId?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
+      const selectedKeyId = activeApiKeyId?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
 
       const res = await fetch("/api/cli-tools/antigravity-mitm", {
         method: "POST",
@@ -345,7 +346,7 @@ export default function AntigravityToolCard({
                 </span>
                 {apiKeys.length > 0 ? (
                   <select
-                    value={selectedApiKeyId}
+                    value={activeApiKeyId}
                     onChange={(e) => setSelectedApiKeyId(e.target.value)}
                     className="flex-1 px-2 py-1.5 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
                   >

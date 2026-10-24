@@ -13,9 +13,11 @@ const { default: OAuthModal, formatDeviceCodeRemaining } =
 const roots: Array<{ root: ReturnType<typeof createRoot>; element: HTMLDivElement }> = [];
 
 async function flushEffects() {
+  // Drains the pending chain rather than one hop: the modal now schedules the flow start
+  // on a microtask (so its leading setStates stay out of the effect body) and the
+  // device-code response resolves a few promises later.
   await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
   });
 }
 

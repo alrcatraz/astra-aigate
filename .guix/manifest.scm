@@ -50,6 +50,38 @@
  (list
   ;; Language runtime (support side): python for gates that need it.
        (@ (gnu packages python) python)
+  ;; GNU make — needed by npm's implicit node-gyp builds. npm treats
+  ;; gypfile:true packages (better-sqlite3) specially: it runs
+  ;; `node-gyp rebuild` whether or not the script was approved, and node-gyp
+  ;; shells out to make. Without make the build fails, and because
+  ;; better-sqlite3 is an optionalDependency npm DROPS IT SILENTLY — npm ci
+  ;; still exits 0 and the first check that imports it dies with
+  ;; "Cannot find package 'better-sqlite3'". The executor image ships
+  ;; python3/gcc/g++ but no make, so this only ever failed in CI (a host with
+  ;; make never reproduces it). The VARIABLE is gnu-make while the package
+  ;; name is make — exactly the name-vs-variable trap the packaging note
+  ;; above warns about; verified by loading the module in image v0.2.2
+  ;; (package-version gnu-make -> 4.4.1).
+       (@ (gnu packages base) gnu-make)
+  ;; lsof — resolvePortPid() spawns `lsof -ti :<port>` to decide which process
+  ;; holds a supervisor's port; without lsof the spawn errors, the function
+  ;; returns null, and ServiceSupervisor's adoption test failed on the executor
+  ;; image (no lsof there) while passing on any host that ships one. The module
+  ;; is (gnu packages lsof), NOT (gnu packages admin): probing bindings with
+  ;; module-variable showed lsof "bound" in admin and linux too, but those are
+  ;; unexported internals and `(@ …)` only resolves the public interface — the
+  ;; manifest load failed with "lsof: unbound variable" and named the right
+  ;; module. Verified by evaluating the symbol after use-modules in image v0.2.2
+  ;; (package-version lsof -> 4.99.6).
+       (@ (gnu packages lsof) lsof)
+  ;; gnupg — codecov/codecov-action self-checks bash/git/curl/gpg and exits 1
+  ;; with "The following required dependencies are missing: gpg" when gpg is
+  ;; absent, which is how the Coverage job failed on the executor image (every
+  ;; other coverage step had already succeeded by then). Module verified with
+  ;; the use-modules evaluation, not module-variable: (gnu packages gnupg)
+  ;; exports gnupg -> 2.5.21; (gnu packages version-control) does not, and
+  ;; (gnu packages gpg) does not exist.
+       (@ (gnu packages gnupg) gnupg)
   ;; Version control, search and data tools the gates shell out to.
        (@ (gnu packages version-control) git)
        (@ (gnu packages rust-apps) ripgrep)

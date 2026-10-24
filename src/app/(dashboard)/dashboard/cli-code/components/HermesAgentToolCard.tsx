@@ -112,9 +112,23 @@ export default function HermesAgentToolCard({
   // Track whether we have already seeded from batchStatus on this expand
   const seededFromBatchRef = useRef(false);
 
-  function formatTimeSince(iso: string): string {
+  // Relative labels must not read the clock during render (react-hooks/purity);
+  // a timer-driven value is both compliant and correct — the label now refreshes
+  // on its own instead of freezing at mount time.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    const initial = setTimeout(tick, 0);
+    const interval = setInterval(tick, 60000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, []);
+
+  function formatTimeSince(iso: string, nowMs: number): string {
     const then = new Date(iso).getTime();
-    const diff = Date.now() - then;
+    const diff = nowMs - then;
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     if (days > 0) return t("daysAgoShort", { count: days });
@@ -143,36 +157,6 @@ export default function HermesAgentToolCard({
     }
   }, []);
 
-  useEffect(() => {
-    if (!isExpanded) {
-      // Reset seed flag when collapsed so it can seed again on next expand
-      seededFromBatchRef.current = false;
-      setPreviewYaml(null);
-      setFirstSetupAt(null);
-      return;
-    }
-    // Phase 3: Seed from detector snapshot (batchStatus) for instant UI — once per expand.
-    // NOTE: currentRoles is intentionally NOT a dependency. loadCurrentConfig() below sets
-    // currentRoles to a fresh object on every fetch; if currentRoles were a dep, the effect
-    // would re-fire → refetch → setCurrentRoles → re-fire … an infinite loop. On the detail
-    // page isExpanded is hardcoded true, so that loop spun forever (the "loading forever" +
-    // console spam of /api/cli-tools/hermes-agent-settings). We read currentRoles only via a
-    // functional update so the emptiness guard sees the latest value without subscribing to it.
-    if (!seededFromBatchRef.current && batchStatus?.hermesAgentRoles) {
-      seededFromBatchRef.current = true;
-      setCurrentRoles((prev) => {
-        if (Object.keys(prev).length > 0) return prev;
-        const seeded: Record<string, any> = {};
-        Object.entries(batchStatus.hermesAgentRoles).forEach(([role, info]: [string, any]) => {
-          seeded[role] = { model: info.model, provider: info.provider };
-        });
-        return seeded;
-      });
-    }
-    loadCurrentConfig();
-    fetchModelAliases();
-  }, [isExpanded, batchStatus, loadCurrentConfig]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -182,6 +166,41 @@ export default function HermesAgentToolCard({
       console.warn("Error fetching model aliases:", error);
     }
   };
+  // After the handlers it calls (immutability) and fully deferred (the effect body
+  // resets and seeds state synchronously, which is set-state-in-effect). The seed
+  // guard logic is unchanged — only its execution moves out of the commit phase.
+  useEffect(() => {
+    const initial = setTimeout(() => {
+      if (!isExpanded) {
+        // Reset seed flag when collapsed so it can seed again on next expand
+        seededFromBatchRef.current = false;
+        setPreviewYaml(null);
+        setFirstSetupAt(null);
+        return;
+      }
+      // Phase 3: Seed from detector snapshot (batchStatus) for instant UI — once per expand.
+      // NOTE: currentRoles is intentionally NOT a dependency. loadCurrentConfig() below sets
+      // currentRoles to a fresh object on every fetch; if currentRoles were a dep, the effect
+      // would re-fire → refetch → setCurrentRoles → re-fire … an infinite loop. On the detail
+      // page isExpanded is hardcoded true, so that loop spun forever (the "loading forever" +
+      // console spam of /api/cli-tools/hermes-agent-settings). We read currentRoles only via a
+      // functional update so the emptiness guard sees the latest value without subscribing to it.
+      if (!seededFromBatchRef.current && batchStatus?.hermesAgentRoles) {
+        seededFromBatchRef.current = true;
+        setCurrentRoles((prev) => {
+          if (Object.keys(prev).length > 0) return prev;
+          const seeded: Record<string, any> = {};
+          Object.entries(batchStatus.hermesAgentRoles).forEach(([role, info]: [string, any]) => {
+            seeded[role] = { model: info.model, provider: info.provider };
+          });
+          return seeded;
+        });
+      }
+      loadCurrentConfig();
+      fetchModelAliases();
+    }, 0);
+    return () => clearTimeout(initial);
+  }, [isExpanded, batchStatus, loadCurrentConfig]);
 
   const setRoleSelection = (roleId: string, model: string, provider = "AI Gate") => {
     setSelections((prev) => ({ ...prev, [roleId]: { model, provider } }));
@@ -351,7 +370,8 @@ export default function HermesAgentToolCard({
                     })}
                   >
                     <span className="material-symbols-outlined text-[11px]">schedule</span>
-                    {t("hermesSinceSetup", { time: formatTimeSince(firstSetupAt) })}
+                    {nowMs !== null &&
+                      t("hermesSinceSetup", { time: formatTimeSince(firstSetupAt, nowMs) })}
                   </span>
                 )}
               </h3>

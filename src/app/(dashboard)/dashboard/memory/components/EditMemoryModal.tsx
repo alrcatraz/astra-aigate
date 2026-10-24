@@ -29,8 +29,16 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSaved }: Pr
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (memory && isOpen) {
+  // Adjusting state when the prop changes, during render (React's documented
+  // pattern), instead of in an effect: the fields are correct on the very first
+  // paint after the modal opens, with no extra commit.
+  // Keyed by identity, not object reference: a parent re-render that re-creates the
+  // `memory` object must not re-hydrate the form and clobber what the user typed.
+  const hydrateKey = isOpen && memory ? String(memory.key) : null;
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
+  if (hydrateKey !== hydratedKey) {
+    setHydratedKey(hydrateKey);
+    if (hydrateKey) {
       setType(memory.type);
       setKey(memory.key);
       setContent(memory.content);
@@ -38,7 +46,7 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSaved }: Pr
       setMetadataError("");
       setError("");
     }
-  }, [memory, isOpen]);
+  }
 
   const handleMetadataChange = (value: string) => {
     setMetadataStr(value);
@@ -151,9 +159,7 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSaved }: Pr
               metadataError ? "border-red-500" : "border-border"
             }`}
           />
-          {metadataError && (
-            <p className="text-xs text-red-400 mt-1">{metadataError}</p>
-          )}
+          {metadataError && <p className="text-xs text-red-400 mt-1">{metadataError}</p>}
         </div>
       </div>
     </Modal>

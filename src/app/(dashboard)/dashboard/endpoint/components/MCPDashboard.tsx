@@ -291,22 +291,28 @@ export default function McpDashboardPage() {
   }, [auditOffset, toolFilter, successFilter, apiKeyFilter]);
 
   useEffect(() => {
-    refreshSummary();
+    const initial = setTimeout(() => refreshSummary(), 0);
     const interval = setInterval(refreshSummary, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [refreshSummary]);
 
   // C: pick the first combo once the initial combos list has been fetched.
   // Kept outside refreshSummary so a state change here never re-fires the
   // summary fetch (previously created a redundant mount double-fetch).
   useEffect(() => {
-    if (!selectedComboId && combos.length > 0) {
+    if (!(!selectedComboId && combos.length > 0)) return;
+    const initial = setTimeout(() => {
       setSelectedComboId(combos[0].id);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [selectedComboId, combos]);
 
   useEffect(() => {
-    refreshAudit();
+    const initial = setTimeout(() => refreshAudit(), 0);
+    return () => clearTimeout(initial);
   }, [refreshAudit]);
 
   const handleSwitchCombo = async () => {

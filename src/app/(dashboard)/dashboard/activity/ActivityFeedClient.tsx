@@ -14,7 +14,10 @@ export default function ActivityFeedClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<EventCategory>("all");
-  const referenceNowMs = useRef<number>(Date.now());
+  // Reference clock kept in state, seeded when data arrives: Date.now() in a ref
+  // initialiser is react-hooks/purity, and reading ref.current during render is
+  // react-hooks/refs.
+  const [referenceNowMs, setReferenceNowMs] = useState<number | null>(null);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -30,7 +33,7 @@ export default function ActivityFeedClient() {
       }
       const data = (await res.json()) as AuditLogEntry[];
       // Reset reference time on fresh load so relative timestamps are stable
-      referenceNowMs.current = Date.now();
+      setReferenceNowMs(Date.now());
       setAllEntries(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t("fetchFailed");
@@ -41,7 +44,9 @@ export default function ActivityFeedClient() {
   }, [t]);
 
   useEffect(() => {
-    fetchEntries();
+    // Deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(fetchEntries, 0);
+    return () => clearTimeout(initial);
   }, [fetchEntries]);
 
   const filtered =
@@ -113,9 +118,9 @@ export default function ActivityFeedClient() {
             </span>
             <span className="text-sm">{t("loadingActivity")}</span>
           </div>
-        ) : (
-          <ActivityFeed entries={filtered} referenceNowMs={referenceNowMs.current} />
-        )}
+        ) : referenceNowMs !== null ? (
+          <ActivityFeed entries={filtered} referenceNowMs={referenceNowMs} />
+        ) : null}
       </div>
     </div>
   );

@@ -87,9 +87,7 @@ export default function FreeProviderRankingsPage() {
         if (opts?.configuredOnly) params.set("configuredOnly", "1");
         if (opts?.availableOnly) params.set("availableOnly", "1");
         const qs = params.toString();
-        const url = qs
-          ? `/api/free-provider-rankings?${qs}`
-          : "/api/free-provider-rankings";
+        const url = qs ? `/api/free-provider-rankings?${qs}` : "/api/free-provider-rankings";
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -104,7 +102,11 @@ export default function FreeProviderRankingsPage() {
   );
 
   useEffect(() => {
-    fetchRankings(filter || undefined, { configuredOnly, availableOnly });
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    // Microtask rather than a timeout: outside the effect body (so not a synchronous
+    // setState), but applied before the next paint and flushed by act() in tests.
+    queueMicrotask(() => fetchRankings(filter || undefined, { configuredOnly, availableOnly }));
   }, [filter, configuredOnly, availableOnly, fetchRankings]);
 
   // Client-side Type filter + "group by type" sort (#6915) — purely derived

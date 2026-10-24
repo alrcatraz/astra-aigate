@@ -120,9 +120,12 @@ export function usePermissionsModalForm({
 
   // Initialize state from props - component remounts when key prop changes
   const initialModels = Array.isArray(apiKey?.allowedModels) ? apiKey.allowedModels : [];
+  // Bind the field the memo reads so its dependency list matches its body
+  // (react-hooks/preserve-manual-memoization).
+  const blockedModelsSource = apiKey?.blockedModels;
   const initialBlockedModels = useMemo(
-    () => (Array.isArray(apiKey?.blockedModels) ? apiKey.blockedModels : []),
-    [apiKey?.blockedModels]
+    () => (Array.isArray(blockedModelsSource) ? blockedModelsSource : []),
+    [blockedModelsSource]
   );
   const initialCombos = Array.isArray(apiKey?.allowedCombos) ? apiKey.allowedCombos : [];
   const initialConnections = Array.isArray(apiKey?.allowedConnections)
@@ -165,11 +168,15 @@ export function usePermissionsModalForm({
   // whenever the proxied-services list (fetched once by the parent) or the
   // edited key changes.
   useEffect(() => {
-    const initial: Record<string, boolean> = {};
-    for (const s of proxiedServices) {
-      initial[s.id] = Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(`svc:${s.id}`);
-    }
-    setServiceScopesEnabled(initial);
+    // Deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(() => {
+      const next: Record<string, boolean> = {};
+      for (const s of proxiedServices) {
+        next[s.id] = Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(`svc:${s.id}`);
+      }
+      setServiceScopesEnabled(next);
+    }, 0);
+    return () => clearTimeout(initial);
   }, [proxiedServices, apiKey]);
   const [selfUsageEnabled, setSelfUsageEnabled] = useState(
     Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(SELF_USAGE_SCOPE)

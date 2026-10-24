@@ -100,9 +100,11 @@ export default function AddCompatibleProviderModal({
   const [checkKey, setCheckKey] = useState("");
   const [checkModelId, setCheckModelId] = useState("");
   const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<
-    null | { valid: boolean; error?: string | null; method?: string | null }
-  >(null);
+  const [validationResult, setValidationResult] = useState<null | {
+    valid: boolean;
+    error?: string | null;
+    method?: string | null;
+  }>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const apiTypeOptions = useMemo(
@@ -119,10 +121,13 @@ export default function AddCompatibleProviderModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setFormData(createInitialForm(mode));
-    setValidationResult(null);
-    setCheckKey("");
-    setShowAdvanced(false);
+    const initial = setTimeout(() => {
+      setFormData(createInitialForm(mode));
+      setValidationResult(null);
+      setCheckKey("");
+      setShowAdvanced(false);
+    }, 0);
+    return () => clearTimeout(initial);
   }, [isOpen, mode]);
 
   const modalTitle =

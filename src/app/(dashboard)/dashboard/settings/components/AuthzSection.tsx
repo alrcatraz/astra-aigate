@@ -134,7 +134,10 @@ export default function AuthzSection() {
   }, [t]);
 
   useEffect(() => {
-    void loadInventory();
+    // Microtask, not a timeout: the call cannot be synchronous here
+    // (react-hooks/set-state-in-effect), but the inventory should land before the next
+    // paint — and a microtask is what a test's act() flush actually drains.
+    queueMicrotask(() => void loadInventory());
   }, [loadInventory]);
 
   const dirty = useMemo(() => {

@@ -56,10 +56,13 @@ export default function GlobalConfigTab() {
   }, []);
 
   useEffect(() => {
-    mountedRef.current = true;
-    loadGlobalProxy();
-    loadPerKeyProxyEnabled();
+    const initial = setTimeout(() => {
+      mountedRef.current = true;
+      loadGlobalProxy();
+      loadPerKeyProxyEnabled();
+    }, 0);
     return () => {
+      clearTimeout(initial);
       mountedRef.current = false;
     };
   }, [loadGlobalProxy, loadPerKeyProxyEnabled]);
