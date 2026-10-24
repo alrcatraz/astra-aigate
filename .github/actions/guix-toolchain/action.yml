@@ -287,15 +287,15 @@ runs:
         # worse than a 6-second authoritative fetch, so hydra-129/bordeaux/ci.guix
         # lead and the two domestic mirrors remain as fallbacks. Private entries never appear in this file —
         # the repository is public — they arrive only via the cache-url input
-        # (secret), in fleet order: internal relay first, then cache01.
+        # (secret), in fleet order: the internal relay first, then the fallback cache.
         # Same list, same order as the wrapper step: the daemon and the client
         # must agree, and the wrapper reuses this step's /tmp/guix-subs.txt.
         PUBLIC_URLS="https://hydra-guix-129.guix.gnu.org https://bordeaux.guix.gnu.org https://ci.guix.gnu.org https://mirror.sjtu.edu.cn/guix/ https://mirrors.sjtug.sjtu.edu.cn/guix https://mirrors.sjtug.sjtu.edu.cn/guix-bordeaux"
         # A cache URL that does not answer costs one failed connect PER STORE
         # ITEM, not once per job: on 2026-10-23 two jobs sat in npm ci for ~50 min
         # and one died on a guix &nar-error after three attempts, because the
-        # configured caches are IPv6-only (cache01) or overlay-only
-        # (<internal>.nb.internal) while GitHub-hosted runners have no IPv6
+        # configured caches are IPv6-only or reachable only over the fleet overlay
+        # while GitHub-hosted runners have no IPv6
         # egress. "Unreachable is silently skipped" is only true if the failure
         # is fast, so prove reachability first, with a hard per-URL ceiling.
         # A 404 counts as reachable — the base path need not exist.
