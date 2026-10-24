@@ -1269,6 +1269,15 @@ export function getDbInstance(): SqliteDatabase {
     })
     .then(() => undefined)
     .catch((error: unknown) => {
+      const message = String((error as Error)?.message ?? error);
+      // A caller that closed the instance (test teardown, hot reload, instance
+      // replacement) cancels the run by closing the connection under it. That is not a
+      // schema failure and must not poison the next `awaitDbMigrations()`; anything else
+      // is recorded so waiters learn the schema is not there.
+      if (/database connection is not open/i.test(message)) {
+        console.warn("[DB] Migration runner stopped: instance closed");
+        return;
+      }
       migrationsError = error;
       console.error("[DB] Migration runner failed:", error);
     });
