@@ -522,15 +522,23 @@ export default function RouteExplainabilityTab({
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchLogs(controller.signal);
-    return () => controller.abort();
+    // The call is deferred but the controller is created synchronously, so the
+    // cleanup can still abort it (react-hooks/set-state-in-effect).
+    const initial = setTimeout(() => fetchLogs(controller.signal), 0);
+    return () => {
+      clearTimeout(initial);
+      controller.abort();
+    };
   }, [fetchLogs]);
 
   useEffect(() => {
     if (!selectedId) return;
     const controller = new AbortController();
-    fetchExplanation(selectedId, controller.signal);
-    return () => controller.abort();
+    const initial = setTimeout(() => fetchExplanation(selectedId, controller.signal), 0);
+    return () => {
+      clearTimeout(initial);
+      controller.abort();
+    };
   }, [fetchExplanation, selectedId]);
 
   useEffect(() => {

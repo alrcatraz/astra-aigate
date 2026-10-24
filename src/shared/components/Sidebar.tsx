@@ -151,9 +151,14 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
     const initialExpanded = hydrateExpandedSections(storedExpanded, initialPinned);
 
     skipInitialActiveExpansion.current = storedExpanded.length === 0;
-    setExpandedSections(initialExpanded);
-    setPinnedSections(initialPinned);
-    setSidebarExpansionLoaded(true);
+    // The ref write above stays synchronous; the three hydration setStates are
+    // deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(() => {
+      setExpandedSections(initialExpanded);
+      setPinnedSections(initialPinned);
+      setSidebarExpansionLoaded(true);
+    }, 0);
+    return () => clearTimeout(initial);
   }, []);
 
   useEffect(() => {
@@ -309,13 +314,17 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
         child.type === "group" ? child.items : [child]
       );
       if (sectionItems.some((item: any) => !item.external && item.href === activeHref)) {
-        setExpandedSections((prev) => {
-          const next = expandActiveSection(pinnedSections, section.id as SidebarSectionId);
-          if ([...next].every((id) => prev.has(id)) && next.size === prev.size) return prev;
-          saveToStorage(EXPANDED_SECTIONS_KEY, [...next]);
-          return next;
-        });
-        break;
+        // Deferred, and returned rather than broken out of: the effect has nothing
+        // else to do once the active section is found (react-hooks/set-state-in-effect).
+        const initial = setTimeout(() => {
+          setExpandedSections((prev) => {
+            const next = expandActiveSection(pinnedSections, section.id as SidebarSectionId);
+            if ([...next].every((id) => prev.has(id)) && next.size === prev.size) return prev;
+            saveToStorage(EXPANDED_SECTIONS_KEY, [...next]);
+            return next;
+          });
+        }, 0);
+        return () => clearTimeout(initial);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

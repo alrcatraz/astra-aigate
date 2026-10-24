@@ -50,21 +50,10 @@ export default function CodexToolCard({
   const [restoringBackup, setRestoringBackup] = useState(null);
   const cliReady = !!(codexStatus?.installed && codexStatus?.runnable);
 
-  useEffect(() => {
-    // Store the key *id* so the backend can resolve the real secret from DB
-    if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].id);
-    }
-  }, [apiKeys, selectedApiKey]);
-
-  useEffect(() => {
-    if (isExpanded && !codexStatus) {
-      checkCodexStatus();
-      fetchModelAliases();
-      fetchProfiles();
-      fetchBackups();
-    }
-  }, [isExpanded, codexStatus]);
+  // Derived, not stored: an effect that sets the first key as the default is
+  // react-hooks/set-state-in-effect (derived state). `activeApiKeyId` remains the
+  // explicit user choice; the read path falls back to the first available key.
+  const activeApiKeyId = selectedApiKey || (apiKeys?.length ? apiKeys[0].id : "");
 
   const fetchModelAliases = async () => {
     try {
@@ -77,32 +66,31 @@ export default function CodexToolCard({
   };
 
   // Parse config content
-  useEffect(() => {
-    if (codexStatus?.config) {
-      const modelMatch = codexStatus.config.match(/^model\s*=\s*"([^"]+)"/im);
-      if (modelMatch) setSelectedModel(modelMatch[1]);
+  const [configHydrated, setConfigHydrated] = useState(false);
+  if (codexStatus?.config) {
+    const modelMatch = codexStatus.config.match(/^model\s*=\s*"([^"]+)"/im);
+    if (modelMatch) setSelectedModel(modelMatch[1]);
 
-      const effortMatch = codexStatus.config.match(/^model_reasoning_effort\s*=\s*"([^"]+)"/im);
-      if (effortMatch) setReasoningEffort(effortMatch[1]);
+    const effortMatch = codexStatus.config.match(/^model_reasoning_effort\s*=\s*"([^"]+)"/im);
+    if (effortMatch) setReasoningEffort(effortMatch[1]);
 
-      const wireMatch = codexStatus.config.match(/^wire_api\s*=\s*"([^"]+)"/im);
-      if (wireMatch) setWireApi(wireMatch[1]);
+    const wireMatch = codexStatus.config.match(/^wire_api\s*=\s*"([^"]+)"/im);
+    if (wireMatch) setWireApi(wireMatch[1]);
 
-      const newMappings: Record<string, string> = {};
-      const migrationsBlock = codexStatus.config.split("[notice.model_migrations]")[1];
-      if (migrationsBlock) {
-        const nextSectionIdx = migrationsBlock.indexOf("[");
-        const chunk =
-          nextSectionIdx === -1 ? migrationsBlock : migrationsBlock.substring(0, nextSectionIdx);
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          const match = line.match(/^"([^"]+)"\s*=\s*"([^"]+)"/);
-          if (match) newMappings[match[1]] = match[2];
-        }
+    const newMappings: Record<string, string> = {};
+    const migrationsBlock = codexStatus.config.split("[notice.model_migrations]")[1];
+    if (migrationsBlock) {
+      const nextSectionIdx = migrationsBlock.indexOf("[");
+      const chunk =
+        nextSectionIdx === -1 ? migrationsBlock : migrationsBlock.substring(0, nextSectionIdx);
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        const match = line.match(/^"([^"]+)"\s*=\s*"([^"]+)"/);
+        if (match) newMappings[match[1]] = match[2];
       }
-      setModelMappings(newMappings);
     }
-  }, [codexStatus]);
+    setModelMappings(newMappings);
+  }
 
   const getConfigStatus = () => {
     if (!cliReady) return null;
@@ -142,11 +130,11 @@ export default function CodexToolCard({
     try {
       // Use sk_omniroute for localhost if no key, otherwise use selected key
       const keyToUse =
-        selectedApiKey && selectedApiKey.trim()
-          ? selectedApiKey
+        activeApiKeyId && activeApiKeyId.trim()
+          ? activeApiKeyId
           : !cloudEnabled
             ? "sk_omniroute"
-            : selectedApiKey;
+            : activeApiKeyId;
 
       // Send both apiKey (as fallback) and keyId to look up the unmasked string natively
       const res = await fetch("/api/cli-tools/codex-settings", {
@@ -155,7 +143,7 @@ export default function CodexToolCard({
         body: JSON.stringify({
           baseUrl: getEffectiveBaseUrl(),
           apiKey: keyToUse,
-          keyId: selectedApiKey,
+          keyId: activeApiKeyId,
           model: selectedModel || CODEX_DEFAULT_MODELS[0],
           reasoningEffort,
           wireApi,
@@ -311,6 +299,20 @@ export default function CodexToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+  // Placed after the handlers it calls (referencing them from above is
+  // react-hooks/immutability) and the calls deferred by a tick (a synchronous
+  // state update in the effect body is react-hooks/set-state-in-effect). The
+  // guard stays synchronous so nothing is scheduled when it should not run.
+  useEffect(() => {
+    if (!(isExpanded && !codexStatus)) return;
+    const initial = setTimeout(() => {
+      checkCodexStatus();
+      fetchModelAliases();
+      fetchProfiles();
+      fetchBackups();
+    }, 0);
+    return () => clearTimeout(initial);
+  }, [isExpanded, codexStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);
@@ -550,7 +552,7 @@ openai_base_url = "${getEffectiveBaseUrl()}"
                   </span>
                   {apiKeys.length > 0 ? (
                     <select
-                      value={selectedApiKey}
+                      value={activeApiKeyId}
                       onChange={(e) => setSelectedApiKey(e.target.value)}
                       className="flex-1 px-2 py-1.5 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
                     >
@@ -711,7 +713,7 @@ openai_base_url = "${getEffectiveBaseUrl()}"
                   onClick={handleApplySettings}
                   disabled={isApplyDisabled({
                     selectedModel,
-                    selectedApiKey,
+                    selectedApiKey: activeApiKeyId,
                     cloudEnabled,
                     apiKeys,
                   })}

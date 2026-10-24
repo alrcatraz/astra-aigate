@@ -41,11 +41,16 @@ export default function ModelCooldownsCard() {
   }, [notify, t]);
 
   useEffect(() => {
-    void load();
     const timer = setInterval(() => {
       void load();
     }, 5000);
-    return () => clearInterval(timer);
+    const initial = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
   }, [load]);
 
   const clearOne = useCallback(

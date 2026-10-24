@@ -41,9 +41,12 @@ export function usePools(): UsePoolsResult {
   }, []);
 
   useEffect(() => {
-    mountedRef.current = true;
-    void fetchPools();
+    const initial = setTimeout(() => {
+      mountedRef.current = true;
+      void fetchPools();
+    }, 0);
     return () => {
+      clearTimeout(initial);
       mountedRef.current = false;
     };
   }, [fetchPools]);

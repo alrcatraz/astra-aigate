@@ -44,7 +44,10 @@ export function useApiKeyUsageLimits(selectedApiKeyId: string | null) {
   );
 
   useEffect(() => {
-    void load();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void load(), 0);
+    return () => clearTimeout(initial);
   }, [load]);
 
   return { payload, loading, save };

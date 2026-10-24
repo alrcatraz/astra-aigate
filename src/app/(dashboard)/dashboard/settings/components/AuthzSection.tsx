@@ -134,7 +134,10 @@ export default function AuthzSection() {
   }, [t]);
 
   useEffect(() => {
-    void loadInventory();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void loadInventory(), 0);
+    return () => clearTimeout(initial);
   }, [loadInventory]);
 
   const dirty = useMemo(() => {

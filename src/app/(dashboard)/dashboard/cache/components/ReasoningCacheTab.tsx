@@ -131,8 +131,21 @@ export default function ReasoningCacheTab() {
   const [clearing, setClearing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const timeAgo = (dateStr: string): string => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+  // Timer-driven clock: reading Date.now() during render is react-hooks/purity,
+  // and the label should age on its own rather than freeze at mount.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    const initial = setTimeout(tick, 0);
+    const interval = setInterval(tick, 60000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const timeAgo = (dateStr: string, now: number): string => {
+    const diff = now - new Date(dateStr).getTime();
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1) return t("justNow");
     if (minutes < 60) return t("minutesAgo", { minutes });
@@ -157,9 +170,14 @@ export default function ReasoningCacheTab() {
   }, []);
 
   useEffect(() => {
-    void fetchData();
+    // First load deferred a tick (a synchronous call in the effect body is
+    // react-hooks/set-state-in-effect); the refresh interval is unaffected.
+    const initial = setTimeout(() => void fetchData(), 0);
     const id = setInterval(() => void fetchData(), REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(id);
+    };
   }, [fetchData]);
 
   const handleClear = async () => {
@@ -402,7 +420,7 @@ export default function ReasoningCacheTab() {
                     <div className="text-sm tabular-nums text-purple-400">
                       {(entry.charCount ?? 0).toLocaleString()}
                     </div>
-                    <div className="text-sm text-text-muted">{timeAgo(entry.createdAt)}</div>
+                    <div className="text-sm text-text-muted">{timeAgo(entry.createdAt, nowMs)}</div>
                     <button
                       type="button"
                       onClick={() =>

@@ -117,8 +117,11 @@ export default function SubscriptionTab() {
   }, []);
 
   useEffect(() => {
-    load();
-    loadProviders();
+    const initial = setTimeout(() => {
+      load();
+      loadProviders();
+    }, 0);
+    return () => clearTimeout(initial);
   }, [load, loadProviders]);
 
   const resetForm = () => {

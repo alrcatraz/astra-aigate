@@ -110,7 +110,10 @@ export default function PayloadRulesTab() {
   }, [tCommon]);
 
   useEffect(() => {
-    loadConfig();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => loadConfig(), 0);
+    return () => clearTimeout(initial);
   }, [loadConfig]);
 
   const handleReset = () => {

@@ -113,13 +113,17 @@ export default function UsageStats() {
     () => sortData(stats?.byModel, stats?.pending?.byModel),
     [stats?.byModel, stats?.pending?.byModel, sortData]
   );
+  // Bind the two maps the memo reads, so its dependency list matches its body
+  // (react-hooks/preserve-manual-memoization).
+  const byAccountData = stats?.byAccount;
+  const pendingByAccountData = stats?.pending?.byAccount;
   const sortedAccounts = useMemo(() => {
     // For accounts, pendingMap is by connectionId, but dataMap is by accountKey
     // We need to map connectionId pending counts to accountKeys
     const accountPendingMap: Record<string, any> = {};
-    if (stats?.pending?.byAccount) {
-      Object.entries(stats.byAccount || {}).forEach(([accountKey, data]: [string, any]) => {
-        const connPending = stats.pending.byAccount[data.connectionId];
+    if (pendingByAccountData) {
+      Object.entries(byAccountData || {}).forEach(([accountKey, data]: [string, any]) => {
+        const connPending = pendingByAccountData[data.connectionId];
         if (connPending) {
           // Get modelKey (rawModel (provider))
           const modelKey = data.provider ? `${data.rawModel} (${data.provider})` : data.rawModel;
@@ -127,8 +131,8 @@ export default function UsageStats() {
         }
       });
     }
-    return sortData(stats?.byAccount, accountPendingMap);
-  }, [stats?.byAccount, stats?.pending?.byAccount, sortData]);
+    return sortData(byAccountData, accountPendingMap);
+  }, [byAccountData, pendingByAccountData, sortData]);
 
   const fetchStats = useCallback(async (showLoading = true): Promise<void> => {
     if (showLoading) setLoading(true);
@@ -157,7 +161,9 @@ export default function UsageStats() {
   }, []);
 
   useEffect(() => {
-    fetchStats();
+    // Deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(fetchStats, 0);
+    return () => clearTimeout(initial);
   }, [fetchStats]);
 
   useEffect(() => {

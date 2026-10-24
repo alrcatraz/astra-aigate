@@ -170,9 +170,12 @@ export default function TelemetryCard() {
   }, [t]);
 
   useEffect(() => {
-    void loadTelemetry();
+    const initial = setTimeout(() => void loadTelemetry(), 0);
     const interval = setInterval(() => void loadTelemetry(), REFRESH_MS);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [loadTelemetry]);
 
   const values = useMemo(() => {

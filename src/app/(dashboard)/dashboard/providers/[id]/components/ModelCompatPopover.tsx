@@ -123,7 +123,10 @@ export default function ModelCompatPopover({
   } | null>(null);
   const headerRowIdRef = useRef(0);
   const headerRowsRef = useRef<HeaderDraftRow[]>([]);
-  headerRowsRef.current = headerRows;
+  // Mirror into the ref from an effect, not during render (react-hooks/refs).
+  useEffect(() => {
+    headerRowsRef.current = headerRows;
+  }, [headerRows]);
 
   const genHeaderRowId = () => {
     headerRowIdRef.current += 1;
@@ -157,8 +160,11 @@ export default function ModelCompatPopover({
 
   useEffect(() => {
     if (!open) return;
-    const rec = getUpstreamHeadersRecord(protocol);
-    setHeaderRows(recordToHeaderRows(rec, genHeaderRowId));
+    const initial = setTimeout(() => {
+      const rec = getUpstreamHeadersRecord(protocol);
+      setHeaderRows(recordToHeaderRows(rec, genHeaderRowId));
+    }, 0);
+    return () => clearTimeout(initial);
     // Only re-load rows when opening or switching protocol — not when the parent passes a new
     // inline callback every render (would wipe in-progress edits).
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
@@ -203,8 +209,11 @@ export default function ModelCompatPopover({
   }, [paramDirty, blockText, allowText]);
 
   useEffect(() => {
-    setValuePeekRowId(null);
-    setValueFocusRowId(null);
+    const initial = setTimeout(() => {
+      setValuePeekRowId(null);
+      setValueFocusRowId(null);
+    }, 0);
+    return () => clearTimeout(initial);
   }, [open, protocol]);
 
   const namedHeaderCount = headerRows.filter((r) => r.name.trim()).length;
@@ -261,8 +270,8 @@ export default function ModelCompatPopover({
 
   useLayoutEffect(() => {
     if (!open) {
-      setPortalPanelRect(null);
-      return;
+      const clear = setTimeout(() => setPortalPanelRect(null), 0);
+      return () => clearTimeout(clear);
     }
     updatePortalPanelRect();
     window.addEventListener("resize", updatePortalPanelRect);

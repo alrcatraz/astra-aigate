@@ -45,6 +45,29 @@ type SortKey =
   | "avgGapAfterToolMs";
 type SortDir = "asc" | "desc";
 
+/**
+ * Sort indicator. Lives at module scope because defining a component inside the
+ * page's render body makes React Compiler treat it as a new component type on
+ * every render (`react-hooks/static-components`), which remounts the subtree
+ * instead of updating it.
+ */
+function SortIcon({
+  column,
+  sortKey,
+  sortDir,
+}: {
+  column: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+}) {
+  if (sortKey !== column) return null;
+  return (
+    <span className="material-symbols-outlined text-[14px] ml-1 align-middle text-primary">
+      {sortDir === "desc" ? "arrow_downward" : "arrow_upward"}
+    </span>
+  );
+}
+
 function formatNumber(n: number | null): string {
   if (n == null) return "0";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -93,9 +116,16 @@ export default function ProviderStatsPage() {
   }, [t]);
 
   useEffect(() => {
-    fetchData();
+    // Defer the first fetch by a tick: calling it synchronously in the effect body
+    // is what React Compiler flags (a state update during the same commit causes a
+    // cascading render). The polling interval is unaffected — it already runs
+    // outside the render/commit path.
+    const initial = setTimeout(fetchData, 0);
     const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   const handleSort = (key: SortKey) => {
@@ -137,16 +167,6 @@ export default function ProviderStatsPage() {
     if (!modelsByProvider.has(m.provider)) modelsByProvider.set(m.provider, []);
     modelsByProvider.get(m.provider)!.push(m);
   }
-
-  // Sort helper icon
-  const SortIcon = ({ column }: { column: SortKey }) => {
-    if (sortKey !== column) return null;
-    return (
-      <span className="material-symbols-outlined text-[14px] ml-1 align-middle text-primary">
-        {sortDir === "desc" ? "arrow_downward" : "arrow_upward"}
-      </span>
-    );
-  };
 
   if (!data && !error) {
     return (
@@ -260,44 +280,51 @@ export default function ProviderStatsPage() {
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("totalRequests")}
                 >
-                  {t("requests")} <SortIcon column="totalRequests" />
+                  {t("requests")}{" "}
+                  <SortIcon column="totalRequests" sortKey={sortKey} sortDir={sortDir} />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("successfulRequests")}
                 >
-                  {t("success")} <SortIcon column="successfulRequests" />
+                  {t("success")}{" "}
+                  <SortIcon column="successfulRequests" sortKey={sortKey} sortDir={sortDir} />
                 </th>
                 <th className="text-right py-2 px-3 text-text-muted font-medium">{t("rate")}</th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("avgLatencyMs")}
                 >
-                  {t("avgLatency")} <SortIcon column="avgLatencyMs" />
+                  {t("avgLatency")}{" "}
+                  <SortIcon column="avgLatencyMs" sortKey={sortKey} sortDir={sortDir} />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("totalTokensIn")}
                 >
-                  {t("tokensIn")} <SortIcon column="totalTokensIn" />
+                  {t("tokensIn")}{" "}
+                  <SortIcon column="totalTokensIn" sortKey={sortKey} sortDir={sortDir} />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("totalTokensOut")}
                 >
-                  {t("tokensOut")} <SortIcon column="totalTokensOut" />
+                  {t("tokensOut")}{" "}
+                  <SortIcon column="totalTokensOut" sortKey={sortKey} sortDir={sortDir} />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("avgTtftAfterToolMs")}
                 >
-                  {t("ttftAfterTool")} <SortIcon column="avgTtftAfterToolMs" />
+                  {t("ttftAfterTool")}{" "}
+                  <SortIcon column="avgTtftAfterToolMs" sortKey={sortKey} sortDir={sortDir} />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("avgGapAfterToolMs")}
                 >
-                  {t("gapAfterTool")} <SortIcon column="avgGapAfterToolMs" />
+                  {t("gapAfterTool")}{" "}
+                  <SortIcon column="avgGapAfterToolMs" sortKey={sortKey} sortDir={sortDir} />
                 </th>
                 <th className="py-2 px-3 w-8" />
               </tr>

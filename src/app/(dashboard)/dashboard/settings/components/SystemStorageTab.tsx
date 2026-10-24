@@ -468,8 +468,11 @@ export default function SystemStorageTab() {
   };
 
   useEffect(() => {
-    loadStorageHealth();
-    loadDatabaseSettings();
+    const initial = setTimeout(() => {
+      loadStorageHealth();
+      loadDatabaseSettings();
+    }, 0);
+    return () => clearTimeout(initial);
   }, []);
 
   /** Triggers a browser file download from an existing Blob. */

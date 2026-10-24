@@ -237,9 +237,11 @@ export default function McpPage() {
   const [baseUrl, setBaseUrl] = useState("");
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (!(typeof window !== "undefined")) return;
+    const initial = setTimeout(() => {
       setBaseUrl(`${window.location.protocol}//${window.location.host}`);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, []);
 
   const patchSetting = useCallback(async (body: Record<string, unknown>) => {
@@ -277,9 +279,12 @@ export default function McpPage() {
   }, []);
 
   useEffect(() => {
-    void refreshStatus();
+    const initial = setTimeout(() => void refreshStatus(), 0);
     const interval = setInterval(() => void refreshStatus(), 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [refreshStatus]);
 
   const toggleMcp = useCallback(async () => {

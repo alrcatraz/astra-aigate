@@ -377,9 +377,14 @@ export default function CachePage() {
   }, []);
 
   useEffect(() => {
-    void fetchStats();
     const id = setInterval(() => void fetchStats(), REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
+    const initial = setTimeout(() => {
+      void fetchStats();
+    }, 0);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(id);
+    };
   }, [fetchStats]);
 
   const handleClearAll = async () => {

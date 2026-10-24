@@ -191,8 +191,12 @@ export default function ProvidersPage() {
   const [showImportFromFileModal, setShowImportFromFileModal] = useState(false);
   const [testingMode, setTestingMode] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<any>(null);
-  const [providerDisplayMode, setProviderDisplayMode] = useState<ProviderDisplayMode>("all");
-  const [displayModePreferenceReady, setDisplayModePreferenceReady] = useState(false);
+  // Preference read lazily: doing it in an effect is react-hooks/set-state-in-effect
+  // and costs an extra render; "ready" is therefore true from the first render.
+  const [providerDisplayMode, setProviderDisplayMode] = useState<ProviderDisplayMode>(() =>
+    readProviderDisplayModePreference()
+  );
+  const [displayModePreferenceReady] = useState(true);
   const [oauthEnvRepairStatus, setOauthEnvRepairStatus] = useState<{
     available: boolean;
     missingCount: number;
@@ -229,15 +233,10 @@ export default function ProvidersPage() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    setProviderDisplayMode(readProviderDisplayModePreference());
-    setDisplayModePreferenceReady(true);
-  }, []);
-
-  useEffect(() => {
     const searchFromUrl = searchParams.get("search");
-    if (searchFromUrl) {
-      setSearchQuery(searchFromUrl);
-    }
+    if (!searchFromUrl) return;
+    const initial = setTimeout(() => setSearchQuery(searchFromUrl), 0);
+    return () => clearTimeout(initial);
   }, [searchParams]);
 
   useEffect(() => {
@@ -279,7 +278,8 @@ export default function ProvidersPage() {
   useEffect(() => {
     if (!shouldSyncProviderDisplayMode(displayModePreferenceReady, loading)) return;
     if (connections.length === 0 && providerDisplayMode === "configured") {
-      setProviderDisplayMode("all");
+      const initial = setTimeout(() => setProviderDisplayMode("all"), 0);
+      return () => clearTimeout(initial);
     }
   }, [connections.length, displayModePreferenceReady, providerDisplayMode, loading]);
 
@@ -301,7 +301,8 @@ export default function ProvidersPage() {
   }, []);
 
   useEffect(() => {
-    void fetchOauthEnvRepairStatus();
+    const initial = setTimeout(() => void fetchOauthEnvRepairStatus(), 0);
+    return () => clearTimeout(initial);
   }, [fetchOauthEnvRepairStatus]);
 
   const handleRepairEnv = async () => {

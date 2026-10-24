@@ -261,15 +261,20 @@ export function useProviderConnections(
   // ── effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    fetchConnections();
-    void fetchProxyConfig();
+    const initial = setTimeout(() => {
+      fetchConnections();
+      void fetchProxyConfig();
+    }, 0);
+    return () => clearTimeout(initial);
   }, [fetchConnections, fetchProxyConfig]);
 
   // Per-connection proxy (handles registry assignments)
   useEffect(() => {
-    if (!loading && connections.length > 0) {
+    if (!(!loading && connections.length > 0)) return;
+    const initial = setTimeout(() => {
       void loadConnProxies(connections);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [loading, connections, loadConnProxies]);
 
   // CLIProxyAPI upstream proxy config

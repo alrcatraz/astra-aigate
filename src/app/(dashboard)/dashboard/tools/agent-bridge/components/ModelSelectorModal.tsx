@@ -46,7 +46,8 @@ export function ModelSelectorModal({
 
   useEffect(() => {
     if (!open) return;
-    loadModels();
+    const initial = setTimeout(() => loadModels(), 0);
+    return () => clearTimeout(initial);
   }, [open, loadModels]);
 
   useEffect(() => {

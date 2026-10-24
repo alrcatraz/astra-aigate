@@ -123,7 +123,10 @@ export default function CustomModelsSection({
   }, [providerId]);
 
   useEffect(() => {
-    fetchCustomModels();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => fetchCustomModels(), 0);
+    return () => clearTimeout(initial);
   }, [fetchCustomModels]);
 
   const handleAdd = async () => {

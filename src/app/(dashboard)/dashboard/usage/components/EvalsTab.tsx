@@ -493,13 +493,18 @@ export default function EvalsTab() {
   useEffect(() => {
     if (targetOptions.length === 0) return;
     if (targetOptions.some((option) => option.key === selectedTargetKey)) return;
-    setSelectedTargetKey(targetOptions[0]?.key || "suite-default:__default__");
+    const initial = setTimeout(
+      () => setSelectedTargetKey(targetOptions[0]?.key || "suite-default:__default__"),
+      0
+    );
+    return () => clearTimeout(initial);
   }, [selectedTargetKey, targetOptions]);
 
   useEffect(() => {
     if (!compareTargetKey) return;
     if (compareTargetKey === selectedTargetKey) {
-      setCompareTargetKey("");
+      const initial = setTimeout(() => setCompareTargetKey(""), 0);
+      return () => clearTimeout(initial);
     }
   }, [compareTargetKey, selectedTargetKey]);
 
@@ -1846,7 +1851,11 @@ export default function EvalsTab() {
   );
 }
 
-const HeroSection = memo(function HeroSection({ t }: { t: (key: string, values?: Record<string, unknown>) => string }) {
+const HeroSection = memo(function HeroSection({
+  t,
+}: {
+  t: (key: string, values?: Record<string, unknown>) => string;
+}) {
   return (
     <Card className="p-0 overflow-hidden">
       <div

@@ -178,10 +178,14 @@ function RequestQueueCard({
   const t = useTranslations("settings");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
+  // Adjust state during render when the incoming value changes (the React-documented
+  // alternative to a sync-in-effect): no extra commit, and the draft still resets
+  // whenever the saved settings arrive.
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setDraft(value);
-  }, [value]);
+  }
 
   return (
     <Card className="p-6">
@@ -308,10 +312,13 @@ function ConnectionCooldownCard({
   const t = useTranslations("settings");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
+  // Adjust state during render when the prop changes (React's documented
+  // alternative to a sync-in-effect): no extra commit.
+  const [prevDraft, setPrevDraft] = useState(value);
+  if (value !== prevDraft) {
+    setPrevDraft(value);
     setDraft(value);
-  }, [value]);
+  }
 
   const renderProfile = (key: "oauth" | "apikey", title: string, icon: string) => {
     const current = editing ? draft[key] : value[key];
@@ -491,10 +498,13 @@ function ProviderBreakerCard({
   const t = useTranslations("settings");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
+  // Adjust state during render when the prop changes (React's documented
+  // alternative to a sync-in-effect): no extra commit.
+  const [prevDraft, setPrevDraft] = useState(value);
+  if (value !== prevDraft) {
+    setPrevDraft(value);
     setDraft(value);
-  }, [value]);
+  }
 
   const renderProfile = (key: "oauth" | "apikey", title: string, icon: string) => {
     const current = editing ? draft[key] : value[key];
@@ -601,10 +611,13 @@ function WaitForCooldownCard({
   const t = useTranslations("settings");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
+  // Adjust state during render when the prop changes (React's documented
+  // alternative to a sync-in-effect): no extra commit.
+  const [prevDraft, setPrevDraft] = useState(value);
+  if (value !== prevDraft) {
+    setPrevDraft(value);
     setDraft(value);
-  }, [value]);
+  }
 
   return (
     <Card className="p-6">
@@ -697,10 +710,13 @@ function ComboCooldownWaitCard({
   const t = useTranslations("settings");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
+  // Adjust state during render when the prop changes (React's documented
+  // alternative to a sync-in-effect): no extra commit.
+  const [prevDraft, setPrevDraft] = useState(value);
+  if (value !== prevDraft) {
+    setPrevDraft(value);
     setDraft(value);
-  }, [value]);
+  }
 
   const title = t("resilienceComboCooldownWaitTitle") || "Combo cooldown wait";
   const desc =
@@ -815,10 +831,13 @@ function QuotaShareConcurrencyLimitCard({
   const t = useTranslations("settings");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
+  // Adjust state during render when the prop changes (React's documented
+  // alternative to a sync-in-effect): no extra commit.
+  const [prevDraft, setPrevDraft] = useState(value);
+  if (value !== prevDraft) {
+    setPrevDraft(value);
     setDraft(value);
-  }, [value]);
+  }
 
   const title =
     t("resilienceQuotaShareConcurrencyTitle") || "Quota-share per-connection concurrency";
@@ -888,10 +907,13 @@ export function ProviderCooldownCard({
   const t = useTranslations("settings");
   const [editing, setEditing] = useState(value);
   const [isEditing, setIsEditing] = useState(false);
-
-  useEffect(() => {
+  // Adjust state during render when the prop changes (React's documented alternative
+  // to a sync-in-effect): no extra commit.
+  const [prevEditing, setPrevEditing] = useState(value);
+  if (value !== prevEditing) {
+    setPrevEditing(value);
     setEditing(value);
-  }, [value]);
+  }
 
   return (
     <Card className="p-6">

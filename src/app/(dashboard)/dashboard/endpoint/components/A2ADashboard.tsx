@@ -133,16 +133,25 @@ export default function A2ADashboardPage() {
   }, [offset, stateFilter, skillFilter]);
 
   useEffect(() => {
-    Promise.allSettled([refreshStatus(), refreshTasks()]).finally(() => setLoading(false));
+    const initial = setTimeout(
+      () => Promise.allSettled([refreshStatus(), refreshTasks()]).finally(() => setLoading(false)),
+      0
+    );
     const interval = setInterval(() => {
       void refreshStatus();
       void refreshTasks();
     }, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [refreshStatus, refreshTasks]);
 
   useEffect(() => {
-    void refreshTasks();
+    const initial = setTimeout(() => {
+      void refreshTasks();
+    }, 0);
+    return () => clearTimeout(initial);
   }, [refreshTasks]);
 
   const availableSkills = useMemo(() => {

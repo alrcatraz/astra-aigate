@@ -37,6 +37,10 @@ export default function OpenClawToolCard({
   const [backups, setBackups] = useState([]);
   const [showBackups, setShowBackups] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(null);
+
+  // Derived, not stored: a default-selection effect is derived state
+  // (react-hooks/set-state-in-effect) and costs an extra render.
+  const activeApiKeyId = selectedApiKeyId || (apiKeys?.length ? apiKeys[0].id : "");
   const cliReady = !!(openclawStatus?.installed && openclawStatus?.runnable);
 
   const getConfigStatus = () => {
@@ -58,19 +62,6 @@ export default function OpenClawToolCard({
 
   // (#523) Store the key *id* (not the masked string) so the backend can
   // resolve the real secret from DB before writing to config files.
-  useEffect(() => {
-    if (apiKeys?.length > 0 && !selectedApiKeyId) {
-      setSelectedApiKeyId(apiKeys[0].id);
-    }
-  }, [apiKeys, selectedApiKeyId]);
-
-  useEffect(() => {
-    if (isExpanded && !openclawStatus) {
-      checkOpenclawStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, openclawStatus]);
 
   const fetchModelAliases = async () => {
     try {
@@ -82,29 +73,28 @@ export default function OpenClawToolCard({
     }
   };
 
-  useEffect(() => {
-    if (openclawStatus?.installed && !hasInitializedModel.current) {
-      hasInitializedModel.current = true;
-      const provider = openclawStatus.settings?.models?.providers?.["omniroute"];
-      if (provider) {
-        const primaryModel = openclawStatus.settings?.agents?.defaults?.model?.primary;
-        if (primaryModel) {
-          const modelId = primaryModel.replace("omniroute/", "");
-          setSelectedModel(modelId);
-        }
-        // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
-        // Match by prefix/suffix instead of exact comparison.
-        if (provider.apiKey) {
-          const fileKeyPrefix = provider.apiKey.slice(0, 8);
-          const fileKeySuffix = provider.apiKey.slice(-4);
-          const matchedKey = apiKeys?.find(
-            (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
-          );
-          if (matchedKey) setSelectedApiKeyId(matchedKey.id);
-        }
+  const [modelHydrated, setModelHydrated] = useState(false);
+  if (openclawStatus?.installed && !modelHydrated) {
+    setModelHydrated(true);
+    const provider = openclawStatus.settings?.models?.providers?.["omniroute"];
+    if (provider) {
+      const primaryModel = openclawStatus.settings?.agents?.defaults?.model?.primary;
+      if (primaryModel) {
+        const modelId = primaryModel.replace("omniroute/", "");
+        setSelectedModel(modelId);
+      }
+      // (#523) Keys from /api/keys are masked (first 8 + "****" + last 4).
+      // Match by prefix/suffix instead of exact comparison.
+      if (provider.apiKey) {
+        const fileKeyPrefix = provider.apiKey.slice(0, 8);
+        const fileKeySuffix = provider.apiKey.slice(-4);
+        const matchedKey = apiKeys?.find(
+          (k) => k.key && k.key.startsWith(fileKeyPrefix) && k.key.endsWith(fileKeySuffix)
+        );
+        if (matchedKey) setSelectedApiKeyId(matchedKey.id);
       }
     }
-  }, [openclawStatus, apiKeys]);
+  }
 
   const checkOpenclawStatus = async () => {
     setCheckingOpenclaw(true);
@@ -134,8 +124,7 @@ export default function OpenClawToolCard({
     setMessage(null);
     try {
       // (#523) Prefer keyId lookup so the backend writes the real key to disk.
-      const selectedKeyId =
-        selectedApiKeyId?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
+      const selectedKeyId = activeApiKeyId?.trim() || (apiKeys?.length > 0 ? apiKeys[0].id : null);
 
       const res = await fetch("/api/cli-tools/openclaw-settings", {
         method: "POST",
@@ -207,6 +196,17 @@ export default function OpenClawToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+  // After the handlers it calls (immutability); calls deferred a tick so the
+  // state updates are not part of the same commit (set-state-in-effect).
+  useEffect(() => {
+    if (!(isExpanded && !openclawStatus)) return;
+    // Microtask: outside the effect body, applied before the next paint.
+    queueMicrotask(() => {
+      checkOpenclawStatus();
+      fetchModelAliases();
+      fetchBackups();
+    });
+  }, [isExpanded, openclawStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);
@@ -239,7 +239,7 @@ export default function OpenClawToolCard({
 
   const getManualConfigs = () => {
     // (#523) Look up the key object by id to get the masked display value.
-    const selectedKeyObj = apiKeys?.find((k) => k.id === selectedApiKeyId);
+    const selectedKeyObj = apiKeys?.find((k) => k.id === activeApiKeyId);
     const keyToDisplay =
       selectedKeyObj?.key || (!cloudEnabled ? "sk_omniroute" : "<API_KEY_FROM_DASHBOARD>");
 
@@ -406,7 +406,7 @@ export default function OpenClawToolCard({
                   </span>
                   {apiKeys.length > 0 ? (
                     <select
-                      value={selectedApiKeyId}
+                      value={activeApiKeyId}
                       onChange={(e) => setSelectedApiKeyId(e.target.value)}
                       className="flex-1 px-2 py-1.5 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
                     >

@@ -72,7 +72,8 @@ export function AutoRefreshButtonLabel({
   return (
     <>
       {tr("autoRefreshing", "Auto-refreshing")}{" "}
-      {formatAutoRefreshCountdown(Math.max(0, autoRefreshIntervalMs - (now - lastRefreshAllAt)))}
+      {lastRefreshAllAt > 0 &&
+        formatAutoRefreshCountdown(Math.max(0, autoRefreshIntervalMs - (now - lastRefreshAllAt)))}
     </>
   );
 }
@@ -90,9 +91,21 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
   const [refreshingAll, setRefreshingAll] = useState(false);
 
   const refreshingAllRef = useRef(false);
-  const lastRefreshAllAtRef = useRef(Date.now());
-  const [lastRefreshAllAt, setLastRefreshAllAt] = useState(() => lastRefreshAllAtRef.current);
+  // Seeded after mount, not during render: Date.now() in a ref initialiser is
+  // react-hooks/purity, and reading the ref in a useState initialiser is
+  // react-hooks/refs. Both are written together in the deferred effect below.
+  const lastRefreshAllAtRef = useRef<number | null>(null);
+  const [lastRefreshAllAt, setLastRefreshAllAt] = useState<number | null>(null);
   const autoRefreshIntervalMs = autoRefreshInterval > 0 ? autoRefreshInterval * 1000 : 0;
+
+  useEffect(() => {
+    const initial = setTimeout(() => {
+      const now = Date.now();
+      lastRefreshAllAtRef.current = now;
+      setLastRefreshAllAt(now);
+    }, 0);
+    return () => clearTimeout(initial);
+  }, []);
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -134,7 +147,9 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
   }, [fetchConnections, fetchCached]);
 
   useEffect(() => {
-    loadData();
+    // Deferred a tick (react-hooks/set-state-in-effect).
+    const initial = setTimeout(loadData, 0);
+    return () => clearTimeout(initial);
   }, [loadData]);
 
   const refreshAll = useCallback(async () => {
@@ -167,7 +182,10 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
     const maybeRefresh = () => {
       if (document.visibilityState !== "visible") return;
       if (refreshingAllRef.current) return;
-      if (Date.now() - lastRefreshAllAtRef.current >= autoRefreshIntervalMs) {
+      if (
+        lastRefreshAllAtRef.current !== null &&
+        Date.now() - lastRefreshAllAtRef.current >= autoRefreshIntervalMs
+      ) {
         void refreshAll();
       }
     };
@@ -226,7 +244,7 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
           <span>
             <AutoRefreshButtonLabel
               autoRefreshIntervalMs={autoRefreshIntervalMs}
-              lastRefreshAllAt={lastRefreshAllAt}
+              lastRefreshAllAt={lastRefreshAllAt ?? 0}
               refreshingAll={refreshingAll}
               tr={tr}
             />

@@ -24,10 +24,6 @@ export default function IPFilterSection() {
   const [listTarget, setListTarget] = useState("blacklist");
   const t = useTranslations("settings");
 
-  useEffect(() => {
-    loadConfig();
-  }, []);
-
   const loadConfig = async () => {
     try {
       const res = await fetch("/api/settings/ip-filter");
@@ -37,6 +33,17 @@ export default function IPFilterSection() {
       setLoading(false);
     }
   };
+
+  // Declared after loadConfig: referencing it from above is what
+  // react-hooks/immutability reports ("Cannot access variable before it is
+  // declared") — the effect would capture the pre-declaration binding.
+  // The first call is deferred by a tick for the same reason the provider-stats
+  // page does it: a synchronous state update in the effect body is
+  // react-hooks/set-state-in-effect (cascading render in the same commit).
+  useEffect(() => {
+    const initial = setTimeout(loadConfig, 0);
+    return () => clearTimeout(initial);
+  }, []);
 
   const updateConfig = async (updates) => {
     try {

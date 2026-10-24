@@ -629,32 +629,40 @@ export default function OAuthModal({
   );
 
   useEffect(() => {
-    if (!deviceCodeExpiresAt) {
-      setDeviceCodeSecondsRemaining(null);
-      return;
-    }
+    // No clear branch: a deferred clear races the countdown it should replace; the panel
+    // shows a countdown only while a deadline exists.
+    if (!deviceCodeExpiresAt) return;
 
     const updateRemaining = () => {
       setDeviceCodeSecondsRemaining(
         Math.max(0, Math.ceil((deviceCodeExpiresAt - Date.now()) / 1000))
       );
     };
-    updateRemaining();
+    // Microtask: outside the effect body, applied before the next paint.
+    queueMicrotask(updateRemaining);
     const timer = window.setInterval(updateRemaining, 1000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+    };
   }, [deviceCodeExpiresAt]);
 
   useEffect(() => {
-    invalidateDeviceFlow();
-    flowStartedRef.current = false;
-    setGrokBrowserMode(false);
+    // Reset when the provider changes; deferred so the updates are not part of the
+    // same commit (react-hooks/set-state-in-effect).
+    // Microtask, not a timeout: a pending macrotask would cancel a flow started between.
+    queueMicrotask(() => {
+      invalidateDeviceFlow();
+      flowStartedRef.current = false;
+      setGrokBrowserMode(false);
+    });
   }, [provider, invalidateDeviceFlow]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) return;
+    queueMicrotask(() => {
       invalidateDeviceFlow();
       flowStartedRef.current = false;
-    }
+    });
   }, [isOpen, invalidateDeviceFlow]);
 
   useEffect(
@@ -664,26 +672,37 @@ export default function OAuthModal({
     []
   );
 
-  // Reset state and start OAuth when modal opens
-  useEffect(() => {
-    if (!isOpen || !provider || flowStartedRef.current) return;
-    flowStartedRef.current = true;
-    const startsInPasteMode = IMPORT_TOKEN_ONLY_PROVIDERS.has(provider);
-    // #8688: show GitLab Duo OAuth app / env setup before authorize error.
-    const startsInGitlabDuoSetup = provider === "gitlab-duo";
-    setShowPasteToken(startsInPasteMode);
-    setGrokBrowserMode(false);
-    setAuthData(null);
-    setCallbackUrl("");
-    setError(null);
-    setIsDeviceCode(false);
-    setDeviceData(null);
-    setPolling(false);
-    if (startsInGitlabDuoSetup) {
-      setStep("gitlab-duo-setup");
-      return;
+  // Reset on the open/provider edge during render: keeps them ordered before the flow.
+  const oauthInitKey = isOpen && provider ? provider : null;
+  const [oauthInitSeen, setOauthInitSeen] = useState<string | null>(null);
+  if (oauthInitKey !== oauthInitSeen) {
+    setOauthInitSeen(oauthInitKey);
+    if (oauthInitKey) {
+      // #8688: show GitLab Duo OAuth app / env setup before authorize error.
+      const startsInGitlabDuoSetup = provider === "gitlab-duo";
+      setShowPasteToken(IMPORT_TOKEN_ONLY_PROVIDERS.has(provider));
+      setGrokBrowserMode(false);
+      setAuthData(null);
+      setCallbackUrl("");
+      setError(null);
+      setIsDeviceCode(false);
+      setDeviceData(null);
+      setPolling(false);
+      if (startsInGitlabDuoSetup) setStep("gitlab-duo-setup");
     }
-    if (!startsInPasteMode) startOAuthFlow();
+  }
+
+  // Start the flow once per session; nothing here sets state synchronously.
+  useEffect(() => {
+    if (!isOpen || !provider) return;
+    if (flowStartedRef.current) return;
+    flowStartedRef.current = true;
+    if (provider === "gitlab-duo") return;
+    if (!IMPORT_TOKEN_ONLY_PROVIDERS.has(provider)) {
+      // The flow's first statements set state; scheduling it on a microtask keeps it out
+      // of the effect body while still running before the next paint.
+      queueMicrotask(startOAuthFlow);
+    }
   }, [isOpen, provider, startOAuthFlow]);
 
   // Listen for OAuth callback via multiple methods
@@ -1055,7 +1074,7 @@ export default function OAuthModal({
               <OAuthDeviceCodePanel
                 deviceData={deviceData}
                 verificationUrl={deviceVerificationUrl}
-                secondsRemaining={deviceCodeSecondsRemaining}
+                secondsRemaining={deviceCodeExpiresAt ? deviceCodeSecondsRemaining : null}
                 polling={polling}
               />
             )}

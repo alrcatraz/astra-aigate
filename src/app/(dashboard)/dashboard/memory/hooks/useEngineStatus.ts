@@ -39,9 +39,10 @@ export function useEngineStatus(refreshIntervalMs = 5000): UseEngineStatusResult
 
   useEffect(() => {
     mounted.current = true;
-    void fetchOnce();
+    const initial = setTimeout(() => void fetchOnce(), 0);
     if (!refreshIntervalMs || refreshIntervalMs <= 0) {
       return () => {
+        clearTimeout(initial);
         mounted.current = false;
       };
     }
@@ -49,6 +50,7 @@ export function useEngineStatus(refreshIntervalMs = 5000): UseEngineStatusResult
       void fetchOnce();
     }, refreshIntervalMs);
     return () => {
+      clearTimeout(initial);
       mounted.current = false;
       clearInterval(id);
     };

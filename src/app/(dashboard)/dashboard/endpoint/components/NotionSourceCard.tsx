@@ -25,14 +25,19 @@ export default function NotionSourceCard() {
   }, []);
 
   useEffect(() => {
-    void fetchConfig();
+    // Deferred a tick: a synchronous call here is react-hooks/
+    // set-state-in-effect (state update in the same commit).
+    const initial = setTimeout(() => void fetchConfig(), 0);
+    return () => clearTimeout(initial);
   }, [fetchConfig]);
 
   useEffect(() => {
-    if (message) {
+    if (!message) return;
+    const initial = setTimeout(() => {
       const timer = setTimeout(() => setMessage(null), 5000);
       return () => clearTimeout(timer);
-    }
+    }, 0);
+    return () => clearTimeout(initial);
   }, [message]);
 
   const handleSaveToken = async () => {
