@@ -147,12 +147,6 @@ jobs:
       - name: PATH provenance (node dist vs Guix profile vs runner)
         run: |
           echo "outside shell:"
-          echo "diagnostic: dist dir listing"
-          ls -l "$NODE_DIST_BIN" 2>&1 | head -6 || echo "MISSING DIR: $NODE_DIST_BIN"
-          test -x "$NODE_DIST_BIN/node" && echo "dist node executable: yes" || echo "dist node executable: NO"
-          test -x "$NODE_DIST_BIN/npm" && echo "dist npm executable: yes" || echo "dist npm executable: NO"
-          echo "diagnostic: PATH order"
-          printf '%s\n' "$PATH" | tr ':' '\n' | head -4
           OUT_NODE=$(command -v node); OUT_NPM=$(command -v npm)
           echo "  node -> $OUT_NODE $(node --version)"
           echo "  npm  -> $OUT_NPM $(npm --version)"
@@ -164,7 +158,13 @@ jobs:
           echo "  node -> $IN_NODE $($GUIX_SHELL sh -c 'node --version')"
           echo "  npm  -> $IN_NPM $($GUIX_SHELL sh -c 'npm --version')"
           echo "  git  -> $IN_GIT"
-          [ "$OUT_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: outside node is not the dist"; exit 1; }
+          [ "$OUT_NODE" = "$NODE_DIST_BIN/node" ] || {
+            echo "FAIL: outside node is not the dist"
+            echo "  node -> $OUT_NODE"
+            echo "  PATH head: $(printf '%s' "$PATH" | cut -d: -f1-3)"
+            ls -l "$NODE_DIST_BIN" 2>&1 | head -4
+            exit 1
+          }
           [ "$IN_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: in-shell node fell through to the runner"; exit 1; }
           [ "$IN_NPM" = "$NODE_DIST_BIN/npm" ] || { echo "FAIL: in-shell npm is not the dist"; exit 1; }
           case "$IN_GIT" in /gnu/store/*) ;; *) echo "FAIL: in-shell git is not from the Guix profile"; exit 1;; esac
@@ -208,7 +208,7 @@ jobs:
       # no-op for the service.
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
@@ -279,7 +279,7 @@ jobs:
       # Pair half of the shared action's restore (see smoke job).
       - name: Save channel checkout cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: ~/.cache/guix
           key: ${{ env.GUIX_CHECKOUT_CACHE_KEY }}
