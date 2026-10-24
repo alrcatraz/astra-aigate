@@ -52,8 +52,9 @@ export default function ClaudeClassifierCompatToggle() {
   useEffect(() => {
     // Deferred a tick: a synchronous call here is react-hooks/
     // set-state-in-effect (state update in the same commit).
-    const initial = setTimeout(() => load(), 0);
-    return () => clearTimeout(initial);
+    // Microtask: outside the effect body (not a synchronous setState) yet applied before
+    // the next paint, so the first paint already reflects the stored mode.
+    queueMicrotask(load);
   }, [load]);
 
   const cycle = useCallback(async () => {

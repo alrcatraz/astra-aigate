@@ -334,10 +334,6 @@ export default function OAuthModal({
 
       setPolling(true);
       setDeviceCodeExpiresAt(deadline);
-      // Seed the countdown at the same moment the deadline is known: the derived
-      // effect would otherwise land a tick later, leaving the label blank on the
-      // first paint after the device code arrives.
-      setDeviceCodeSecondsRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
 
       while (Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, currentInterval * 1000));
@@ -633,11 +629,11 @@ export default function OAuthModal({
   );
 
   useEffect(() => {
-    if (!deviceCodeExpiresAt) {
-      // Deferred: a synchronous clear here is react-hooks/set-state-in-effect.
-      const clear = setTimeout(() => setDeviceCodeSecondsRemaining(null), 0);
-      return () => clearTimeout(clear);
-    }
+    // No clear branch: it cannot run synchronously (set-state-in-effect) and a deferred
+    // clear races the countdown it is meant to replace — the macrotask lands after the
+    // microtask that computes the fresh value. The panel below renders a countdown only
+    // while a deadline exists, which expresses the same thing without the race.
+    if (!deviceCodeExpiresAt) return;
 
     const updateRemaining = () => {
       setDeviceCodeSecondsRemaining(
@@ -656,21 +652,21 @@ export default function OAuthModal({
   useEffect(() => {
     // Reset when the provider changes; deferred so the updates are not part of the
     // same commit (react-hooks/set-state-in-effect).
-    const initial = setTimeout(() => {
+    // Microtask, not a timeout: a pending macrotask reset would fire on the next timer
+    // advance and cancel a flow that started in between.
+    queueMicrotask(() => {
       invalidateDeviceFlow();
       flowStartedRef.current = false;
       setGrokBrowserMode(false);
-    }, 0);
-    return () => clearTimeout(initial);
+    });
   }, [provider, invalidateDeviceFlow]);
 
   useEffect(() => {
     if (isOpen) return;
-    const initial = setTimeout(() => {
+    queueMicrotask(() => {
       invalidateDeviceFlow();
       flowStartedRef.current = false;
-    }, 0);
-    return () => clearTimeout(initial);
+    });
   }, [isOpen, invalidateDeviceFlow]);
 
   useEffect(
@@ -1085,7 +1081,7 @@ export default function OAuthModal({
               <OAuthDeviceCodePanel
                 deviceData={deviceData}
                 verificationUrl={deviceVerificationUrl}
-                secondsRemaining={deviceCodeSecondsRemaining}
+                secondsRemaining={deviceCodeExpiresAt ? deviceCodeSecondsRemaining : null}
                 polling={polling}
               />
             )}

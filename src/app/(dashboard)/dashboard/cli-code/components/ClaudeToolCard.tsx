@@ -250,12 +250,11 @@ export default function ClaudeToolCard({
   // (a synchronous setState in the effect body is set-state-in-effect).
   useEffect(() => {
     if (!(isExpanded && !claudeStatus)) return;
-    const initial = setTimeout(() => {
+    queueMicrotask(() => {
       checkClaudeStatus();
       fetchModelAliases();
       fetchBackups();
-    }, 0);
-    return () => clearTimeout(initial);
+    });
   }, [isExpanded, claudeStatus]);
 
   const handleRestoreBackup = async (backupId) => {
