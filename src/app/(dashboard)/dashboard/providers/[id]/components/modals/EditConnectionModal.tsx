@@ -238,9 +238,13 @@ export default function EditConnectionModal({
     [t]
   );
 
-  useEffect(() => {
-    if (!(isOpen && connection)) return;
-    const initial = setTimeout(() => {
+  // Hydrate the form on the open/connection edge during render (React's documented
+  // pattern) instead of in a deferred effect: the fields are correct on the first paint.
+  const hydrateKey = isOpen && connection ? connection.id : null;
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
+  if (hydrateKey !== hydratedKey) {
+    setHydratedKey(hydrateKey);
+    if (hydrateKey) {
       const effectiveProvider = connection.provider || providerId;
       const existingBaseUrl = stringField(connection.providerSpecificData?.baseUrl);
       const existingTargetFormat = stringField(connection.providerSpecificData?.targetFormat);
@@ -361,17 +365,8 @@ export default function EditConnectionModal({
       setTestResult(null);
       setValidationResult(null);
       setSaveError(null);
-    }, 0);
-    return () => clearTimeout(initial);
-  }, [
-    isOpen,
-    connection,
-    providerId,
-    defaultBaseUrl,
-    showsRegion,
-    defaultRegion,
-    setOpenRouterPreset,
-  ]);
+    }
+  }
 
   const handleTest = async () => {
     if (!provider) return;

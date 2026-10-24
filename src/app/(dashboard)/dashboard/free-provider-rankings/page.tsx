@@ -104,11 +104,9 @@ export default function FreeProviderRankingsPage() {
   useEffect(() => {
     // Deferred a tick: a synchronous call here is react-hooks/
     // set-state-in-effect (state update in the same commit).
-    const initial = setTimeout(
-      () => fetchRankings(filter || undefined, { configuredOnly, availableOnly }),
-      0
-    );
-    return () => clearTimeout(initial);
+    // Microtask rather than a timeout: outside the effect body (so not a synchronous
+    // setState), but applied before the next paint and flushed by act() in tests.
+    queueMicrotask(() => fetchRankings(filter || undefined, { configuredOnly, availableOnly }));
   }, [filter, configuredOnly, availableOnly, fetchRankings]);
 
   // Client-side Type filter + "group by type" sort (#6915) — purely derived

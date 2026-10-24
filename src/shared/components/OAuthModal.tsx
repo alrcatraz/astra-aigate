@@ -334,6 +334,10 @@ export default function OAuthModal({
 
       setPolling(true);
       setDeviceCodeExpiresAt(deadline);
+      // Seed the countdown at the same moment the deadline is known: the derived
+      // effect would otherwise land a tick later, leaving the label blank on the
+      // first paint after the device code arrives.
+      setDeviceCodeSecondsRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
 
       while (Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, currentInterval * 1000));

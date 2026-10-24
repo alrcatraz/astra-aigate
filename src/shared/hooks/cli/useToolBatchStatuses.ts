@@ -49,9 +49,10 @@ export function useToolBatchStatuses(): UseToolBatchStatusesResult {
       void fetchStatuses();
     };
     window.addEventListener("focus", handleFocus);
-    const initial = setTimeout(() => void fetchStatuses(), 0);
+    // Microtask rather than a timeout: still outside the effect body, but it runs
+    // before the next paint and is flushed by act() in tests.
+    queueMicrotask(() => void fetchStatuses());
     return () => {
-      clearTimeout(initial);
       window.removeEventListener("focus", handleFocus);
     };
   }, [fetchStatuses]);
