@@ -746,6 +746,8 @@ let asyncDb: DatabaseAdapter | null = null;
  * starts a fresh migration and the await target tracks the current instance.
  */
 let migrationsPromise: Promise<void> | null = null;
+/** Last migration-run failure; cleared when the database instance is replaced. */
+let migrationsError: unknown = null;
 
 /** Deferred startup passes (health check, legacy re-encrypt) — tracked so a
  * drained close/reset can wait for them instead of closing under their feet. */
@@ -1247,9 +1249,27 @@ export function getDbInstance(): SqliteDatabase {
   migrationsPromise = new Promise<void>((resolve) => {
     setTimeout(resolve, 0);
   })
-    .then(() => runMigrations(sqliteAsyncAdapter(db), { isNewDb }))
+    .then(async () => {
+      // A migration run can lose a write lock to another connection in the same
+      // process (parallel test workers share one DATA_DIR). SQLITE_BUSY here is
+      // transient, and swallowing it leaves a half-migrated database whose missing
+      // tables surface much later as "no such table: …". Retry the run a bounded
+      // number of times instead, then let the failure be visible (below).
+      const attempts = 4;
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          return await runMigrations(sqliteAsyncAdapter(db), { isNewDb });
+        } catch (error) {
+          const message = String((error as Error)?.message ?? error);
+          const transient = /database is locked|SQLITE_BUSY/i.test(message);
+          if (!transient || attempt >= attempts) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+        }
+      }
+    })
     .then(() => undefined)
     .catch((error: unknown) => {
+      migrationsError = error;
       console.error("[DB] Migration runner failed:", error);
     });
   // Fresh installs need the same post-migration index guarantee as upgraded
@@ -1439,6 +1459,11 @@ export function closeDbInstance(options?: { checkpointMode?: CheckpointMode | nu
  */
 export async function awaitDbMigrations(): Promise<void> {
   if (migrationsPromise) await migrationsPromise;
+  if (migrationsError) {
+    throw migrationsError instanceof Error
+      ? migrationsError
+      : new Error(`Migration runner failed: ${String(migrationsError)}`);
+  }
 }
 
 /**
@@ -1496,6 +1521,7 @@ export async function closeDbInstanceDrained(options?: {
   // well — clearing it lets the next DB kick off its own offload.
   asyncDb = null;
   migrationsPromise = null;
+  migrationsError = null;
   columnBackfillsPromise = Promise.resolve();
   setDbOptimizationSettingsPromise(Promise.resolve());
   startupTasksPromise = null;
@@ -1526,6 +1552,7 @@ export function resetDbInstance() {
   // and re-wraps fine, though we clear it anyway for a clean slate).
   asyncDb = null;
   migrationsPromise = null;
+  migrationsError = null;
   // The old backfill barrier belongs to the closed instance; drop it so a
   // pending await never resolves against the next DB's half-migrated schema.
   columnBackfillsPromise = Promise.resolve();
