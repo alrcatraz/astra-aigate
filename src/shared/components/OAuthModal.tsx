@@ -640,10 +640,11 @@ export default function OAuthModal({
         Math.max(0, Math.ceil((deviceCodeExpiresAt - Date.now()) / 1000))
       );
     };
-    const initial = setTimeout(updateRemaining, 0);
+    // Microtask rather than a timeout: still outside the effect body (so not a
+    // synchronous setState), but applied before the next paint and flushed by act().
+    queueMicrotask(updateRemaining);
     const timer = window.setInterval(updateRemaining, 1000);
     return () => {
-      clearTimeout(initial);
       window.clearInterval(timer);
     };
   }, [deviceCodeExpiresAt]);
@@ -675,17 +676,17 @@ export default function OAuthModal({
     []
   );
 
-  // Reset state and start OAuth when modal opens
-  useEffect(() => {
-    if (!isOpen || !provider) return;
-    // Whole init deferred: it sets a dozen states before starting the flow.
-    const initial = setTimeout(() => {
-      if (flowStartedRef.current) return;
-      flowStartedRef.current = true;
-      const startsInPasteMode = IMPORT_TOKEN_ONLY_PROVIDERS.has(provider);
+  // Reset on the open/provider edge during render (React's documented pattern).
+  // These are pure resets; doing them here rather than in the effect keeps them ordered
+  // BEFORE the flow starts, which a deferred call could not guarantee.
+  const oauthInitKey = isOpen && provider ? provider : null;
+  const [oauthInitSeen, setOauthInitSeen] = useState<string | null>(null);
+  if (oauthInitKey !== oauthInitSeen) {
+    setOauthInitSeen(oauthInitKey);
+    if (oauthInitKey) {
       // #8688: show GitLab Duo OAuth app / env setup before authorize error.
       const startsInGitlabDuoSetup = provider === "gitlab-duo";
-      setShowPasteToken(startsInPasteMode);
+      setShowPasteToken(IMPORT_TOKEN_ONLY_PROVIDERS.has(provider));
       setGrokBrowserMode(false);
       setAuthData(null);
       setCallbackUrl("");
@@ -693,13 +694,22 @@ export default function OAuthModal({
       setIsDeviceCode(false);
       setDeviceData(null);
       setPolling(false);
-      if (startsInGitlabDuoSetup) {
-        setStep("gitlab-duo-setup");
-        return;
-      }
-      if (!startsInPasteMode) startOAuthFlow();
-    }, 0);
-    return () => clearTimeout(initial);
+      if (startsInGitlabDuoSetup) setStep("gitlab-duo-setup");
+    }
+  }
+
+  // Start the flow once per open/provider session. Nothing here sets state
+  // synchronously, so the reset above and the start stay in the intended order.
+  useEffect(() => {
+    if (!isOpen || !provider) return;
+    if (flowStartedRef.current) return;
+    flowStartedRef.current = true;
+    if (provider === "gitlab-duo") return;
+    if (!IMPORT_TOKEN_ONLY_PROVIDERS.has(provider)) {
+      // The flow's first statements set state; scheduling it on a microtask keeps it out
+      // of the effect body while still running before the next paint.
+      queueMicrotask(startOAuthFlow);
+    }
   }, [isOpen, provider, startOAuthFlow]);
 
   // Listen for OAuth callback via multiple methods
