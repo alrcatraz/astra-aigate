@@ -3,6 +3,50 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.3] — React Compiler ruleset at zero, high advisories cleared (2026-10-24)
+
+The React Compiler rule family (eslint-plugin-react-hooks 7.1.x) reported 196 findings on a
+tree that had not changed a line to earn them. This release pays that debt down to zero and
+clears every dependency advisory that has an upstream fix.
+
+### Changed
+
+- **Zero findings under the React Compiler ruleset** (196 → 0), file by file: mount loads
+  deferred a tick, defaults and countdowns derived instead of set from effects, declarations
+  moved below their callers, refs passed explicitly where the compiler cannot see them.
+  Behaviour is preserved; the ordering of the first paint after an effect-triggering change
+  moves into a microtask or the render phase.
+- `.nvmrc` / `.node-version` now pin 26.7.0, matching the image and every CI job.
+
+### Fixed
+
+- **Seven CLI cards declared their derived key as a self-reference** (`const activeApiKeyId =
+activeApiKeyId || …`), which passed eslint and failed the dashboard typecheck.
+- **OAuth modal: a stale macrotask reset cancelled a fresh flow** when a timer advanced
+  between the reset being scheduled and the flow starting; those resets are microtasks now.
+- **The memory edit form hydrated from an object reference**, so a parent re-render could
+  re-hydrate and overwrite what the user had typed; it is keyed by the record now.
+- **A comment naming a fleet host and its private domain** was removed from the public tree.
+- **Migration runs retry on SQLITE_BUSY** (bounded) and a persistent failure is now surfaced
+  by `awaitDbMigrations()` instead of being logged and swallowed, which had left a
+  half-migrated database behind and surfaced later as "no such table".
+
+### Security
+
+- zod 4.6.7, undici 8.12.3, express 5.3.0, body-parser 2.4.0 (our override was pinning the
+  vulnerable version), an `@ai-sdk/provider-utils` undici override, promptfoo 0.125.0 and the
+  plugin workspace's zod. `npm audit`: **0 critical**, 7 high remaining, all inside
+  promptfoo's own tree with no upstream fix.
+
+### CI
+
+- `node-dist` no longer claims to make the dist the runtime inside container jobs: the
+  GuixSD image's profile resets `PATH`, and `guix shell` replaces `LD_LIBRARY_PATH`, so a
+  nodejs.org build cannot load `libatomic` there (exit 127). Container jobs use the image's
+  node; the provenance check asserts that per mode.
+- actions/cache v6, scorecard-action 2.5.0, codecov-action 7.1.1, codeql-action 4.39.0.
+- dependabot targets `development` for every ecosystem.
+
 ## [0.6.2] — Async-correctness sweep, test-suite repair (2026-10-21)
 
 The async-DB migration (SQLite singleton → `getAsyncDb()` adapter, PG support)
