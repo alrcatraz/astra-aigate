@@ -176,12 +176,4 @@ runs:
           printf 'NODE_DIST_NPM<<EOF\n%s/npm\nEOF\n' "$NODE_BIN"
           printf 'PATH=%s:%s\n' "$NODE_BIN" "$PATH"
         } >> "$GITHUB_ENV"
-        # GITHUB_ENV alone is not enough inside a container job: the GuixSD image's
-        # profile resets PATH when the step shell starts, so the dist entry never
-        # reaches `command -v node` (observed 2026-10-24: runtime PATH began with
-        # /run/current-system/profile/bin and the dist was absent entirely, while the
-        # step env listed it first). GITHUB_PATH is applied by the runner to the
-        # container's environment for subsequent steps and survives that reset. Same
-        # lesson as bun-dist.
-        echo "$NODE_BIN" >> "$GITHUB_PATH"
         echo "node dist: v$NODE_VER ($NODE_BIN)"

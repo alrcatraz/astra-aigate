@@ -158,15 +158,32 @@ jobs:
           echo "  node -> $IN_NODE $($GUIX_SHELL sh -c 'node --version')"
           echo "  npm  -> $IN_NPM $($GUIX_SHELL sh -c 'npm --version')"
           echo "  git  -> $IN_GIT"
-          [ "$OUT_NODE" = "$NODE_DIST_BIN/node" ] || {
-            echo "FAIL: outside node is not the dist"
-            echo "  node -> $OUT_NODE"
-            echo "  PATH head: $(printf '%s' "$PATH" | cut -d: -f1-3)"
-            ls -l "$NODE_DIST_BIN" 2>&1 | head -4
-            exit 1
-          }
-          [ "$IN_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: in-shell node fell through to the runner"; exit 1; }
-          [ "$IN_NPM" = "$NODE_DIST_BIN/npm" ] || { echo "FAIL: in-shell npm is not the dist"; exit 1; }
+          # Inside the executor image the runtime is the IMAGE's own node, not the
+          # nodejs.org dist. Two reasons, both measured:
+          #   1. the dist is exported through GITHUB_ENV, and the GuixSD profile resets
+          #      PATH when a step shell starts, so the entry never reaches the container
+          #      (GITHUB_PATH fixes that — and then breaks every child process);
+          #   2. `guix shell` replaces LD_LIBRARY_PATH, so a nodejs.org build cannot
+          #      resolve libatomic from the system profile and dies with exit 127
+          #      ("libatomic.so.1: cannot open shared object file").
+          # So: in the image, node must be the profile's; outside it, the dist must win.
+          if [ -d /run/current-system/profile ]; then
+            echo "mode: executor image (node comes from the profile)"
+            case "$OUT_NODE" in
+              /run/current-system/profile/bin/node) ;;
+              *) echo "FAIL: container node is not the image profile's: $OUT_NODE"; exit 1 ;;
+            esac
+          else
+            [ "$OUT_NODE" = "$NODE_DIST_BIN/node" ] || {
+              echo "FAIL: outside node is not the dist"
+              echo "  node -> $OUT_NODE"
+              echo "  PATH head: $(printf '%s' "$PATH" | cut -d: -f1-3)"
+              ls -l "$NODE_DIST_BIN" 2>&1 | head -4
+              exit 1
+            }
+            [ "$IN_NODE" = "$NODE_DIST_BIN/node" ] || { echo "FAIL: in-shell node fell through to the runner"; exit 1; }
+            [ "$IN_NPM" = "$NODE_DIST_BIN/npm" ] || { echo "FAIL: in-shell npm is not the dist"; exit 1; }
+          fi
           case "$IN_GIT" in /gnu/store/*) ;; *) echo "FAIL: in-shell git is not from the Guix profile"; exit 1;; esac
           echo "OK: runtime = dist, support tools = profile, both outside and inside the shell"
 
