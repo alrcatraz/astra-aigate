@@ -104,19 +104,22 @@ lands on development and is dual-pushed, complete ALL of:
 2. **tag** — `git tag -s vX.Y.Z -m "astra-aigate vX.Y.Z — <summary>"` ON the
    release commit (not a feature/merge node); push tags to BOTH remotes
    (`git push <public> --tags` + `git push <private> --tags`).
-   **2a. Private build versions never touch the public remote.** A
-   `vX.Y.Z-<owner>.N` tag marks a private build, not a public release: push it
-   to the private remote only, and produce its image without tagging the
-   public repo (`gh workflow run build-image.yml --ref development -f
-version=vX.Y.Z-<owner>.N`). The public remote carries clean `vX.Y.Z` tags
-   only; a personal suffix, or a `backup-*`-style marker tag, on the public
-   remote is a leak and gets deleted (`git push <public> --delete
-refs/tags/<tag>`), leaving the private copy intact.
+   **2a. Version shapes: pure in the open, detail builds on the private forge.**
+   `vX.Y.Z` is the release itself — tagged on BOTH remotes, published to
+   GHCR as `vX.Y.Z` (+`latest`), released with a bare-version title.
+   `vX.Y.Z-<owner>.N` marks a _detail rebuild_ of the same version: it is
+   allowed on the private forge only (tag, release, and the forge's own
+   container registry), never in GHCR and never on the public remote. A
+   personal suffix, or a `backup-*`-style marker tag, on the public remote or
+   in GHCR is a leak to delete (`git push <public> --delete refs/tags/<tag>`,
+   `gh api --method DELETE /user/packages/container/<pkg>/versions/<id>`),
+   leaving the private copy intact.
 3. **release** — create the GitHub release (gh) AND the private-host release
    (API, Basic auth from pass store) for the same tag, bodies in sync.
-   For a private build version (`vX.Y.Z-<owner>.N`) the release exists on the
-   private host only, its title is the bare version, and the body is technical
-   changelog only — no statement about removed/private content.
+   For a detail rebuild (`vX.Y.Z-<owner>.N`) the release exists on the
+   private host only and its title is that detail version; the release for
+   the plain `vX.Y.Z` carries a bare-version title and a technical changelog
+   body on both remotes.
 4. **verify** — `git ls-remote --tags <public> <private>` lists the new tag
    on both; `git ls-remote --tags <public>` shows no private-suffix tag;
    `gh release list` + private-host API show it. Note CI publishes images
