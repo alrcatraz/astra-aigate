@@ -3,6 +3,22 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.5] — Plan-first routing: fill-first + reset-aware spill (2026-10-25)
+
+The main and coding combos now lead with the OpenCode Go plan and fall back to paid
+providers, so subscription coverage drives routing instead of a static paid-first chain.
+
+### Added
+
+- **`fill-first` gains opt-in `resetAwareSpill`.** The head target stays sticky — that is
+  where prompt-cache affinity lives — while the tail is re-ranked by "quota that expires
+  soonest". A head that dies on the quota cutoff or a provider failure therefore hands over
+  to the target whose 5h window would otherwise reset unused; when no window data exists the
+  ordering degrades to the static chain.
+- **`opencode-go` pricing rows**, transcribed from OpenCode's own published per-model table
+  (vendor CN lists differ by ~30% for GLM/Qwen). In-file comments mark the values as
+  estimates of plan consumption and spell out the per-model monthly pools.
+
 ## [0.6.4] — Official OpenCode Go usage API (2026-10-25)
 
 OpenCode Go had no quota API when the fetcher was written, so the gate targeted a retired
