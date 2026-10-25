@@ -2016,15 +2016,26 @@ export async function markAccountUnavailable(
 
     const isPerModelQuotaProvider = hasPerModelQuota(provider, model, connectionPassthroughModels);
     const modelLockoutOptions = { maxCooldownMs: effectiveProviderProfile?.maxCooldownMs };
+    // A provider that retires ONE model answers 410 ("Model X has been
+    // deprecated. Use Y instead."). The credential stays healthy and every
+    // other model on it still works, so the lock must be per-model — never a
+    // connection-wide cooldown. NVIDIA was the first case (#9833); the OpenCode
+    // family retires free models the same way (upstream #17472 / #17827).
+    // Status-only: an empty body still means the model is gone. Other
+    // per-model providers (notably gemini) keep their connection-wide 410.
+    const isModelGone410 =
+      status === 410 &&
+      typeof provider === "string" &&
+      (provider === "nvidia" || provider.toLowerCase().startsWith("opencode"));
     if (
       isPerModelQuotaProvider &&
       provider &&
       provider !== "codex" &&
       model &&
-      (status === 404 || status === 429 || status >= 500)
+      (status === 404 || isModelGone410 || status === 429 || status >= 500)
     ) {
       const reason =
-        status === 404
+        status === 404 || isModelGone410
           ? "not_found"
           : status === 429 && fallbackResult.reason === RateLimitReason.QUOTA_EXHAUSTED
             ? "quota_exhausted"
@@ -2062,7 +2073,7 @@ export async function markAccountUnavailable(
         model,
         reason,
         status,
-        status === 404
+        status === 404 || isModelGone410
           ? (effectiveProviderProfile?.baseCooldownMs ?? COOLDOWN_MS.notFoundLocal)
           : (antigravityFamilyInferredBaseCooldownMs ??
               fallbackResult.baseCooldownMs ??
