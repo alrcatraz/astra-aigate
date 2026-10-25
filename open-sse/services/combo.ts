@@ -960,7 +960,8 @@ export async function handleComboChat({
             resilienceSettings,
             quotaCutoffResetWindowConfig,
             combo.name,
-            log
+            log,
+            modelStr
           );
           if (quotaCutoff.blocked) {
             log.info(

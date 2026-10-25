@@ -158,9 +158,29 @@ function limitReachedResult(quota: QuotaInfo): PreflightQuotaResult {
   );
 }
 
+/**
+ * Model-scoped windows (some providers expose one window per model id, e.g.
+ * `deepseek-v4-flash-vision-exp`) must not gate sibling models: an exhausted
+ * free/experimental window would otherwise block the whole connection. Generic
+ * account windows (session/weekly/monthly/credits/…) always apply. With no
+ * model filter the historical behaviour is preserved.
+ */
+const GENERIC_WINDOW_RE =
+  /^(window_|session|weekly|monthly|rolling|5h|7d|30d|credits|balance|daily|mcp_)/i;
+
+export function windowAppliesToModel(windowName: string, modelFilter?: string | null): boolean {
+  const model = (modelFilter || "").toLowerCase().trim();
+  if (!model) return true;
+  if (GENERIC_WINDOW_RE.test(windowName)) return true;
+  const name = windowName.toLowerCase();
+  const bare = model.includes("/") ? model.slice(model.lastIndexOf("/") + 1) : model;
+  return name === bare || name.includes(bare) || bare.includes(name);
+}
+
 function quotaWindowCutoffResult(
   windows: NonNullable<QuotaInfo["windows"]>,
-  thresholds?: PreflightQuotaThresholds
+  thresholds?: PreflightQuotaThresholds,
+  modelFilter?: string | null
 ): PreflightQuotaResult | null {
   let worstUsedPercent = 0;
   let worstWindow: string | null = null;
@@ -168,6 +188,7 @@ function quotaWindowCutoffResult(
 
   for (const [windowName, windowInfo] of Object.entries(windows)) {
     if (!Number.isFinite(windowInfo.percentUsed)) continue;
+    if (!windowAppliesToModel(windowName, modelFilter)) continue;
     const minRemainingPercent = resolveOrDefault(
       thresholds?.resolveMinRemainingPercent,
       windowName,
@@ -213,7 +234,8 @@ function quotaPercentCutoffResult(
  */
 export function evaluateQuotaCutoff(
   quota: QuotaInfo | null | undefined,
-  thresholds?: PreflightQuotaThresholds
+  thresholds?: PreflightQuotaThresholds,
+  modelFilter?: string | null
 ): PreflightQuotaResult {
   if (!quota) return { proceed: true };
   if (quota.limitReached === true) return limitReachedResult(quota);
@@ -221,7 +243,7 @@ export function evaluateQuotaCutoff(
   const windows = quota.windows;
   if (windows && Object.keys(windows).length > 0) {
     return (
-      quotaWindowCutoffResult(windows, thresholds) ?? {
+      quotaWindowCutoffResult(windows, thresholds, modelFilter) ?? {
         proceed: true,
         quotaPercent: quota.percentUsed,
       }
