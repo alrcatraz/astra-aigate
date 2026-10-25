@@ -123,10 +123,32 @@ export async function applyStrategyOrdering(
     orderedTargets = fisherYatesShuffle([...orderedTargets]);
     log.info("COMBO", `Random shuffle: ${orderedTargets.length} targets`);
   } else if (strategy === "fill-first") {
-    log.info(
-      "COMBO",
-      `Fill-first ordering: preserving priority order (${orderedTargets.length} targets)`
-    );
+    // `resetAwareSpill` (config flag, default off): keep the head sticky — that is
+    // where prompt-cache affinity lives — and re-rank only the TAIL by "quota that
+    // expires soonest". A head that dies on cutoff / failure then hands over to the
+    // target whose 5h window would otherwise reset unused, instead of blindly taking
+    // the next entry in the static chain. Costs nothing in cache terms: the switch
+    // point already forces a model change.
+    if (config?.resetAwareSpill === true && orderedTargets.length > 1) {
+      const [head, ...tail] = orderedTargets;
+      const spill = await orderTargetsByResetAwareQuota(
+        tail,
+        combo.name,
+        config,
+        log,
+        apiKeyAllowedConnections
+      );
+      orderedTargets = [head, ...spill];
+      log.info(
+        "COMBO",
+        `Fill-first + reset-aware spill: head ${head.modelStr} kept sticky, tail re-ranked (${spill.length} targets)`
+      );
+    } else {
+      log.info(
+        "COMBO",
+        `Fill-first ordering: preserving priority order (${orderedTargets.length} targets)`
+      );
+    }
   } else if (strategy === "p2c") {
     orderedTargets = orderTargetsByPowerOfTwoChoices(orderedTargets, combo.name);
     log.info("COMBO", `Power-of-two-choices ordering: selected ${orderedTargets[0]?.modelStr}`);

@@ -70,3 +70,13 @@ test("random -> same multiset of targets (a permutation)", async () => {
   assert.equal(out.length, 3);
   assert.deepEqual(keys(out), keys(input));
 });
+
+test("fill-first + resetAwareSpill -> head stays sticky, tail keeps the same members", async () => {
+  const input = [target("a", "m1"), target("b", "m2"), target("c", "m3"), target("d", "m4")];
+  const out = await applyStrategyOrdering("fill-first", input, {
+    ...(deps() as Record<string, unknown>),
+    config: { resetAwareSpill: true },
+  } as never);
+  assert.equal(out[0].executionKey, "a>m1", "head must not be re-ranked (cache affinity)");
+  assert.deepEqual(keys(out), keys(input), "spill must only reorder, never drop or duplicate");
+});
