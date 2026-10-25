@@ -3,6 +3,20 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.6] — Model-scoped quota windows in the cutoff (2026-10-25)
+
+Enabling the quota cutoff exposed a scoping bug: providers that publish one window per
+model (deepseek's free/experimental ids do) had every model on the connection blocked as
+soon as a single sibling window hit zero — `deepseek/deepseek-flash` refused with
+"Quota preflight blocked for deepseek-v4-flash-vision-exp".
+
+### Fixed
+
+- The cutoff now receives the target model and only evaluates generic account windows
+  (`session` / `weekly` / `monthly` / `credits` / `window_*`) plus the target's own
+  model-scoped window. Another model's exhausted window no longer strands the connection.
+- Unit coverage for the sibling-window, own-window, generic-window and no-filter cases.
+
 ## [0.6.5] — Plan-first routing: fill-first + reset-aware spill (2026-10-25)
 
 The main and coding combos now lead with the OpenCode Go plan and fall back to paid
