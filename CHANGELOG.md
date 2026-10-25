@@ -3,6 +3,38 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.4] — Official OpenCode Go usage API (2026-10-25)
+
+OpenCode Go had no quota API when the fetcher was written, so the gate targeted a retired
+`/quota` probe and kept a workspace-cookie dashboard scrape as the only live source.
+OpenCode has since published `GET /zen/go/v1/usage` (API-key authenticated, rolling /
+weekly / monthly windows); this release adopts it and retires the scrape.
+
+### Changed
+
+- **OpenCode Go usage, preflight and monitoring all read the official endpoint.** Windows
+  are validated strictly (`status` / `percent` / `resetsAt`; a malformed or partial set is
+  rejected instead of fabricating quota), a `rate-limited` window counts as exhausted, and
+  the 60s cache is bound to the normalized API key so an in-place key edit cannot serve a
+  stale window.
+- The Provider Limits presentation keeps its `$12 / 5-hour`, `$30 / week`, `$60 / month`
+  frames, fed by the official percentages.
+- **The workspace-ID / auth-cookie scrape path is gone** — connection-modal fields, env
+  rows and docs included; `OPENCODE_GO_WORKSPACE_ID` / `OPENCODE_GO_AUTH_COOKIE` are no
+  longer read. `OMNIROUTE_OPENCODE_QUOTA_URL` still overrides the endpoint for relays.
+
+### Fixed
+
+- **A 410 for a retired OpenCode model locks that model only** (NVIDIA parity) instead of
+  cooling the whole connection for a day. The OpenCode family also counts as a per-model
+  provider now, so one dead model id no longer parks every healthy sibling.
+- Quota preflight blocks when any official window is exhausted or rate-limited.
+
+### Tests
+
+- Ported the upstream suite (fetcher, usage shaping, default-endpoint, preflight cutoff)
+  plus the 410 model-scope test — 56 unit tests across the touched surface.
+
 ## [0.6.3] — React Compiler ruleset at zero, high advisories cleared (2026-10-24)
 
 The React Compiler rule family (eslint-plugin-react-hooks 7.1.x) reported 196 findings on a
