@@ -3,6 +3,48 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.7] — Provider-truth quota for OpenCode Go (2026-10-28)
+
+Quota decisions for the Go subscription rested on our own accounting, and that
+accounting disagrees with the provider: over one measured window our ledger
+reported 37 % more list-price spend than the console (up to +107 % on a single
+model), because every retry is logged as its own row and cache tokens are
+classified differently. Routing on it was therefore only ever an estimate.
+
+The provider publishes the real numbers — three account meters in dollars and a
+per-model usage endpoint whose cost column is the exact figure the plan meter is
+derived from. This release routes on those.
+
+### Added
+
+- Windows declare their own scope (`account` / `model`), model id, provenance
+  (`provider_reported` / `derived`) and, where relevant, their dollar amounts.
+  Consumers no longer infer scope from a window's name.
+- `WindowPeriod` (`rolling` / `calendar` / `billing`) plus `windowPeriods.ts`
+  resolve window start and reset instants once for every provider. The weekly
+  case matters: OpenCode's week is a calendar week (Monday 00:00 UTC), so
+  measuring it with a rolling 7-day span mixes two periods.
+- OpenCode Go's plan is catalogued from its own meter: $48/5h, $120/week,
+  $240/month account limits plus per-model monthly pools and the 20 %/50 %
+  window fractions.
+- The OpenCode fetcher enriches its result with per-model windows built from
+  `/console/api/usage/models` using the connection's own key — same fetcher,
+  same cache, same monitor, same cutoff path.
+
+### Changed
+
+- Threshold lookup accepts `<window>:<model>` → `<window>:*` → `<window>`, so a
+  per-model cutoff is configured once instead of per model.
+- Preflight receives the requested model for providers whose windows are
+  model-scoped (declared by the fetcher, not by provider name).
+
+### Notes
+
+- Fail-open is preserved: a key without the Usage permission, an unreachable
+  console or an unknown model leaves the account meters as the only signal.
+- The exact end-to-end effect: exhaustion of one model's pool now steers traffic
+  to a sibling model instead of blocking the connection.
+
 ## [0.6.6] — Model-scoped quota windows in the cutoff (2026-10-25)
 
 Enabling the quota cutoff exposed a scoping bug: providers that publish one window per
