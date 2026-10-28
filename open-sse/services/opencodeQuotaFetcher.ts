@@ -9,9 +9,22 @@
  * parsing failures remain fail-open so quota checks never block on missing data.
  */
 
-import { registerQuotaFetcher, registerQuotaWindows, type QuotaInfo } from "./quotaPreflight.ts";
+import {
+  registerQuotaFetcher,
+  registerQuotaWindows,
+  type QuotaInfo,
+  type QuotaWindowInfo,
+} from "./quotaPreflight.ts";
 import { registerMonitorFetcher } from "./quotaMonitor.ts";
 import { throttleQuotaFetch } from "./quotaFetchThrottle.ts";
+import { fetchConsoleModelUsage, indexByModel } from "./opencodeConsoleUsage.ts";
+import { getKnownPlan } from "@/lib/quota/planRegistry";
+import {
+  isModelScopedDimension,
+  type QuotaDimension,
+  type WindowPeriod,
+} from "@/lib/quota/dimensions";
+import { windowPeriodEnd, windowPeriodStartIso } from "@/lib/quota/windowPeriods";
 
 const OPENCODE_QUOTA_URL =
   process.env.OMNIROUTE_OPENCODE_QUOTA_URL ?? "https://opencode.ai/zen/go/v1/usage";
@@ -120,6 +133,7 @@ function parseOpencodeQuotaResponse(data: unknown): OpencodeTripleWindowQuota | 
   const window5h = { percentUsed: rolling.percentUsed, resetAt: rolling.resetAt };
   const windowWeekly = { percentUsed: weekly.percentUsed, resetAt: weekly.resetAt };
   const windowMonthly = { percentUsed: monthly.percentUsed, resetAt: monthly.resetAt };
+
   const worstPercent = Math.max(
     window5h.percentUsed,
     windowWeekly.percentUsed,
@@ -138,15 +152,112 @@ function parseOpencodeQuotaResponse(data: unknown): OpencodeTripleWindowQuota | 
     percentUsed: worstPercent,
     resetAt: dominantResetAt,
     windows: {
-      [OPENCODE_WINDOW_5H]: window5h,
-      [OPENCODE_WINDOW_WEEKLY]: windowWeekly,
-      [OPENCODE_WINDOW_MONTHLY]: windowMonthly,
+      [OPENCODE_WINDOW_5H]: { ...window5h, scope: "account", source: "provider_reported" },
+      [OPENCODE_WINDOW_WEEKLY]: { ...windowWeekly, scope: "account", source: "provider_reported" },
+      [OPENCODE_WINDOW_MONTHLY]: {
+        ...windowMonthly,
+        scope: "account",
+        source: "provider_reported",
+      },
     },
     window5h,
     windowWeekly,
     windowMonthly,
     limitReached: rolling.limitReached || weekly.limitReached || monthly.limitReached,
   };
+}
+
+// ─── Per-model windows ────────────────────────────────────────────────────────
+
+/**
+ * One provider window expressed as a fraction of a model's monthly pool
+ * (Go Plus: 5h = 20 %, weekly = 50 %, monthly = 100 %).
+ */
+interface ModelWindowSpec {
+  window: "5h" | "weekly" | "monthly";
+  period: WindowPeriod;
+  fraction: number;
+}
+
+function modelWindowSpecs(
+  provider: string,
+  monthlyPeriod: WindowPeriod | undefined
+): ModelWindowSpec[] {
+  const fractions = getKnownPlan(provider)?.windowFractions ?? {};
+  return [
+    {
+      window: "5h",
+      period: { kind: "rolling", hours: 5 },
+      fraction: fractions["5h"] ?? 0.2,
+    },
+    {
+      window: "weekly",
+      period: { kind: "calendar", unit: "week", weekStartsOn: "monday" },
+      fraction: fractions.weekly ?? 0.5,
+    },
+    {
+      window: "monthly",
+      period: monthlyPeriod ?? { kind: "calendar", unit: "month" },
+      fraction: fractions.monthly ?? 1,
+    },
+  ];
+}
+
+/**
+ * Add per-model windows to an already-parsed account-level quota.
+ *
+ * Data flow: provider's own per-model list cost (`/console/api/usage/models`,
+ * the same figure its quota meter is computed from) ÷ the model's pool from the
+ * plan catalogue × the window's fraction. Every number is provider-supplied;
+ * nothing here re-estimates prices or tokens.
+ *
+ * Mutates `quota.windows` in place and never throws: a rejected key, an
+ * unreachable console or an unknown model simply leaves the account windows as
+ * the only signal (the safe direction).
+ */
+async function enrichWithModelWindows(
+  quota: OpencodeTripleWindowQuota,
+  apiKey: string,
+  provider: string,
+  now: number
+): Promise<void> {
+  const plan = getKnownPlan(provider);
+  const modelDims: QuotaDimension[] = (plan?.dimensions ?? []).filter(isModelScopedDimension);
+  if (modelDims.length === 0) return;
+
+  const specs = modelWindowSpecs(provider, modelDims[0]?.period);
+  const at = new Date(now);
+  const windows = (quota.windows ??= {});
+
+  for (const spec of specs) {
+    const sinceIso = windowPeriodStartIso(spec.period, at);
+    if (!sinceIso) continue;
+
+    await throttleQuotaFetch();
+    const sample = await fetchConsoleModelUsage(apiKey, sinceIso, { now });
+    if (!sample) continue;
+
+    const costByModel = indexByModel(sample);
+    const resetAt = windowPeriodEnd(spec.period, at)?.toISOString() ?? null;
+
+    for (const dim of modelDims) {
+      const modelId = dim.model;
+      if (!modelId) continue;
+      const cost = costByModel.get(modelId.toLowerCase());
+      if (cost === undefined) continue;
+      const cap = dim.limit * spec.fraction;
+      if (!(cap > 0)) continue;
+      windows[`${spec.window}:${modelId}`] = {
+        percentUsed: Math.min(1, Math.max(0, cost / cap)),
+        resetAt,
+        scope: "model",
+        model: modelId,
+        source: "provider_reported",
+        usedUsd: cost,
+        limitUsd: cap,
+      };
+    }
+  }
 }
 
 // ─── Core Fetcher ─────────────────────────────────────────────────────────────
@@ -157,7 +268,8 @@ function parseOpencodeQuotaResponse(data: unknown): OpencodeTripleWindowQuota | 
  */
 export async function fetchOpencodeQuota(
   connectionId: string,
-  connection?: Record<string, unknown>
+  connection?: Record<string, unknown>,
+  options: { provider?: string } = {}
 ): Promise<OpencodeTripleWindowQuota | null> {
   const apiKey =
     typeof connection?.apiKey === "string"
@@ -207,6 +319,10 @@ export async function fetchOpencodeQuota(
     const quota = parseOpencodeQuotaResponse(data);
     if (!quota) return null;
 
+    // Enrich with the provider's own per-model usage before caching, so the
+    // 60 s cache holds the complete picture and callers never pay two fetches.
+    await enrichWithModelWindows(quota, apiKey, options.provider ?? "", Date.now());
+
     quotaCache.set(connectionId, { quota, fetchedAt: Date.now(), apiKey });
     return quota;
   } catch {
@@ -233,12 +349,25 @@ export function invalidateOpencodeQuotaCache(connectionId: string): void {
  */
 export function registerOpencodeQuotaFetcher(): void {
   for (const provider of ["opencode-go", "opencode", "opencode-zen"] as const) {
-    registerQuotaFetcher(provider, fetchOpencodeQuota);
-    registerMonitorFetcher(provider, fetchOpencodeQuota);
-    registerQuotaWindows(provider, [
-      OPENCODE_WINDOW_5H,
-      OPENCODE_WINDOW_WEEKLY,
-      OPENCODE_WINDOW_MONTHLY,
-    ]);
+    // Bind the provider id so the fetcher can look up that provider's plan
+    // (per-model pools) without sniffing names at call time.
+    const bound = (connectionId: string, connection?: Record<string, unknown>) =>
+      fetchOpencodeQuota(connectionId, connection, { provider });
+    registerQuotaFetcher(provider, bound);
+    registerMonitorFetcher(provider, bound);
+    registerQuotaWindows(
+      provider,
+      [
+        OPENCODE_WINDOW_5H,
+        OPENCODE_WINDOW_WEEKLY,
+        OPENCODE_WINDOW_MONTHLY,
+        // Model-scoped windows are dynamic (`5h:<model>`); the wildcards are
+        // what an operator configures once for every one of them.
+        "5h:*",
+        "weekly:*",
+        "monthly:*",
+      ],
+      { modelScoped: provider === "opencode-go" }
+    );
   }
 }

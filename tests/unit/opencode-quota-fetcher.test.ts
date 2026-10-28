@@ -6,7 +6,11 @@ import {
   invalidateOpencodeQuotaCache,
   registerOpencodeQuotaFetcher,
 } from "../../open-sse/services/opencodeQuotaFetcher.ts";
-import { getQuotaFetcher, getQuotaWindows } from "../../open-sse/services/quotaPreflight.ts";
+import {
+  getQuotaFetcher,
+  getQuotaWindows,
+  getQuotaWindowsMeta,
+} from "../../open-sse/services/quotaPreflight.ts";
 import {
   clearQuotaMonitors,
   getActiveMonitorCount,
@@ -86,9 +90,24 @@ test("fetchOpencodeQuota parses official usage windows as fractions and sends Be
   assert.equal(quota.resetAt, RESET_WEEKLY);
   assert.equal(quota.limitReached, false);
   assert.deepEqual(quota.windows, {
-    window_5h: { percentUsed: 0.25, resetAt: RESET_ROLLING },
-    window_weekly: { percentUsed: 0.5, resetAt: RESET_WEEKLY },
-    window_monthly: { percentUsed: 0.1, resetAt: RESET_MONTHLY },
+    window_5h: {
+      percentUsed: 0.25,
+      resetAt: RESET_ROLLING,
+      scope: "account",
+      source: "provider_reported",
+    },
+    window_weekly: {
+      percentUsed: 0.5,
+      resetAt: RESET_WEEKLY,
+      scope: "account",
+      source: "provider_reported",
+    },
+    window_monthly: {
+      percentUsed: 0.1,
+      resetAt: RESET_MONTHLY,
+      scope: "account",
+      source: "provider_reported",
+    },
   });
   assert.deepEqual(quota.window5h, { percentUsed: 0.25, resetAt: RESET_ROLLING });
   assert.deepEqual(quota.windowWeekly, { percentUsed: 0.5, resetAt: RESET_WEEKLY });
@@ -247,9 +266,22 @@ test("registerOpencodeQuotaFetcher registers every OpenCode provider and quota w
   registerOpencodeQuotaFetcher();
 
   for (const provider of ["opencode-go", "opencode", "opencode-zen"]) {
-    assert.equal(getQuotaFetcher(provider), fetchOpencodeQuota);
-    assert.deepEqual(getQuotaWindows(provider), ["window_5h", "window_weekly", "window_monthly"]);
+    // registered per provider (bound), not the bare function, so each entry can
+    // resolve its own plan
+    const fetcher = getQuotaFetcher(provider);
+    assert.equal(typeof fetcher, "function");
+    assert.deepEqual(getQuotaWindows(provider), [
+      "window_5h",
+      "window_weekly",
+      "window_monthly",
+      "5h:*",
+      "weekly:*",
+      "monthly:*",
+    ]);
   }
+  // only the Go plan exposes per-model pools, so only it advertises model scope
+  assert.equal(getQuotaWindowsMeta("opencode-go").modelScoped, true);
+  assert.equal(getQuotaWindowsMeta("opencode-zen").modelScoped, false);
 });
 
 test("registerOpencodeQuotaFetcher keeps OpenCode Go quota monitoring available", () => {
