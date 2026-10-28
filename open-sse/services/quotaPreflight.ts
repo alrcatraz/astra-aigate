@@ -282,12 +282,18 @@ function quotaWindowCutoffResult(
       windowName,
       DEFAULT_MIN_REMAINING_PERCENT
     );
-    if (
-      !isRemainingAtOrBelowThreshold(
-        remainingPercentFrom(windowInfo.percentUsed),
-        minRemainingPercent
-      )
-    ) {
+    const remainingPercent = remainingPercentFrom(windowInfo.percentUsed);
+    if (!isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
+      const warnRemainingPercent = resolveOrDefault(
+        thresholds?.resolveWarnRemainingPercent,
+        windowName,
+        DEFAULT_WARN_REMAINING_PERCENT
+      );
+      if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
+        console.warn(
+          `[QuotaPreflight] ${windowName}: ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`
+        );
+      }
       continue;
     }
     if (windowInfo.percentUsed <= worstUsedPercent && worstWindow !== null) continue;
@@ -319,9 +325,19 @@ function quotaPercentCutoffResult(
     DEFAULT_MIN_REMAINING_PERCENT
   );
   const remainingPercent = remainingPercentFrom(quota.percentUsed);
-  return isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)
-    ? exhaustedResult(quota.percentUsed, quota.resetAt ?? null)
-    : { proceed: true, quotaPercent: quota.percentUsed };
+  if (isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
+    return exhaustedResult(quota.percentUsed, quota.resetAt ?? null);
+  }
+
+  const warnRemainingPercent = resolveOrDefault(
+    thresholds?.resolveWarnRemainingPercent,
+    null,
+    DEFAULT_WARN_REMAINING_PERCENT
+  );
+  if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
+    console.warn(`[QuotaPreflight] ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`);
+  }
+  return { proceed: true, quotaPercent: quota.percentUsed };
 }
 
 /**
@@ -373,95 +389,22 @@ export async function preflightQuota(
     return { proceed: true };
   }
 
-  if (quota.limitReached === true) {
-    return limitReachedResult(quota);
-  }
+  // The model under evaluation lives on the connection the caller passed. It is
+  // what separates "this model's pool is spent" from "the account is spent" —
+  // without it every model-scoped window gates every request.
+  const requestedModel = connection?.requestedModel;
+  const modelFilter = typeof requestedModel === "string" ? requestedModel : null;
 
-  // Per-window evaluation — only when the fetcher surfaces a windows map.
-  // We block as soon as ANY single window's remaining quota drops to its
-  // configured cutoff or below; warnings are logged independently per window.
-  if (quota.windows && Object.keys(quota.windows).length > 0) {
-    let worstUsedPercent = 0;
-    let worstWindow: string | null = null;
-    let worstResetAt: string | null = null;
-    for (const [windowName, windowInfo] of Object.entries(quota.windows)) {
-      const minRemainingPercent = resolveOrDefault(
-        thresholds?.resolveMinRemainingPercent,
-        windowName,
-        DEFAULT_MIN_REMAINING_PERCENT
-      );
-      const warnRemainingPercent = resolveOrDefault(
-        thresholds?.resolveWarnRemainingPercent,
-        windowName,
-        DEFAULT_WARN_REMAINING_PERCENT
-      );
-      const remainingPercent = remainingPercentFrom(windowInfo.percentUsed);
+  const result = evaluateQuotaCutoff(quota, thresholds, modelFilter);
 
-      if (isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
-        // Track the most-depleted blocking window so the response can name it.
-        if (windowInfo.percentUsed > worstUsedPercent) {
-          worstUsedPercent = windowInfo.percentUsed;
-          worstWindow = windowName;
-          worstResetAt = windowInfo.resetAt ?? null;
-        } else if (worstWindow === null) {
-          worstWindow = windowName;
-          worstResetAt = windowInfo.resetAt ?? null;
-        }
-      } else if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
-        console.warn(
-          `[QuotaPreflight] ${provider}/${connectionId} ${windowName}: ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`
-        );
-      }
-    }
-
-    if (worstWindow !== null) {
-      const worstRemaining = remainingPercentFrom(worstUsedPercent);
-      console.info(
-        `[QuotaPreflight] ${provider}/${connectionId} ${worstWindow}: ${worstRemaining.toFixed(1)}% remaining — switching`
-      );
-      return {
-        proceed: false,
-        reason: "quota_exhausted",
-        quotaPercent: worstUsedPercent,
-        resetAt: worstResetAt,
-      };
-    }
-
-    return { proceed: true, quotaPercent: quota.percentUsed };
-  }
-
-  // Legacy single-signal path for fetchers that don't expose per-window data.
-  const minRemainingPercent = resolveOrDefault(
-    thresholds?.resolveMinRemainingPercent,
-    null,
-    DEFAULT_MIN_REMAINING_PERCENT
-  );
-  const warnRemainingPercent = resolveOrDefault(
-    thresholds?.resolveWarnRemainingPercent,
-    null,
-    DEFAULT_WARN_REMAINING_PERCENT
-  );
-
-  const { percentUsed } = quota;
-  const remainingPercent = remainingPercentFrom(percentUsed);
-
-  if (isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
+  if (!result.proceed) {
+    const remaining = remainingPercentFrom(
+      Number.isFinite(result.quotaPercent) ? (result.quotaPercent as number) : 1
+    );
     console.info(
-      `[QuotaPreflight] ${provider}/${connectionId}: ${remainingPercent.toFixed(1)}% remaining — switching (cutoff ${minRemainingPercent}%)`
-    );
-    return {
-      proceed: false,
-      reason: "quota_exhausted",
-      quotaPercent: percentUsed,
-      resetAt: quota.resetAt ?? null,
-    };
-  }
-
-  if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
-    console.warn(
-      `[QuotaPreflight] ${provider}/${connectionId}: ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`
+      `[QuotaPreflight] ${provider}/${connectionId} ${result.window ?? "quota"}: ${remaining.toFixed(1)}% remaining — switching`
     );
   }
 
-  return { proceed: true, quotaPercent: percentUsed };
+  return result;
 }
