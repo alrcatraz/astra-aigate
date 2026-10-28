@@ -31,6 +31,10 @@ import { getAntigravityQuotaFamily } from "@omniroute/open-sse/services/antigrav
 interface QuotaInfo {
   remainingPercentage: number;
   resetAt: string | null;
+  /** Window scope, when the fetcher declared one (see QuotaWindowInfo). */
+  scope?: "account" | "model";
+  /** Model id for a model-scoped window. */
+  model?: string;
 }
 
 interface QuotaCacheEntry {
@@ -48,6 +52,9 @@ interface QuotaWindowStatus {
   usedPercentage: number;
   resetAt: string | null;
   reachedThreshold: boolean;
+  /** Propagated from the cached window so callers can filter by model. */
+  scope?: "account" | "model";
+  model?: string;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -224,6 +231,8 @@ function normalizeQuotas(rawQuotas: Record<string, any>): Record<string, QuotaIn
           safePercentage(q.remainingPercentage) ??
           (q.total > 0 ? Math.round(((q.total - (q.used || 0)) / q.total) * 100) : 0),
         resetAt: q.resetAt || null,
+        ...(q.scope === "account" || q.scope === "model" ? { scope: q.scope } : {}),
+        ...(typeof q.model === "string" && q.model ? { model: q.model } : {}),
       };
     }
   }
@@ -518,6 +527,8 @@ export function getQuotaWindowStatus(
     resetAt,
     // If reset time has already passed, avoid stale cached percentages blocking selection.
     reachedThreshold: windowExpired ? false : usedPercentage >= thresholdPercent,
+    ...(window.scope ? { scope: window.scope } : {}),
+    ...(window.model ? { model: window.model } : {}),
   };
 }
 

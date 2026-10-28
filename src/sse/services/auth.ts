@@ -46,6 +46,7 @@ import {
   isQuotaPreflightEnabled,
   getQuotaWindowsMeta,
   windowThresholdAliases,
+  windowAppliesToModel,
 } from "@omniroute/open-sse/services/quotaPreflight.ts";
 import { resolveResilienceSettings } from "@/lib/resilience/settings";
 import { resolveModelLockoutSettings } from "@/lib/resilience/modelLockoutSettings";
@@ -446,14 +447,15 @@ export function evaluateQuotaLimitPolicy(
   provider: string,
   connection: ProviderConnectionView,
   requestedModel: string | null = null
-): { blocked: boolean; reasons: string[]; resetAt: string | null } {
+): { blocked: boolean; reasons: string[]; resetAt: string | null; modelScoped: boolean } {
   const policy = resolveQuotaLimitPolicy(provider, connection.providerSpecificData);
   if (!policy.enabled || policy.windows.length === 0) {
-    return { blocked: false, reasons: [], resetAt: null };
+    return { blocked: false, reasons: [], resetAt: null, modelScoped: false };
   }
 
   const reasons: string[] = [];
   const resetCandidates: Array<string | null> = [];
+  let sawAccountScopedBlock = false;
 
   for (const windowName of policy.windows) {
     const effectiveWindowName =
@@ -464,6 +466,19 @@ export function evaluateQuotaLimitPolicy(
       policy.thresholdPercent
     );
     if (!status?.reachedThreshold) continue;
+    // A model-scoped window must only gate its own model — the same rule the
+    // preflight cutoff applies. Without this, configuring one per-model cutoff
+    // takes the whole connection out of rotation.
+    if (
+      !windowAppliesToModel(effectiveWindowName, requestedModel, {
+        percentUsed: status.usedPercentage / 100,
+        scope: status.scope,
+        model: status.model,
+      })
+    ) {
+      continue;
+    }
+    if (status.scope !== "model") sawAccountScopedBlock = true;
     reasons.push(`${effectiveWindowName} usage ${Math.round(status.usedPercentage)}%`);
     resetCandidates.push(status.resetAt);
   }
@@ -472,6 +487,7 @@ export function evaluateQuotaLimitPolicy(
     blocked: reasons.length > 0,
     reasons,
     resetAt: getEarliestFutureDate(resetCandidates),
+    modelScoped: reasons.length > 0 && !sawAccountScopedBlock,
   };
 }
 
@@ -1883,12 +1899,19 @@ export async function getProviderCredentialsWithQuotaPreflight(
       return credentials;
     }
 
-    const unavailableUntil = await markQuotaPreflightAccountUnavailable(
-      provider,
-      connectionId,
-      preflight,
-      requestedModel
-    );
+    // A model-scoped block must not take the connection out of rotation: the
+    // siblings still have headroom, so only the requested model is refused.
+    // Persisting `rateLimitedUntil` here would blacklist every model until the
+    // window resets (a month, on a monthly pool).
+    const modelScopedBlock = preflight.windowScope === "model";
+    const unavailableUntil = modelScopedBlock
+      ? (preflight.resetAt ?? new Date(Date.now() + 5 * 60 * 1000).toISOString())
+      : await markQuotaPreflightAccountUnavailable(
+          provider,
+          connectionId,
+          preflight,
+          requestedModel
+        );
     blockedByPreflight.push({
       id: connectionId,
       quotaPercent: preflight.quotaPercent,

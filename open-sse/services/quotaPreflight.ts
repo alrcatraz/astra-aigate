@@ -23,6 +23,13 @@ export interface PreflightQuotaResult {
   reason?: string;
   quotaPercent?: number;
   resetAt?: string | null;
+  /** Window that triggered the block, when one can be named. */
+  window?: string;
+  /**
+   * Scope of the blocking window. A model-scoped block must not take the whole
+   * connection out of rotation — siblings still have headroom.
+   */
+  windowScope?: "account" | "model";
 }
 
 export interface QuotaWindowInfo {
@@ -179,12 +186,19 @@ function isRemainingAtOrBelowThreshold(
   return remainingPercent <= thresholdPercent + REMAINING_PERCENT_EPSILON;
 }
 
-function exhaustedResult(quotaPercent: number, resetAt: string | null): PreflightQuotaResult {
+function exhaustedResult(
+  quotaPercent: number,
+  resetAt: string | null,
+  window?: string,
+  windowScope?: "account" | "model"
+): PreflightQuotaResult {
   return {
     proceed: false,
     reason: "quota_exhausted",
     quotaPercent,
     resetAt,
+    ...(window ? { window } : {}),
+    ...(windowScope ? { windowScope } : {}),
   };
 }
 
@@ -257,6 +271,8 @@ function quotaWindowCutoffResult(
   let worstUsedPercent = 0;
   let worstWindow: string | null = null;
   let worstResetAt: string | null = null;
+  let worstScope: "account" | "model" | undefined;
+  let worstModel: string | undefined;
 
   for (const [windowName, windowInfo] of Object.entries(windows)) {
     if (!Number.isFinite(windowInfo.percentUsed)) continue;
@@ -278,9 +294,17 @@ function quotaWindowCutoffResult(
     worstUsedPercent = windowInfo.percentUsed;
     worstWindow = windowName;
     worstResetAt = windowInfo.resetAt ?? null;
+    worstScope = windowInfo.scope;
+    worstModel = windowInfo.model;
   }
 
-  return worstWindow === null ? null : exhaustedResult(worstUsedPercent, worstResetAt);
+  if (worstWindow === null) return null;
+  return exhaustedResult(
+    worstUsedPercent,
+    worstResetAt,
+    worstModel ? `${worstWindow} (${worstModel})` : worstWindow,
+    worstScope
+  );
 }
 
 function quotaPercentCutoffResult(
