@@ -3,6 +3,20 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.10] — Per-model cutoffs are configurable from the dashboard (2026-10-28)
+
+The quota-cutoff modal listed only the windows that had a live percentage, so the
+family wildcards a provider registers for per-model windows (`5h:*`,
+`weekly:*`, `monthly:*`) were invisible there — configurable through the API
+only. Settings that decide routing should not require knowing an endpoint.
+
+### Added
+
+- The modal merges two sources: the windows observed for the connection (they
+  carry live numbers) and every window the provider registers with
+  `quotaPreflight`. Registered-only families render as `5h — all models` and are
+  saved through the same per-connection patch as any other window.
+
 ## [0.6.9] — One cutoff path (2026-10-28)
 
 0.6.8's model-scope filter was written into `quotaWindowCutoffResult`, but
