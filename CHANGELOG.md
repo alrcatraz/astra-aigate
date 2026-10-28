@@ -3,6 +3,26 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.8] — A model's exhausted pool must not blacklist the connection (2026-10-28)
+
+0.6.7 made model-scoped windows available, and an end-to-end probe showed the
+rest of the stack was not ready for them: configuring one per-model cutoff
+(`monthly:kimi-k3`) refused a `qwen3.8-flash` request too, and the block also
+persisted `rateLimitedUntil` at the window's reset — 595 h away, i.e. the whole
+connection out of rotation until the billing date.
+
+### Fixed
+
+- The per-connection quota-limit policy gate skips windows that do not apply to
+  the requested model, using the scope carried by the cached window (the quota
+  cache previously dropped `scope`/`model` on ingest).
+- A model-scoped preflight block refuses only that request: no connection-wide
+  `rateLimitedUntil` is written, siblings keep serving, and the next request
+  re-evaluates the live window.
+- `PreflightQuotaResult` names the blocking window and its scope, so the log
+  line and the caller distinguish "this model is done" from "the account is
+  done".
+
 ## [0.6.7] — Provider-truth quota for OpenCode Go (2026-10-28)
 
 Quota decisions for the Go subscription rested on our own accounting, and that
