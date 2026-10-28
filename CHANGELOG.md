@@ -3,6 +3,22 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.9] — One cutoff path (2026-10-28)
+
+0.6.8's model-scope filter was written into `quotaWindowCutoffResult`, but
+`preflightQuota` kept its own copy of the same per-window loop — the filter only
+ran in tests. In production a `monthly:kimi-k3` cutoff still refused
+`qwen3.8-flash`, and the refusal then persisted connection state, so later
+requests were rejected from the stored lockout too.
+
+### Fixed
+
+- `preflightQuota` delegates to `evaluateQuotaCutoff`, which takes the model
+  under evaluation from `connection.requestedModel`. The duplicate loop is gone
+  — thresholds, model scope and warn logging are decided in one place.
+- A model-scoped block therefore reaches the caller as
+  `{ windowScope: "model" }` and no longer writes connection-wide state.
+
 ## [0.6.8] — A model's exhausted pool must not blacklist the connection (2026-10-28)
 
 0.6.7 made model-scoped windows available, and an end-to-end probe showed the
