@@ -28,6 +28,19 @@ export interface PreflightQuotaResult {
 export interface QuotaWindowInfo {
   percentUsed: number;
   resetAt?: string | null;
+  /**
+   * Explicit window scope. `"account"` gates every model on the connection;
+   * `"model"` gates only `model`. When omitted, consumers fall back to the
+   * legacy name heuristic — providers should always set it.
+   */
+  scope?: "account" | "model";
+  /** Model id this window belongs to (required when `scope === "model"`). */
+  model?: string;
+  /** Where the number came from: the provider itself, or a local derivation. */
+  source?: "provider_reported" | "derived";
+  /** Dollar-denominated windows report the underlying amounts for reporting. */
+  usedUsd?: number;
+  limitUsd?: number;
 }
 
 export interface QuotaInfo {
@@ -61,8 +74,32 @@ export type QuotaFetcher = (
  */
 const quotaWindowsRegistry = new Map<string, readonly string[]>();
 
-export function registerQuotaWindows(provider: string, windows: readonly string[]): void {
+export interface QuotaWindowsMeta {
+  /**
+   * True when the provider's fetcher reports per-model windows, so preflight
+   * must be given the requested model — otherwise every model window is
+   * evaluated for every request.
+   */
+  modelScoped?: boolean;
+}
+
+const quotaWindowsMetaRegistry = new Map<string, QuotaWindowsMeta>();
+
+export function registerQuotaWindows(
+  provider: string,
+  windows: readonly string[],
+  meta: QuotaWindowsMeta = {}
+): void {
   quotaWindowsRegistry.set(provider, [...windows]);
+  quotaWindowsMetaRegistry.set(provider, meta);
+}
+
+export function getQuotaWindowsMeta(provider: string): QuotaWindowsMeta {
+  return (
+    quotaWindowsMetaRegistry.get(provider) ??
+    quotaWindowsMetaRegistry.get(provider.toLowerCase()) ??
+    {}
+  );
 }
 
 export function getQuotaWindows(provider: string): readonly string[] {
@@ -164,12 +201,47 @@ function limitReachedResult(quota: QuotaInfo): PreflightQuotaResult {
  * free/experimental window would otherwise block the whole connection. Generic
  * account windows (session/weekly/monthly/credits/…) always apply. With no
  * model filter the historical behaviour is preserved.
+ *
+ * Prefer the explicit scope carried by the window descriptor; the name
+ * heuristic below only serves providers that have not declared a scope yet.
  */
 const GENERIC_WINDOW_RE =
   /^(window_|session|weekly|monthly|rolling|5h|7d|30d|credits|balance|daily|mcp_)/i;
 
-export function windowAppliesToModel(windowName: string, modelFilter?: string | null): boolean {
+/** Base window name of a possibly model-qualified window (`5h:model` → `5h`). */
+export function windowBaseName(windowName: string): string {
+  const idx = windowName.indexOf(":");
+  return idx === -1 ? windowName : windowName.slice(0, idx);
+}
+
+/**
+ * Candidate configuration names for a window, most specific first:
+ *   `5h:qwen3.8-flash` → ["5h:qwen3.8-flash", "5h:*", "5h"]
+ * Lets an operator set one cutoff for every per-model window of a base window.
+ */
+export function windowThresholdAliases(windowName: string): string[] {
+  const base = windowBaseName(windowName);
+  if (base === windowName) return [windowName];
+  return [windowName, `${base}:*`, base];
+}
+
+export function windowAppliesToModel(
+  windowName: string,
+  modelFilter?: string | null,
+  info?: QuotaWindowInfo
+): boolean {
   const model = (modelFilter || "").toLowerCase().trim();
+
+  // Explicit scope wins over any name-based guess.
+  if (info?.scope === "account") return true;
+  if (info?.scope === "model") {
+    if (!model) return true;
+    const scoped = (info.model || windowBaseName(windowName)).toLowerCase();
+    if (!scoped) return false;
+    const bareFilter = model.includes("/") ? model.slice(model.lastIndexOf("/") + 1) : model;
+    return scoped === bareFilter || scoped === model;
+  }
+
   if (!model) return true;
   if (GENERIC_WINDOW_RE.test(windowName)) return true;
   const name = windowName.toLowerCase();
@@ -188,7 +260,7 @@ function quotaWindowCutoffResult(
 
   for (const [windowName, windowInfo] of Object.entries(windows)) {
     if (!Number.isFinite(windowInfo.percentUsed)) continue;
-    if (!windowAppliesToModel(windowName, modelFilter)) continue;
+    if (!windowAppliesToModel(windowName, modelFilter, windowInfo)) continue;
     const minRemainingPercent = resolveOrDefault(
       thresholds?.resolveMinRemainingPercent,
       windowName,

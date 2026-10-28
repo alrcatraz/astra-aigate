@@ -44,6 +44,8 @@ import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constan
 import {
   preflightQuota,
   isQuotaPreflightEnabled,
+  getQuotaWindowsMeta,
+  windowThresholdAliases,
 } from "@omniroute/open-sse/services/quotaPreflight.ts";
 import { resolveResilienceSettings } from "@/lib/resilience/settings";
 import { resolveModelLockoutSettings } from "@/lib/resilience/modelLockoutSettings";
@@ -1847,12 +1849,13 @@ export async function getProviderCredentialsWithQuotaPreflight(
     // means the same thing as the percentage rendered on the bar.
     const resolveMinRemainingPercent = (windowName: string | null): number => {
       if (windowName !== null) {
-        const lookupWindowNames =
-          provider === "codex"
-            ? uniqueWindows(
-                [windowName, toCodexBaseQuotaWindowName(windowName)].filter(Boolean) as string[]
-              )
-            : [windowName];
+        // Most specific first: exact window → `<base>:*` wildcard (covers every
+        // per-model window of that base) → `<base>` → provider-specific alias.
+        const codexAlias = provider === "codex" ? toCodexBaseQuotaWindowName(windowName) : null;
+        const lookupWindowNames = uniqueWindows([
+          ...windowThresholdAliases(windowName),
+          ...(codexAlias ? [codexAlias] : []),
+        ]);
         for (const lookupWindowName of lookupWindowNames) {
           const override = perConnectionWindowOverrides[lookupWindowName];
           if (typeof override === "number") return override;
@@ -1863,7 +1866,13 @@ export async function getProviderCredentialsWithQuotaPreflight(
       return defaultThresholdPercent;
     };
     // #6842: openrouter also needs requestedModel, for the :free-window check.
-    const modelAwarePreflight = provider === "codex" || provider === "openrouter";
+    // Providers whose fetcher emits per-model windows need it too, otherwise
+    // every model's window would be evaluated for every request — the scope is
+    // declared by the fetcher's window metadata, not by a provider name.
+    const modelAwarePreflight =
+      provider === "codex" ||
+      provider === "openrouter" ||
+      getQuotaWindowsMeta(provider).modelScoped === true;
     const preflightCredentials =
       requestedModel && modelAwarePreflight ? { ...credentials, requestedModel } : credentials;
     const preflight = await preflightQuota(provider, connectionId, preflightCredentials, {
