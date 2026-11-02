@@ -7,8 +7,8 @@
  * @see Migration 097_model_intelligence.sql
  */
 
-import { getDbInstance, rowToCamel, getAsyncDb } from "./core";
-import type { RawSyncDb, SqliteAdapter } from "./adapters/types";
+import { rowToCamel, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 
 // ──────────────── Types ────────────────
 
@@ -43,12 +43,12 @@ function rowToEntry(row: Record<string, unknown>): ModelIntelligenceEntry {
 
 // ──────────────── CRUD ────────────────
 
-export function getModelIntelligence(
+export async function getModelIntelligence(
   model: string,
   category: string
-): ModelIntelligenceEntry | null {
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-  const row = raw
+): Promise<ModelIntelligenceEntry | null> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const row = (await db
     .prepare(
       `SELECT * FROM model_intelligence
       WHERE model = ? AND category = ?
@@ -61,32 +61,34 @@ export function getModelIntelligence(
       END
       LIMIT 1`
     )
-    .get(model, category, new Date().toISOString()) as Record<string, unknown> | undefined;
+    .get(model, category, new Date().toISOString())) as Record<string, unknown> | undefined;
 
   return row ? rowToEntry(row) : null;
 }
 
-export function getModelIntelligenceBySource(
+export async function getModelIntelligenceBySource(
   model: string,
   source: string,
   category: string
-): ModelIntelligenceEntry | null {
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-  const row = raw
+): Promise<ModelIntelligenceEntry | null> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const row = (await db
     .prepare(
       `SELECT * FROM model_intelligence
       WHERE model = ? AND source = ? AND category = ?
         AND (expires_at IS NULL OR expires_at > ?)`
     )
-    .get(model, source, category, new Date().toISOString()) as Record<string, unknown> | undefined;
+    .get(model, source, category, new Date().toISOString())) as Record<string, unknown> | undefined;
 
   return row ? rowToEntry(row) : null;
 }
 
-export function upsertModelIntelligence(entry: Omit<ModelIntelligenceEntry, "syncedAt">): void {
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
+export async function upsertModelIntelligence(
+  entry: Omit<ModelIntelligenceEntry, "syncedAt">
+): Promise<void> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
 
-  raw
+  await db
     .prepare(
       `INSERT OR REPLACE INTO model_intelligence
        (model, source, category, score, elo_raw, confidence, synced_at, expires_at)
@@ -103,9 +105,13 @@ export function upsertModelIntelligence(entry: Omit<ModelIntelligenceEntry, "syn
     );
 }
 
-export function deleteModelIntelligence(model: string, source: string, category: string): boolean {
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-  const result = raw
+export async function deleteModelIntelligence(
+  model: string,
+  source: string,
+  category: string
+): Promise<boolean> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const result = await db
     .prepare(
       `DELETE FROM model_intelligence
        WHERE model = ? AND source = ? AND category = ?`
@@ -162,25 +168,25 @@ export async function listModelIntelligence(filters?: {
   return rows.map(rowToEntry);
 }
 
-export function bulkUpsertModelIntelligence(
+export async function bulkUpsertModelIntelligence(
   entries: Array<Omit<ModelIntelligenceEntry, "syncedAt">>
-): number {
+): Promise<number> {
   if (entries.length === 0) return 0;
 
-  const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-  const stmt = raw.prepare(
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const stmt = db.prepare(
     `INSERT OR REPLACE INTO model_intelligence
        (model, source, category, score, elo_raw, confidence, synced_at, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)`
   );
 
-  // RawSyncDb has no transaction helper — drive BEGIN/COMMIT/ROLLBACK manually
-  // (all adapters execute SQL synchronously, so the barrier is safe).
-  raw.exec("BEGIN");
-  try {
-    let count = 0;
+  // The adapter owns the write-lock semantics (immediate() takes the lock up front
+  // on SQLite, runs in a transaction on Postgres) — no manual BEGIN/COMMIT, which
+  // only worked on the synchronous driver.
+  let count = 0;
+  await db.immediate(async () => {
     for (const entry of entries) {
-      stmt.run(
+      await stmt.run(
         entry.model,
         entry.source,
         entry.category,
@@ -189,18 +195,17 @@ export function bulkUpsertModelIntelligence(
         entry.confidence ?? null,
         entry.expiresAt ?? null
       );
-      count++;
+      count += 1;
     }
-    raw.exec("COMMIT");
-    return count;
-  } catch (err) {
-    raw.exec("ROLLBACK");
-    throw err;
-  }
+  });
+  return count;
 }
 
-export function getResolvedTaskFitness(model: string, category: string): number | null {
-  const entry = getModelIntelligence(model, category);
+export async function getResolvedTaskFitness(
+  model: string,
+  category: string
+): Promise<number | null> {
+  const entry = await getModelIntelligence(model, category);
   return entry ? entry.score : null;
 }
 
@@ -212,8 +217,12 @@ export function getResolvedTaskFitness(model: string, category: string): number 
  * @param category - Task category
  * @param score - Fitness score [0..1]
  */
-export function setUserFitnessOverrideEntry(model: string, category: string, score: number): void {
-  upsertModelIntelligence({
+export async function setUserFitnessOverrideEntry(
+  model: string,
+  category: string,
+  score: number
+): Promise<void> {
+  await upsertModelIntelligence({
     model: model.toLowerCase(),
     source: "user_override",
     category: category.toLowerCase(),
@@ -231,6 +240,9 @@ export function setUserFitnessOverrideEntry(model: string, category: string, sco
  * @param category - Task category
  * @returns true if an entry was deleted
  */
-export function deleteUserFitnessOverrideEntry(model: string, category: string): boolean {
+export async function deleteUserFitnessOverrideEntry(
+  model: string,
+  category: string
+): Promise<boolean> {
   return deleteModelIntelligence(model.toLowerCase(), "user_override", category.toLowerCase());
 }

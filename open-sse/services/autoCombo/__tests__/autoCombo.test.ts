@@ -13,6 +13,7 @@ import {
   invalidateFitnessCache,
   setUserFitnessOverride,
   clearUserFitnessOverride,
+  ensureFitnessSnapshot,
 } from "../taskFitness";
 import { SelfHealingManager } from "../selfHealing";
 import { MODE_PACKS, getModePack, getModePackNames } from "../modePacks";
@@ -118,7 +119,7 @@ describe("Task Fitness", () => {
       const { upsertModelIntelligence, deleteModelIntelligence } =
         await import("../../../../src/lib/db/modelIntelligence.ts");
       // Seed arena_elo on the base id only — no row exists for the free id.
-      upsertModelIntelligence({
+      await upsertModelIntelligence({
         model: baseId,
         source: "arena_elo",
         category: "coding",
@@ -128,6 +129,9 @@ describe("Task Fitness", () => {
         expiresAt: null,
       });
       invalidateFitnessCache();
+      // Scoring reads the fitness snapshot (one async load, not a query per model),
+      // so the seed has to be visible to the snapshot before the lookup.
+      await ensureFitnessSnapshot(true);
       try {
         const result = getTaskFitnessWithSource(freeId, "coding");
         // Without the fix: result.source would be "wildcard_boost" (0.5 default).
@@ -135,20 +139,21 @@ describe("Task Fitness", () => {
         expect(result.score).toBeCloseTo(0.42, 5);
         expect(result.source).toBe("arena_elo_free_alias");
       } finally {
-        deleteModelIntelligence(baseId, "arena_elo", "coding");
+        await deleteModelIntelligence(baseId, "arena_elo", "coding");
         invalidateFitnessCache();
       }
     });
 
-    it("does not strip -free when arena_elo is present on the literal model id", () => {
+    it("does not strip -free when arena_elo is present on the literal model id", async () => {
       // If both "foo-free" and "foo" have arena_elo rows, the literal "foo-free"
       // wins (we never go through the alias path). This protects future
       // benchmark uploads that specifically tag free tiers.
-      setUserFitnessOverride("foo-free", "coding", 0.91);
+      await setUserFitnessOverride("foo-free", "coding", 0.91);
+      await ensureFitnessSnapshot(true);
       const result = getTaskFitnessWithSource("foo-free", "coding");
       expect(result.score).toBe(0.91);
       expect(result.source).toBe("user_override");
-      clearUserFitnessOverride("foo-free", "coding");
+      await clearUserFitnessOverride("foo-free", "coding");
       invalidateFitnessCache();
     });
 
