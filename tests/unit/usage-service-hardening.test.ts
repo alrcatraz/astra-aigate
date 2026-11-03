@@ -1412,10 +1412,10 @@ test("usage service opencode happy path returns plan and three quota windows", a
   globalThis.fetch = async () =>
     new Response(
       JSON.stringify({
-        quota: {
-          window_5h: { used: 3.0, limit: 12.0, reset_at: null },
-          window_weekly: { used: 10.0, limit: 30.0, reset_at: null },
-          window_monthly: { used: 25.0, limit: 60.0, reset_at: null },
+        usage: {
+          rolling: { status: "ok", percent: 25, resetsAt: "2026-01-01T00:00:00Z" },
+          weekly: { status: "ok", percent: 33, resetsAt: "2026-01-05T00:00:00Z" },
+          monthly: { status: "ok", percent: 41, resetsAt: "2026-02-01T00:00:00Z" },
         },
       }),
       { status: 200, headers: { "content-type": "application/json" } }
@@ -1427,12 +1427,12 @@ test("usage service opencode happy path returns plan and three quota windows", a
   });
 
   assert.equal(result.plan, "OpenCode Go");
-  assert.ok(result.quotas["window_5h"], "should have window_5h quota");
-  assert.ok(result.quotas["window_weekly"], "should have window_weekly quota");
-  assert.ok(result.quotas["window_monthly"], "should have window_monthly quota");
-  assert.equal(result.quotas["window_5h"].total, 12);
-  assert.equal(result.quotas["window_weekly"].total, 30);
-  assert.equal(result.quotas["window_monthly"].total, 60);
+  assert.ok(result.quotas.session, "should have the rolling window");
+  assert.ok(result.quotas.weekly, "should have the weekly window");
+  assert.ok(result.quotas.mcp_monthly, "should have the monthly window");
+  assert.equal(result.quotas.session.total, 12);
+  assert.equal(result.quotas.weekly.total, 30);
+  assert.equal(result.quotas.mcp_monthly.total, 60);
 });
 
 test("usage service opencode no-key returns missing-key message", async () => {

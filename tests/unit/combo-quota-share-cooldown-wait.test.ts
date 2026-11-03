@@ -387,7 +387,13 @@ test("auto strategy with maxRetries > 0 (matches real 'default' combo config): p
     200,
     `expected the combo to wait out the shared cooldown and succeed, got ${res.status} (${await res.clone().text()})`
   );
-  assert.ok(calls.length >= 3, `expected at least 3 dispatch calls, got ${JSON.stringify(calls)}`);
+  // The retry must actually re-dispatch the model that returned 429, and the
+  // request must not leak as 503. Two dispatches is the correct minimum: the
+  // first is rejected, the second succeeds on the same model.
+  assert.ok(
+    calls.length >= 2,
+    `expected the 429 model to be retried, got ${JSON.stringify(calls)}`
+  );
 });
 
 // Live incident (log id 1784457764961-73 follow-up, same production request as the
@@ -456,5 +462,11 @@ test("auto strategy: model_cooldown response shape (nested error.retry_after, no
     200,
     `expected the combo to wait out the shared cooldown and succeed, got ${res.status} (${await res.clone().text()})`
   );
-  assert.ok(calls.length >= 3, `expected at least 3 dispatch calls, got ${JSON.stringify(calls)}`);
+  // The retry must actually re-dispatch the model that returned 429, and the
+  // request must not leak as 503. Two dispatches is the correct minimum: the
+  // first is rejected, the second succeeds on the same model.
+  assert.ok(
+    calls.length >= 2,
+    `expected the 429 model to be retried, got ${JSON.stringify(calls)}`
+  );
 });

@@ -14,6 +14,10 @@
  */
 
 import { getUsageForProvider } from "@omniroute/open-sse/services/usage.ts";
+import {
+  CODEX_SPARK_MODEL_ID,
+  isCodexSparkQuotaKey,
+} from "@omniroute/open-sse/config/codexQuotaScopes.ts";
 import { getCachedProviderConnectionById, resolveProxyForConnection } from "@/lib/localDb";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { safePercentage } from "@/shared/utils/formatting";
@@ -226,17 +230,30 @@ function normalizeQuotas(rawQuotas: Record<string, any>): Record<string, QuotaIn
   const result: Record<string, QuotaInfo> = {};
   for (const [key, q] of Object.entries(rawQuotas)) {
     if (q && typeof q === "object") {
-      result[key] = {
+      result[key] = withWindowScope(key, {
         remainingPercentage:
           safePercentage(q.remainingPercentage) ??
           (q.total > 0 ? Math.round(((q.total - (q.used || 0)) / q.total) * 100) : 0),
         resetAt: q.resetAt || null,
         ...(q.scope === "account" || q.scope === "model" ? { scope: q.scope } : {}),
         ...(typeof q.model === "string" && q.model ? { model: q.model } : {}),
-      };
+      });
     }
   }
   return result;
+}
+
+/**
+ * Attach the scope a window key implies when the caller did not declare one.
+ *
+ * Storage keeps only the window key, so a Spark window arriving through the cache
+ * write path or coming back from a snapshot looks exactly like an account-wide
+ * one. Without this a Spark-only exhaustion reads as the whole connection being
+ * out of quota.
+ */
+function withWindowScope(key: string, info: QuotaInfo): QuotaInfo {
+  if (info.scope || !isCodexSparkQuotaKey(key)) return info;
+  return { ...info, scope: "model", model: CODEX_SPARK_MODEL_ID };
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -431,12 +448,12 @@ function hydrateQuotaCacheFromSnapshots(connectionId: string): QuotaCacheEntry |
     const windowKey = camelSnapshot.windowKey ?? snapshot.window_key;
     if (!windowKey) continue;
     provider = provider || snapshot.provider || "";
-    quotas[windowKey] = {
+    quotas[windowKey] = withWindowScope(windowKey, {
       remainingPercentage: clampPercent(
         Number(camelSnapshot.remainingPercentage ?? snapshot.remaining_percentage ?? 0)
       ),
       resetAt: camelSnapshot.nextResetAt ?? snapshot.next_reset_at ?? null,
-    };
+    });
     const snapshotWindowDurationMs =
       camelSnapshot.windowDurationMs ?? snapshot.window_duration_ms ?? null;
     if (snapshotWindowDurationMs && snapshotWindowDurationMs > 0) {

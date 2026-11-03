@@ -217,9 +217,13 @@ test("provider schemas accept quota scraping provider-specific strings", () => {
 });
 
 test("provider schemas reject malformed quota scraping provider-specific values", () => {
+  // OpenCode Go is metered through the provider's own usage API, so its retired
+  // workspace/cookie fields are unknown keys now — the schema neither validates
+  // nor requires them. The remaining cookie-based scrapers must still reject a
+  // non-string value rather than silently accepting it.
   const created = createProviderSchema.safeParse({
     provider: "opencode-go",
-    apiKey: "token",
+    apiKey: "test-key",
     name: "OpenCode Go",
     providerSpecificData: {
       opencodeGoWorkspaceId: 123,
@@ -232,7 +236,7 @@ test("provider schemas reject malformed quota scraping provider-specific values"
     },
   });
 
-  assert.equal(created.success, false);
+  assert.equal(created.success, true);
   assert.equal(updated.success, false);
 });
 

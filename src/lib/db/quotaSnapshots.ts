@@ -32,16 +32,19 @@ function rowWindowKey(row: QuotaSnapshotRow): string | null {
   return typeof key === "string" ? key : null;
 }
 
-function normalizeWindowSnapshot(snapshot: {
-  provider: string;
-  connection_id: string;
-  window_key: string;
-  remaining_percentage: number | null;
-  is_exhausted: number;
-  next_reset_at: string | null;
-  window_duration_ms: number | null;
-  raw_data: string | null;
-}, createdAt: string): QuotaSnapshotRow {
+function normalizeWindowSnapshot(
+  snapshot: {
+    provider: string;
+    connection_id: string;
+    window_key: string;
+    remaining_percentage: number | null;
+    is_exhausted: number;
+    next_reset_at: string | null;
+    window_duration_ms: number | null;
+    raw_data: string | null;
+  },
+  createdAt: string
+): QuotaSnapshotRow {
   // Same camelCase shape the async readers produce via rowToCamel(): hydrate
   // accepts both spellings, and the camel one is what it reads first.
   return {
@@ -245,6 +248,25 @@ export function getLatestQuotaSnapshotsForConnectionSync(connectionId: string): 
   const fresh = usable !== null && Date.now() - usable.loadedAt < LATEST_SNAPSHOT_CACHE_TTL_MS;
   if (!fresh) refreshLatestSnapshotCache(connectionId);
   return usable ? usable.rows : [];
+}
+
+/**
+ * Awaitable warm-up for callers that can wait before scoring.
+ *
+ * The sync reader above cannot await (it feeds a sort comparator), so on a cold
+ * cache it hands back an empty row set and refreshes in the background. Selection
+ * that runs right after a restart would then decide without any snapshot. Priming
+ * first makes that first read see real rows; failure is non-fatal and leaves the
+ * same empty result the sync path would have produced.
+ */
+export async function primeLatestQuotaSnapshots(connectionId: string): Promise<void> {
+  try {
+    const db = getAsyncDb() as unknown as DatabaseAdapter;
+    const rows = await loadLatestSnapshotsForConnection(connectionId);
+    latestSnapshotCache.set(connectionId, { db, rows, loadedAt: Date.now() });
+  } catch {
+    // quota_snapshots absent or DB unavailable — keep whatever is cached
+  }
 }
 
 export async function getAggregatedSnapshots(opts: {

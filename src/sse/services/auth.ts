@@ -17,6 +17,7 @@ import {
   toProviderConnection,
   type ProviderConnectionView,
 } from "@/lib/db/providers/lazyConnectionView";
+import { primeLatestQuotaSnapshots } from "@/lib/db/quotaSnapshots";
 import {
   DEFAULT_QUOTA_THRESHOLD_PERCENT,
   getQuotaCache,
@@ -1085,6 +1086,11 @@ export async function getProviderCredentials(
     if (allowedConnections && allowedConnections.length > 0) {
       connections = connections.filter((conn) => allowedConnections.includes(conn.id));
     }
+
+    // Warm the snapshot cache before scoring. The comparator-driven sync reader
+    // cannot await, so without this a cold cache (first selection after a
+    // restart) would score every connection as if it had no quota snapshot.
+    await Promise.all(connections.map((conn) => primeLatestQuotaSnapshots(conn.id)));
 
     // #5903: an active session-affinity pin outranks a per-request reset-aware
     // forcedConnectionId (see sessionAffinityPin leaf for the full rationale).
