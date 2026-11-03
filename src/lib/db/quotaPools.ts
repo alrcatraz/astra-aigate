@@ -405,7 +405,7 @@ export async function createPool(input: PoolCreate): Promise<QuotaPool> {
   );
 
   // Phase B2: fire-and-forget combo sync; failures are logged but never thrown.
-  void syncQuotaCombosGuarded(id);
+  await syncQuotaCombosGuarded(id);
 
   return result;
 }
@@ -484,7 +484,7 @@ export async function updatePool(id: string, input: PoolUpdate): Promise<QuotaPo
   const result = await rowToPool(existing, await getAllocations(id));
 
   // Phase B2: fire-and-forget combo sync; failures are logged but never thrown.
-  void syncQuotaCombosGuarded(id);
+  await syncQuotaCombosGuarded(id);
 
   return result;
 }
@@ -497,7 +497,7 @@ export async function updatePool(id: string, input: PoolUpdate): Promise<QuotaPo
 export async function deletePool(id: string): Promise<boolean> {
   // Phase B2: remove quota combos BEFORE deleting the pool row so that
   // removeQuotaCombosForPool can still resolve the pool name → slug.
-  void removeQuotaCombosGuarded(id);
+  await removeQuotaCombosGuarded(id);
 
   const database = getDb();
   const doDelete = database.transaction(async () => {
@@ -614,7 +614,7 @@ export async function upsertAllocations(
 
   // Phase B2: fire-and-forget combo sync for the target pool only; failures are
   // logged but never thrown. Sibling pools' combos are synced on their own lifecycle.
-  void syncQuotaCombosGuarded(poolId);
+  await syncQuotaCombosGuarded(poolId);
 }
 
 /**
