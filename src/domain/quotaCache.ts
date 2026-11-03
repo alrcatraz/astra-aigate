@@ -14,6 +14,10 @@
  */
 
 import { getUsageForProvider } from "@omniroute/open-sse/services/usage.ts";
+import {
+  CODEX_SPARK_MODEL_ID,
+  isCodexSparkQuotaKey,
+} from "@omniroute/open-sse/config/codexQuotaScopes.ts";
 import { getCachedProviderConnectionById, resolveProxyForConnection } from "@/lib/localDb";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { safePercentage } from "@/shared/utils/formatting";
@@ -436,6 +440,12 @@ function hydrateQuotaCacheFromSnapshots(connectionId: string): QuotaCacheEntry |
         Number(camelSnapshot.remainingPercentage ?? snapshot.remaining_percentage ?? 0)
       ),
       resetAt: camelSnapshot.nextResetAt ?? snapshot.next_reset_at ?? null,
+      // Snapshots persist only the window key, so the scope the fetcher declared
+      // live is lost on the way back in. Without it a hydrated Spark window reads
+      // as account-wide and its exhaustion stops gating Spark alone.
+      ...(isCodexSparkQuotaKey(windowKey)
+        ? { scope: "model" as const, model: CODEX_SPARK_MODEL_ID }
+        : {}),
     };
     const snapshotWindowDurationMs =
       camelSnapshot.windowDurationMs ?? snapshot.window_duration_ms ?? null;
