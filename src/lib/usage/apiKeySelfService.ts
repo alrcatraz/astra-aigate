@@ -51,6 +51,13 @@ interface ApiKeySelfServiceDeps {
   getCostSummary?: GetCostSummaryFn;
   checkBudget?: CheckBudgetFn;
   getDbInstance?: GetDbInstanceFn;
+  /**
+   * Async adapter accessor. Preferred name: in PG mode `getDbInstance` resolves to
+   * `getAsyncDb` anyway, so calling it by the sync name misleads every reader and
+   * trips the sync-path audit. `getDbInstance` stays as a deprecated alias for
+   * callers that inject it.
+   */
+  getAsyncDb?: GetDbInstanceFn;
   getProviderConnectionById?: GetProviderConnectionByIdFn;
   getProviderConnections?: GetProviderConnectionsFn;
   fetchAndPersistProviderLimits?: FetchAndPersistProviderLimitsFn;
@@ -365,7 +372,7 @@ type RequiredDeps = Required<ApiKeySelfServiceDeps>;
 async function normalizeDeps(deps: ApiKeySelfServiceDeps): Promise<RequiredDeps> {
   const costRules =
     deps.getCostSummary && deps.checkBudget ? null : await import("@/domain/costRules");
-  const dbCore = deps.getDbInstance ? null : await import("@/lib/db/core");
+  const dbCore = deps.getAsyncDb || deps.getDbInstance ? null : await import("@/lib/db/core");
   const localDb =
     deps.getProviderConnectionById && deps.getProviderConnections
       ? null
@@ -379,6 +386,7 @@ async function normalizeDeps(deps: ApiKeySelfServiceDeps): Promise<RequiredDeps>
     getCostSummary: deps.getCostSummary ?? costRules!.getCostSummary,
     checkBudget: deps.checkBudget ?? costRules!.checkBudget,
     getDbInstance: deps.getDbInstance ?? dbCore!.getAsyncDb,
+    getAsyncDb: deps.getAsyncDb ?? deps.getDbInstance ?? dbCore!.getAsyncDb,
     getProviderConnectionById: deps.getProviderConnectionById ?? localDb!.getProviderConnectionById,
     getProviderConnections: deps.getProviderConnections ?? localDb!.getProviderConnections,
     fetchAndPersistProviderLimits:
@@ -400,7 +408,7 @@ export async function buildApiKeySelfServiceStatus(
 
   const cost = await buildCostStatus(summary, resolvedDeps.now());
   const tokens = await aggregateTokens(
-    await resolvedDeps.getDbInstance(),
+    await resolvedDeps.getAsyncDb(),
     metadata.id,
     cost.periodStartAt ??
       new Date(getCurrentMonthWindow(resolvedDeps.now()).periodStartAt).toISOString()
