@@ -3,6 +3,160 @@
 All notable changes to **astra-aigate** are documented here.
 Version line continues from the OmniRoute seed (v3.8.50).
 
+## [0.6.10] — Per-model cutoffs are configurable from the dashboard (2026-10-28)
+
+The quota-cutoff modal listed only the windows that had a live percentage, so the
+family wildcards a provider registers for per-model windows (`5h:*`,
+`weekly:*`, `monthly:*`) were invisible there — configurable through the API
+only. Settings that decide routing should not require knowing an endpoint.
+
+### Added
+
+- The modal merges two sources: the windows observed for the connection (they
+  carry live numbers) and every window the provider registers with
+  `quotaPreflight`. Registered-only families render as `5h — all models` and are
+  saved through the same per-connection patch as any other window.
+
+## [0.6.9] — One cutoff path (2026-10-28)
+
+0.6.8's model-scope filter was written into `quotaWindowCutoffResult`, but
+`preflightQuota` kept its own copy of the same per-window loop — the filter only
+ran in tests. In production a `monthly:kimi-k3` cutoff still refused
+`qwen3.8-flash`, and the refusal then persisted connection state, so later
+requests were rejected from the stored lockout too.
+
+### Fixed
+
+- `preflightQuota` delegates to `evaluateQuotaCutoff`, which takes the model
+  under evaluation from `connection.requestedModel`. The duplicate loop is gone
+  — thresholds, model scope and warn logging are decided in one place.
+- A model-scoped block therefore reaches the caller as
+  `{ windowScope: "model" }` and no longer writes connection-wide state.
+
+## [0.6.8] — A model's exhausted pool must not blacklist the connection (2026-10-28)
+
+0.6.7 made model-scoped windows available, and an end-to-end probe showed the
+rest of the stack was not ready for them: configuring one per-model cutoff
+(`monthly:kimi-k3`) refused a `qwen3.8-flash` request too, and the block also
+persisted `rateLimitedUntil` at the window's reset — 595 h away, i.e. the whole
+connection out of rotation until the billing date.
+
+### Fixed
+
+- The per-connection quota-limit policy gate skips windows that do not apply to
+  the requested model, using the scope carried by the cached window (the quota
+  cache previously dropped `scope`/`model` on ingest).
+- A model-scoped preflight block refuses only that request: no connection-wide
+  `rateLimitedUntil` is written, siblings keep serving, and the next request
+  re-evaluates the live window.
+- `PreflightQuotaResult` names the blocking window and its scope, so the log
+  line and the caller distinguish "this model is done" from "the account is
+  done".
+
+## [0.6.7] — Provider-truth quota for OpenCode Go (2026-10-28)
+
+Quota decisions for the Go subscription rested on our own accounting, and that
+accounting disagrees with the provider: over one measured window our ledger
+reported 37 % more list-price spend than the console (up to +107 % on a single
+model), because every retry is logged as its own row and cache tokens are
+classified differently. Routing on it was therefore only ever an estimate.
+
+The provider publishes the real numbers — three account meters in dollars and a
+per-model usage endpoint whose cost column is the exact figure the plan meter is
+derived from. This release routes on those.
+
+### Added
+
+- Windows declare their own scope (`account` / `model`), model id, provenance
+  (`provider_reported` / `derived`) and, where relevant, their dollar amounts.
+  Consumers no longer infer scope from a window's name.
+- `WindowPeriod` (`rolling` / `calendar` / `billing`) plus `windowPeriods.ts`
+  resolve window start and reset instants once for every provider. The weekly
+  case matters: OpenCode's week is a calendar week (Monday 00:00 UTC), so
+  measuring it with a rolling 7-day span mixes two periods.
+- OpenCode Go's plan is catalogued from its own meter: $48/5h, $120/week,
+  $240/month account limits plus per-model monthly pools and the 20 %/50 %
+  window fractions.
+- The OpenCode fetcher enriches its result with per-model windows built from
+  `/console/api/usage/models` using the connection's own key — same fetcher,
+  same cache, same monitor, same cutoff path.
+
+### Changed
+
+- Threshold lookup accepts `<window>:<model>` → `<window>:*` → `<window>`, so a
+  per-model cutoff is configured once instead of per model.
+- Preflight receives the requested model for providers whose windows are
+  model-scoped (declared by the fetcher, not by provider name).
+
+### Notes
+
+- Fail-open is preserved: a key without the Usage permission, an unreachable
+  console or an unknown model leaves the account meters as the only signal.
+- The exact end-to-end effect: exhaustion of one model's pool now steers traffic
+  to a sibling model instead of blocking the connection.
+
+## [0.6.6] — Model-scoped quota windows in the cutoff (2026-10-25)
+
+Enabling the quota cutoff exposed a scoping bug: providers that publish one window per
+model (deepseek's free/experimental ids do) had every model on the connection blocked as
+soon as a single sibling window hit zero — `deepseek/deepseek-flash` refused with
+"Quota preflight blocked for deepseek-v4-flash-vision-exp".
+
+### Fixed
+
+- The cutoff now receives the target model and only evaluates generic account windows
+  (`session` / `weekly` / `monthly` / `credits` / `window_*`) plus the target's own
+  model-scoped window. Another model's exhausted window no longer strands the connection.
+- Unit coverage for the sibling-window, own-window, generic-window and no-filter cases.
+
+## [0.6.5] — Plan-first routing: fill-first + reset-aware spill (2026-10-25)
+
+The main and coding combos now lead with the OpenCode Go plan and fall back to paid
+providers, so subscription coverage drives routing instead of a static paid-first chain.
+
+### Added
+
+- **`fill-first` gains opt-in `resetAwareSpill`.** The head target stays sticky — that is
+  where prompt-cache affinity lives — while the tail is re-ranked by "quota that expires
+  soonest". A head that dies on the quota cutoff or a provider failure therefore hands over
+  to the target whose 5h window would otherwise reset unused; when no window data exists the
+  ordering degrades to the static chain.
+- **`opencode-go` pricing rows**, transcribed from OpenCode's own published per-model table
+  (vendor CN lists differ by ~30% for GLM/Qwen). In-file comments mark the values as
+  estimates of plan consumption and spell out the per-model monthly pools.
+
+## [0.6.4] — Official OpenCode Go usage API (2026-10-25)
+
+OpenCode Go had no quota API when the fetcher was written, so the gate targeted a retired
+`/quota` probe and kept a workspace-cookie dashboard scrape as the only live source.
+OpenCode has since published `GET /zen/go/v1/usage` (API-key authenticated, rolling /
+weekly / monthly windows); this release adopts it and retires the scrape.
+
+### Changed
+
+- **OpenCode Go usage, preflight and monitoring all read the official endpoint.** Windows
+  are validated strictly (`status` / `percent` / `resetsAt`; a malformed or partial set is
+  rejected instead of fabricating quota), a `rate-limited` window counts as exhausted, and
+  the 60s cache is bound to the normalized API key so an in-place key edit cannot serve a
+  stale window.
+- The Provider Limits presentation keeps its `$12 / 5-hour`, `$30 / week`, `$60 / month`
+  frames, fed by the official percentages.
+- **The workspace-ID / auth-cookie scrape path is gone** — connection-modal fields, env
+  rows and docs included; `OPENCODE_GO_WORKSPACE_ID` / `OPENCODE_GO_AUTH_COOKIE` are no
+  longer read. `OMNIROUTE_OPENCODE_QUOTA_URL` still overrides the endpoint for relays.
+
+### Fixed
+
+- **A 410 for a retired OpenCode model locks that model only** (NVIDIA parity) instead of
+  cooling the whole connection for a day. The OpenCode family also counts as a per-model
+  provider now, so one dead model id no longer parks every healthy sibling.
+- Quota preflight blocks when any official window is exhausted or rate-limited.
+
+### Tests
+
+- Ported the upstream suite (fetcher, usage shaping, default-endpoint, preflight cutoff)
+  plus the 410 model-scope test — 56 unit tests across the touched surface.
+
 ## [0.6.3] — React Compiler ruleset at zero, high advisories cleared (2026-10-24)
 
 The React Compiler rule family (eslint-plugin-react-hooks 7.1.x) reported 196 findings on a

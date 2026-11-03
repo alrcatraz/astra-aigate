@@ -140,7 +140,7 @@ test("migrateLegacyUsageFiles copies legacy JSON files once and does not overwri
   assert.deepEqual(readJson(CALL_LOGS_JSON_FILE), { logs: [{ id: "current-call" }] });
 });
 
-test("migrateUsageJsonToSqlite migrates usage history aliases, TTFT, and account snapshots", () => {
+test("migrateUsageJsonToSqlite migrates usage history aliases, TTFT, and account snapshots", async () => {
   const db = getDbInstance();
   db.prepare(
     `INSERT INTO provider_connections
@@ -194,7 +194,7 @@ test("migrateUsageJsonToSqlite migrates usage history aliases, TTFT, and account
     ],
   });
 
-  migrations.migrateUsageJsonToSqlite();
+  await migrations.migrateUsageJsonToSqlite();
 
   assert.equal(fs.existsSync(`${USAGE_JSON_FILE}.migrated`), true);
 
@@ -256,7 +256,7 @@ test("migrateUsageJsonToSqlite migrates usage history aliases, TTFT, and account
   ]);
 });
 
-test("migrateUsageJsonToSqlite migrates call logs to summary rows and ignores duplicate ids", () => {
+test("migrateUsageJsonToSqlite migrates call logs to summary rows and ignores duplicate ids", async () => {
   writeJson(CALL_LOGS_JSON_FILE, {
     logs: [
       {
@@ -293,7 +293,7 @@ test("migrateUsageJsonToSqlite migrates call logs to summary rows and ignores du
     ],
   });
 
-  migrations.migrateUsageJsonToSqlite();
+  await migrations.migrateUsageJsonToSqlite();
 
   assert.equal(fs.existsSync(`${CALL_LOGS_JSON_FILE}.migrated`), true);
 
@@ -356,11 +356,11 @@ test("migrateUsageJsonToSqlite migrates call logs to summary rows and ignores du
   assert.equal(secondArtifact.responseBody, null);
 });
 
-test("migrateUsageJsonToSqlite renames empty JSON payloads without inserting rows", () => {
+test("migrateUsageJsonToSqlite renames empty JSON payloads without inserting rows", async () => {
   writeJson(USAGE_JSON_FILE, { history: [] });
   writeJson(CALL_LOGS_JSON_FILE, { logs: [] });
 
-  migrations.migrateUsageJsonToSqlite();
+  await migrations.migrateUsageJsonToSqlite();
 
   assert.equal(fs.existsSync(`${USAGE_JSON_FILE}.migrated`), true);
   assert.equal(fs.existsSync(`${CALL_LOGS_JSON_FILE}.migrated`), true);
@@ -370,7 +370,7 @@ test("migrateUsageJsonToSqlite renames empty JSON payloads without inserting row
   assert.equal((db.prepare("SELECT COUNT(*) AS count FROM call_logs").get() as any).count, 0);
 });
 
-test("migrateUsageJsonToSqlite leaves malformed JSON files in place and reports both failures", () => {
+test("migrateUsageJsonToSqlite leaves malformed JSON files in place and reports both failures", async () => {
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   fs.writeFileSync(USAGE_JSON_FILE, "{bad json");
   fs.writeFileSync(CALL_LOGS_JSON_FILE, "{bad json");
@@ -382,7 +382,7 @@ test("migrateUsageJsonToSqlite leaves malformed JSON files in place and reports 
   };
 
   try {
-    migrations.migrateUsageJsonToSqlite();
+    await migrations.migrateUsageJsonToSqlite();
   } finally {
     console.error = originalConsoleError;
   }

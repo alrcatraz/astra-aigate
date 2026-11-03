@@ -1,11 +1,87 @@
-import type { QuotaDimension } from "./dimensions";
+import type { QuotaDimension, QuotaWindow } from "./dimensions";
 
 interface KnownPlanShape {
   provider: string;
   dimensions: QuotaDimension[];
+  /**
+   * The provider's smaller windows expressed as a fraction of the monthly
+   * limit declared on the same dimension (e.g. Go Plus: 5h = 20 %, weekly =
+   * 50 %, monthly = 100 %). Keeps the catalogue to one pool per model while
+   * still surfacing the shorter windows.
+   */
+  windowFractions?: Partial<Record<QuotaWindow, number>>;
+}
+
+/**
+ * OpenCode Go / Go Plus accounting (verified against the provider's own
+ * meter, 2026-10):
+ *
+ *   - The subscription exposes ONE dollar meter per window: Go +$48/5h,
+ *     $120/week, $240/month (that is 4x the Go tier's $12/$30/$60 because
+ *     Go Plus is billed at 4x).
+ *   - Every model has its own monthly pool expressed in *list-price dollars*
+ *     (qwen3.8-flash $90, kimi-k3 $60, …). Consumption of a model is converted
+ *     into meter units as `listCost * 240 / pool`, which is why a $0.47 kimi
+ *     bill moves the meter by $1.88.
+ *   - 5h and weekly are fractions of the same pool (20 % / 50 %).
+ *
+ * The pools below are catalogue defaults; a DB override (`provider_plans`)
+ * wins, and the fetcher can refine them per connection from the provider's own
+ * `allowance`/`list_cost` pair. Models absent here simply have no per-model
+ * window — only the account meters apply, which is the safe direction.
+ */
+const OPENCODE_GO_BILLING_ANCHOR = "2026-10-22T06:08:40.000Z"; // plan period start (22nd 06:08 UTC)
+
+const OPENCODE_GO_MODEL_POOLS: ReadonlyArray<[string, number]> = [
+  ["deepseek-v4.1-flash", 160],
+  ["glm-5.3-flash", 180],
+  ["mimo-v2.6-flash", 120],
+  ["qwen3.8-flash", 90],
+  ["gpt-6-luna", 60],
+  ["kimi-k3", 60],
+];
+
+function opencodeGoDimensions(): QuotaDimension[] {
+  const account: QuotaDimension[] = [
+    {
+      unit: "usd",
+      window: "5h",
+      limit: 48,
+      scope: "account",
+      period: { kind: "rolling", hours: 5 },
+    },
+    {
+      unit: "usd",
+      window: "weekly",
+      limit: 120,
+      scope: "account",
+      period: { kind: "calendar", unit: "week", weekStartsOn: "monday" },
+    },
+    {
+      unit: "usd",
+      window: "monthly",
+      limit: 240,
+      scope: "account",
+      period: { kind: "billing", anchor: OPENCODE_GO_BILLING_ANCHOR },
+    },
+  ];
+  const perModel: QuotaDimension[] = OPENCODE_GO_MODEL_POOLS.map(([model, limit]) => ({
+    unit: "usd" as const,
+    window: "monthly" as const,
+    limit,
+    scope: "model" as const,
+    model,
+    period: { kind: "billing" as const, anchor: OPENCODE_GO_BILLING_ANCHOR },
+  }));
+  return [...account, ...perModel];
 }
 
 const KNOWN_PLANS: Record<string, KnownPlanShape> = {
+  "opencode-go": {
+    provider: "opencode-go",
+    dimensions: opencodeGoDimensions(),
+    windowFractions: { "5h": 0.2, weekly: 0.5, monthly: 1 },
+  },
   codex: {
     provider: "codex",
     dimensions: [

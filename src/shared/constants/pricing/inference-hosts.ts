@@ -256,4 +256,48 @@ export const DEFAULT_PRICING_INFERENCE = {
       cache_creation: 0,
     },
   },
+  // OpenCode Go / Go Plus (subscription gateway). Rates below are OpenCode's own
+  // published per-model table ($/1M tokens) — NOT the vendor's domestic list, which
+  // differs by ~30% for GLM/Qwen. Usage is billed against per-model monthly dollar
+  // pools (Go Plus: deepseek-v4.1-flash $160, mimo-v2.6-flash $120, glm-5.3-flash
+  // $180, qwen3.8-flash $90, gpt-6-luna $60), so dashboard cost here is an
+  // ESTIMATE of plan consumption, not a bill. deepseek-v4.1-flash is peak-priced
+  // (×2 on input/output during peak hours); off-peak base is stored below.
+  "opencode-go": {
+    "deepseek-v4.1-flash": {
+      input: 0.15,
+      output: 0.6,
+      cached: 0.003,
+      reasoning: 0,
+      cache_creation: 0.15,
+    },
+    "mimo-v2.6-flash": {
+      input: 0.14,
+      output: 0.28,
+      cached: 0.0028,
+      reasoning: 0,
+      cache_creation: 0.14,
+    },
+    "glm-5.3-flash": {
+      input: 0.15,
+      output: 0.5,
+      cached: 0.03,
+      reasoning: 0,
+      cache_creation: 0.15,
+    },
+    "qwen3.8-flash": {
+      input: 0.15,
+      output: 0.47,
+      cached: 0.016,
+      reasoning: 0,
+      cache_creation: 0.15,
+    },
+    "gpt-6-luna": {
+      input: 0.1,
+      output: 0.5,
+      cached: 0.01,
+      reasoning: 0,
+      cache_creation: 0.1,
+    },
+  },
 };

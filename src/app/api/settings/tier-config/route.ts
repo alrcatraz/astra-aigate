@@ -51,7 +51,7 @@ export async function PUT(request: Request) {
   }
   const nextConfig = { ...config, providerOverrides: nextOverrides };
 
-  saveTierConfig(nextConfig);
+  await saveTierConfig(nextConfig);
   setTierConfig(nextConfig); // bust the in-process routing cache immediately
 
   return NextResponse.json(nextConfig);

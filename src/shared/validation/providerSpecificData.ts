@@ -276,7 +276,7 @@ export function validateProviderSpecificData(
     });
   }
 
-  for (const key of ["openCodeGoWorkspaceId", "opencodeGoWorkspaceId", "workspaceId"] as const) {
+  for (const key of ["workspaceId"] as const) {
     const value = data[key];
     if (value !== undefined && value !== null && typeof value !== "string") {
       ctx.addIssue({
@@ -295,8 +295,6 @@ export function validateProviderSpecificData(
   }
 
   for (const key of [
-    "openCodeGoAuthCookie",
-    "opencodeGoAuthCookie",
     "authCookie",
     "ollamaUsageCookie",
     "ollamaCloudUsageCookie",

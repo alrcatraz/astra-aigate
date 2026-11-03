@@ -17,7 +17,10 @@
 -- Snapshots that are already strong, deleted/exported orphans, non-Codex,
 -- non-OAuth, or malformed keep their historical identity. The statement is a
 -- no-op when the strong key already matches, so reruns are idempotent.
-
+--
+-- account_key must stay byte-identical to the runtime form (JSON.stringify),
+-- so PostgreSQL builds it with array_to_json rather than jsonb_build_array.
+-- @sqlite
 UPDATE usage_history
 SET account_key = (
   SELECT json_array(
@@ -60,3 +63,48 @@ WHERE EXISTS (
     AND json_type(usage_history.account_key, '$[5]') = 'text'
     AND json_extract(usage_history.account_key, '$[5]') <> ''
 );
+-- @end
+-- @postgres
+UPDATE usage_history
+SET account_key = (
+  SELECT array_to_json(ARRAY[
+    'oauth',
+    'codex',
+    'user',
+    (c.provider_specific_data::jsonb)->>'chatgptUserId'
+  ]::text[])::text
+  FROM provider_connections c
+  WHERE c.id = usage_history.connection_id
+)
+WHERE EXISTS (
+  SELECT 1
+  FROM provider_connections c
+  WHERE c.id = usage_history.connection_id
+    AND c.provider = 'codex'
+    AND c.auth_type = 'oauth'
+    AND pg_input_is_valid(COALESCE(c.provider_specific_data, ''), 'jsonb')
+    AND jsonb_typeof((c.provider_specific_data::jsonb)->'chatgptUserId') = 'string'
+    AND (c.provider_specific_data::jsonb)->>'chatgptUserId' <> ''
+    AND (
+      (c.provider_specific_data::jsonb)->'workspaceId' IS NULL
+      OR jsonb_typeof((c.provider_specific_data::jsonb)->'workspaceId') <> 'string'
+      OR trim((c.provider_specific_data::jsonb)->>'workspaceId') = ''
+    )
+    AND pg_input_is_valid(COALESCE(usage_history.account_key, ''), 'jsonb')
+    AND jsonb_typeof(usage_history.account_key::jsonb) = 'array'
+    AND jsonb_array_length(usage_history.account_key::jsonb) = 6
+    AND jsonb_typeof(usage_history.account_key::jsonb->0) = 'string'
+    AND usage_history.account_key::jsonb->>0 = 'oauth'
+    AND jsonb_typeof(usage_history.account_key::jsonb->1) = 'string'
+    AND usage_history.account_key::jsonb->>1 = 'codex'
+    AND jsonb_typeof(usage_history.account_key::jsonb->2) = 'string'
+    AND usage_history.account_key::jsonb->>2 = 'user'
+    AND jsonb_typeof(usage_history.account_key::jsonb->3) = 'string'
+    AND usage_history.account_key::jsonb->>3 =
+      (c.provider_specific_data::jsonb)->>'chatgptUserId'
+    AND jsonb_typeof(usage_history.account_key::jsonb->4) = 'string'
+    AND usage_history.account_key::jsonb->>4 = 'email'
+    AND jsonb_typeof(usage_history.account_key::jsonb->5) = 'string'
+    AND usage_history.account_key::jsonb->>5 <> ''
+);
+-- @end

@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { ZipFile } from "yazl";
-import { getDbInstance, isCloud, isBuildPhase, DATA_DIR, getAsyncDb } from "../db/core";
+import { isCloud, isBuildPhase, DATA_DIR, getAsyncDb } from "../db/core";
 import { getLegacyDotDataDir, isSamePath } from "../dataPaths";
 import { getAppLogFilePath } from "../logEnv";
 import { protectPayloadForLog } from "../logPayloads";
@@ -299,11 +299,13 @@ export async function archiveLegacyRequestLogs() {
   return archiveFilename;
 }
 
-export function migrateUsageJsonToSqlite() {
+export async function migrateUsageJsonToSqlite() {
   if (!shouldPersistToDisk) return;
-  // Sync handle: the JSON→SQLite migration runs once at startup inside a
-  // better-sqlite3 transaction whose callback must be synchronous.
-  const db = getDbInstance();
+  // Async adapter only: this one-time startup migration must never fall back to
+  // getDbInstance() (in PG mode that is an in-memory scratch DB, so the imported
+  // rows would silently not persist). The adapter owns BEGIN/COMMIT — and its PG
+  // equivalent — and lets the transaction callback await each statement.
+  const db = getAsyncDb();
 
   if (USAGE_JSON_FILE && fs.existsSync(USAGE_JSON_FILE)) {
     try {
@@ -326,15 +328,15 @@ export function migrateUsageJsonToSqlite() {
         `);
         const findConnection = db.prepare("SELECT * FROM provider_connections WHERE id = ?");
 
-        const tx = db.transaction(() => {
+        await db.immediate(async () => {
           for (const entry of history) {
             const connectionId = entry.connectionId || entry.connection_id || null;
-            const connection = connectionId ? findConnection.get(connectionId) : null;
+            const connection = connectionId ? await findConnection.get(connectionId) : null;
             const fallbackIdentity = connection
               ? resolveUsageAccountIdentity(connection)
               : resolveOrphanedUsageAccountIdentity(entry.provider, connectionId);
             const identity = resolveImportedUsageAccountIdentity(entry, fallbackIdentity);
-            insert.run({
+            await insert.run({
               provider: entry.provider || null,
               model: entry.model || null,
               connectionId,
@@ -365,7 +367,6 @@ export function migrateUsageJsonToSqlite() {
             });
           }
         });
-        tx();
         console.log(`[usageDb] ✓ Migrated ${history.length} usage entries`);
       }
 
@@ -397,7 +398,7 @@ export function migrateUsageJsonToSqlite() {
             @hasRequestBody, @hasResponseBody, @hasPipelineDetails, @requestSummary)
         `);
 
-        const tx = db.transaction(() => {
+        await db.immediate(async () => {
           for (const log of logs) {
             const id = log.id || `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
             const timestamp = log.timestamp || new Date().toISOString();
@@ -467,7 +468,7 @@ export function migrateUsageJsonToSqlite() {
               }
             }
 
-            insert.run({
+            await insert.run({
               id,
               timestamp,
               method: log.method || "POST",
@@ -505,7 +506,6 @@ export function migrateUsageJsonToSqlite() {
             });
           }
         });
-        tx();
         console.log(`[usageDb] ✓ Migrated ${logs.length} call log entries`);
       }
 
@@ -526,7 +526,7 @@ if (shouldPersistToDisk) {
   }
 
   try {
-    migrateUsageJsonToSqlite();
+    await migrateUsageJsonToSqlite();
   } catch {
     // Best-effort startup migration.
   }

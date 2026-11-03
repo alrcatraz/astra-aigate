@@ -23,11 +23,31 @@ export interface PreflightQuotaResult {
   reason?: string;
   quotaPercent?: number;
   resetAt?: string | null;
+  /** Window that triggered the block, when one can be named. */
+  window?: string;
+  /**
+   * Scope of the blocking window. A model-scoped block must not take the whole
+   * connection out of rotation — siblings still have headroom.
+   */
+  windowScope?: "account" | "model";
 }
 
 export interface QuotaWindowInfo {
   percentUsed: number;
   resetAt?: string | null;
+  /**
+   * Explicit window scope. `"account"` gates every model on the connection;
+   * `"model"` gates only `model`. When omitted, consumers fall back to the
+   * legacy name heuristic — providers should always set it.
+   */
+  scope?: "account" | "model";
+  /** Model id this window belongs to (required when `scope === "model"`). */
+  model?: string;
+  /** Where the number came from: the provider itself, or a local derivation. */
+  source?: "provider_reported" | "derived";
+  /** Dollar-denominated windows report the underlying amounts for reporting. */
+  usedUsd?: number;
+  limitUsd?: number;
 }
 
 export interface QuotaInfo {
@@ -61,8 +81,32 @@ export type QuotaFetcher = (
  */
 const quotaWindowsRegistry = new Map<string, readonly string[]>();
 
-export function registerQuotaWindows(provider: string, windows: readonly string[]): void {
+export interface QuotaWindowsMeta {
+  /**
+   * True when the provider's fetcher reports per-model windows, so preflight
+   * must be given the requested model — otherwise every model window is
+   * evaluated for every request.
+   */
+  modelScoped?: boolean;
+}
+
+const quotaWindowsMetaRegistry = new Map<string, QuotaWindowsMeta>();
+
+export function registerQuotaWindows(
+  provider: string,
+  windows: readonly string[],
+  meta: QuotaWindowsMeta = {}
+): void {
   quotaWindowsRegistry.set(provider, [...windows]);
+  quotaWindowsMetaRegistry.set(provider, meta);
+}
+
+export function getQuotaWindowsMeta(provider: string): QuotaWindowsMeta {
+  return (
+    quotaWindowsMetaRegistry.get(provider) ??
+    quotaWindowsMetaRegistry.get(provider.toLowerCase()) ??
+    {}
+  );
 }
 
 export function getQuotaWindows(provider: string): readonly string[] {
@@ -142,12 +186,19 @@ function isRemainingAtOrBelowThreshold(
   return remainingPercent <= thresholdPercent + REMAINING_PERCENT_EPSILON;
 }
 
-function exhaustedResult(quotaPercent: number, resetAt: string | null): PreflightQuotaResult {
+function exhaustedResult(
+  quotaPercent: number,
+  resetAt: string | null,
+  window?: string,
+  windowScope?: "account" | "model"
+): PreflightQuotaResult {
   return {
     proceed: false,
     reason: "quota_exhausted",
     quotaPercent,
     resetAt,
+    ...(window ? { window } : {}),
+    ...(windowScope ? { windowScope } : {}),
   };
 }
 
@@ -158,36 +209,108 @@ function limitReachedResult(quota: QuotaInfo): PreflightQuotaResult {
   );
 }
 
+/**
+ * Model-scoped windows (some providers expose one window per model id, e.g.
+ * `deepseek-v4-flash-vision-exp`) must not gate sibling models: an exhausted
+ * free/experimental window would otherwise block the whole connection. Generic
+ * account windows (session/weekly/monthly/credits/…) always apply. With no
+ * model filter the historical behaviour is preserved.
+ *
+ * Prefer the explicit scope carried by the window descriptor; the name
+ * heuristic below only serves providers that have not declared a scope yet.
+ */
+const GENERIC_WINDOW_RE =
+  /^(window_|session|weekly|monthly|rolling|5h|7d|30d|credits|balance|daily|mcp_)/i;
+
+/** Base window name of a possibly model-qualified window (`5h:model` → `5h`). */
+export function windowBaseName(windowName: string): string {
+  const idx = windowName.indexOf(":");
+  return idx === -1 ? windowName : windowName.slice(0, idx);
+}
+
+/**
+ * Candidate configuration names for a window, most specific first:
+ *   `5h:qwen3.8-flash` → ["5h:qwen3.8-flash", "5h:*", "5h"]
+ * Lets an operator set one cutoff for every per-model window of a base window.
+ */
+export function windowThresholdAliases(windowName: string): string[] {
+  const base = windowBaseName(windowName);
+  if (base === windowName) return [windowName];
+  return [windowName, `${base}:*`, base];
+}
+
+export function windowAppliesToModel(
+  windowName: string,
+  modelFilter?: string | null,
+  info?: QuotaWindowInfo
+): boolean {
+  const model = (modelFilter || "").toLowerCase().trim();
+
+  // Explicit scope wins over any name-based guess.
+  if (info?.scope === "account") return true;
+  if (info?.scope === "model") {
+    if (!model) return true;
+    const scoped = (info.model || windowBaseName(windowName)).toLowerCase();
+    if (!scoped) return false;
+    const bareFilter = model.includes("/") ? model.slice(model.lastIndexOf("/") + 1) : model;
+    return scoped === bareFilter || scoped === model;
+  }
+
+  if (!model) return true;
+  if (GENERIC_WINDOW_RE.test(windowName)) return true;
+  const name = windowName.toLowerCase();
+  const bare = model.includes("/") ? model.slice(model.lastIndexOf("/") + 1) : model;
+  return name === bare || name.includes(bare) || bare.includes(name);
+}
+
 function quotaWindowCutoffResult(
   windows: NonNullable<QuotaInfo["windows"]>,
-  thresholds?: PreflightQuotaThresholds
+  thresholds?: PreflightQuotaThresholds,
+  modelFilter?: string | null
 ): PreflightQuotaResult | null {
   let worstUsedPercent = 0;
   let worstWindow: string | null = null;
   let worstResetAt: string | null = null;
+  let worstScope: "account" | "model" | undefined;
+  let worstModel: string | undefined;
 
   for (const [windowName, windowInfo] of Object.entries(windows)) {
     if (!Number.isFinite(windowInfo.percentUsed)) continue;
+    if (!windowAppliesToModel(windowName, modelFilter, windowInfo)) continue;
     const minRemainingPercent = resolveOrDefault(
       thresholds?.resolveMinRemainingPercent,
       windowName,
       DEFAULT_MIN_REMAINING_PERCENT
     );
-    if (
-      !isRemainingAtOrBelowThreshold(
-        remainingPercentFrom(windowInfo.percentUsed),
-        minRemainingPercent
-      )
-    ) {
+    const remainingPercent = remainingPercentFrom(windowInfo.percentUsed);
+    if (!isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
+      const warnRemainingPercent = resolveOrDefault(
+        thresholds?.resolveWarnRemainingPercent,
+        windowName,
+        DEFAULT_WARN_REMAINING_PERCENT
+      );
+      if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
+        console.warn(
+          `[QuotaPreflight] ${windowName}: ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`
+        );
+      }
       continue;
     }
     if (windowInfo.percentUsed <= worstUsedPercent && worstWindow !== null) continue;
     worstUsedPercent = windowInfo.percentUsed;
     worstWindow = windowName;
     worstResetAt = windowInfo.resetAt ?? null;
+    worstScope = windowInfo.scope;
+    worstModel = windowInfo.model;
   }
 
-  return worstWindow === null ? null : exhaustedResult(worstUsedPercent, worstResetAt);
+  if (worstWindow === null) return null;
+  return exhaustedResult(
+    worstUsedPercent,
+    worstResetAt,
+    worstModel ? `${worstWindow} (${worstModel})` : worstWindow,
+    worstScope
+  );
 }
 
 function quotaPercentCutoffResult(
@@ -202,9 +325,19 @@ function quotaPercentCutoffResult(
     DEFAULT_MIN_REMAINING_PERCENT
   );
   const remainingPercent = remainingPercentFrom(quota.percentUsed);
-  return isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)
-    ? exhaustedResult(quota.percentUsed, quota.resetAt ?? null)
-    : { proceed: true, quotaPercent: quota.percentUsed };
+  if (isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
+    return exhaustedResult(quota.percentUsed, quota.resetAt ?? null);
+  }
+
+  const warnRemainingPercent = resolveOrDefault(
+    thresholds?.resolveWarnRemainingPercent,
+    null,
+    DEFAULT_WARN_REMAINING_PERCENT
+  );
+  if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
+    console.warn(`[QuotaPreflight] ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`);
+  }
+  return { proceed: true, quotaPercent: quota.percentUsed };
 }
 
 /**
@@ -213,7 +346,8 @@ function quotaPercentCutoffResult(
  */
 export function evaluateQuotaCutoff(
   quota: QuotaInfo | null | undefined,
-  thresholds?: PreflightQuotaThresholds
+  thresholds?: PreflightQuotaThresholds,
+  modelFilter?: string | null
 ): PreflightQuotaResult {
   if (!quota) return { proceed: true };
   if (quota.limitReached === true) return limitReachedResult(quota);
@@ -221,7 +355,7 @@ export function evaluateQuotaCutoff(
   const windows = quota.windows;
   if (windows && Object.keys(windows).length > 0) {
     return (
-      quotaWindowCutoffResult(windows, thresholds) ?? {
+      quotaWindowCutoffResult(windows, thresholds, modelFilter) ?? {
         proceed: true,
         quotaPercent: quota.percentUsed,
       }
@@ -255,95 +389,22 @@ export async function preflightQuota(
     return { proceed: true };
   }
 
-  if (quota.limitReached === true) {
-    return limitReachedResult(quota);
-  }
+  // The model under evaluation lives on the connection the caller passed. It is
+  // what separates "this model's pool is spent" from "the account is spent" —
+  // without it every model-scoped window gates every request.
+  const requestedModel = connection?.requestedModel;
+  const modelFilter = typeof requestedModel === "string" ? requestedModel : null;
 
-  // Per-window evaluation — only when the fetcher surfaces a windows map.
-  // We block as soon as ANY single window's remaining quota drops to its
-  // configured cutoff or below; warnings are logged independently per window.
-  if (quota.windows && Object.keys(quota.windows).length > 0) {
-    let worstUsedPercent = 0;
-    let worstWindow: string | null = null;
-    let worstResetAt: string | null = null;
-    for (const [windowName, windowInfo] of Object.entries(quota.windows)) {
-      const minRemainingPercent = resolveOrDefault(
-        thresholds?.resolveMinRemainingPercent,
-        windowName,
-        DEFAULT_MIN_REMAINING_PERCENT
-      );
-      const warnRemainingPercent = resolveOrDefault(
-        thresholds?.resolveWarnRemainingPercent,
-        windowName,
-        DEFAULT_WARN_REMAINING_PERCENT
-      );
-      const remainingPercent = remainingPercentFrom(windowInfo.percentUsed);
+  const result = evaluateQuotaCutoff(quota, thresholds, modelFilter);
 
-      if (isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
-        // Track the most-depleted blocking window so the response can name it.
-        if (windowInfo.percentUsed > worstUsedPercent) {
-          worstUsedPercent = windowInfo.percentUsed;
-          worstWindow = windowName;
-          worstResetAt = windowInfo.resetAt ?? null;
-        } else if (worstWindow === null) {
-          worstWindow = windowName;
-          worstResetAt = windowInfo.resetAt ?? null;
-        }
-      } else if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
-        console.warn(
-          `[QuotaPreflight] ${provider}/${connectionId} ${windowName}: ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`
-        );
-      }
-    }
-
-    if (worstWindow !== null) {
-      const worstRemaining = remainingPercentFrom(worstUsedPercent);
-      console.info(
-        `[QuotaPreflight] ${provider}/${connectionId} ${worstWindow}: ${worstRemaining.toFixed(1)}% remaining — switching`
-      );
-      return {
-        proceed: false,
-        reason: "quota_exhausted",
-        quotaPercent: worstUsedPercent,
-        resetAt: worstResetAt,
-      };
-    }
-
-    return { proceed: true, quotaPercent: quota.percentUsed };
-  }
-
-  // Legacy single-signal path for fetchers that don't expose per-window data.
-  const minRemainingPercent = resolveOrDefault(
-    thresholds?.resolveMinRemainingPercent,
-    null,
-    DEFAULT_MIN_REMAINING_PERCENT
-  );
-  const warnRemainingPercent = resolveOrDefault(
-    thresholds?.resolveWarnRemainingPercent,
-    null,
-    DEFAULT_WARN_REMAINING_PERCENT
-  );
-
-  const { percentUsed } = quota;
-  const remainingPercent = remainingPercentFrom(percentUsed);
-
-  if (isRemainingAtOrBelowThreshold(remainingPercent, minRemainingPercent)) {
+  if (!result.proceed) {
+    const remaining = remainingPercentFrom(
+      Number.isFinite(result.quotaPercent) ? (result.quotaPercent as number) : 1
+    );
     console.info(
-      `[QuotaPreflight] ${provider}/${connectionId}: ${remainingPercent.toFixed(1)}% remaining — switching (cutoff ${minRemainingPercent}%)`
-    );
-    return {
-      proceed: false,
-      reason: "quota_exhausted",
-      quotaPercent: percentUsed,
-      resetAt: quota.resetAt ?? null,
-    };
-  }
-
-  if (isRemainingAtOrBelowThreshold(remainingPercent, warnRemainingPercent)) {
-    console.warn(
-      `[QuotaPreflight] ${provider}/${connectionId}: ${remainingPercent.toFixed(1)}% remaining — approaching cutoff`
+      `[QuotaPreflight] ${provider}/${connectionId} ${result.window ?? "quota"}: ${remaining.toFixed(1)}% remaining — switching`
     );
   }
 
-  return { proceed: true, quotaPercent: percentUsed };
+  return result;
 }

@@ -653,6 +653,10 @@ export function hasPerModelQuota(
   if (!provider) return false;
   if (getCanonicalLockProvider(provider) === "codex") return true;
   if (provider === "gemini" || provider === "github") return true;
+  // OpenCode family (zen / go): one credential fronts many upstream models and
+  // a retired or per-model-limited id must not park the whole connection —
+  // mirrors the #17472 contract (upstream #17827).
+  if (provider.toLowerCase().startsWith("opencode")) return true;
   if (getPassthroughProviders().has(provider)) return true;
   if (isCompatibleProvider(provider)) return true;
   return false;

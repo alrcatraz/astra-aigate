@@ -14,9 +14,13 @@
 --   - src/app/(dashboard)/dashboard/combos/page.tsx strips them client-side
 --
 -- This migration handles pre-existing rows. It is idempotent: running it again
--- on a clean DB no-ops because json_remove on a missing path is a no-op, and
--- the WHERE clause skips rows that don't carry any of the legacy keys.
-
+-- on a clean DB no-ops because removing a missing key is a no-op, and the WHERE
+-- clause skips rows that don't carry any of the legacy keys.
+--
+-- SQLite removes the keys with json_remove(); PostgreSQL subtracts them from the
+-- nested jsonb object. Both no-op when the key is absent or config is not an
+-- object, so the two forms stay idempotent in the same way.
+-- @sqlite
 -- Strip the 12 known removed keys from any persisted combo config.
 UPDATE combos
 SET data = json_remove(
@@ -52,3 +56,44 @@ WHERE EXISTS (
     'resetAwareWindow'
   )
 );
+-- @end
+-- @postgres
+UPDATE combos
+SET data = jsonb_set(
+  data::jsonb,
+  '{config}',
+  ((data::jsonb)->'config') - ARRAY[
+    'queueDepth',
+    'fallbackDelayMs',
+    'handoffProviders',
+    'maxComboDepth',
+    'manifestRouting',
+    'complexityAwareRouting',
+    'pipeline_enabled',
+    'pipelineConcurrency',
+    'shadowRouting',
+    'evalRouting',
+    'resetAwareEnabled',
+    'resetAwareWindow'
+  ]::text[],
+  false
+)::text
+WHERE pg_input_is_valid(data, 'jsonb')
+  AND jsonb_typeof((data::jsonb)->'config') = 'object'
+  -- Equivalent to SQLite's json_each(...) membership test, without the '?|'
+  -- operator: subtracting the key list is a no-op unless one of them is present.
+  AND ((data::jsonb)->'config') <> (((data::jsonb)->'config') - ARRAY[
+    'queueDepth',
+    'fallbackDelayMs',
+    'handoffProviders',
+    'maxComboDepth',
+    'manifestRouting',
+    'complexityAwareRouting',
+    'pipeline_enabled',
+    'pipelineConcurrency',
+    'shadowRouting',
+    'evalRouting',
+    'resetAwareEnabled',
+    'resetAwareWindow'
+  ]::text[]);
+-- @end

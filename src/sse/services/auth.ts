@@ -44,6 +44,9 @@ import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constan
 import {
   preflightQuota,
   isQuotaPreflightEnabled,
+  getQuotaWindowsMeta,
+  windowThresholdAliases,
+  windowAppliesToModel,
 } from "@omniroute/open-sse/services/quotaPreflight.ts";
 import { resolveResilienceSettings } from "@/lib/resilience/settings";
 import { resolveModelLockoutSettings } from "@/lib/resilience/modelLockoutSettings";
@@ -444,14 +447,15 @@ export function evaluateQuotaLimitPolicy(
   provider: string,
   connection: ProviderConnectionView,
   requestedModel: string | null = null
-): { blocked: boolean; reasons: string[]; resetAt: string | null } {
+): { blocked: boolean; reasons: string[]; resetAt: string | null; modelScoped: boolean } {
   const policy = resolveQuotaLimitPolicy(provider, connection.providerSpecificData);
   if (!policy.enabled || policy.windows.length === 0) {
-    return { blocked: false, reasons: [], resetAt: null };
+    return { blocked: false, reasons: [], resetAt: null, modelScoped: false };
   }
 
   const reasons: string[] = [];
   const resetCandidates: Array<string | null> = [];
+  let sawAccountScopedBlock = false;
 
   for (const windowName of policy.windows) {
     const effectiveWindowName =
@@ -462,6 +466,19 @@ export function evaluateQuotaLimitPolicy(
       policy.thresholdPercent
     );
     if (!status?.reachedThreshold) continue;
+    // A model-scoped window must only gate its own model — the same rule the
+    // preflight cutoff applies. Without this, configuring one per-model cutoff
+    // takes the whole connection out of rotation.
+    if (
+      !windowAppliesToModel(effectiveWindowName, requestedModel, {
+        percentUsed: status.usedPercentage / 100,
+        scope: status.scope,
+        model: status.model,
+      })
+    ) {
+      continue;
+    }
+    if (status.scope !== "model") sawAccountScopedBlock = true;
     reasons.push(`${effectiveWindowName} usage ${Math.round(status.usedPercentage)}%`);
     resetCandidates.push(status.resetAt);
   }
@@ -470,6 +487,7 @@ export function evaluateQuotaLimitPolicy(
     blocked: reasons.length > 0,
     reasons,
     resetAt: getEarliestFutureDate(resetCandidates),
+    modelScoped: reasons.length > 0 && !sawAccountScopedBlock,
   };
 }
 
@@ -1847,12 +1865,13 @@ export async function getProviderCredentialsWithQuotaPreflight(
     // means the same thing as the percentage rendered on the bar.
     const resolveMinRemainingPercent = (windowName: string | null): number => {
       if (windowName !== null) {
-        const lookupWindowNames =
-          provider === "codex"
-            ? uniqueWindows(
-                [windowName, toCodexBaseQuotaWindowName(windowName)].filter(Boolean) as string[]
-              )
-            : [windowName];
+        // Most specific first: exact window → `<base>:*` wildcard (covers every
+        // per-model window of that base) → `<base>` → provider-specific alias.
+        const codexAlias = provider === "codex" ? toCodexBaseQuotaWindowName(windowName) : null;
+        const lookupWindowNames = uniqueWindows([
+          ...windowThresholdAliases(windowName),
+          ...(codexAlias ? [codexAlias] : []),
+        ]);
         for (const lookupWindowName of lookupWindowNames) {
           const override = perConnectionWindowOverrides[lookupWindowName];
           if (typeof override === "number") return override;
@@ -1863,7 +1882,13 @@ export async function getProviderCredentialsWithQuotaPreflight(
       return defaultThresholdPercent;
     };
     // #6842: openrouter also needs requestedModel, for the :free-window check.
-    const modelAwarePreflight = provider === "codex" || provider === "openrouter";
+    // Providers whose fetcher emits per-model windows need it too, otherwise
+    // every model's window would be evaluated for every request — the scope is
+    // declared by the fetcher's window metadata, not by a provider name.
+    const modelAwarePreflight =
+      provider === "codex" ||
+      provider === "openrouter" ||
+      getQuotaWindowsMeta(provider).modelScoped === true;
     const preflightCredentials =
       requestedModel && modelAwarePreflight ? { ...credentials, requestedModel } : credentials;
     const preflight = await preflightQuota(provider, connectionId, preflightCredentials, {
@@ -1874,12 +1899,19 @@ export async function getProviderCredentialsWithQuotaPreflight(
       return credentials;
     }
 
-    const unavailableUntil = await markQuotaPreflightAccountUnavailable(
-      provider,
-      connectionId,
-      preflight,
-      requestedModel
-    );
+    // A model-scoped block must not take the connection out of rotation: the
+    // siblings still have headroom, so only the requested model is refused.
+    // Persisting `rateLimitedUntil` here would blacklist every model until the
+    // window resets (a month, on a monthly pool).
+    const modelScopedBlock = preflight.windowScope === "model";
+    const unavailableUntil = modelScopedBlock
+      ? (preflight.resetAt ?? new Date(Date.now() + 5 * 60 * 1000).toISOString())
+      : await markQuotaPreflightAccountUnavailable(
+          provider,
+          connectionId,
+          preflight,
+          requestedModel
+        );
     blockedByPreflight.push({
       id: connectionId,
       quotaPercent: preflight.quotaPercent,
@@ -2016,15 +2048,26 @@ export async function markAccountUnavailable(
 
     const isPerModelQuotaProvider = hasPerModelQuota(provider, model, connectionPassthroughModels);
     const modelLockoutOptions = { maxCooldownMs: effectiveProviderProfile?.maxCooldownMs };
+    // A provider that retires ONE model answers 410 ("Model X has been
+    // deprecated. Use Y instead."). The credential stays healthy and every
+    // other model on it still works, so the lock must be per-model — never a
+    // connection-wide cooldown. NVIDIA was the first case (#9833); the OpenCode
+    // family retires free models the same way (upstream #17472 / #17827).
+    // Status-only: an empty body still means the model is gone. Other
+    // per-model providers (notably gemini) keep their connection-wide 410.
+    const isModelGone410 =
+      status === 410 &&
+      typeof provider === "string" &&
+      (provider === "nvidia" || provider.toLowerCase().startsWith("opencode"));
     if (
       isPerModelQuotaProvider &&
       provider &&
       provider !== "codex" &&
       model &&
-      (status === 404 || status === 429 || status >= 500)
+      (status === 404 || isModelGone410 || status === 429 || status >= 500)
     ) {
       const reason =
-        status === 404
+        status === 404 || isModelGone410
           ? "not_found"
           : status === 429 && fallbackResult.reason === RateLimitReason.QUOTA_EXHAUSTED
             ? "quota_exhausted"
@@ -2062,7 +2105,7 @@ export async function markAccountUnavailable(
         model,
         reason,
         status,
-        status === 404
+        status === 404 || isModelGone410
           ? (effectiveProviderProfile?.baseCooldownMs ?? COOLDOWN_MS.notFoundLocal)
           : (antigravityFamilyInferredBaseCooldownMs ??
               fallbackResult.baseCooldownMs ??

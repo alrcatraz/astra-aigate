@@ -14,10 +14,8 @@
 
 // ─── Static fitness table (unchanged, fallback layer 4) ─────────────────
 
-import { getDbInstance, getAsyncDb } from "../../../src/lib/db/core.ts";
-import type { RawSyncDb, SqliteAdapter } from "../../../src/lib/db/adapters/types.ts";
 import {
-  getModelIntelligenceBySource,
+  listModelIntelligence,
   setUserFitnessOverrideEntry,
   deleteUserFitnessOverrideEntry,
 } from "../../../src/lib/db/modelIntelligence.ts";
@@ -198,24 +196,82 @@ const TIER_TASK_FITNESS: Record<string, Record<string, number>> = {
 };
 // ─── DB access helpers ──────────────────────────────────────────────────
 
-const _intelligenceCache = new Map<string, number | null>();
+/**
+ * Fitness scores live in `model_intelligence`. Scoring walks every candidate of
+ * a combo, so a per-candidate query is an N+1 over ~170 models (measured at ~9s
+ * per auto-combo request on 0.6.10) — and each of those lookups used the
+ * synchronous SQLite path even in PG mode, where it silently read a scratch DB.
+ *
+ * The table is small, so it is loaded once into a map through the async adapter
+ * and scoring stays synchronous against the snapshot. TTL bounds staleness;
+ * writes invalidate immediately via invalidateFitnessCache().
+ */
+const INTELLIGENCE_SNAPSHOT_TTL_MS = 60_000;
+let _intelligenceSnapshot: Map<string, number> | null = null;
+let _intelligenceSnapshotAt = 0;
+let _intelligenceSnapshotInFlight: Promise<void> | null = null;
+
+function snapshotKey(model: string, category: string, source: string): string {
+  return `${model}:${category}:${source}`;
+}
+
+/** Load (or refresh) the fitness snapshot. Safe to call on every request. */
+export async function ensureFitnessSnapshot(force = false): Promise<void> {
+  const fresh =
+    !force &&
+    _intelligenceSnapshot !== null &&
+    Date.now() - _intelligenceSnapshotAt < INTELLIGENCE_SNAPSHOT_TTL_MS;
+  if (fresh) return;
+  if (_intelligenceSnapshotInFlight) {
+    await _intelligenceSnapshotInFlight;
+    return;
+  }
+
+  _intelligenceSnapshotInFlight = (async () => {
+    try {
+      const rows = await listModelIntelligence();
+      const next = new Map<string, number>();
+      const now = Date.now();
+      for (const row of rows) {
+        if (row.expiresAt && Date.parse(row.expiresAt) <= now) continue;
+        next.set(snapshotKey(row.model, row.category, row.source), row.score);
+      }
+      _intelligenceSnapshot = next;
+      _intelligenceSnapshotAt = Date.now();
+      _capabilitiesCache = (await fetchModelCapabilities()) ?? _capabilitiesCache;
+    } catch {
+      // Keep the previous snapshot (or an empty read fallback) — scoring must not
+      // fail because a refresh did not land.
+      _intelligenceSnapshot ??= new Map();
+      _intelligenceSnapshotAt = Date.now();
+    } finally {
+      _intelligenceSnapshotInFlight = null;
+    }
+  })();
+  await _intelligenceSnapshotInFlight;
+}
+
+/**
+ * Keeps the snapshot warm: one query per refresh window instead of one per
+ * candidate. The timer is unref'd so it never holds the process open, and a
+ * failing refresh keeps the previous snapshot in place.
+ */
+let _snapshotRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startFitnessSnapshotRefresh(intervalMs = INTELLIGENCE_SNAPSHOT_TTL_MS): void {
+  if (_snapshotRefreshTimer) return;
+  void ensureFitnessSnapshot(true);
+  _snapshotRefreshTimer = setInterval(() => {
+    void ensureFitnessSnapshot(true);
+  }, intervalMs);
+  if (typeof _snapshotRefreshTimer === "object" && "unref" in _snapshotRefreshTimer) {
+    (_snapshotRefreshTimer as { unref?: () => void }).unref?.();
+  }
+}
 
 function queryModelIntelligence(model: string, category: string, source: string): number | null {
-  const cacheKey = `${model}:${category}:${source}`;
-  if (_intelligenceCache.has(cacheKey)) {
-    return _intelligenceCache.get(cacheKey)!;
-  }
-
-  try {
-    const entry = getModelIntelligenceBySource(model, source, category);
-    if (entry) {
-      _intelligenceCache.set(cacheKey, entry.score);
-      return entry.score;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  const hit = _intelligenceSnapshot?.get(snapshotKey(model, category, source));
+  return hit === undefined ? null : hit;
 }
 
 // ─── Models.dev capability → tier → fitness resolution ──────────────────
@@ -235,17 +291,19 @@ function deriveTierFromCapabilities(cap: ModelCapRow): string {
   return "budget";
 }
 
-function loadModelCapabilities(): Record<string, ModelCapRow> | null {
-  if (_capabilitiesCache) return _capabilitiesCache;
-
+/**
+ * Capabilities are read through the async adapter (the `sqlite_master` probe this
+ * used to do is SQLite-only and returned nothing under Postgres). The result is
+ * cached alongside the fitness snapshot, so scoring stays synchronous.
+ */
+async function fetchModelCapabilities(): Promise<Record<string, ModelCapRow> | null> {
   try {
-    const raw = (getAsyncDb() as SqliteAdapter).raw as RawSyncDb;
-    const tableExists = raw
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='model_capabilities'")
-      .get();
-    if (!tableExists) return null;
-
-    const rows = raw.prepare("SELECT * FROM model_capabilities").all() as Record<string, unknown>[];
+    const { getAsyncDb } = await import("../../../src/lib/db/core.ts");
+    const db = getAsyncDb();
+    const rows = (await db.prepare("SELECT * FROM model_capabilities").all()) as Record<
+      string,
+      unknown
+    >[];
     const cache: Record<string, ModelCapRow> = {};
 
     for (const row of rows) {
@@ -268,12 +326,14 @@ function loadModelCapabilities(): Record<string, ModelCapRow> | null {
         limit_context: typeof row.limit_context === "number" ? row.limit_context : null,
       };
     }
-
-    _capabilitiesCache = cache;
     return cache;
   } catch {
     return null;
   }
+}
+
+function loadModelCapabilities(): Record<string, ModelCapRow> | null {
+  return _capabilitiesCache;
 }
 
 export function getModelsDevTierFitness(model: string, taskType: string): number | null {
@@ -403,9 +463,13 @@ function lookupFreeAliasArenaElo(normalizedModel: string, normalizedTask: string
   return queryModelIntelligence(baseId, normalizedTask, "arena_elo");
 }
 
-export function setUserFitnessOverride(model: string, category: string, score: number): void {
+export async function setUserFitnessOverride(
+  model: string,
+  category: string,
+  score: number
+): Promise<void> {
   try {
-    setUserFitnessOverrideEntry(model.toLowerCase(), category.toLowerCase(), score);
+    await setUserFitnessOverrideEntry(model.toLowerCase(), category.toLowerCase(), score);
     invalidateFitnessCache();
   } catch (err) {
     throw new Error(
@@ -414,9 +478,9 @@ export function setUserFitnessOverride(model: string, category: string, score: n
   }
 }
 
-export function clearUserFitnessOverride(model: string, category: string): void {
+export async function clearUserFitnessOverride(model: string, category: string): Promise<void> {
   try {
-    deleteUserFitnessOverrideEntry(model.toLowerCase(), category.toLowerCase());
+    await deleteUserFitnessOverrideEntry(model.toLowerCase(), category.toLowerCase());
     invalidateFitnessCache();
   } catch (err) {
     throw new Error(
@@ -431,5 +495,6 @@ export function getTaskTypes(): string[] {
 
 export function invalidateFitnessCache(): void {
   _capabilitiesCache = null;
-  _intelligenceCache.clear();
+  _intelligenceSnapshot = null;
+  _intelligenceSnapshotAt = 0;
 }

@@ -17,9 +17,21 @@
 -- Idempotent: re-running is a no-op once every qtSd/ combo is on quota-share.
 --
 -- Part of: Group B — Quota Sharing Engine, Fase 3 #9 (activation follow-up).
-
+--
+-- SQLite's json_set()/json_extract() have no direct PostgreSQL counterpart; the
+-- jsonb form reads and writes the same '$.strategy' path.
+-- @sqlite
 UPDATE combos
 SET data = json_set(data, '$.strategy', 'quota-share'),
     updated_at = datetime('now')
 WHERE name LIKE 'qtSd/%'
   AND json_extract(data, '$.strategy') = 'fill-first';
+-- @end
+-- @postgres
+UPDATE combos
+SET data = jsonb_set(data::jsonb, '{strategy}', '"quota-share"'::jsonb, true)::text,
+    updated_at = NOW()
+WHERE name LIKE 'qtSd/%'
+  AND pg_input_is_valid(data, 'jsonb')
+  AND (data::jsonb)->>'strategy' = 'fill-first';
+-- @end

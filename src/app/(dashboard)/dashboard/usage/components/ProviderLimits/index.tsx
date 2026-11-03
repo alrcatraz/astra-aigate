@@ -17,6 +17,7 @@ import Card from "@/shared/components/Card";
 import { CardSkeleton } from "@/shared/components/Loading";
 import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
+import { buildCutoffWindows } from "./cutoffWindows";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
 
@@ -242,6 +243,9 @@ export default function ProviderLimits({
   const [providerWindowDefaults, setProviderWindowDefaults] = useState<
     Record<string, Record<string, number>>
   >({});
+  // Windows each provider registers with quotaPreflight — including the family
+  // wildcards (`5h:*`) that never show up in live usage data.
+  const [providerQuotaWindows, setProviderQuotaWindows] = useState<Record<string, string[]>>({});
   const [globalThresholdDefault, setGlobalThresholdDefault] = useState<number>(98);
 
   useEffect(() => {
@@ -251,6 +255,7 @@ export default function ProviderLimits({
       .then((data) => {
         if (!alive || !data) return;
         setProviderWindowDefaults(data.defaults?.providerWindowDefaults || {});
+        setProviderQuotaWindows(data.windows || {});
         if (typeof data.defaults?.globalThresholdPercent === "number") {
           setGlobalThresholdDefault(data.defaults.globalThresholdPercent);
         }
@@ -1034,10 +1039,14 @@ export default function ProviderLimits({
           renderInlineQuotaSummary={(quota) => renderInlineQuotaSummary(quota.quotas)}
           onRefresh={refreshProvider}
           onOpenCutoff={(conn) => {
-            const windows = (visibleQuotaData[conn.id]?.quotas || []).filter(
+            const observed = (visibleQuotaData[conn.id]?.quotas || []).filter(
               (q: any) => q && typeof q.name === "string" && !q.isCredits
             );
-            setCutoffModalWindows(windows);
+            // Every window the provider registers, so wildcard families
+            // (`5h:*`) are configurable from the dashboard too.
+            setCutoffModalWindows(
+              buildCutoffWindows(observed, providerQuotaWindows[conn.provider] || [])
+            );
             setCutoffModalConn(conn);
           }}
           onOpenResetCredits={resetCreditRedemption.openCodexResetCredits}
@@ -1078,10 +1087,15 @@ export default function ProviderLimits({
             ) || cutoffModalConn.provider
           }
           provider={cutoffModalConn.provider}
-          windows={cutoffModalWindows.map((q: any) => ({
-            key: q.name,
-            displayName: q.displayName || formatQuotaLabel(q.name),
-          }))}
+          windows={cutoffModalWindows.map((q: any) => {
+            // Entries come from buildCutoffWindows: observed windows keep their
+            // usage-derived label, registered-only ones (wildcards) use theirs.
+            const key = q?.key ?? q?.name;
+            return {
+              key,
+              displayName: q?.displayName || formatQuotaLabel(key),
+            };
+          })}
           current={cutoffModalConn.quotaWindowThresholds || null}
           providerDefaults={providerWindowDefaults[cutoffModalConn.provider] || {}}
           globalDefaultPercent={globalThresholdDefault}

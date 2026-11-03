@@ -202,16 +202,6 @@
       "count": 2
     }
   },
-  "open-sse/services/opencodeOllamaUsage.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "open-sse/services/opencodeQuotaFetcher.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "open-sse/services/rateLimitManager.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -1745,11 +1735,6 @@
   "tests/unit/opencode-proxy-rotation-4954.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 6
-    }
-  },
-  "tests/unit/opencode-quota-fetcher.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
     }
   },
   "tests/unit/openrouter-vision-sync-4264.test.ts": {
