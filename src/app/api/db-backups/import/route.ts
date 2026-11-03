@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import { getDbInstance, getDbDriver, resetDbInstance, SQLITE_FILE } from "@/lib/db/core";
+import { getAsyncDb, getDbDriver, resetDbInstance, SQLITE_FILE } from "@/lib/db/core";
 import { openDatabaseAsync } from "@/lib/db/adapters/driverFactory";
 import type { SqliteAdapter } from "@/lib/db/adapters/types";
 import {
   backupDbFile,
-  getTableNamesFromAdapter,
   countImportedRows,
+  getTableNamesFromAdapter,
   unlinkFileWithRetry,
 } from "@/lib/db/backup";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
@@ -132,10 +132,15 @@ export async function POST(request: Request) {
     // a direct `better-sqlite3` import: in the packaged Electron app that native module is
     // absent from the standalone server's node_modules, so a hard import crashes the route
     // with "Cannot find module 'better-sqlite3'" even though node:sqlite is available (#3025).
+    // NOTE: openDatabaseAsync() returns the ASYNC adapter, so every statement/pragma call
+    // on it must be awaited (an un-awaited pragma resolves to a Promise, making the
+    // integrity result look like a failure and rejecting every valid backup).
     let testDb: SqliteAdapter | null = null;
     try {
       testDb = await openDatabaseAsync(tmpPath, { readonly: true });
-      const result = testDb.pragma("integrity_check") as any[];
+      const result = (await testDb.pragma("integrity_check")) as Array<{
+        integrity_check?: string;
+      }>;
       if (result[0]?.integrity_check !== "ok") {
         return NextResponse.json(
           { error: "Database integrity check failed. The file may be corrupted." },
@@ -144,7 +149,7 @@ export async function POST(request: Request) {
       }
 
       // Validate required tables exist
-      const tables = getTableNamesFromAdapter(testDb);
+      const tables = await getTableNamesFromAdapter(testDb);
 
       const missingTables = REQUIRED_TABLES.filter((t) => !tables.includes(t));
       if (missingTables.length > 0) {
@@ -156,18 +161,19 @@ export async function POST(request: Request) {
         );
       }
 
-      testDb.close();
+      await testDb.close();
       testDb = null;
     } catch (e) {
-      if (testDb) testDb.close();
+      if (testDb) await testDb.close();
       return NextResponse.json(
         { error: `Invalid database file: ${sanitizeErrorMessage(e)}` },
         { status: 400 }
       );
     }
 
-    // Create pre-import backup
-    backupDbFile("pre-import");
+    // Create pre-import backup. backupDbFile() is async and must be awaited so the
+    // snapshot starts BEFORE the live database file is replaced.
+    await backupDbFile("pre-import");
 
     // Close and reset current DB connection
     resetDbInstance();
@@ -190,9 +196,11 @@ export async function POST(request: Request) {
     // Copy imported file over current DB
     fs.copyFileSync(tmpPath, SQLITE_FILE!);
 
-    // Reopen and verify
-    getDbInstance();
-    const { connCount, nodeCount, comboCount, keyCount } = countImportedRows();
+    // Reopen and verify — getAsyncDb() lazily re-wraps the freshly opened SQLite
+    // handle after resetDbInstance(), so no synchronous getDbInstance() call is
+    // needed (and PG mode is rejected above).
+    await getAsyncDb();
+    const { connCount, nodeCount, comboCount, keyCount } = await countImportedRows();
 
     console.log(
       `[DB] Imported database from upload: ${connCount} connections, ${nodeCount} nodes, ${comboCount} combos, ${keyCount} API keys`

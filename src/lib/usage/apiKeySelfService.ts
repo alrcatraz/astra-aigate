@@ -12,7 +12,7 @@ interface ApiKeySelfServiceMetadata {
 }
 
 interface StatementLike {
-  get: (...params: unknown[]) => unknown;
+  get: (...params: unknown[]) => unknown | Promise<unknown>;
 }
 
 interface DbLike {
@@ -31,9 +31,14 @@ interface CostSummaryLike {
   warningThreshold: number | null;
 }
 
-type GetCostSummaryFn = (apiKeyId: string) => CostSummaryLike;
+type GetCostSummaryFn = (apiKeyId: string) => CostSummaryLike | Promise<CostSummaryLike>;
 type CheckBudgetFn = (apiKeyId: string) => unknown;
-type GetDbInstanceFn = () => DbLike;
+/**
+ * Returns the database handle used to aggregate token usage. The default is the
+ * async adapter (`getAsyncDb`), whose statements resolve Promises; an injected
+ * fake may still return a synchronous handle, so the caller awaits either way.
+ */
+type GetDbInstanceFn = () => DbLike | Promise<DbLike>;
 type GetProviderConnectionByIdFn = (connectionId: string) => Promise<unknown>;
 type GetProviderConnectionsFn = (filters?: Record<string, unknown>) => Promise<unknown[]>;
 type FetchAndPersistProviderLimitsFn = (
@@ -142,8 +147,12 @@ function buildCostStatus(summary: CostSummaryLike, now: number) {
   };
 }
 
-function aggregateTokens(db: DbLike, apiKeyId: string, periodStartAt: string): TokenTotals {
-  const row = db
+async function aggregateTokens(
+  db: DbLike,
+  apiKeyId: string,
+  periodStartAt: string
+): Promise<TokenTotals> {
+  const row = (await db
     .prepare(
       `
       SELECT
@@ -157,7 +166,7 @@ function aggregateTokens(db: DbLike, apiKeyId: string, periodStartAt: string): T
         AND timestamp >= ?
     `
     )
-    .get(apiKeyId, periodStartAt) as JsonRecord | undefined;
+    .get(apiKeyId, periodStartAt)) as JsonRecord | undefined;
 
   const inputTokens = toNumber(row?.inputTokens);
   const outputTokens = toNumber(row?.outputTokens);
@@ -369,7 +378,7 @@ async function normalizeDeps(deps: ApiKeySelfServiceDeps): Promise<RequiredDeps>
     now: deps.now ?? Date.now,
     getCostSummary: deps.getCostSummary ?? costRules!.getCostSummary,
     checkBudget: deps.checkBudget ?? costRules!.checkBudget,
-    getDbInstance: deps.getDbInstance ?? dbCore!.getDbInstance,
+    getDbInstance: deps.getDbInstance ?? dbCore!.getAsyncDb,
     getProviderConnectionById: deps.getProviderConnectionById ?? localDb!.getProviderConnectionById,
     getProviderConnections: deps.getProviderConnections ?? localDb!.getProviderConnections,
     fetchAndPersistProviderLimits:
@@ -390,8 +399,8 @@ export async function buildApiKeySelfServiceStatus(
   await resolvedDeps.checkBudget(metadata.id);
 
   const cost = await buildCostStatus(summary, resolvedDeps.now());
-  const tokens = aggregateTokens(
-    resolvedDeps.getDbInstance() as DbLike,
+  const tokens = await aggregateTokens(
+    await resolvedDeps.getDbInstance(),
     metadata.id,
     cost.periodStartAt ??
       new Date(getCurrentMonthWindow(resolvedDeps.now()).periodStartAt).toISOString()

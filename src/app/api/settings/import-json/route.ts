@@ -69,10 +69,15 @@ export async function POST(request: Request) {
       data = { ...data, settings: safeSettings };
     }
 
+    // SQLite-only by design: the PG-mode guard above rejects before this point, so
+    // this is an intentional synchronous use. runJsonMigration() is a synchronous
+    // helper (src/lib/db/jsonMigration.ts) that drives its own better-sqlite3
+    // transaction over the raw handle; it cannot take the async adapter.
     const db = getDbInstance();
 
-    // Create a safety backup before writing anything
-    backupDbFile("pre-json-import");
+    // Create a safety backup before writing anything. backupDbFile() is async and
+    // must be awaited so the snapshot starts BEFORE the migration mutates the DB.
+    await backupDbFile("pre-json-import");
 
     // Delegate the actual migration to the shared helper (avoids duplication with core.ts)
     const counts = runJsonMigration(db, data);

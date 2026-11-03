@@ -91,7 +91,7 @@ test("clearStaleCrashCooldowns clears far-future transient cooldown on restart",
   );
 
   // Run startup recovery
-  const result = providersDb.clearStaleCrashCooldowns();
+  const result = await providersDb.clearStaleCrashCooldowns();
 
   assert.ok(result.cleared >= 1, `expected at least 1 cleared, got ${result.cleared}`);
 
@@ -119,7 +119,7 @@ test("clearStaleCrashCooldowns clears past-dated transient cooldown on restart",
     backoffLevel: 1,
   });
 
-  const result = providersDb.clearStaleCrashCooldowns();
+  const result = await providersDb.clearStaleCrashCooldowns();
 
   assert.ok(result.cleared >= 1, `expected at least 1 cleared, got ${result.cleared}`);
 
@@ -144,7 +144,7 @@ test("clearStaleCrashCooldowns does NOT clear terminal states (banned)", async (
     backoffLevel: 5,
   });
 
-  const result = providersDb.clearStaleCrashCooldowns();
+  const result = await providersDb.clearStaleCrashCooldowns();
 
   // The banned connection must NOT be cleared
   const updated = await providersDb.getProviderConnectionById(conn.id);
@@ -171,7 +171,7 @@ test("clearStaleCrashCooldowns does NOT clear terminal states (expired)", async 
     backoffLevel: 2,
   });
 
-  providersDb.clearStaleCrashCooldowns();
+  await providersDb.clearStaleCrashCooldowns();
 
   const updated = await providersDb.getProviderConnectionById(conn.id);
   assert.equal(updated?.testStatus, "expired", "expired connection must not be touched");
@@ -192,7 +192,7 @@ test("clearStaleCrashCooldowns does NOT clear terminal states (credits_exhausted
     backoffLevel: 4,
   });
 
-  providersDb.clearStaleCrashCooldowns();
+  await providersDb.clearStaleCrashCooldowns();
 
   const updated = await providersDb.getProviderConnectionById(conn.id);
   assert.equal(
@@ -211,7 +211,7 @@ test("clearStaleCrashCooldowns returns cleared=0 when no transient cooldowns exi
     apiKey: "ai-key",
   });
 
-  const result = providersDb.clearStaleCrashCooldowns();
+  const result = await providersDb.clearStaleCrashCooldowns();
 
   assert.equal(result.cleared, 0, "no cooldowns to clear");
 });
@@ -258,7 +258,7 @@ test("clearStaleCrashCooldowns handles mixed transient + terminal connections co
     backoffLevel: 5,
   });
 
-  const result = providersDb.clearStaleCrashCooldowns();
+  const result = await providersDb.clearStaleCrashCooldowns();
 
   assert.equal(result.cleared, 2, "exactly 2 transient connections cleared");
 
