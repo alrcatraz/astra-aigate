@@ -1,4 +1,4 @@
-import { getDbInstance, getAsyncDb } from "./core";
+import { getAsyncDb } from "./core";
 import type { TierConfig } from "../../../open-sse/services/tierTypes";
 import { validateTierConfig, DEFAULT_TIER_CONFIG } from "../../../open-sse/services/tierConfig";
 import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
@@ -6,24 +6,9 @@ import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
 const TABLE = "tier_config";
 const CORRUPTED_VALUE_PREVIEW_LEN = 200;
 
-/**
- * Synchronous view of the SQLite handle used by this (not-yet-migrated)
- * module. `getDbInstance()` is typed as the async `DatabaseAdapter`, so cast
- * to a minimal sync interface to read/write synchronously — these tier-config
- * helpers are called from synchronous route/hot paths that cannot await.
- */
-interface TierConfigSyncStmt {
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-  get(...params: unknown[]): unknown;
-}
-interface TierConfigSyncDb {
-  exec(sql: string): void;
-  prepare(sql: string): TierConfigSyncStmt;
-}
-
-export function initTierConfigTable(): void {
-  const db = getDbInstance() as unknown as TierConfigSyncDb;
-  db.exec(`
+export async function initTierConfigTable(): Promise<void> {
+  const db = getAsyncDb();
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS ${TABLE} (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -32,12 +17,14 @@ export function initTierConfigTable(): void {
   `);
 }
 
-export function saveTierConfig(config: TierConfig): void {
-  const db = getDbInstance() as unknown as TierConfigSyncDb;
+export async function saveTierConfig(config: TierConfig): Promise<void> {
+  const db = getAsyncDb();
   const serialized = JSON.stringify(config);
-  db.prepare(
-    `INSERT OR REPLACE INTO ${TABLE} (key, value, updated_at) VALUES ('tier_config', ?, datetime('now'))`
-  ).run(serialized);
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO ${TABLE} (key, value, updated_at) VALUES ('tier_config', ?, datetime('now'))`
+    )
+    .run(serialized);
 }
 
 /**

@@ -4,7 +4,7 @@
 
 import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
-import { getAsyncDb, getDbDriver, getDbInstance, rowToCamel } from "./core";
+import { getAsyncDb, rowToCamel } from "./core";
 import { backupDbFile } from "./backup";
 import { registerDbStateResetter } from "./stateReset";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
@@ -65,6 +65,8 @@ export type { AccessSchedule, RateLimitRule } from "./apiKeys/types";
 
 // Schema check memoization - only run once
 let _schemaChecked = false;
+// In-flight schema pass, shared by concurrent first callers.
+let _schemaCheckPromise: Promise<void> | null = null;
 
 const _keyValidationCache = new Map<string, { valid: boolean; timestamp: number }>();
 const _keyMetadataCache = new Map<string, CacheEntry<ApiKeyMetadata>>();
@@ -234,13 +236,13 @@ async function getPublishedModelLookupTarget(
   return null;
 }
 
-function ensureApiKeyColumn(
+async function ensureApiKeyColumn(
   db: ApiKeysDbLike,
   columnNames: Set<string>,
   column: (typeof API_KEY_COLUMN_FALLBACKS)[number]
-): void {
+): Promise<void> {
   if (columnNames.has(column.name)) return;
-  db.exec(`ALTER TABLE api_keys ADD COLUMN ${column.definition}`);
+  await db.exec(`ALTER TABLE api_keys ADD COLUMN ${column.definition}`);
   console.log(`[DB] Added api_keys.${column.name} column`);
 }
 
@@ -248,52 +250,32 @@ function ensureApiKeyColumn(
 // The ALTERs must COMPLETE before `getPreparedStatements` prepares statements
 // referencing these columns — an un-awaited async wrapper deferred them to a
 // microtask and the first prepare on a fresh connection hit "no such column:
-// expires_at" (#8716 family). SQLite mode runs them synchronously inline; PG
-// mode awaits the same adapter calls (its migrations already created them, so
-// this is a no-op there). Callers must await this before preparing.
+// expires_at" (#8716 family). `getPreparedStatements` therefore awaits this
+// pass before preparing anything; both drivers go through the async adapter
+// (PG migrations already created the columns, so it is a no-op there).
+// The in-flight promise is memoized so concurrent first callers share one
+// PRAGMA + ALTER pass instead of racing into "duplicate column".
 async function ensureApiKeysColumns(db: ApiKeysDbLike): Promise<void> {
   if (_schemaChecked) return;
+  if (_schemaCheckPromise) return _schemaCheckPromise;
 
-  try {
-    const columns = await db.prepare<ApiKeyRow>("PRAGMA table_info(api_keys)").all();
-    const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
-    for (const column of API_KEY_COLUMN_FALLBACKS) {
-      ensureApiKeyColumn(db, columnNames, column);
+  _schemaCheckPromise = (async () => {
+    try {
+      const columns = await db.prepare<ApiKeyRow>("PRAGMA table_info(api_keys)").all();
+      const columnNames = new Set(columns.map((column) => String(column.name ?? "")));
+      for (const column of API_KEY_COLUMN_FALLBACKS) {
+        await ensureApiKeyColumn(db, columnNames, column);
+      }
+      _schemaChecked = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("[DB] Failed to verify api_keys schema:", message);
+    } finally {
+      _schemaCheckPromise = null;
     }
-    _schemaChecked = true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn("[DB] Failed to verify api_keys schema:", message);
-  }
-}
+  })();
 
-/**
- * Synchronous schema pass for the SQLite path only (the raw sync handle under
- * the async wrapper executes every statement inline). See ensureApiKeysColumns.
- */
-function ensureApiKeysColumnsSync(): void {
-  if (_schemaChecked) return;
-  try {
-    const raw = getDbInstance().raw as unknown as {
-      prepare: (sql: string) => { all: () => Array<{ name?: string }> };
-      exec: (sql: string) => void;
-    };
-    const columnNames = new Set(
-      raw
-        .prepare("PRAGMA table_info(api_keys)")
-        .all()
-        .map((c) => String(c.name ?? ""))
-    );
-    for (const column of API_KEY_COLUMN_FALLBACKS) {
-      if (columnNames.has(column.name)) continue;
-      raw.exec(`ALTER TABLE api_keys ADD COLUMN ${column.definition}`);
-      console.log(`[DB] Added api_keys.${column.name} column`);
-    }
-    _schemaChecked = true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn("[DB] Failed to verify api_keys schema:", message);
-  }
+  return _schemaCheckPromise;
 }
 
 /**
@@ -301,15 +283,10 @@ function ensureApiKeysColumnsSync(): void {
  * Re-creates statements if the underlying DB connection changed (HMR, backup restore).
  */
 let _stmtDb: ApiKeysDbLike | null = null;
-function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
-  // SQLite mode: run the schema pass synchronously so the ALTERs are visible
-  // to the prepares below (PG migrations already created these columns; the
-  // async wrapper's Promise was never awaited here — #8716 family).
-  if (getDbDriver() === "sqlite") {
-    ensureApiKeysColumnsSync();
-  } else {
-    void ensureApiKeysColumns(db);
-  }
+async function getPreparedStatements(db: ApiKeysDbLike): Promise<ApiKeysStatements> {
+  // The fallback-column ALTERs must have completed before the prepares below can
+  // reference those columns on a database created by an older migration.
+  await ensureApiKeysColumns(db);
 
   if (
     !_stmtGetAllKeys ||
@@ -570,11 +547,11 @@ export async function regenerateApiKey(id: string) {
   const newHash = await hashKey(newKey);
   const newPrefix = newKey.slice(0, 12);
 
-  // Update in DB
+  // Update in DB (awaited: the adapter is async in both drivers)
   const updateStmt = db.prepare(
     "UPDATE api_keys SET key = ?, key_hash = ?, key_prefix = ? WHERE id = ?"
   );
-  updateStmt.run(newKey, newHash, newPrefix, id);
+  await updateStmt.run(newKey, newHash, newPrefix, id);
 
   // Invalidate all caches
   clearApiKeyCaches();
@@ -627,7 +604,7 @@ export async function updateApiKeyPermissions(
       }
 ) {
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  getPreparedStatements(db);
+  await getPreparedStatements(db);
 
   const normalized =
     Array.isArray(update) || update === undefined
@@ -1005,7 +982,7 @@ export async function deleteApiKey(id: string) {
  */
 export async function revokeApiKey(id: string): Promise<boolean> {
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  getPreparedStatements(db);
+  await getPreparedStatements(db);
 
   const result = await db
     .prepare(
@@ -1026,7 +1003,7 @@ export async function revokeApiKey(id: string): Promise<boolean> {
  */
 export async function setApiKeyExpiry(id: string, expiresAt: string | null): Promise<boolean> {
   const db = (await getAsyncDb()) as ApiKeysDbLike;
-  getPreparedStatements(db);
+  await getPreparedStatements(db);
 
   const result = await db
     .prepare("UPDATE api_keys SET expires_at = @expiresAt WHERE id = @id")
@@ -1425,6 +1402,7 @@ function clearPreparedStatementCache() {
   _stmtInsertKey = null;
   _stmtDeleteKey = null;
   _schemaChecked = false; // Also reset schema check for new connection
+  _schemaCheckPromise = null;
 }
 
 /**

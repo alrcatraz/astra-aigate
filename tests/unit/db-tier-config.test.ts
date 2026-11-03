@@ -10,8 +10,8 @@ import {
 import { DEFAULT_TIER_CONFIG } from "../../open-sse/services/tierConfig.ts";
 
 describe("tierConfig DB module", () => {
-  beforeEach(() => {
-    initTierConfigTable();
+  beforeEach(async () => {
+    await initTierConfigTable();
   });
 
   it("loadTierConfigFromDb returns null when no config saved", async () => {
@@ -21,7 +21,7 @@ describe("tierConfig DB module", () => {
 
   it("saveTierConfig persists and loadTierConfigFromDb retrieves", async () => {
     const config = { ...DEFAULT_TIER_CONFIG };
-    saveTierConfig(config);
+    await saveTierConfig(config);
     const loaded = await loadTierConfigFromDb();
     assert.ok(loaded, "should return saved config");
     assert.ok(loaded!.freeProviders, "should have freeProviders");
@@ -36,9 +36,9 @@ describe("tierConfig DB module", () => {
 
   it("saveTierConfig overwrites previous config", async () => {
     const config1 = { ...DEFAULT_TIER_CONFIG };
-    saveTierConfig(config1);
+    await saveTierConfig(config1);
     const config2 = { ...DEFAULT_TIER_CONFIG };
-    saveTierConfig(config2);
+    await saveTierConfig(config2);
     const loaded = await loadTierConfigFromDb();
     assert.ok(loaded, "should return config after overwrite");
   });

@@ -1,20 +1,121 @@
-import { getDbInstance, rowToCamel, getAsyncDb } from "./core";
-import type { DatabaseAdapter, RawSyncDb } from "./adapters/types";
+import { rowToCamel, getAsyncDb } from "./core";
+import type { DatabaseAdapter } from "./adapters/types";
 import type { QuotaSnapshotRow, ProviderUtilizationPoint } from "@/shared/types/utilization";
 
 type JsonRecord = Record<string, unknown>;
 
-interface StatementLike<TRow = unknown> {
-  all: (...params: unknown[]) => TRow[];
-  get: (...params: unknown[]) => TRow | undefined;
-  run: (...params: unknown[]) => { changes: number };
-}
-
-interface DbLike {
-  prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
-}
-
 let lastCleanupAt = 0;
+
+// ─── Latest-per-window read-through cache ────────────────────────────────────
+//
+// `getLatestQuotaSnapshotsForConnectionSync` feeds `quotaCache.hydrate`, which is
+// called from `Array.sort` comparators in auth's connection scoring — a
+// comparator cannot await, and PostgreSQL has no synchronous driver. The sync
+// getter therefore reads a module-level snapshot loaded through the async
+// adapter, bounded by a TTL and refreshed in the background (one query per
+// connection per window, never one per lookup).
+const LATEST_SNAPSHOT_CACHE_TTL_MS = 60_000;
+
+interface LatestSnapshotCacheEntry {
+  /** Adapter identity — a reset/open swaps it, so old rows must not leak. */
+  db: DatabaseAdapter;
+  rows: QuotaSnapshotRow[];
+  loadedAt: number;
+}
+
+const latestSnapshotCache = new Map<string, LatestSnapshotCacheEntry>();
+const latestSnapshotInFlight = new Map<string, Promise<void>>();
+
+function rowWindowKey(row: QuotaSnapshotRow): string | null {
+  const record = row as unknown as JsonRecord;
+  const key = record.windowKey ?? record.window_key;
+  return typeof key === "string" ? key : null;
+}
+
+function normalizeWindowSnapshot(snapshot: {
+  provider: string;
+  connection_id: string;
+  window_key: string;
+  remaining_percentage: number | null;
+  is_exhausted: number;
+  next_reset_at: string | null;
+  window_duration_ms: number | null;
+  raw_data: string | null;
+}, createdAt: string): QuotaSnapshotRow {
+  // Same camelCase shape the async readers produce via rowToCamel(): hydrate
+  // accepts both spellings, and the camel one is what it reads first.
+  return {
+    provider: snapshot.provider,
+    connectionId: snapshot.connection_id,
+    windowKey: snapshot.window_key,
+    remainingPercentage: snapshot.remaining_percentage,
+    isExhausted: snapshot.is_exhausted,
+    nextResetAt: snapshot.next_reset_at,
+    windowDurationMs: snapshot.window_duration_ms,
+    rawData: snapshot.raw_data,
+    createdAt,
+  } as unknown as QuotaSnapshotRow;
+}
+
+/** Merge a just-written snapshot into the cache (invalidation on write). */
+function applySnapshotToCache(
+  db: DatabaseAdapter,
+  snapshot: Parameters<typeof normalizeWindowSnapshot>[0],
+  createdAt: string
+): void {
+  const existing = latestSnapshotCache.get(snapshot.connection_id);
+  const usable = existing && existing.db === db ? existing : null;
+  const rows = (usable?.rows ?? []).filter((row) => rowWindowKey(row) !== snapshot.window_key);
+  rows.push(normalizeWindowSnapshot(snapshot, createdAt));
+  // A cache entry created from a single write is partial: mark it stale (0) so
+  // the next synchronous read also kicks a full background refresh, while the
+  // row we just wrote is already visible to this process.
+  latestSnapshotCache.set(snapshot.connection_id, {
+    db,
+    rows,
+    loadedAt: usable ? Date.now() : 0,
+  });
+}
+
+/**
+ * Load the latest row per window for a connection through the async adapter.
+ * Kept private: callers without a sync constraint should use
+ * `getLatestQuotaSnapshotsForConnection`.
+ */
+async function loadLatestSnapshotsForConnection(connectionId: string): Promise<QuotaSnapshotRow[]> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const rows = await db
+    .prepare(
+      `SELECT * FROM (
+         SELECT *, ROW_NUMBER() OVER (
+           PARTITION BY window_key ORDER BY created_at DESC, id DESC
+         ) AS rn
+         FROM quota_snapshots
+         WHERE connection_id = ?
+       )
+       WHERE rn = 1`
+    )
+    .all(connectionId);
+
+  return rows.map((row) => rowToCamel(row) as unknown as QuotaSnapshotRow);
+}
+
+/** One background refresh per connection at a time; failures keep old rows. */
+function refreshLatestSnapshotCache(connectionId: string): void {
+  if (latestSnapshotInFlight.has(connectionId)) return;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const inFlight = (async () => {
+    try {
+      const rows = await loadLatestSnapshotsForConnection(connectionId);
+      latestSnapshotCache.set(connectionId, { db, rows, loadedAt: Date.now() });
+    } catch {
+      // quota_snapshots absent or DB unavailable — keep the previous rows.
+    } finally {
+      latestSnapshotInFlight.delete(connectionId);
+    }
+  })();
+  latestSnapshotInFlight.set(connectionId, inFlight);
+}
 
 export async function saveQuotaSnapshot(
   snapshot: Omit<QuotaSnapshotRow, "id" | "created_at">
@@ -50,6 +151,11 @@ export async function saveQuotaSnapshot(
     }
     throw err;
   }
+
+  // Invalidate/refresh the sync tier with the row we just wrote (no query: the
+  // row is merged in place). Without this, hydrate right after a write would
+  // still see the pre-write snapshot.
+  applySnapshotToCache(db, snapshot, now);
 }
 
 export async function getQuotaSnapshots(opts: {
@@ -108,20 +214,11 @@ export async function getLatestQuotaSnapshotsForConnection(
   const db = getAsyncDb() as unknown as DatabaseAdapter;
 
   try {
-    const rows = await db
-      .prepare(
-        `SELECT * FROM (
-           SELECT *, ROW_NUMBER() OVER (
-             PARTITION BY window_key ORDER BY created_at DESC, id DESC
-           ) AS rn
-           FROM quota_snapshots
-           WHERE connection_id = ?
-         )
-         WHERE rn = 1`
-      )
-      .all(connectionId);
-
-    return rows.map((row) => rowToCamel(row) as unknown as QuotaSnapshotRow);
+    const rows = await loadLatestSnapshotsForConnection(connectionId);
+    // Prime the synchronous tier from this read — the async caller already paid
+    // for the query, so hydrate does not need a second one within the TTL.
+    latestSnapshotCache.set(connectionId, { db, rows, loadedAt: Date.now() });
+    return rows;
   } catch (err: any) {
     if (err?.message?.includes("no such table")) {
       return [];
@@ -133,33 +230,21 @@ export async function getLatestQuotaSnapshotsForConnection(
 /**
  * Synchronous variant of getLatestQuotaSnapshotsForConnection for callers that
  * must stay sync (quotaCache.hydrate, which feeds the Array.sort comparator in
- * auth's connection scoring — a comparator cannot await). Reads via the raw
- * synchronous getDbInstance() handle so it returns an array, never a Promise.
+ * auth's connection scoring — a comparator cannot await).
+ *
+ * Reads the module-level snapshot loaded through the async adapter (TTL + write
+ * invalidation) instead of a raw synchronous handle: PostgreSQL has no sync
+ * driver, and the previous raw-handle read silently hit an in-memory SQLite
+ * scratch in PG mode. A cold/stale entry returns the rows already known
+ * (possibly none for a first-ever call) and refreshes in the background.
  */
 export function getLatestQuotaSnapshotsForConnectionSync(connectionId: string): QuotaSnapshotRow[] {
-  const db = getDbInstance().raw as unknown as RawSyncDb;
-
-  try {
-    const rows = db
-      .prepare(
-        `SELECT * FROM (
-           SELECT *, ROW_NUMBER() OVER (
-             PARTITION BY window_key ORDER BY created_at DESC, id DESC
-           ) AS rn
-           FROM quota_snapshots
-           WHERE connection_id = ?
-         )
-         WHERE rn = 1`
-      )
-      .all(connectionId) as unknown[];
-
-    return rows.map((row) => rowToCamel(row) as unknown as QuotaSnapshotRow);
-  } catch (err: any) {
-    if (err?.message?.includes("no such table")) {
-      return [];
-    }
-    throw err;
-  }
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const cached = latestSnapshotCache.get(connectionId);
+  const usable = cached && cached.db === db ? cached : null;
+  const fresh = usable !== null && Date.now() - usable.loadedAt < LATEST_SNAPSHOT_CACHE_TTL_MS;
+  if (!fresh) refreshLatestSnapshotCache(connectionId);
+  return usable ? usable.rows : [];
 }
 
 export async function getAggregatedSnapshots(opts: {
@@ -248,6 +333,8 @@ export async function cleanupOldSnapshots(retentionDays = 90): Promise<number> {
       .prepare("DELETE FROM quota_snapshots WHERE created_at < ?")
       .run(cutoffDate);
     lastCleanupAt = now;
+    // The sync read tier may still hold rows this delete just removed.
+    latestSnapshotCache.clear();
     return result.changes;
   } catch (err: any) {
     if (err?.message?.includes("no such table")) {

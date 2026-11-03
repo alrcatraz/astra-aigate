@@ -686,7 +686,7 @@ export async function handleComboChat({
     });
   }
 
-  const maxRetries = config.maxRetries ?? 1;
+  const maxRetries = config.maxRetries ?? 2;
   const retryDelayMs = resolveDelayMs(config.retryDelayMs, 2000);
   const fallbackDelayMs = resolveDelayMs(config.fallbackDelayMs, 0);
   const maxSetRetries = config.maxSetRetries ?? 0;
@@ -1751,11 +1751,14 @@ export async function handleComboChat({
               if (i > 0) fallbackCount++;
               return null;
             }
-            // Record model lockout immediately on the first transient failure —
-            // once the model is cooling down, retrying it would waste an upstream
-            // call and extend the cooldown via exponential backoff.
+            // Record the model lockout only once the retry budget is spent. A
+            // transient network failure (ECONNRESET before the TLS handshake,
+            // socket hang up, 5xx) is often path-specific and clears on the next
+            // attempt, so locking the model on the first error cost a whole combo
+            // its primary target. Locking on the final attempt keeps the cooldown
+            // behaviour for genuinely dead models without discarding a retryable one.
             let lockoutRecorded = false;
-            if (provider && rawModel && retry === 0 && !scopedFailure) {
+            if (provider && rawModel && retry === maxRetries && !scopedFailure) {
               const mlSettings = resolveModelLockoutSettings(settings);
               if (mlSettings.enabled && mlSettings.errorCodes.includes(result.status)) {
                 recordModelLockoutFailure(
@@ -2191,7 +2194,7 @@ async function handleRoundRobinCombo({
   // #3872: pre-cascade queue depth — lower values fail over to the next combo member
   // sooner under concurrency saturation (0 = never queue). Default 20 (backward-compat).
   const queueDepth = resolveComboQueueDepth(config);
-  const maxRetries = config.maxRetries ?? 1;
+  const maxRetries = config.maxRetries ?? 2;
   const retryDelayMs = resolveDelayMs(config.retryDelayMs, 2000);
   const fallbackDelayMs = resolveDelayMs(config.fallbackDelayMs, 0);
   const reasoningTokenBufferEnabled = config.reasoningTokenBufferEnabled !== false;

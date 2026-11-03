@@ -315,12 +315,16 @@ export async function registerNodejs(): Promise<void> {
   // See: https://github.com/diegosouzapw/AI Gate/issues/3625 (Part A)
   try {
     const { clearStaleCrashCooldowns } = await import("@/lib/db/providers");
-    const { cleared } = clearStaleCrashCooldowns();
+    const { cleared } = await clearStaleCrashCooldowns();
     if (cleared > 0) {
       console.log(
         `[STARTUP] Cleared ${cleared} stale transient connection cooldown(s) from prior crash (#3625)`
       );
     }
+    // Warm the synchronous rate-limit snapshot (account selection reads it per
+    // candidate) and keep it refreshed on a short unref'd timer.
+    const { startRateLimitSnapshotRefresh } = await import("@/lib/db/providers/rateLimit");
+    startRateLimitSnapshotRefresh();
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn("[STARTUP] Could not clear stale crash cooldowns (non-fatal):", msg);
@@ -430,7 +434,7 @@ export async function registerNodejs(): Promise<void> {
     // the unused `server-init.ts`, so it never ran in production.
     const { hydrateThinkingBudgetConfig } =
       await import("@omniroute/open-sse/services/thinkingBudget.ts");
-    if (hydrateThinkingBudgetConfig(settings)) {
+    if (await hydrateThinkingBudgetConfig(settings)) {
       console.log("[STARTUP] Thinking-Budget config restored from settings");
     }
 
@@ -573,6 +577,21 @@ export async function registerNodejs(): Promise<void> {
         .catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
           console.warn("[STARTUP] Arena ELO sync failed to start (non-fatal):", msg);
+        }),
+
+      // Auto-combo fitness snapshot: pre-load model_intelligence + model capabilities
+      // before the first request, so auto-routing scores against a warm snapshot
+      // instead of paying the cold DB read on the hot path. startFitnessSnapshotRefresh()
+      // unrefs its own refresh timer and is idempotent; the immediate refresh it kicks
+      // off is fire-and-forget, so this never blocks startup. Never fatal.
+      import("@omniroute/open-sse/services/autoCombo/taskFitness")
+        .then((m) => {
+          m.startFitnessSnapshotRefresh();
+          console.log("[STARTUP] Auto-combo fitness snapshot refresh started");
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[STARTUP] Fitness snapshot refresh failed to start (non-fatal):", msg);
         }),
 
       // Pricing sync: opt-in external pricing data (self-gated by PRICING_SYNC_ENABLED inside

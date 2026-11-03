@@ -125,16 +125,7 @@ SELECT
   CASE WHEN request_body IS NOT NULL AND TRIM(request_body) != '' THEN 1 ELSE 0 END AS has_request_body,
   CASE WHEN response_body IS NOT NULL AND TRIM(response_body) != '' THEN 1 ELSE 0 END AS has_response_body,
   COALESCE(has_pipeline_details, 0) AS has_pipeline_details,
-  CASE
-    WHEN request_type = 'search' AND request_body IS NOT NULL AND json_valid(request_body)
-      THEN json_object(
-        'query',
-        COALESCE(json_extract(request_body, '$.query'), ''),
-        'filters',
-        json(COALESCE(json_remove(request_body, '$.query', '$.provider'), '{}'))
-      )
-    ELSE NULL
-  END AS request_summary
+  NULL AS request_summary
 FROM call_logs_v1_legacy;
 
 CREATE INDEX idx_cl_timestamp ON call_logs(timestamp);
@@ -143,3 +134,35 @@ CREATE INDEX idx_call_logs_requested_model ON call_logs(requested_model);
 CREATE INDEX idx_call_logs_request_type ON call_logs(request_type);
 CREATE INDEX idx_cl_combo_target
   ON call_logs(combo_name, combo_execution_key, timestamp);
+
+-- Search summaries need SQLite's JSON1 functions: json_extract() returns the
+-- dynamically typed value, json_remove() drops keys and json() marks the value
+-- as JSON so it nests instead of being stored as a string. PostgreSQL's jsonb
+-- operators express the same three operations, so the backfill is split out and
+-- each dialect fills it in its own form — the end state is identical.
+-- @sqlite
+UPDATE call_logs
+SET request_summary = (
+  SELECT json_object(
+    'query', COALESCE(json_extract(l.request_body, '$.query'), ''),
+    'filters', json(COALESCE(json_remove(l.request_body, '$.query', '$.provider'), '{}'))
+  )
+  FROM call_logs_v1_legacy l
+  WHERE l.id = call_logs.id
+    AND l.request_type = 'search'
+    AND l.request_body IS NOT NULL
+    AND json_valid(l.request_body)
+);
+-- @end
+-- @postgres
+UPDATE call_logs c
+SET request_summary = jsonb_build_object(
+  'query', COALESCE((l.request_body::jsonb)->>'query', ''),
+  'filters', (l.request_body::jsonb - 'query' - 'provider')
+)::text
+FROM call_logs_v1_legacy l
+WHERE l.id = c.id
+  AND l.request_type = 'search'
+  AND l.request_body IS NOT NULL
+  AND pg_input_is_valid(l.request_body, 'jsonb');
+-- @end

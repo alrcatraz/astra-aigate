@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDbInstance, getDbDriver, SQLITE_FILE } from "@/lib/db/core";
+import { getAsyncDb, getDbDriver, SQLITE_FILE } from "@/lib/db/core";
 import { exportAllSummaryRows } from "@/lib/db/backup";
 import { CALL_LOGS_DIR } from "@/lib/usage/callLogArtifacts";
 import fs from "fs";
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const db = getDbInstance();
+    const db = await getAsyncDb();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const tempDir = path.join(os.tmpdir(), `omniroute-export-${timestamp}`);
     const zipPath = path.join(os.tmpdir(), `omniroute-full-backup-${timestamp}.zip`);

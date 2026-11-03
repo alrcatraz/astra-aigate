@@ -128,8 +128,14 @@ export async function createVirtualAutoCombo(
   }
 
   try {
-    const { createVirtualAutoCombo: createVirtual } =
-      await import("@omniroute/open-sse/services/autoCombo/virtualFactory.ts");
+    const [{ createVirtualAutoCombo: createVirtual }, { ensureFitnessSnapshot }] =
+      await Promise.all([
+        import("@omniroute/open-sse/services/autoCombo/virtualFactory.ts"),
+        import("@omniroute/open-sse/services/autoCombo/taskFitness.ts"),
+      ]);
+    // Ranking scores every candidate against model_intelligence; load the snapshot
+    // once here (async) so scoring stays synchronous and never touches the DB.
+    await ensureFitnessSnapshot();
     // #7819 (Level 2): scope candidate exclusions to this API key + the
     // requested auto channel (e.g. "auto/best-coding"). Omitted for any
     // caller that doesn't pass apiKeyId — routing stays unfiltered.

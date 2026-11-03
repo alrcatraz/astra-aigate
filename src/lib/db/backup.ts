@@ -693,14 +693,18 @@ export async function exportAllSummaryRows(): Promise<ExportAllRows> {
  * intentional: the import route opens a *temporary* database for validation,
  * not the live one.
  */
-export function getTableNamesFromAdapter(adapter: {
+/**
+ * List the tables of a SQLite file opened through an adapter. Async because the
+ * adapter's execution methods are async-only; the `sqlite_master` probe itself is
+ * legitimate here — the caller validates an arbitrary SQLite backup file, which is
+ * SQLite by definition, not the live database.
+ */
+export async function getTableNamesFromAdapter(adapter: {
   prepare: (sql: string) => { all: () => Promise<unknown[]> };
-}): string[] {
-  const rows = adapter
+}): Promise<string[]> {
+  const rows = (await adapter
     .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-    .all() as unknown as Array<{
-    name: string;
-  }>;
+    .all()) as Array<{ name: string }>;
   return rows.map((r) => r.name);
 }
 

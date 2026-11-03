@@ -198,13 +198,13 @@ test("exportAllSummaryRows — returns api_keys rows (masked prefix only)", asyn
 
 // ──────────────── getTableNamesFromAdapter ────────────────
 
-test("getTableNamesFromAdapter — returns table names from the live db adapter", () => {
+test("getTableNamesFromAdapter — returns table names from the live db adapter", async () => {
   // Use the live db instance (which has been initialized with all migrations)
   // cast to the minimal interface the function requires.
   const db = core.getDbInstance() as {
-    prepare: (sql: string) => { all: () => unknown[] };
+    prepare: (sql: string) => { all: () => Promise<unknown[]> };
   };
-  const tables = backupMod.getTableNamesFromAdapter(db);
+  const tables = await backupMod.getTableNamesFromAdapter(db);
 
   assert.ok(Array.isArray(tables), "must return an array");
   assert.ok(tables.includes("skills"), "skills table must be present");
