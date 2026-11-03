@@ -727,8 +727,39 @@ export function sqliteAsyncAdapter(sync: SqliteDatabase): DatabaseAdapter {
       };
       return t;
     },
-    immediate: (fn: () => Promise<void> | void) =>
-      Promise.resolve(sync.immediate(fn as () => void)),
+    // better-sqlite3 exposes `immediate` on the transaction function, not on
+    // the Database handle (`db.immediate` is undefined). Drive BEGIN IMMEDIATE
+    // manually — like `transaction` above — so async callbacks work and nested
+    // calls degrade to SAVEPOINTs instead of throwing "cannot start a
+    // transaction within a transaction".
+    immediate: async (fn: () => Promise<void> | void) => {
+      const raw = sync as unknown as { inTransaction: boolean; exec: (sql: string) => unknown };
+      if (raw.inTransaction) {
+        const sp = `sp_${Math.random().toString(36).slice(2, 10)}`;
+        raw.exec(`SAVEPOINT ${sp}`);
+        try {
+          await fn();
+          raw.exec(`RELEASE ${sp}`);
+        } catch (err) {
+          raw.exec(`ROLLBACK TO ${sp}`);
+          raw.exec(`RELEASE ${sp}`);
+          throw err;
+        }
+        return;
+      }
+      raw.exec("BEGIN IMMEDIATE");
+      try {
+        await fn();
+        raw.exec("COMMIT");
+      } catch (err) {
+        try {
+          raw.exec("ROLLBACK");
+        } catch {
+          /* connection may be gone — nothing more to do */
+        }
+        throw err;
+      }
+    },
     backup: (destination: string) => Promise.resolve(sync.backup(destination)),
     checkpoint: (mode?: string) => Promise.resolve(sync.checkpoint(mode as never)),
     close: () => Promise.resolve(sync.close()),
