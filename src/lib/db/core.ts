@@ -26,7 +26,11 @@ import path from "path";
 import os from "node:os";
 import fs from "fs";
 import { resolveWritableDataDir, getLegacyDotDataDir } from "../dataPaths";
-import { runMigrations } from "./migrationRunner";
+import {
+  runMigrations,
+  migrationsTableExists,
+  applyMigrationFilePostgres,
+} from "./migrationRunner";
 // Type-only import: erased at runtime, so `core.ts` -> `healthCheck.ts` is a
 // compile-time-only edge and no longer half of a runtime import cycle.
 // `runDbHealthCheck` itself is imported lazily (dynamic `import()`) at its two
@@ -1602,6 +1606,85 @@ export function getDriverInfo(): DbDriverInfo | null {
 }
 
 /**
+ * PostgreSQL schema bootstrap.
+ *
+ * SQLite creates its schema as a side effect of opening the file: SCHEMA_SQL,
+ * then the column/index backfills, then the versioned migrations. PostgreSQL has
+ * no such hook — the connection is lazy and the database may be completely empty
+ * — so a fresh deployment used to end up with zero tables, and any migration
+ * added after the last one-shot copy (proxy_logs was the case that surfaced it)
+ * was missing at runtime.
+ *
+ * This replays the same three steps through the PostgreSQL execution shim in
+ * migrationRunner, which translates every SQLite-only construct (or throws —
+ * nothing is skipped). Memoized per adapter instance so repeated
+ * ensureDbInitialized() calls do not re-scan; a failed run is forgotten so the
+ * next boot retries instead of caching the error.
+ */
+const postgresSchemaReady = new WeakMap<DatabaseAdapter, Promise<void>>();
+
+/**
+ * Column + index backfills, the PostgreSQL counterpart of
+ * applySchemaBackfillsSync(). `ADD COLUMN IF NOT EXISTS` makes it idempotent, so
+ * no PRAGMA probe is needed; the column types are already portable (TEXT /
+ * INTEGER / INTEGER DEFAULT 0 …).
+ */
+async function applyPostgresSchemaBackfills(db: DatabaseAdapter): Promise<void> {
+  const tableExists = async (table: string): Promise<boolean> => {
+    const row = await db
+      .prepare(
+        `SELECT table_name AS name FROM information_schema.tables
+          WHERE table_schema = current_schema() AND table_name = ?`
+      )
+      .get(table);
+    return Boolean(row);
+  };
+
+  for (const [table, columns] of SCHEMA_BACKFILL_COLUMNS) {
+    if (!(await tableExists(table))) continue;
+    for (const [column, type] of columns) {
+      await db.exec(
+        `ALTER TABLE ${quoteIdentifier(table)} ADD COLUMN IF NOT EXISTS ` +
+          `${quoteIdentifier(column)} ${type}`
+      );
+    }
+  }
+  for (const [table, ddl] of SCHEMA_BACKFILL_INDEXES) {
+    if (await tableExists(table)) await db.exec(ddl);
+  }
+}
+
+async function ensurePostgresSchema(db: DatabaseAdapter): Promise<void> {
+  const inFlight = postgresSchemaReady.get(db);
+  if (inFlight) return inFlight;
+
+  const run = (async () => {
+    // 1. Base schema — the same SQL the SQLite open path applies before any
+    //    migration, so PG gets the columns that only exist there (e.g.
+    //    usage_history.account_key, which migration 127 backfills).
+    await applyMigrationFilePostgres(db, "schema:BASE_SCHEMA", SCHEMA_SQL);
+    // 2. Column / index backfills.
+    await applyPostgresSchemaBackfills(db);
+    // 3. Versioned migrations (001…N). Absent tracking table == brand-new
+    //    database: runMigrations' mass-migration safety check must not treat a
+    //    first-time build as a restored/wiped DB.
+    const isNewDb = !(await migrationsTableExists(db));
+    const applied = await runMigrations(db, { isNewDb });
+    if (applied > 0) {
+      console.log(`[DB] Postgres schema ready — ${applied} migration(s) applied.`);
+    }
+  })();
+
+  postgresSchemaReady.set(db, run);
+  try {
+    await run;
+  } catch (error) {
+    postgresSchemaReady.delete(db);
+    throw error;
+  }
+}
+
+/**
  * Async initializer that pre-resolves the SQLite runtime before first DB access.
  *
  * Call this at process startup (before any call to getDbInstance()) so that
@@ -1615,7 +1698,8 @@ export async function ensureDbInitialized(): Promise<void> {
   // Callers on the sync path (getDbInstance) are handled separately (transition
   // warning), but the boot probe must not create a SQLite file next to PG.
   if (getDbDriver() === "postgres") {
-    await initAsyncDb();
+    const pgDb = await initAsyncDb();
+    await ensurePostgresSchema(pgDb);
     return;
   }
 
