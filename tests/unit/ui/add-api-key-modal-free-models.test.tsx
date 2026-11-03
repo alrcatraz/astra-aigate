@@ -122,32 +122,29 @@ describe("AddApiKeyModal — import only free models", () => {
 });
 
 describe("AddApiKeyModal — quota scraping fields", () => {
-  it("saves OpenCode Go workspace and auth cookie in providerSpecificData", async () => {
+  it("uses the official OpenCode Go usage API, so no manual workspace/cookie fields are rendered", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const el = render({ provider: "opencode-go", providerName: "OpenCode Go", onSave });
+
+    // The official usage API supersedes the manual scraping fields; keeping a
+    // hidden input would silently re-introduce a second, stale credential path.
+    expect(el.querySelector('input[name="opencodeGoWorkspaceId"]')).toBeNull();
+    expect(el.querySelector('input[name="opencodeGoAuthCookie"]')).toBeNull();
 
     const nameInput = el.querySelector<HTMLInputElement>(
       `input[placeholder="${NAME_PLACEHOLDER}"]`
     )!;
     const apiKeyInput = el.querySelector<HTMLInputElement>('input[type="password"]')!;
-    const workspaceInput = el.querySelector<HTMLInputElement>(
-      'input[name="opencodeGoWorkspaceId"]'
-    );
-    const cookieInput = el.querySelector<HTMLInputElement>('input[name="opencodeGoAuthCookie"]');
-    expect(workspaceInput).toBeTruthy();
-    expect(cookieInput).toBeTruthy();
 
     await setInputValue(nameInput, "OpenCode Go");
     await setInputValue(apiKeyInput, "test-opencode-go-credential");
-    await setInputValue(workspaceInput!, "workspace-123");
-    await setInputValue(cookieInput!, "auth=opencode-cookie");
 
     await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];
-    expect(payload.providerSpecificData?.opencodeGoWorkspaceId).toBe("workspace-123");
-    expect(payload.providerSpecificData?.opencodeGoAuthCookie).toBe("auth=opencode-cookie");
+    expect(payload.providerSpecificData?.opencodeGoWorkspaceId).toBeUndefined();
+    expect(payload.providerSpecificData?.opencodeGoAuthCookie).toBeUndefined();
   });
 
   it("saves Ollama Cloud usage cookie in providerSpecificData", async () => {

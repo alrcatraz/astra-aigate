@@ -16,11 +16,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
+import { projectMigrationSql } from "../../src/lib/db/migrationRunner";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MIGRATION_107 = fs.readFileSync(
-  path.join(__dirname, "../../src/lib/db/migrations/107_quota_combos_quota_share_strategy.sql"),
-  "utf-8"
+const MIGRATION_107 = projectMigrationSql(
+  "107_quota_combos_quota_share_strategy.sql",
+  fs.readFileSync(
+    path.join(__dirname, "../../src/lib/db/migrations/107_quota_combos_quota_share_strategy.sql"),
+    "utf-8"
+  ),
+  "sqlite"
 );
 
 interface TestDb {

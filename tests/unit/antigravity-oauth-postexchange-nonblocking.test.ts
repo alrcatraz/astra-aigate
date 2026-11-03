@@ -45,6 +45,23 @@ test.afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
+/**
+ * node's AbortSignal.timeout() arms an *unref'd* timer, so a test whose only
+ * pending work is that signal lets the event loop drain, and node:test cancels
+ * the case with "Promise resolution is still pending...". Racing a ref'd timer
+ * keeps the loop alive until the implementation's own deadline fires;
+ * clearTimeout stops the guard leaking into the next test.
+ */
+function keepLoopAlive<T>(work: Promise<T>, ms = 40_000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const guard = new Promise<T>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`keepLoopAlive guard fired after ${ms}ms`)), ms);
+  });
+  return Promise.race([work, guard]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 test("postExchange returns before onboarding finishes (fire-and-forget — never blocks login)", async () => {
   // The onboard call is gated: it does not resolve until we release it AFTER
   // postExchange has already returned. With the old inline `await` loop,
@@ -74,7 +91,7 @@ test("postExchange returns before onboarding finishes (fire-and-forget — never
   }) as typeof fetch;
 
   const start = Date.now();
-  const result = await antigravity.postExchange({ access_token: "tok" } as never);
+  const result = await keepLoopAlive(antigravity.postExchange({ access_token: "tok" } as never));
   const elapsed = Date.now() - start;
 
   assert.ok(elapsed < 3000, `postExchange must not block on onboarding; took ${elapsed}ms`);
@@ -95,7 +112,7 @@ test("postExchange stays timeout-bounded when loadCodeAssist/userinfo stall (no 
   }) as typeof fetch;
 
   const start = Date.now();
-  const result = await antigravity.postExchange({ access_token: "tok" } as never);
+  const result = await keepLoopAlive(antigravity.postExchange({ access_token: "tok" } as never));
   const elapsed = Date.now() - start;
 
   // userInfo + loadCodeAssist + onboardUser(attempt) are each AbortSignal.timeout(8s)-bounded.
@@ -146,7 +163,7 @@ test("postExchange attempts onboarding when projectId is empty and returns disco
     return jsonRes({});
   }) as typeof fetch;
 
-  const result = await antigravity.postExchange({ access_token: "tok" } as never);
+  const result = await keepLoopAlive(antigravity.postExchange({ access_token: "tok" } as never));
 
   assert.ok(onboardUserCalled, "onboardUser must be called when projectId is empty");
   assert.equal(
@@ -182,7 +199,7 @@ test("postExchange falls back to empty projectId when onboardUser fails", async 
     return jsonRes({});
   }) as typeof fetch;
 
-  const result = await antigravity.postExchange({ access_token: "tok" } as never);
+  const result = await keepLoopAlive(antigravity.postExchange({ access_token: "tok" } as never));
 
   assert.ok(onboardUserCalled, "onboardUser must still be attempted even if it may fail");
   assert.equal(
@@ -211,7 +228,7 @@ test("postExchange is timeout-bounded during onboarding attempt (empty projectId
   }) as typeof fetch;
 
   const start = Date.now();
-  const result = await antigravity.postExchange({ access_token: "tok" } as never);
+  const result = await keepLoopAlive(antigravity.postExchange({ access_token: "tok" } as never));
   const elapsed = Date.now() - start;
 
   assert.ok(elapsed < 22000, `onboarding attempt must be timeout-bounded; took ${elapsed}ms`);
