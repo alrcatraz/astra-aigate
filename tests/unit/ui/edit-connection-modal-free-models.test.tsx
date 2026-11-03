@@ -180,7 +180,7 @@ describe("EditConnectionModal — import only free models", () => {
 });
 
 describe("EditConnectionModal — quota scraping fields", () => {
-  it("saves OpenCode Go workspace and replacement auth cookie", async () => {
+  it("uses the official OpenCode Go usage API, so no manual workspace/cookie fields are rendered", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const el = render({
       providerId: "opencode-go",
@@ -194,22 +194,17 @@ describe("EditConnectionModal — quota scraping fields", () => {
       onSave,
     });
 
-    const workspaceInput = el.querySelector<HTMLInputElement>(
-      'input[name="opencodeGoWorkspaceId"]'
-    );
-    const cookieInput = el.querySelector<HTMLInputElement>('input[name="opencodeGoAuthCookie"]');
-    expect(workspaceInput).toBeTruthy();
-    expect(cookieInput).toBeTruthy();
-    expect(workspaceInput!.value).toBe("workspace-existing");
-    await setInputValue(workspaceInput!, "workspace-updated");
-    await setInputValue(cookieInput!, "auth=opencode-cookie");
+    // Manual scraping inputs were replaced by the official usage API: editing an
+    // OpenCode Go connection must neither render them nor write those keys back.
+    expect(el.querySelector('input[name="opencodeGoWorkspaceId"]')).toBeNull();
+    expect(el.querySelector('input[name="opencodeGoAuthCookie"]')).toBeNull();
 
     await click(saveButton(el));
 
     await waitFor(() => onSave.mock.calls.length > 0);
     const payload = onSave.mock.calls[0][0];
-    expect(payload.providerSpecificData?.opencodeGoWorkspaceId).toBe("workspace-updated");
-    expect(payload.providerSpecificData?.opencodeGoAuthCookie).toBe("auth=opencode-cookie");
+    expect(payload.providerSpecificData?.opencodeGoWorkspaceId).toBeUndefined();
+    expect(payload.providerSpecificData?.opencodeGoAuthCookie).toBeUndefined();
   });
 
   it("omits Ollama Cloud usage cookie when the edit field is left blank", async () => {
