@@ -1,32 +1,27 @@
 /**
- * Proxy Logger — Hybrid in-memory + SQLite persistence
+ * Proxy Logger — Hybrid in-memory + persisted log store
  *
- * Keeps a fast in-memory ring buffer for real-time dashboard AND
- * persists to SQLite so logs survive server restarts.
+ * Keeps a fast in-memory ring buffer for real-time dashboard AND persists
+ * entries so logs survive server restarts. Persistence goes through the async
+ * DB adapter (SQLite in local mode, PostgreSQL in PG mode) so this module no
+ * longer holds the synchronous handle — but every caller stays synchronous:
+ * reads come from the ring buffer, writes are fire-and-forget.
  *
  * Pattern follows callLogs.js (T-15 decomposition).
  */
 import { v4 as uuidv4 } from "uuid";
-import { getDbInstance, isCloud, isBuildPhase } from "./db/core";
+import { getAsyncDb, isCloud, isBuildPhase } from "./db/core";
+import type { DatabaseAdapter } from "./db/adapters/types";
 
 const shouldPersistToDisk = !isCloud && !isBuildPhase;
 
 const MAX_IN_MEMORY_ENTRIES = 200;
 
-/**
- * Synchronous view of the SQLite handle used by this (not-yet-migrated) module.
- * `getDbInstance()` is typed as the async `DatabaseAdapter`, so cast to a
- * minimal sync interface — proxy logging runs on the request hot path (sync)
- * and must not await.
- */
-interface ProxyLoggerSyncStmt {
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
-}
-interface ProxyLoggerSyncDb {
-  prepare(sql: string): ProxyLoggerSyncStmt;
-}
+/** Shared statement text so the shape is defined once, next to the columns. */
+const INSERT_PROXY_LOG_SQL = `INSERT INTO proxy_logs (id, timestamp, status, proxy_type, proxy_host, proxy_port,
+   level, level_id, provider, target_url, public_ip, latency_ms, error,
+   connection_id, combo_id, account, tls_fingerprint)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 interface ProxyInfo {
   type: string;
@@ -75,13 +70,20 @@ const proxyLogs: ProxyLogEntry[] = [];
 
 // ──────────────── Startup: hydrate from DB ────────────────
 
-function loadFromDb() {
+/**
+ * Hydrate the in-memory ring buffer from persistence.
+ *
+ * Fire-and-forget: module import must not block on I/O, and the adapter is
+ * async-only in both drivers. A failure here costs the dashboard its history
+ * after a restart — nothing functional — so it is logged and swallowed.
+ */
+async function loadFromDb(): Promise<void> {
   if (!shouldPersistToDisk) return;
   try {
-    const db = getDbInstance() as unknown as ProxyLoggerSyncDb;
-    const rows = db
+    const db = getAsyncDb() as unknown as DatabaseAdapter;
+    const rows = (await db
       .prepare("SELECT * FROM proxy_logs ORDER BY timestamp DESC LIMIT ?")
-      .all(MAX_IN_MEMORY_ENTRIES) as any[];
+      .all(MAX_IN_MEMORY_ENTRIES)) as any[];
 
     for (const row of rows) {
       proxyLogs.push({
@@ -107,14 +109,53 @@ function loadFromDb() {
     }
 
     if (proxyLogs.length > 0) {
-      console.log(`[proxyLogger] Loaded ${proxyLogs.length} proxy logs from SQLite`);
+      console.log(`[proxyLogger] Loaded ${proxyLogs.length} proxy logs from the database`);
     }
   } catch (err: any) {
-    console.warn("[proxyLogger] Failed to load from DB:", err.message);
+    console.warn("[proxyLogger] Failed to load from DB:", err?.message ?? err);
   }
 }
 
-loadFromDb();
+void loadFromDb().catch((err: any) => {
+  console.warn("[proxyLogger] Failed to load from DB:", err?.message ?? err);
+});
+
+// ──────────────── Persistence (fire-and-forget) ────────────────
+
+/**
+ * Write one entry through the async adapter. Never awaited by callers: proxy
+ * logging sits on the request hot path and must stay synchronous from the
+ * caller's point of view. Errors are reported and dropped, mirroring the old
+ * `try/catch + warn` behaviour.
+ */
+async function persistProxyLog(log: ProxyLogEntry): Promise<void> {
+  try {
+    const db = getAsyncDb() as unknown as DatabaseAdapter;
+    await db
+      .prepare(INSERT_PROXY_LOG_SQL)
+      .run(
+        log.id,
+        log.timestamp,
+        log.status,
+        log.proxy?.type || null,
+        log.proxy?.host || null,
+        log.proxy?.port ? Number(log.proxy.port) : null,
+        log.level,
+        log.levelId,
+        log.provider,
+        log.targetUrl,
+        log.clientIp,
+        log.latencyMs,
+        log.error,
+        log.connectionId,
+        log.comboId,
+        log.account,
+        log.tlsFingerprint ? 1 : 0
+      );
+  } catch (err: any) {
+    console.warn("[proxyLogger] Failed to persist:", err?.message ?? err);
+  }
+}
 
 // ──────────────── Log a proxy event ────────────────
 
@@ -154,39 +195,11 @@ export function logProxyEvent(entry: ProxyLogInput) {
     proxyLogs.length = MAX_IN_MEMORY_ENTRIES;
   }
 
-  // 2. Persist to SQLite
+  // 2. Persist through the async adapter, off the request path. Logging must
+  //    never make a caller wait (or fail) on storage, so this is fire-and-forget
+  //    and the helper swallows its own errors — no unhandled rejections.
   if (shouldPersistToDisk) {
-    try {
-      const db = getDbInstance() as unknown as ProxyLoggerSyncDb;
-      db.prepare(
-        `INSERT INTO proxy_logs (id, timestamp, status, proxy_type, proxy_host, proxy_port,
-          level, level_id, provider, target_url, public_ip, latency_ms, error,
-          connection_id, combo_id, account, tls_fingerprint)
-        VALUES (@id, @timestamp, @status, @proxyType, @proxyHost, @proxyPort,
-          @level, @levelId, @provider, @targetUrl, @clientIp, @latencyMs, @error,
-          @connectionId, @comboId, @account, @tlsFingerprint)`
-      ).run({
-        id: log.id,
-        timestamp: log.timestamp,
-        status: log.status,
-        proxyType: log.proxy?.type || null,
-        proxyHost: log.proxy?.host || null,
-        proxyPort: log.proxy?.port ? Number(log.proxy.port) : null,
-        level: log.level,
-        levelId: log.levelId,
-        provider: log.provider,
-        targetUrl: log.targetUrl,
-        clientIp: log.clientIp,
-        latencyMs: log.latencyMs,
-        error: log.error,
-        connectionId: log.connectionId,
-        comboId: log.comboId,
-        account: log.account,
-        tlsFingerprint: log.tlsFingerprint ? 1 : 0,
-      });
-    } catch (err: any) {
-      console.warn("[proxyLogger] Failed to persist:", err.message);
-    }
+    void persistProxyLog(log);
   }
 
   return log;
@@ -241,15 +254,19 @@ export function getProxyLogs(filters: ProxyLogFilters = {}) {
 
 // ──────────────── Clear ────────────────
 
+async function clearProxyLogsInDb(): Promise<void> {
+  try {
+    const db = getAsyncDb() as unknown as DatabaseAdapter;
+    await db.prepare("DELETE FROM proxy_logs").run();
+  } catch (err: any) {
+    console.warn("[proxyLogger] Failed to clear DB:", err?.message ?? err);
+  }
+}
+
 export function clearProxyLogs() {
   proxyLogs.length = 0;
 
   if (shouldPersistToDisk) {
-    try {
-      const db = getDbInstance() as unknown as ProxyLoggerSyncDb;
-      db.prepare("DELETE FROM proxy_logs").run();
-    } catch (err: any) {
-      console.warn("[proxyLogger] Failed to clear DB:", err.message);
-    }
+    void clearProxyLogsInDb();
   }
 }
