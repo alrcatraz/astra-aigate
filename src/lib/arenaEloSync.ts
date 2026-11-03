@@ -396,7 +396,7 @@ export async function syncArenaElo(dryRun = false): Promise<SyncResult> {
 
     if (!dryRun && entries.length > 0) {
       try {
-        bulkUpsertModelIntelligence(entries);
+        await bulkUpsertModelIntelligence(entries);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.warn(`[ARENA_ELO_SYNC] Failed to bulk upsert intelligence: ${message}`);

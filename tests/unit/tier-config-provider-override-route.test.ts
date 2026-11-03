@@ -110,7 +110,7 @@ test("route round-trips cleanly against an already-populated tier_config table (
   // no schema change, so GET/PUT must work unmodified against that row.
   const { saveTierConfig } = await import("../../src/lib/db/tierConfig.ts");
   const { DEFAULT_TIER_CONFIG } = await import("../../open-sse/services/tierConfig.ts");
-  saveTierConfig({
+  await saveTierConfig({
     ...DEFAULT_TIER_CONFIG,
     providerOverrides: [{ provider: "pre-existing-provider", tier: "cheap" }],
   });

@@ -12,6 +12,7 @@ import { getQdrantConfig, checkQdrantHealth, searchSemanticMemory } from "./qdra
 import type { MemoryEngineStatus } from "@/shared/schemas/memory";
 import { estimateTokens, parseMetadata, rowToMemory, getRelevanceScore } from "./retrieval/scoring";
 import type { MemoryRow } from "./retrieval/scoring";
+import { memoryFtsSpec, memoryFtsAvailable } from "./ftsDialect";
 
 const log = logger("MEMORY_RETRIEVAL");
 
@@ -98,10 +99,10 @@ async function buildFtsRows(apiKeyId: string, config: FtsColConfig): Promise<Mem
     retentionDays,
   } = config;
 
+  const ftsSpec = memoryFtsSpec(getAsyncDb().driver, tableName);
   let ftsQueryStr =
-    `SELECT m.* FROM ${tableName} m ` +
-    `JOIN memory_fts f ON m.memory_id = f.rowid ` +
-    `WHERE f.memory_fts MATCH ? AND m.${apiKeyCol} = ? ` +
+    `SELECT m.* FROM ${ftsSpec.from} ` +
+    `WHERE ${ftsSpec.match} AND m.${apiKeyCol} = ? ` +
     `AND (m.${expiresCol} IS NULL OR m.${expiresCol} > ?)`;
   if (scope === "session" && sessionId) {
     ftsQueryStr += ` AND m.${sessionCol} = ?`;
@@ -109,9 +110,9 @@ async function buildFtsRows(apiKeyId: string, config: FtsColConfig): Promise<Mem
   if (retentionDays && retentionDays > 0) {
     ftsQueryStr += ` AND m.${createdCol} >= ?`;
   }
-  ftsQueryStr += ` ORDER BY f.rank LIMIT 100`;
+  ftsQueryStr += ` ORDER BY ${ftsSpec.rankExpr} LIMIT 100`;
 
-  const ftsParams: unknown[] = [q, apiKeyId, new Date().toISOString()];
+  const ftsParams: unknown[] = [...ftsSpec.leadParams(q), apiKeyId, new Date().toISOString()];
   if (scope === "session" && sessionId) ftsParams.push(sessionId);
   if (retentionDays && retentionDays > 0) {
     const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
@@ -303,7 +304,7 @@ async function retrieveMemoriesInternal(
 
   // Execute query based on strategy
   let rows: MemoryRow[];
-  const ftsAvailable = useModernTable && (await hasTable("memory_fts"));
+  const ftsAvailable = useModernTable && (await memoryFtsAvailable(getAsyncDb(), tableName));
 
   const ftsColConfig: FtsColConfig = {
     apiKeyCol: columns.apiKeyId,
@@ -662,13 +663,13 @@ export async function retrievePreview(
   let totalTokens = 0;
 
   const useModernTable = await hasTable("memories");
-  const ftsAvailable = useModernTable && (await hasTable("memory_fts"));
   const db = getAsyncDb();
 
   const tableName = useModernTable ? "memories" : "memory";
   const apiKeyCol = useModernTable ? "api_key_id" : "apiKeyId";
   const expiresCol = useModernTable ? "expires_at" : "expiresAt";
   const createdCol = useModernTable ? "created_at" : "createdAt";
+  const ftsAvailable = useModernTable && (await memoryFtsAvailable(db, tableName));
 
   // Determine vector store backend
   let vectorStoreBackend: "sqlite-vec" | "qdrant" | "none" = "none";
@@ -906,10 +907,13 @@ export async function retrievePreview(
     // Semantic/hybrid degraded to FTS5
     let ftsRows: MemoryRow[] = [];
     if (query && ftsAvailable) {
+      const ftsSpec = memoryFtsSpec(db.driver, tableName);
       const ftsQueryStr = apiKeyId
-        ? `SELECT m.* FROM ${tableName} m JOIN memory_fts f ON m.memory_id = f.rowid WHERE f.memory_fts MATCH ? AND m.${apiKeyCol} = ? ORDER BY f.rank LIMIT ?`
-        : `SELECT m.* FROM ${tableName} m JOIN memory_fts f ON m.memory_id = f.rowid WHERE f.memory_fts MATCH ? ORDER BY f.rank LIMIT ?`;
-      const ftsP: unknown[] = apiKeyId ? [query, apiKeyId, limit] : [query, limit];
+        ? `SELECT m.* FROM ${ftsSpec.from} WHERE ${ftsSpec.match} AND m.${apiKeyCol} = ? ORDER BY ${ftsSpec.rankExpr} LIMIT ?`
+        : `SELECT m.* FROM ${ftsSpec.from} WHERE ${ftsSpec.match} ORDER BY ${ftsSpec.rankExpr} LIMIT ?`;
+      const ftsP: unknown[] = apiKeyId
+        ? [...ftsSpec.leadParams(query), apiKeyId, limit]
+        : [...ftsSpec.leadParams(query), limit];
       try {
         ftsRows = (await db.prepare(ftsQueryStr).all(...ftsP)) as MemoryRow[];
       } catch {

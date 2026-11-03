@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import os from "os";
-import { getDbInstance, getDbDriver, SQLITE_FILE } from "@/lib/db/core";
+import { getAsyncDb, getDbDriver, SQLITE_FILE } from "@/lib/db/core";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
@@ -21,9 +21,10 @@ export async function GET(request: Request) {
     }
   }
   try {
-    // B1: SQLite-native backup API cannot snapshot a Postgres backend — and
-    // getDbInstance() degrades to an in-memory scratch DB under DB_DRIVER=postgres.
-    // Return a clear 400 instead of silently exporting an empty/non-persistent file.
+    // B1: SQLite-native backup API cannot snapshot a Postgres backend — and the
+    // synchronous handle (getDbInstance) degrades to an in-memory scratch DB under
+    // DB_DRIVER=postgres. Return a clear 400 instead of silently exporting an
+    // empty/non-persistent file.
     if (getDbDriver() === "postgres") {
       return NextResponse.json(
         { error: "Database export is SQLite-only and is unavailable in PostgreSQL mode" },
@@ -39,8 +40,10 @@ export async function GET(request: Request) {
     const tmpDir = os.tmpdir();
     const tmpPath = path.join(tmpDir, exportFilename);
 
-    // Use native SQLite backup API for a consistent snapshot
-    const db = getDbInstance();
+    // Use native SQLite backup API for a consistent snapshot. The async adapter
+    // wraps the same SQLite handle (see sqliteAsyncAdapter) and owns the driver
+    // dispatch, so this stays off the synchronous DB path.
+    const db = await getAsyncDb();
     await db.backup(tmpPath);
 
     const fileBuffer = fs.readFileSync(tmpPath);

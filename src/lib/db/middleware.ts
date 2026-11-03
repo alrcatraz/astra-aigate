@@ -4,12 +4,20 @@
  * Module: src/lib/db/middleware.ts
  * Table: middleware_hooks
  * Logs:  middleware_logs
+ *
+ * Storage path: every statement goes through the async `DatabaseAdapter`
+ * (`getAsyncDb()`), in both SQLite and PostgreSQL modes.
+ *
+ * The two hook *readers* (`getAllMiddlewareHooks`, `getEnabledMiddlewareHooks`)
+ * are synchronous by contract — they feed runtime hook loading — so they serve a
+ * module-level snapshot that is refreshed through the adapter (TTL + explicit
+ * refresh after writes) instead of holding the synchronous SQLite handle.
  */
 
-import { getDbInstance, getAsyncDb } from "@/lib/db/core";
-import type { RawSyncDb } from "@/lib/db/adapters/types";
-import { rowToCamel } from "@/lib/db/core";
-import type { HookConfig, HookConfigRow, HookLogEntry, HookScope } from "@/lib/middleware/types";
+import { getAsyncDb } from "@/lib/db/core";
+import type { DatabaseAdapter } from "@/lib/db/adapters/types";
+import { registerDbStateResetter } from "@/lib/db/stateReset";
+import type { HookConfig, HookConfigRow, HookLogEntry } from "@/lib/middleware/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -47,43 +55,117 @@ function hookConfigToRow(config: HookConfig): HookConfigRow {
   };
 }
 
-// ── CRUD Operations ───────────────────────────────────────────────────────
+// ── Synchronous-read snapshot ─────────────────────────────────────────────
+//
+// Runtime hook loading is synchronous, so the hook list is mirrored into a
+// module-level snapshot that is (re)loaded asynchronously:
+//   • on demand when a synchronous read finds the snapshot missing or stale,
+//   • explicitly after every write through this module.
+// Reads hand out clones, so callers can never mutate the cached rows.
 
-/**
- * Get all hooks from DB.
- */
-export function getAllMiddlewareHooks(): HookConfig[] {
-  // Synchronous getter by contract (runtime hook loading): read through the
-  // synchronous raw handle — SqliteDatabase.prepare() is typed async, but the
-  // runtime handle is the unwrapped sync DB (returns arrays, not Promises).
-  const db = (getDbInstance() as unknown as { raw?: unknown }).raw as RawSyncDb;
-  const rows = db
+const HOOKS_SNAPSHOT_TTL_MS = 30_000;
+
+interface HooksSnapshot {
+  hooks: HookConfig[];
+  loadedAt: number;
+}
+
+let _hooksSnapshot: HooksSnapshot | null = null;
+let _hooksRefresh: Promise<void> | null = null;
+
+function cloneHook(hook: HookConfig): HookConfig {
+  return { ...hook, scope: hook.scope.type === "combo" ? { ...hook.scope } : hook.scope };
+}
+
+async function loadHooksFromDb(): Promise<HookConfig[]> {
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const rows = (await db
     .prepare("SELECT * FROM middleware_hooks ORDER BY priority ASC, name ASC")
-    .all() as HookConfigRow[];
+    .all()) as HookConfigRow[];
   return rows.map(rowToHookConfig);
 }
 
 /**
+ * Reload the hook snapshot through the async adapter. Concurrent callers share
+ * one in-flight load (no N+1); a failure keeps the previous snapshot and is
+ * logged instead of thrown — the synchronous readers have no way to surface it.
+ */
+function refreshMiddlewareHooks(): Promise<void> {
+  if (_hooksRefresh) return _hooksRefresh;
+
+  _hooksRefresh = (async () => {
+    try {
+      const hooks = await loadHooksFromDb();
+      _hooksSnapshot = { hooks, loadedAt: Date.now() };
+    } catch (error) {
+      // Expected before the migration that creates middleware_hooks has run.
+      // Keep the previous snapshot; the next read retries.
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("[DB] middleware hooks snapshot not loaded (will retry):", message);
+    } finally {
+      _hooksRefresh = null;
+    }
+  })();
+
+  return _hooksRefresh;
+}
+
+function readHooksSnapshot(): HookConfig[] {
+  const snapshot = _hooksSnapshot;
+  if (!snapshot || Date.now() - snapshot.loadedAt > HOOKS_SNAPSHOT_TTL_MS) {
+    void refreshMiddlewareHooks();
+  }
+  return (snapshot?.hooks ?? []).map(cloneHook);
+}
+
+/** Keep the snapshot in step with a row this module just mutated. */
+function patchHookSnapshot(name: string, mutate: (hook: HookConfig) => void): void {
+  const hook = _hooksSnapshot?.hooks.find((entry) => entry.name === name);
+  if (hook) mutate(hook);
+}
+
+function resetMiddlewareHookState(): void {
+  _hooksSnapshot = null;
+}
+
+registerDbStateResetter(resetMiddlewareHookState);
+
+// NOTE: no DB access at module load — importing this module must never open a
+// connection (build phase, edge bundling and isolated test workers all import
+// it). The first synchronous read schedules the snapshot load instead; it
+// returns the (empty) snapshot for that one call and is populated from the
+// next read on.
+
+// ── CRUD Operations ───────────────────────────────────────────────────────
+
+/**
+ * Get all hooks from DB.
+ *
+ * Synchronous by contract (runtime hook loading): serves the snapshot above.
+ */
+export function getAllMiddlewareHooks(): HookConfig[] {
+  return readHooksSnapshot();
+}
+
+/**
  * Get enabled hooks from DB (for runtime loading).
+ *
+ * Synchronous by contract (runtime hook loading): filters the snapshot above.
  */
 export function getEnabledMiddlewareHooks(): HookConfig[] {
-  const db = (getDbInstance() as unknown as { raw?: unknown }).raw as RawSyncDb;
-  const rows = db
-    .prepare("SELECT * FROM middleware_hooks WHERE enabled = 1 ORDER BY priority ASC")
-    .all() as HookConfigRow[];
-  return rows.map(rowToHookConfig);
+  return readHooksSnapshot().filter((hook) => hook.enabled);
 }
 
 /**
  * Get scoped hooks for a given combo ID.
  */
 export async function getComboMiddlewareHooks(comboId: string): Promise<HookConfig[]> {
-  const db = getAsyncDb() as any;
-  const rows = db
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
+  const rows = (await db
     .prepare(
       "SELECT * FROM middleware_hooks WHERE enabled = 1 AND (scope_type = 'global' OR (scope_type = 'combo' AND combo_id = ?)) ORDER BY priority ASC"
     )
-    .all(comboId) as HookConfigRow[];
+    .all(comboId)) as HookConfigRow[];
   return rows.map(rowToHookConfig);
 }
 
@@ -91,7 +173,7 @@ export async function getComboMiddlewareHooks(comboId: string): Promise<HookConf
  * Get a single hook by name.
  */
 export async function getMiddlewareHook(name: string): Promise<HookConfig | undefined> {
-  const db = getAsyncDb() as any;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const row = (await db.prepare("SELECT * FROM middleware_hooks WHERE name = ?").get(name)) as
     HookConfigRow | undefined;
   return row ? rowToHookConfig(row) : undefined;
@@ -101,7 +183,7 @@ export async function getMiddlewareHook(name: string): Promise<HookConfig | unde
  * Create a new middleware hook.
  */
 export async function createMiddlewareHook(config: HookConfig): Promise<HookConfig> {
-  const db = getAsyncDb() as any;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const row = hookConfigToRow(config);
   row.created_at = new Date().toISOString();
   row.updated_at = row.created_at;
@@ -115,6 +197,7 @@ export async function createMiddlewareHook(config: HookConfig): Promise<HookConf
     )
     .run(row);
 
+  await refreshMiddlewareHooks();
   return (await getMiddlewareHook(config.name))!;
 }
 
@@ -130,7 +213,7 @@ export async function updateMiddlewareHook(
 
   const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
   const row = hookConfigToRow(updated);
-  const db = getAsyncDb() as any;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
 
   await db
     .prepare(
@@ -150,6 +233,7 @@ export async function updateMiddlewareHook(
     )
     .run(row);
 
+  await refreshMiddlewareHooks();
   return getMiddlewareHook(name);
 }
 
@@ -157,8 +241,9 @@ export async function updateMiddlewareHook(
  * Delete a middleware hook.
  */
 export async function deleteMiddlewareHook(name: string): Promise<boolean> {
-  const db = getAsyncDb() as any;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   const result = await db.prepare("DELETE FROM middleware_hooks WHERE name = ?").run(name);
+  if (result.changes > 0) await refreshMiddlewareHooks();
   return result.changes > 0;
 }
 
@@ -166,7 +251,7 @@ export async function deleteMiddlewareHook(name: string): Promise<boolean> {
  * Increment run count and optionally update last error.
  */
 export async function recordHookExecution(name: string, error?: string): Promise<void> {
-  const db = getAsyncDb() as any;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   if (error) {
     await db
       .prepare(
@@ -180,6 +265,13 @@ export async function recordHookExecution(name: string, error?: string): Promise
       )
       .run(name);
   }
+
+  // Patch the snapshot instead of reloading: this runs once per hook execution.
+  // `updatedAt` is left to the next snapshot reload (it is written by the DB clock).
+  patchHookSnapshot(name, (hook) => {
+    hook.runCount += 1;
+    hook.lastError = error;
+  });
 }
 
 // ── Log Operations ────────────────────────────────────────────────────────
@@ -188,7 +280,7 @@ export async function recordHookExecution(name: string, error?: string): Promise
  * Insert a hook execution log entry.
  */
 export async function insertHookLog(entry: HookLogEntry): Promise<void> {
-  const db = getAsyncDb() as any;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   await db
     .prepare(
       `
@@ -212,7 +304,7 @@ export async function insertHookLog(entry: HookLogEntry): Promise<void> {
  * Get hook execution logs, optionally filtered by hook name.
  */
 export async function getHookLogs(hookName?: string, limit = 50): Promise<HookLogEntry[]> {
-  const db = getAsyncDb() as any;
+  const db = getAsyncDb() as unknown as DatabaseAdapter;
   let rows: any[];
   if (hookName) {
     rows = await db
@@ -236,19 +328,31 @@ export async function getHookLogs(hookName?: string, limit = 50): Promise<HookLo
 }
 
 /**
- * Clean up old hook logs (keep last N entries).
+ * Delete logs beyond the newest `maxEntries`.
+ *
+ * Fire-and-forget housekeeping: the delete goes through the async adapter, so
+ * the caller must not wait for it (this function used to return the adapter's
+ * Promise's `.changes`, i.e. always `undefined` in both drivers).
  */
-export function cleanupHookLogs(maxEntries = 10000): number {
-  const db = getAsyncDb() as any;
-  // Delete logs beyond the max, keeping the most recent
-  const result = db
-    .prepare(
-      `
+export function cleanupHookLogs(maxEntries = 10000): void {
+  void deleteOldHookLogs(maxEntries);
+}
+
+async function deleteOldHookLogs(maxEntries: number): Promise<void> {
+  try {
+    const db = getAsyncDb() as unknown as DatabaseAdapter;
+    // Delete logs beyond the max, keeping the most recent
+    await db
+      .prepare(
+        `
     DELETE FROM middleware_logs WHERE id NOT IN (
       SELECT id FROM middleware_logs ORDER BY timestamp DESC LIMIT ?
     )
   `
-    )
-    .run(maxEntries);
-  return result.changes;
+      )
+      .run(maxEntries);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("[DB] Failed to clean up middleware hook logs:", message);
+  }
 }

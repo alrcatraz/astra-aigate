@@ -1,7 +1,12 @@
 -- Migration 127: Snapshot stable account identity on usage events.
 -- Startup schema ensure adds the columns first so an interrupted pre-marker
 -- upgrade can rerun this atomic backfill and index creation.
-
+--
+-- account_key is compared byte-for-byte by usageIdentityReconciliation, and the
+-- runtime builds it with JSON.stringify (compact, no spaces). PostgreSQL's
+-- array_to_json(ARRAY[...]::text[]) emits the same compact form; jsonb_build_array
+-- would insert ", " and break identity matching.
+-- @sqlite
 UPDATE usage_history
 SET
   account_key = COALESCE(
@@ -115,6 +120,122 @@ SET
     CASE WHEN NULLIF(TRIM(usage_history.connection_id), '') IS NOT NULL THEN 1 ELSE 0 END
   )
 WHERE account_key IS NULL OR account_key = '';
+-- @end
+-- @postgres
+UPDATE usage_history
+SET
+  account_key = COALESCE(
+    (
+      SELECT CASE
+        WHEN c.auth_type = 'oauth'
+          AND c.provider = 'codex'
+          AND pg_input_is_valid(COALESCE(c.provider_specific_data, ''), 'jsonb')
+          AND jsonb_typeof((c.provider_specific_data::jsonb)->'workspaceId') = 'string'
+          AND (c.provider_specific_data::jsonb)->>'workspaceId' <> ''
+          AND c.email <> ''
+        THEN array_to_json(ARRAY[
+          'oauth',
+          c.provider,
+          'workspace',
+          (c.provider_specific_data::jsonb)->>'workspaceId',
+          'email',
+          c.email
+        ]::text[])::text
+        WHEN c.auth_type = 'oauth'
+          AND c.provider = 'codex'
+          AND pg_input_is_valid(COALESCE(c.provider_specific_data, ''), 'jsonb')
+          AND jsonb_typeof((c.provider_specific_data::jsonb)->'chatgptUserId') = 'string'
+          AND (c.provider_specific_data::jsonb)->>'chatgptUserId' <> ''
+          AND c.email <> ''
+        THEN array_to_json(ARRAY[
+          'oauth',
+          c.provider,
+          'user',
+          (c.provider_specific_data::jsonb)->>'chatgptUserId',
+          'email',
+          c.email
+        ]::text[])::text
+        WHEN c.auth_type = 'oauth'
+          AND c.provider <> 'codex'
+          AND c.email <> ''
+          AND pg_input_is_valid(COALESCE(c.provider_specific_data, ''), 'jsonb')
+          AND jsonb_typeof((c.provider_specific_data::jsonb)->'username') = 'string'
+          AND (c.provider_specific_data::jsonb)->>'username' <> ''
+        THEN array_to_json(ARRAY[
+          'oauth',
+          CASE WHEN c.provider IS NOT NULL AND c.provider <> '' THEN c.provider ELSE 'unknown' END,
+          'email',
+          c.email,
+          'username',
+          (c.provider_specific_data::jsonb)->>'username'
+        ]::text[])::text
+        WHEN c.auth_type = 'oauth'
+          AND c.provider <> 'codex'
+          AND c.email <> ''
+        THEN array_to_json(ARRAY[
+          'oauth',
+          CASE WHEN c.provider IS NOT NULL AND c.provider <> '' THEN c.provider ELSE 'unknown' END,
+          'email',
+          c.email
+        ]::text[])::text
+        ELSE array_to_json(ARRAY[
+          'connection',
+          CASE WHEN c.provider IS NOT NULL AND c.provider <> '' THEN c.provider ELSE 'unknown' END,
+          CASE
+            WHEN c.id IS NOT NULL AND c.id <> '' THEN c.id
+            WHEN usage_history.connection_id IS NOT NULL AND usage_history.connection_id <> ''
+            THEN usage_history.connection_id
+            ELSE 'unknown'
+          END
+        ]::text[])::text
+      END
+      FROM provider_connections c
+      WHERE c.id = usage_history.connection_id
+    ),
+    array_to_json(ARRAY[
+      'connection',
+      CASE
+        WHEN usage_history.provider IS NOT NULL AND usage_history.provider <> ''
+        THEN usage_history.provider
+        ELSE 'unknown'
+      END,
+      CASE
+        WHEN usage_history.connection_id IS NOT NULL AND usage_history.connection_id <> ''
+        THEN usage_history.connection_id
+        ELSE 'unknown'
+      END
+    ]::text[])::text
+  ),
+  account_label = COALESCE(
+    (
+      SELECT COALESCE(
+        NULLIF(TRIM(c.display_name), ''),
+        NULLIF(TRIM(c.email), ''),
+        NULLIF(TRIM(c.name), ''),
+        NULLIF(TRIM(c.id), '')
+      )
+      FROM provider_connections c
+      WHERE c.id = usage_history.connection_id
+    ),
+    NULLIF(TRIM(usage_history.connection_id), ''),
+    'unknown'
+  ),
+  account_label_priority = COALESCE(
+    (
+      SELECT CASE
+        WHEN NULLIF(TRIM(c.display_name), '') IS NOT NULL THEN 4
+        WHEN NULLIF(TRIM(c.email), '') IS NOT NULL THEN 3
+        WHEN NULLIF(TRIM(c.name), '') IS NOT NULL THEN 2
+        WHEN NULLIF(TRIM(c.id), '') IS NOT NULL THEN 1
+        ELSE 0
+      END
+      FROM provider_connections c
+      WHERE c.id = usage_history.connection_id
+    ),
+    CASE WHEN NULLIF(TRIM(usage_history.connection_id), '') IS NOT NULL THEN 1 ELSE 0 END
+  )
+WHERE account_key IS NULL OR account_key = '';
+-- @end
 
 UPDATE usage_history
 SET

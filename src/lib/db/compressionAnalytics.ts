@@ -1,4 +1,4 @@
-import { getAsyncDb, getDbDriver, getDbInstance } from "./core";
+import { getAsyncDb, getDbDriver } from "./core";
 
 export interface CompressionAnalyticsRow {
   id?: number;
@@ -109,47 +109,71 @@ const COMPRESSION_ANALYTICS_COLUMNS = [
   ["skip_reason", "TEXT"],
 ] as const;
 
+/**
+ * Bring `compression_analytics` up to the column set the writers below use.
+ *
+ * There is no migration for this whole set, so the columns are still ensured on
+ * first use — now exclusively through the async adapter. The previous version
+ * read the column list off the synchronous SQLite handle and ran the ALTERs
+ * there; in PG mode that handle is an in-memory scratch, so the whole pass was
+ * skipped and PostgreSQL relied on the port for the schema. That PG skip is kept.
+ *
+ * The schema probe itself is gone: every ALTER is issued and a duplicate-column
+ * failure is swallowed (`catch`), so no SQLite-only introspection is needed. In
+ * SQLite mode the adapter executes each statement inline before returning its
+ * promise, so the schema is complete by the time this function returns — the
+ * writers it guards stay synchronous and cannot await (an awaited/deferred
+ * ALTER is what caused the "no column named rtk_raw_output_pointer" family).
+ */
 function ensureCompressionAnalyticsColumns(): void {
   const db = getAsyncDb();
   if (columnsEnsuredForDb === db) return;
-  // PG mode: table + columns come from migrations (038/041…); there is nothing to
-  // ALTER at runtime. `getDbInstance()` under DB_DRIVER=postgres returns an empty
-  // in-memory SQLite scratch DB (see core.ts getDbInstance), so running the
-  // PRAGMA probe below would hit "no such table: compression_analytics" and 500
-  // /api/analytics/compression. Skip the probe entirely for PG.
   if (getDbDriver() === "postgres") {
+    // PG tables/columns come from migrations + the port; nothing to ALTER here.
     columnsEnsuredForDb = db;
     return;
   }
-  // SQLite path (unchanged): the sync writers below (insertCompressionAnalyticsRow,
-  // updateUsageReceipt…) call this right before preparing statements that reference
-  // these columns. An async wrapper deferred every ALTER to a microtask, so the
-  // first INSERT hit "no column named rtk_raw_output_pointer" (#8716 family).
-  // The SQLite adapter's PRAGMA read resolves inline via .get(); PG reaches here
-  // only after its own migrations created the table+columns.
-  // Operate on the RAW synchronous handle — the async adapter's prepare().all()
-  // returns a Promise, which is not iterable synchronously.
-  const raw = getDbInstance();
-  const rows = raw.prepare("PRAGMA table_info(compression_analytics)").all() as unknown as Array<{
-    name: string;
-  }>;
-  const existing = new Set(rows.map((row) => row.name));
+  const attempts: Promise<unknown>[] = [];
+  let complete = true;
   for (const [name, type] of COMPRESSION_ANALYTICS_COLUMNS) {
-    if (!existing.has(name)) {
-      raw.exec(`ALTER TABLE compression_analytics ADD COLUMN ${name} ${type}`);
+    // SQLite validates DDL when the statement is compiled, so the expected
+    // "duplicate column name" can surface from prepare() as well as run().
+    try {
+      attempts.push(
+        db
+          .prepare(`ALTER TABLE compression_analytics ADD COLUMN ${name} ${type}`)
+          .run()
+          .catch(() => {})
+      );
+    } catch (err) {
+      if (!/duplicate column/i.test(String((err as Error)?.message ?? err))) complete = false;
     }
   }
-  // Only mark as ensured after ALL ALTERs succeeded — otherwise a failed
-  // partial run (e.g. un-awaited exec) would cache the flag and skip the
-  // missing columns forever.
-  columnsEnsuredForDb = db;
+  // Only mark the schema as ensured once every ALTER settled successfully, so a
+  // failed partial run (e.g. the table did not exist yet) retries next call
+  // instead of caching the flag and skipping the missing columns forever.
+  void Promise.all(attempts).then(() => {
+    if (complete) columnsEnsuredForDb = db;
+  });
 }
 
+/**
+ * Persist one analytics row. Fire-and-forget by contract (telemetry must never
+ * break a chat request): the caller keeps its `void` signature, errors are
+ * swallowed here, and in SQLite mode the INSERT still executes inline at the
+ * call site (only the promise boundary is deferred).
+ */
 export function insertCompressionAnalyticsRow(row: CompressionAnalyticsRow): void {
-  const db = getAsyncDb();
-  ensureCompressionAnalyticsColumns();
-  db.prepare(
-    `
+  void persistCompressionAnalyticsRow(row);
+}
+
+async function persistCompressionAnalyticsRow(row: CompressionAnalyticsRow): Promise<void> {
+  try {
+    const db = getAsyncDb();
+    ensureCompressionAnalyticsColumns();
+    await db
+      .prepare(
+        `
     INSERT INTO compression_analytics (
       timestamp, combo_id, compression_combo_id, engine, provider, mode, original_tokens, compressed_tokens, tokens_saved,
       duration_ms, request_id, actual_prompt_tokens, actual_completion_tokens,
@@ -160,35 +184,39 @@ export function insertCompressionAnalyticsRow(row: CompressionAnalyticsRow): voi
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `
-  ).run(
-    row.timestamp,
-    row.combo_id ?? null,
-    row.compression_combo_id ?? null,
-    row.engine ?? row.mode,
-    row.provider ?? null,
-    row.mode,
-    row.original_tokens,
-    row.compressed_tokens,
-    row.tokens_saved,
-    row.duration_ms ?? null,
-    row.request_id ?? null,
-    row.actual_prompt_tokens ?? null,
-    row.actual_completion_tokens ?? null,
-    row.actual_total_tokens ?? null,
-    row.actual_cache_read_tokens ?? null,
-    row.actual_cache_write_tokens ?? null,
-    row.estimated_usd_saved ?? null,
-    row.mcp_description_tokens_saved ?? 0,
-    row.multimodal_skip_count ?? 0,
-    row.receipt_source ?? null,
-    row.validation_fallback ? 1 : 0,
-    row.output_mode ?? null,
-    row.rtk_raw_output_pointer ?? null,
-    row.rtk_raw_output_bytes ?? null,
-    row.rtk_raw_output_pointers ?? null,
-    row.rtk_raw_output_total_bytes ?? null,
-    row.skip_reason ?? null
-  );
+      )
+      .run(
+        row.timestamp,
+        row.combo_id ?? null,
+        row.compression_combo_id ?? null,
+        row.engine ?? row.mode,
+        row.provider ?? null,
+        row.mode,
+        row.original_tokens,
+        row.compressed_tokens,
+        row.tokens_saved,
+        row.duration_ms ?? null,
+        row.request_id ?? null,
+        row.actual_prompt_tokens ?? null,
+        row.actual_completion_tokens ?? null,
+        row.actual_total_tokens ?? null,
+        row.actual_cache_read_tokens ?? null,
+        row.actual_cache_write_tokens ?? null,
+        row.estimated_usd_saved ?? null,
+        row.mcp_description_tokens_saved ?? 0,
+        row.multimodal_skip_count ?? 0,
+        row.receipt_source ?? null,
+        row.validation_fallback ? 1 : 0,
+        row.output_mode ?? null,
+        row.rtk_raw_output_pointer ?? null,
+        row.rtk_raw_output_bytes ?? null,
+        row.rtk_raw_output_pointers ?? null,
+        row.rtk_raw_output_total_bytes ?? null,
+        row.skip_reason ?? null
+      );
+  } catch {
+    // Best-effort telemetry — a failed insert must never surface to the request.
+  }
 }
 
 /**
@@ -227,52 +255,94 @@ export function recordContextEditingTelemetry(
 }
 
 let breakdownTableEnsuredForDb: unknown = null;
+let breakdownTableEnsureInFlight: Promise<void> | null = null;
 
-function ensureCompressionEngineBreakdownTable(): void {
+/**
+ * Ensure the per-engine breakdown table through the async adapter. The DDL is
+ * idempotent and cheap; it is memoised per adapter instance and deduplicated by
+ * an in-flight promise. In SQLite mode `exec()` runs inline, so a writer that
+ * cannot await still finds the table on its first statement.
+ */
+function ensureCompressionEngineBreakdownTable(): Promise<void> {
   const db = getAsyncDb();
-  if (breakdownTableEnsuredForDb === db) return;
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS compression_engine_breakdown (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp TEXT NOT NULL,
-      request_id TEXT,
-      engine TEXT NOT NULL,
-      original_tokens INTEGER NOT NULL DEFAULT 0,
-      compressed_tokens INTEGER NOT NULL DEFAULT 0,
-      tokens_saved INTEGER NOT NULL DEFAULT 0,
-      duration_ms INTEGER
-    );
-    CREATE INDEX IF NOT EXISTS idx_ceb_engine_ts ON compression_engine_breakdown(engine, timestamp);
-    CREATE INDEX IF NOT EXISTS idx_ceb_request ON compression_engine_breakdown(request_id);
-  `);
-  breakdownTableEnsuredForDb = db;
+  if (breakdownTableEnsuredForDb === db) return Promise.resolve();
+  if (breakdownTableEnsureInFlight) return breakdownTableEnsureInFlight;
+  breakdownTableEnsureInFlight = (async () => {
+    try {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS compression_engine_breakdown (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          timestamp TEXT NOT NULL,
+          request_id TEXT,
+          engine TEXT NOT NULL,
+          original_tokens INTEGER NOT NULL DEFAULT 0,
+          compressed_tokens INTEGER NOT NULL DEFAULT 0,
+          tokens_saved INTEGER NOT NULL DEFAULT 0,
+          duration_ms INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_ceb_engine_ts ON compression_engine_breakdown(engine, timestamp);
+        CREATE INDEX IF NOT EXISTS idx_ceb_request ON compression_engine_breakdown(request_id);
+      `);
+      breakdownTableEnsuredForDb = db;
+    } finally {
+      breakdownTableEnsureInFlight = null;
+    }
+  })();
+  return breakdownTableEnsureInFlight;
 }
 
+/**
+ * Persist per-engine breakdown rows. Fire-and-forget like the aggregate writer
+ * (best-effort telemetry); the batch is a single transaction owned by the
+ * adapter (`db.immediate`), never a manual BEGIN/COMMIT.
+ */
 export function insertCompressionEngineBreakdown(rows: CompressionEngineBreakdownRow[]): void {
   if (!rows.length) return;
-  const db = getAsyncDb();
-  ensureCompressionEngineBreakdownTable();
-  const stmt = db.prepare(
-    `INSERT INTO compression_engine_breakdown
-       (timestamp, request_id, engine, original_tokens, compressed_tokens, tokens_saved, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  );
-  const insertAll = db.transaction((items: CompressionEngineBreakdownRow[]) => {
-    for (const r of items) {
-      stmt.run(
-        r.timestamp,
-        r.request_id ?? null,
-        r.engine,
-        r.original_tokens,
-        r.compressed_tokens,
-        r.tokens_saved,
-        r.duration_ms ?? null
-      );
-    }
-  });
-  insertAll(rows);
+  void persistCompressionEngineBreakdown(rows);
 }
 
+async function persistCompressionEngineBreakdown(
+  rows: CompressionEngineBreakdownRow[]
+): Promise<void> {
+  try {
+    const db = getAsyncDb();
+    await ensureCompressionEngineBreakdownTable();
+    const stmt = db.prepare(
+      `INSERT INTO compression_engine_breakdown
+         (timestamp, request_id, engine, original_tokens, compressed_tokens, tokens_saved, duration_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    );
+    await db.immediate(async () => {
+      // Fire every INSERT before awaiting: on SQLite each statement executes
+      // inline, so the whole batch is already applied when the call site moves
+      // on (the same visibility the previous un-awaited transaction had), while
+      // PostgreSQL still waits for all of them before COMMIT.
+      const pending: Promise<unknown>[] = [];
+      for (const r of rows) {
+        pending.push(
+          stmt.run(
+            r.timestamp,
+            r.request_id ?? null,
+            r.engine,
+            r.original_tokens,
+            r.compressed_tokens,
+            r.tokens_saved,
+            r.duration_ms ?? null
+          )
+        );
+      }
+      await Promise.all(pending);
+    });
+  } catch {
+    // Best-effort telemetry — a failed batch must never surface to the request.
+  }
+}
+
+/**
+ * Attach the provider usage receipt to the latest analytics row for a request.
+ * Same best-effort contract as the insert above: void signature, swallowed
+ * errors, statement executed inline on SQLite.
+ */
 export function attachCompressionUsageReceipt(
   requestId: string | null | undefined,
   usage: Record<string, unknown> | null | undefined,
@@ -295,10 +365,32 @@ export function attachCompressionUsageReceipt(
   );
   if (promptTokens === null && completionTokens === null && totalTokens <= 0) return;
 
-  const db = getAsyncDb();
-  ensureCompressionAnalyticsColumns();
-  db.prepare(
-    `
+  void persistCompressionUsageReceipt({
+    requestId,
+    promptTokens,
+    completionTokens: completionTokens ?? null,
+    totalTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    source,
+  });
+}
+
+async function persistCompressionUsageReceipt(receipt: {
+  requestId: string;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number;
+  cacheReadTokens: number | null;
+  cacheWriteTokens: number | null;
+  source: "provider" | "estimated" | "stream";
+}): Promise<void> {
+  try {
+    const db = getAsyncDb();
+    ensureCompressionAnalyticsColumns();
+    await db
+      .prepare(
+        `
     UPDATE compression_analytics
     SET actual_prompt_tokens = ?,
         actual_completion_tokens = ?,
@@ -314,16 +406,20 @@ export function attachCompressionUsageReceipt(
         LIMIT 1
       )
   `
-  ).run(
-    promptTokens,
-    completionTokens,
-    totalTokens,
-    cacheReadTokens,
-    cacheWriteTokens,
-    source,
-    requestId,
-    requestId
-  );
+      )
+      .run(
+        receipt.promptTokens,
+        receipt.completionTokens,
+        receipt.totalTokens,
+        receipt.cacheReadTokens,
+        receipt.cacheWriteTokens,
+        receipt.source,
+        receipt.requestId,
+        receipt.requestId
+      );
+  } catch {
+    // Best-effort telemetry.
+  }
 }
 
 function toFiniteInt(value: unknown): number | null {
@@ -344,7 +440,9 @@ type EngineAggRow = { runs: number; original: number; compressed: number; saved:
 export async function getPerEngineAnalytics(engineId: string, days = 7) {
   const db = getAsyncDb();
   ensureCompressionAnalyticsColumns();
-  ensureCompressionEngineBreakdownTable();
+  // This is an async reader, so it can wait for the table to exist (the sync
+  // writer only schedules the idempotent DDL).
+  await ensureCompressionEngineBreakdownTable();
   const since = new Date(Date.now() - days * 86400_000).toISOString();
 
   // (1) Per-engine contributions from stacked runs (one breakdown row per engine).

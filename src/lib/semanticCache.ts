@@ -14,27 +14,51 @@
 
 import crypto from "crypto";
 import { LRUCache } from "./cacheLayer";
-import { getDbInstance } from "./db/core";
+import { getAsyncDb } from "./db/core";
+import type { DatabaseAdapter } from "./db/adapters/types";
 
 type JsonRecord = Record<string, unknown>;
 
 /**
- * Synchronous view of the SQLite handle used by this (not-yet-migrated) module.
- * `getDbInstance()` is typed as the async `DatabaseAdapter`, so cast to a
- * minimal sync interface — the cache read/write/invalidate paths are called
- * synchronously from request handlers and must not await.
+ * Persistence tier access.
+ *
+ * The read path (`getCachedResponse`) is called synchronously from the chat
+ * request chain and cannot await, and PostgreSQL has no synchronous driver. So
+ * the memory LRU stays the synchronous tier and the `semantic_cache` table is a
+ * read-through backing store that is warmed asynchronously through
+ * `getAsyncDb()` (see `warmDbTier`). Writes/metrics/invalidations are
+ * fire-and-forget — the historical contract for all of them was best-effort
+ * ("DB not available — cache still in memory").
  */
-interface SemanticCacheSyncStmt {
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number | bigint };
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
+function asyncDb(): DatabaseAdapter {
+  return getAsyncDb() as unknown as DatabaseAdapter;
 }
-interface SemanticCacheSyncDb {
-  prepare(sql: string): SemanticCacheSyncStmt;
+
+/**
+ * How long a batch of rows loaded from `semantic_cache` is trusted before the
+ * next memory miss re-warms it. Bounds the staleness of cross-process/restart
+ * entries without querying the DB on every request.
+ */
+const DB_TIER_WARM_TTL_MS = 30_000;
+
+/** TTL for the async-refreshed DB counters surfaced by `getCacheStats()`. */
+const CACHE_STATS_TTL_MS = 10_000;
+
+let metricsEnsuredForDb: unknown = null;
+let metricsEnsurePromise: Promise<void> | null = null;
+
+let dbTierWarmAt = 0;
+let dbTierWarmForDb: unknown = null;
+let dbTierWarmInFlight: Promise<void> | null = null;
+
+interface DbStatsSnapshot {
+  db: unknown;
+  at: number;
+  dbEntries: number;
+  metrics: Record<string, number>;
 }
-function syncDb(): SemanticCacheSyncDb {
-  return getDbInstance() as unknown as SemanticCacheSyncDb;
-}
+let dbStatsSnapshot: DbStatsSnapshot | null = null;
+let dbStatsInFlight: Promise<void> | null = null;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -49,43 +73,165 @@ function toNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
-function ensureCacheMetricsTable() {
-  try {
-    const db = syncDb();
-    db.prepare(
-      `CREATE TABLE IF NOT EXISTS cache_metrics (
-        key TEXT PRIMARY KEY,
-        value INTEGER NOT NULL DEFAULT 0,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )`
-    ).run();
-    db.prepare(
-      `INSERT OR IGNORE INTO cache_metrics (key, value) VALUES ('hits', 0), ('misses', 0), ('tokens_saved', 0)`
-    ).run();
-  } catch {
-    // DB not available
-  }
+/**
+ * Create/seed `cache_metrics` once per adapter instance. `cache_metrics` is not
+ * part of the migration set, so it is created at runtime exactly as before —
+ * now through the async adapter (the dialect layer translates `datetime('now')`
+ * and `INSERT OR IGNORE` for PostgreSQL).
+ */
+function ensureCacheMetricsTable(): Promise<void> {
+  const db = asyncDb();
+  if (metricsEnsuredForDb === db) return Promise.resolve();
+  if (metricsEnsurePromise) return metricsEnsurePromise;
+  metricsEnsurePromise = (async () => {
+    try {
+      await db
+        .prepare(
+          `CREATE TABLE IF NOT EXISTS cache_metrics (
+            key TEXT PRIMARY KEY,
+            value INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          )`
+        )
+        .run();
+      await db
+        .prepare(
+          `INSERT OR IGNORE INTO cache_metrics (key, value) VALUES ('hits', 0), ('misses', 0), ('tokens_saved', 0)`
+        )
+        .run();
+      metricsEnsuredForDb = db;
+    } catch {
+      // DB not available — metrics stay in-memory only and the next call retries.
+    } finally {
+      metricsEnsurePromise = null;
+    }
+  })();
+  return metricsEnsurePromise;
 }
 
-function incrementMetric(metric: "hits" | "misses" | "tokens_saved", amount = 1) {
-  try {
-    const db = syncDb();
-    db.prepare(
-      `UPDATE cache_metrics SET value = value + ?, updated_at = datetime('now') WHERE key = ?`
-    ).run(amount, metric);
-  } catch {
-    // DB not available — fall back to in-memory
-  }
+/** Best-effort metric increment — never blocks or fails the request path. */
+function incrementMetric(metric: "hits" | "misses" | "tokens_saved", amount = 1): void {
+  void (async () => {
+    try {
+      const db = asyncDb();
+      await ensureCacheMetricsTable();
+      await db
+        .prepare(
+          `UPDATE cache_metrics SET value = value + ?, updated_at = datetime('now') WHERE key = ?`
+        )
+        .run(amount, metric);
+    } catch {
+      // DB not available — the in-memory counters already moved on.
+    }
+  })();
 }
 
-function getMetricValue(metric: string): number {
-  try {
-    const db = syncDb();
-    const row = db.prepare(`SELECT value FROM cache_metrics WHERE key = ?`).get(metric);
-    return row ? toNumber(asRecord(row).value, 0) : 0;
-  } catch {
-    return 0;
+/**
+ * Load the persisted tier into the memory LRU (read-through warm-up).
+ *
+ * One bounded query per TTL window — never one per lookup — and only entries
+ * that are still unexpired and not already in memory are promoted. A failed
+ * refresh leaves the previous memory tier in place.
+ */
+function warmDbTier(): void {
+  const db = asyncDb();
+  if (dbTierWarmForDb === db && Date.now() - dbTierWarmAt < DB_TIER_WARM_TTL_MS) return;
+  if (dbTierWarmInFlight) return;
+  dbTierWarmInFlight = (async () => {
+    try {
+      const cache = getMemoryCache();
+      const limit = Math.max(1, cache.getStats().maxSize);
+      const rows = (await db
+        .prepare(
+          `SELECT signature, response, tokens_saved, expires_at
+             FROM semantic_cache
+            WHERE expires_at > ?
+            ORDER BY created_at DESC
+            LIMIT ?`
+        )
+        .all(new Date().toISOString(), limit)) as unknown[];
+
+      const promoted: string[] = [];
+      for (const raw of rows) {
+        const record = asRecord(raw);
+        const signature = typeof record.signature === "string" ? record.signature : "";
+        const payload = typeof record.response === "string" ? record.response : null;
+        if (!signature || !payload || cache.has(signature)) continue;
+        const expiresAt = typeof record.expires_at === "string" ? Date.parse(record.expires_at) : NaN;
+        const remainingMs = Number.isFinite(expiresAt) ? expiresAt - Date.now() : DB_TIER_WARM_TTL_MS;
+        if (!(remainingMs > 0)) continue;
+        try {
+          cache.set(
+            signature,
+            { response: JSON.parse(payload), tokensSaved: toNumber(record.tokens_saved, 0) },
+            remainingMs
+          );
+          promoted.push(signature);
+        } catch {
+          // malformed payload — skip the row, keep warming the rest
+        }
+      }
+      // hit_count stays meaningful without a write per cache hit: bump the rows
+      // this warm promoted in ONE statement (previously a DB-tier hit bumped its
+      // own row; a memory hit never wrote anything, and must keep not writing).
+      if (promoted.length > 0) {
+        const placeholders = promoted.map(() => "?").join(", ");
+        await db
+          .prepare(`UPDATE semantic_cache SET hit_count = hit_count + 1 WHERE signature IN (${placeholders})`)
+          .run(...promoted);
+      }
+      dbTierWarmAt = Date.now();
+      dbTierWarmForDb = db;
+    } catch {
+      // DB unavailable: keep serving from memory and retry after the TTL.
+      dbTierWarmAt = Date.now();
+      dbTierWarmForDb = db;
+    } finally {
+      dbTierWarmInFlight = null;
+    }
+  })();
+}
+
+/**
+ * DB-side counters for `getCacheStats()` (persisted entries + metric totals).
+ * Refreshed on a short TTL so the sync dashboard read never touches the DB.
+ */
+function getDbStatsSnapshot(): DbStatsSnapshot | null {
+  const db = asyncDb();
+  const fresh =
+    dbStatsSnapshot !== null &&
+    dbStatsSnapshot.db === db &&
+    Date.now() - dbStatsSnapshot.at < CACHE_STATS_TTL_MS;
+  if (!fresh && !dbStatsInFlight) {
+    dbStatsInFlight = (async () => {
+      try {
+        await ensureCacheMetricsTable();
+        const countRow = await db
+          .prepare(`SELECT COUNT(*) as count FROM semantic_cache WHERE expires_at > ?`)
+          .get(new Date().toISOString());
+        const metricRows = (await db
+          .prepare(`SELECT key, value FROM cache_metrics`)
+          .all()) as unknown[];
+        const metrics: Record<string, number> = {};
+        for (const raw of metricRows) {
+          const record = asRecord(raw);
+          if (typeof record.key === "string") metrics[record.key] = toNumber(record.value, 0);
+        }
+        dbStatsSnapshot = {
+          db,
+          at: Date.now(),
+          dbEntries: toNumber(asRecord(countRow).count, 0),
+          metrics,
+        };
+      } catch {
+        // DB not available — keep the last known snapshot (or zeroes).
+        dbStatsSnapshot = { db, at: Date.now(), dbEntries: 0, metrics: {} };
+      } finally {
+        dbStatsInFlight = null;
+      }
+    })();
   }
+  return dbStatsSnapshot && dbStatsSnapshot.db === db ? dbStatsSnapshot : null;
 }
 
 function getHeaderValue(
@@ -118,7 +264,10 @@ function getMemoryCache() {
       maxBytes: parseInt(process.env.SEMANTIC_CACHE_MAX_BYTES || String(2 * 1024 * 1024), 10),
       defaultTTL: parseInt(process.env.SEMANTIC_CACHE_TTL_MS || "1800000", 10),
     });
-    ensureCacheMetricsTable();
+    // Both are async fire-and-forget: in SQLite mode the CREATE/seed statement
+    // still executes inline, in PG mode it lands on the event loop.
+    void ensureCacheMetricsTable();
+    warmDbTier();
   }
   return memoryCache;
 }
@@ -187,7 +336,9 @@ function normalizeConversation(conversation: unknown) {
 
 /**
  * Check if a cached response exists for the given signature.
- * Checks memory first, then SQLite.
+ * Checks the memory tier first, then triggers a read-through warm of the
+ * persisted `semantic_cache` tier (which promotes rows into memory for the next
+ * lookup). Stays synchronous: the chat request chain cannot await.
  * @param {string} signature
  * @returns {object|null} Cached response or null
  */
@@ -200,41 +351,10 @@ export function getCachedResponse(signature) {
     return memResult.response;
   }
 
-  // 2. Check SQLite
-  try {
-    const db = syncDb();
-    const row = db
-      .prepare(
-        "SELECT response, tokens_saved FROM semantic_cache WHERE signature = ? AND expires_at > ?"
-      )
-      .get(signature, new Date().toISOString());
-
-    if (row) {
-      const record = asRecord(row);
-      const responsePayload = typeof record.response === "string" ? record.response : null;
-      if (!responsePayload) {
-        incrementMetric("misses");
-        return null;
-      }
-      const parsed = JSON.parse(responsePayload);
-      const tokensSaved = toNumber(record.tokens_saved, 0);
-      // Promote to memory cache
-      getMemoryCache().set(signature, {
-        response: parsed,
-        tokensSaved,
-      });
-      // Update hit count in DB
-      db.prepare("UPDATE semantic_cache SET hit_count = hit_count + 1 WHERE signature = ?").run(
-        signature
-      );
-
-      incrementMetric("hits");
-      incrementMetric("tokens_saved", tokensSaved);
-      return parsed;
-    }
-  } catch {
-    // DB not available — fail open
-  }
+  // 2. Persisted tier: warm it in the background (TTL-bounded, single query per
+  // window) so the next identical request is a memory hit. A cold process
+  // therefore misses once per entry instead of reading SQLite synchronously.
+  warmDbTier();
 
   incrementMetric("misses");
   return null;
@@ -251,109 +371,128 @@ export function getCachedResponse(signature) {
 export function setCachedResponse(signature, model, response, tokensSaved = 0, ttlMs = 3600000) {
   const ttl = parseInt(process.env.SEMANTIC_CACHE_TTL_MS || String(ttlMs), 10);
 
-  // 1. Memory cache
+  // 1. Memory cache (synchronous — the request path must see it immediately)
   getMemoryCache().set(signature, { response, tokensSaved }, ttl);
 
-  // 2. SQLite
-  try {
-    const db = syncDb();
-    const id = crypto.randomUUID();
-    const promptHash = signature.slice(0, 16);
-    const now = new Date().toISOString();
-    const expiresAt = new Date(Date.now() + ttl).toISOString();
+  // 2. Persisted tier — fire-and-forget, the response is already cached in memory
+  void (async () => {
+    try {
+      const db = asyncDb();
+      const id = crypto.randomUUID();
+      const promptHash = signature.slice(0, 16);
+      const now = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + ttl).toISOString();
 
-    db.prepare(
-      `INSERT OR REPLACE INTO semantic_cache (id, signature, model, prompt_hash, response, tokens_saved, hit_count, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`
-    ).run(id, signature, model, promptHash, JSON.stringify(response), tokensSaved, now, expiresAt);
-  } catch {
-    // DB write failed — cache still in memory
-  }
+      await db
+        .prepare(
+          `INSERT OR REPLACE INTO semantic_cache (id, signature, model, prompt_hash, response, tokens_saved, hit_count, created_at, expires_at)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`
+        )
+        .run(
+          id,
+          signature,
+          model,
+          promptHash,
+          JSON.stringify(response),
+          tokensSaved,
+          now,
+          expiresAt
+        );
+    } catch {
+      // DB write failed — cache still in memory
+    }
+  })();
 }
 
 /**
  * Invalidate cache entries by model name.
  * Useful when a model is updated/changed and cached responses are stale.
+ *
+ * The memory tier is cleared synchronously; the persisted-tier delete is
+ * fire-and-forget (the historical contract for these maintenance paths was
+ * best-effort). The returned count is the number of in-memory entries dropped.
  * @param {string} model - Model name to invalidate (exact match)
- * @returns {number} Number of entries removed
+ * @returns {number} Number of in-memory entries removed
  */
 export function invalidateByModel(model: string): number {
+  const removed = getMemoryCache().getStats().size;
   getMemoryCache().clear(); // Memory cache doesn't track model; full clear
-  try {
-    const db = syncDb();
-    const result = db.prepare("DELETE FROM semantic_cache WHERE model = ?").run(model);
-    return result.changes || 0;
-  } catch {
-    return 0;
-  }
+  void (async () => {
+    try {
+      await asyncDb().prepare("DELETE FROM semantic_cache WHERE model = ?").run(model);
+    } catch {
+      // DB not available
+    }
+  })();
+  return removed;
 }
 
 /**
  * Invalidate a single cache entry by its signature.
  * @param {string} signature - Cache signature to invalidate
- * @returns {boolean} Whether the entry was found and removed
+ * @returns {boolean} Whether the entry was present in the memory tier
  */
 export function invalidateBySignature(signature: string): boolean {
-  getMemoryCache().delete(signature);
-  try {
-    const db = syncDb();
-    const result = db.prepare("DELETE FROM semantic_cache WHERE signature = ?").run(signature);
-    return (result.changes || 0) > 0;
-  } catch {
-    return false;
-  }
+  const removed = getMemoryCache().delete(signature);
+  void (async () => {
+    try {
+      await asyncDb().prepare("DELETE FROM semantic_cache WHERE signature = ?").run(signature);
+    } catch {
+      // DB not available
+    }
+  })();
+  return removed;
 }
 
 /**
  * Invalidate entries older than a given age.
  * @param {number} maxAgeMs - Maximum age in milliseconds
- * @returns {number} Number of entries removed
+ * @returns {number} Number of in-memory entries removed
  */
 export function invalidateStale(maxAgeMs: number): number {
+  const removed = getMemoryCache().getStats().size;
   getMemoryCache().clear();
-  try {
-    const db = syncDb();
-    const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
-    const result = db.prepare("DELETE FROM semantic_cache WHERE created_at < ?").run(cutoff);
-    return result.changes || 0;
-  } catch {
-    return 0;
-  }
+  void (async () => {
+    try {
+      const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+      await asyncDb().prepare("DELETE FROM semantic_cache WHERE created_at < ?").run(cutoff);
+    } catch {
+      // DB not available
+    }
+  })();
+  return removed;
 }
 
 /**
  * Clear all cache entries.
+ * @returns {number} Number of in-memory entries cleared
  */
 export function clearCache(): number {
+  const removed = getMemoryCache().getStats().size;
   getMemoryCache().clear();
-  let removed = 0;
-  try {
-    const db = syncDb();
-    const result = db.prepare("DELETE FROM semantic_cache").run();
-    removed = result.changes || 0;
-    db.prepare("UPDATE cache_metrics SET value = 0").run();
-  } catch {
-    // DB not available
-  }
+  void (async () => {
+    try {
+      const db = asyncDb();
+      await db.prepare("DELETE FROM semantic_cache").run();
+      await db.prepare("UPDATE cache_metrics SET value = 0").run();
+    } catch {
+      // DB not available
+    }
+  })();
   return removed;
 }
 
 export function getCacheStats() {
   const memStats = getMemoryCache().getStats();
-  let dbSize = 0;
-  try {
-    const db = syncDb();
-    const row = db
-      .prepare("SELECT COUNT(*) as count FROM semantic_cache WHERE expires_at > ?")
-      .get(new Date().toISOString());
-    dbSize = toNumber(asRecord(row).count, 0);
-  } catch {
-    // DB not available
-  }
+  // Persisted-tier counters come from the async-refreshed snapshot: the
+  // dashboard read is synchronous, so it must not block on the adapter.
+  const dbStats = getDbStatsSnapshot();
+  const metrics = dbStats?.metrics ?? {};
+  const dbSize = dbStats?.dbEntries ?? 0;
 
-  const hits = getMetricValue("hits");
-  const misses = getMetricValue("misses");
-  const tokensSaved = getMetricValue("tokens_saved");
+  const hits = toNumber(metrics.hits, 0);
+  const misses = toNumber(metrics.misses, 0);
+  const tokensSaved = toNumber(metrics.tokens_saved, 0);
   const total = hits + misses;
 
   return {
