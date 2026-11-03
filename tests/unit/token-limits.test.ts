@@ -163,7 +163,7 @@ test("seed-on-miss equals usage_history SUM for the active window", async () => 
   );
 
   const expected = 100 + 50 + 30 + 20;
-  assert.equal(counter.seedWindowUsageFromHistory(limit, NOW_JAN), expected);
+  assert.equal(await counter.seedWindowUsageFromHistory(limit, NOW_JAN), expected);
 });
 
 test("getCurrentWindowUsage seeds from history and PERSISTS the seed (FIX 3)", async () => {
@@ -177,19 +177,19 @@ test("getCurrentWindowUsage seeds from history and PERSISTS the seed (FIX 3)", a
 
   insertUsage("k2b", "openai", "gpt-4o", 200, 100, new Date(Date.UTC(2026, 0, 12)).toISOString());
   const seeded = 300;
-  assert.equal(counter.seedWindowUsageFromHistory(limit, NOW_JAN), seeded);
+  assert.equal(await counter.seedWindowUsageFromHistory(limit, NOW_JAN), seeded);
 
   // FIX 3: a force-fresh read on a cold window now PERSISTS the seed to the
   // counter row (previously the seed was read-only and DB usage stayed 0).
-  assert.equal(counter.getCurrentWindowUsage(limit, NOW_JAN, true), seeded);
-  assert.equal(tokenLimits.getWindowUsage(limit, NOW_JAN), seeded);
+  assert.equal(await counter.getCurrentWindowUsage(limit, NOW_JAN, true), seeded);
+  assert.equal(await tokenLimits.getWindowUsage(limit, NOW_JAN), seeded);
 
   // A subsequent increment accumulates ON TOP of the persisted seed — the prior
   // historical usage is NOT forgotten.
   const { windowStart } = tokenLimits.resetWindowIfElapsed(limit, NOW_JAN);
-  tokenLimits.incrementWindowTokens(limit.id, windowStart, 25);
-  assert.equal(tokenLimits.getWindowUsage(limit, NOW_JAN), seeded + 25);
-  assert.equal(counter.getCurrentWindowUsage(limit, NOW_JAN, true), seeded + 25);
+  await tokenLimits.incrementWindowTokens(limit.id, windowStart, 25);
+  assert.equal(await tokenLimits.getWindowUsage(limit, NOW_JAN), seeded + 25);
+  assert.equal(await counter.getCurrentWindowUsage(limit, NOW_JAN, true), seeded + 25);
 });
 
 test("seed total excludes cache tokens (no double-count) (FIX 2)", async () => {
@@ -218,7 +218,7 @@ test("seed total excludes cache tokens (no double-count) (FIX 2)", async () => {
   );
 
   // 500 + 200 + 40 = 740. Must NOT add cacheRead/cacheCreation again (would be 1140).
-  assert.equal(counter.seedWindowUsageFromHistory(limit, NOW_JAN), 740);
+  assert.equal(await counter.seedWindowUsageFromHistory(limit, NOW_JAN), 740);
 });
 
 test("cold-window recordTokenUsage seeds from history before increment (FIX 4)", async () => {
@@ -233,7 +233,7 @@ test("cold-window recordTokenUsage seeds from history before increment (FIX 4)",
 
   // Prior historical usage in this window, but NO counter row yet (cold window).
   insertUsage("k2d", "openai", "gpt-4o", 400, 100, new Date().toISOString());
-  assert.equal(tokenLimits.getWindowUsage(limit, Date.now()), 0); // no counter row yet
+  assert.equal(await tokenLimits.getWindowUsage(limit, Date.now()), 0); // no counter row yet
 
   // First record on the cold window must seed (500) then add the delta (50) = 550,
   // NOT restart from 0 (which would yield 50).
@@ -241,7 +241,7 @@ test("cold-window recordTokenUsage seeds from history before increment (FIX 4)",
   await flush();
   await flush();
 
-  assert.equal(tokenLimits.getWindowUsage(limit, Date.now()), 550);
+  assert.equal(await tokenLimits.getWindowUsage(limit, Date.now()), 550);
 });
 
 test("most-restrictive breach wins when model and provider both match", async () => {
@@ -263,8 +263,8 @@ test("most-restrictive breach wins when model and provider both match", async ()
 
   const mWs = tokenLimits.resetWindowIfElapsed(modelLimit, NOW_JAN).windowStart;
   const pWs = tokenLimits.resetWindowIfElapsed(providerLimit, NOW_JAN).windowStart;
-  tokenLimits.incrementWindowTokens(modelLimit.id, mWs, 100); // remaining 0
-  tokenLimits.incrementWindowTokens(providerLimit.id, pWs, 55); // remaining 0, smaller limitValue
+  await tokenLimits.incrementWindowTokens(modelLimit.id, mWs, 100); // remaining 0
+  await tokenLimits.incrementWindowTokens(providerLimit.id, pWs, 55); // remaining 0, smaller limitValue
 
   const breachA = await counter.checkTokenLimits("k3", "openai", "gpt-4o", NOW_JAN);
   assert.ok(breachA);
@@ -288,8 +288,8 @@ test("most-restrictive breach wins when model and provider both match", async ()
   });
   const mWs2 = tokenLimits.resetWindowIfElapsed(modelLimit2, NOW_JAN).windowStart;
   const pWs2 = tokenLimits.resetWindowIfElapsed(providerLimit2, NOW_JAN).windowStart;
-  tokenLimits.incrementWindowTokens(modelLimit2.id, mWs2, 100); // breach (>=100)
-  tokenLimits.incrementWindowTokens(providerLimit2.id, pWs2, 150); // 150 < 200 → no breach
+  await tokenLimits.incrementWindowTokens(modelLimit2.id, mWs2, 100); // breach (>=100)
+  await tokenLimits.incrementWindowTokens(providerLimit2.id, pWs2, 150); // 150 < 200 → no breach
 
   const breachB = await counter.checkTokenLimits("k3b", "openai", "gpt-4o", NOW_JAN);
   assert.ok(breachB);
@@ -307,7 +307,7 @@ test("disabled limit is ignored by checkTokenLimits", async () => {
     enabled: false,
   });
   const ws = tokenLimits.resetWindowIfElapsed(limit, NOW_JAN).windowStart;
-  tokenLimits.incrementWindowTokens(limit.id, ws, 999);
+  await tokenLimits.incrementWindowTokens(limit.id, ws, 999);
   assert.equal(await counter.checkTokenLimits("k4", "openai", "gpt-4o", NOW_JAN), null);
 });
 
@@ -319,7 +319,7 @@ test("global fallback applies when no model/provider limit", async () => {
     resetInterval: "monthly",
   });
   const ws = tokenLimits.resetWindowIfElapsed(limit, NOW_JAN).windowStart;
-  tokenLimits.incrementWindowTokens(limit.id, ws, 20);
+  await tokenLimits.incrementWindowTokens(limit.id, ws, 20);
   const breach = await counter.checkTokenLimits("k5", "openai", "gpt-4o", NOW_JAN);
   assert.ok(breach);
   assert.equal(breach!.scopeType, "global");
@@ -335,9 +335,9 @@ test("atomic increment under repeated calls has no lost updates", async () => {
   });
   const { windowStart } = tokenLimits.resetWindowIfElapsed(limit, NOW_JAN);
   for (let i = 0; i < 100; i++) {
-    tokenLimits.incrementWindowTokens(limit.id, windowStart, 7);
+    await tokenLimits.incrementWindowTokens(limit.id, windowStart, 7);
   }
-  assert.equal(tokenLimits.getWindowUsage(limit, NOW_JAN), 700);
+  assert.equal(await tokenLimits.getWindowUsage(limit, NOW_JAN), 700);
 });
 
 test("getCurrentWindowUsage cache hit / miss / forceFresh", async () => {
@@ -349,20 +349,20 @@ test("getCurrentWindowUsage cache hit / miss / forceFresh", async () => {
   });
 
   // Prime cache via write-through.
-  counter.addWindowTokens(limit, 50, NOW_JAN); // cache + DB = 50
+  await counter.addWindowTokens(limit, 50, NOW_JAN); // cache + DB = 50
   const { windowStart: ws } = tokenLimits.resetWindowIfElapsed(limit, NOW_JAN);
 
   // Mutate DB directly behind the cache → DB=80, cache stale at 50.
-  tokenLimits.incrementWindowTokens(limit.id, ws, 30);
+  await tokenLimits.incrementWindowTokens(limit.id, ws, 30);
 
   // Cache HIT (within TTL) returns stale 50.
-  assert.equal(counter.getCurrentWindowUsage(limit, NOW_JAN, false), 50);
+  assert.equal(await counter.getCurrentWindowUsage(limit, NOW_JAN, false), 50);
 
   // forceFresh returns authoritative 80 and refreshes cache.
-  assert.equal(counter.getCurrentWindowUsage(limit, NOW_JAN, true), 80);
+  assert.equal(await counter.getCurrentWindowUsage(limit, NOW_JAN, true), 80);
 
   // Subsequent normal read returns refreshed 80.
-  assert.equal(counter.getCurrentWindowUsage(limit, NOW_JAN, false), 80);
+  assert.equal(await counter.getCurrentWindowUsage(limit, NOW_JAN, false), 80);
 });
 
 test("recordTokenUsage is fire-and-forget and records after microtask flush", async () => {
@@ -381,14 +381,14 @@ test("recordTokenUsage is fire-and-forget and records after microtask flush", as
   await flush();
   await flush();
 
-  assert.ok(tokenLimits.getWindowUsage(modelLimit, Date.now()) >= 42);
+  assert.ok((await tokenLimits.getWindowUsage(modelLimit, Date.now())) >= 42);
 
   // No-op cases: tokens <= 0 and empty apiKey.
-  const before = tokenLimits.getWindowUsage(modelLimit, Date.now());
+  const before = await tokenLimits.getWindowUsage(modelLimit, Date.now());
   counter.recordTokenUsage("k8", "openai", "gpt-4o", 0);
   counter.recordTokenUsage("k8", "openai", "gpt-4o", -5);
   counter.recordTokenUsage("", "openai", "gpt-4o", 99);
   await flush();
   await flush();
-  assert.equal(tokenLimits.getWindowUsage(modelLimit, Date.now()), before);
+  assert.equal(await tokenLimits.getWindowUsage(modelLimit, Date.now()), before);
 });

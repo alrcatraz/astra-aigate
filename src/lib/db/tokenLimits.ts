@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { getDbInstance, getAsyncDb } from "./core";
+import { getAsyncDb } from "./core";
 import { getBudgetWindow, type BudgetResetInterval } from "@/domain/costRules";
 
 export type TokenLimitScopeType = "model" | "provider" | "global";
@@ -51,6 +51,7 @@ export interface TokenWindowState {
 type JsonRecord = Record<string, unknown>;
 
 let _schemaChecked = false;
+let _schemaInFlight: Promise<void> | null = null;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -75,45 +76,55 @@ function normalizeResetInterval(value: unknown): BudgetResetInterval {
   return "monthly";
 }
 
-function ensureSchema() {
+async function ensureSchema(): Promise<void> {
   if (_schemaChecked) return;
-  // Synchronous helper: the counter hot path cannot await, so use the
-  // synchronous handle — the async adapter's exec() returns a Promise.
-  const db = getDbInstance();
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS api_key_token_limits (
-      id              TEXT PRIMARY KEY,
-      api_key_id      TEXT NOT NULL,
-      scope_type      TEXT NOT NULL CHECK (scope_type IN ('model', 'provider', 'global')),
-      scope_value     TEXT NOT NULL DEFAULT '',
-      token_limit     INTEGER NOT NULL CHECK (token_limit > 0),
-      reset_interval  TEXT NOT NULL DEFAULT 'monthly' CHECK (reset_interval IN ('daily', 'weekly', 'monthly')),
-      reset_time      TEXT,
-      enabled         INTEGER NOT NULL DEFAULT 1,
-      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE (api_key_id, scope_type, scope_value)
-    );
-    CREATE INDEX IF NOT EXISTS idx_aktl_api_key_id ON api_key_token_limits (api_key_id);
-    CREATE TABLE IF NOT EXISTS api_key_token_counters (
-      limit_id      TEXT NOT NULL,
-      window_start  TEXT NOT NULL,
-      tokens_used   INTEGER NOT NULL DEFAULT 0,
-      updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (limit_id, window_start),
-      FOREIGN KEY (limit_id) REFERENCES api_key_token_limits (id) ON DELETE CASCADE
-    );
-    CREATE TABLE IF NOT EXISTS api_key_token_limit_reset_logs (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      limit_id      TEXT NOT NULL,
-      reset_at      TEXT NOT NULL DEFAULT (datetime('now')),
-      prev_tokens   INTEGER NOT NULL DEFAULT 0,
-      window_start  TEXT NOT NULL,
-      FOREIGN KEY (limit_id) REFERENCES api_key_token_limits (id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS idx_aktlrl_limit_id ON api_key_token_limit_reset_logs (limit_id);
-  `);
-  _schemaChecked = true;
+  if (_schemaInFlight) {
+    await _schemaInFlight;
+    return;
+  }
+  // One idempotent DDL batch through the async adapter (PG included). The
+  // module is on the request hot path, so the result is memoised for the
+  // process lifetime and concurrent callers share the in-flight exec.
+  _schemaInFlight = (async () => {
+    const db = getAsyncDb();
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS api_key_token_limits (
+        id              TEXT PRIMARY KEY,
+        api_key_id      TEXT NOT NULL,
+        scope_type      TEXT NOT NULL CHECK (scope_type IN ('model', 'provider', 'global')),
+        scope_value     TEXT NOT NULL DEFAULT '',
+        token_limit     INTEGER NOT NULL CHECK (token_limit > 0),
+        reset_interval  TEXT NOT NULL DEFAULT 'monthly' CHECK (reset_interval IN ('daily', 'weekly', 'monthly')),
+        reset_time      TEXT,
+        enabled         INTEGER NOT NULL DEFAULT 1,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (api_key_id, scope_type, scope_value)
+      );
+      CREATE INDEX IF NOT EXISTS idx_aktl_api_key_id ON api_key_token_limits (api_key_id);
+      CREATE TABLE IF NOT EXISTS api_key_token_counters (
+        limit_id      TEXT NOT NULL,
+        window_start  TEXT NOT NULL,
+        tokens_used   INTEGER NOT NULL DEFAULT 0,
+        updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (limit_id, window_start),
+        FOREIGN KEY (limit_id) REFERENCES api_key_token_limits (id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS api_key_token_limit_reset_logs (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        limit_id      TEXT NOT NULL,
+        reset_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        prev_tokens   INTEGER NOT NULL DEFAULT 0,
+        window_start  TEXT NOT NULL,
+        FOREIGN KEY (limit_id) REFERENCES api_key_token_limits (id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_aktlrl_limit_id ON api_key_token_limit_reset_logs (limit_id);
+    `);
+    _schemaChecked = true;
+  })().finally(() => {
+    _schemaInFlight = null;
+  });
+  await _schemaInFlight;
 }
 
 function rowToTokenLimit(row: unknown): TokenLimit {
@@ -139,7 +150,7 @@ function rowToTokenLimit(row: unknown): TokenLimit {
  * Returns the persisted row.
  */
 export async function upsertTokenLimit(input: UpsertTokenLimitInput): Promise<TokenLimit> {
-  ensureSchema();
+  await ensureSchema();
   const db = getAsyncDb();
   const scopeType = normalizeScopeType(input.scopeType);
   const scopeValue = scopeType === "global" ? "" : (input.scopeValue ?? "").trim();
@@ -183,7 +194,7 @@ export async function upsertTokenLimit(input: UpsertTokenLimitInput): Promise<To
 
 /** List all token limits for an API key (ordered most-specific first: model, provider, global). */
 export async function listTokenLimits(apiKeyId: string): Promise<TokenLimit[]> {
-  ensureSchema();
+  await ensureSchema();
   const db = getAsyncDb();
   return (
     await db
@@ -206,7 +217,7 @@ export async function getTokenLimitsForRequest(
   provider: string,
   model: string
 ): Promise<TokenLimit[]> {
-  ensureSchema();
+  await ensureSchema();
   const db = getAsyncDb();
   return (
     await db
@@ -226,7 +237,7 @@ export async function getTokenLimitsForRequest(
 
 /** Delete a token limit by id (counters + reset logs cascade in app code below). */
 export async function deleteTokenLimit(id: string): Promise<boolean> {
-  ensureSchema();
+  await ensureSchema();
   const db = getAsyncDb();
   // FK pragma is OFF in this build; delete dependents explicitly.
   await db.prepare("DELETE FROM api_key_token_counters WHERE limit_id = ?").run(id);
@@ -257,11 +268,11 @@ export function resetWindowIfElapsed(limit: TokenLimit, now = Date.now()): Token
  * Read-only point-read of the current window's usage for a limit.
  * Returns 0 if no counter row exists yet (cold window). DB-authoritative.
  */
-export function getWindowUsage(limit: TokenLimit, now = Date.now()): number {
-  ensureSchema();
-  const db = getDbInstance();
+export async function getWindowUsage(limit: TokenLimit, now = Date.now()): Promise<number> {
+  await ensureSchema();
+  const db = getAsyncDb();
   const { windowStart } = resetWindowIfElapsed(limit, now);
-  const row = db
+  const row = await db
     .prepare(
       "SELECT tokens_used FROM api_key_token_counters WHERE limit_id = ? AND window_start = ?"
     )
@@ -274,15 +285,15 @@ export function getWindowUsage(limit: TokenLimit, now = Date.now()): number {
  * the new running total. Uses UPSERT (no read-then-write) so concurrent
  * increments under WAL cannot lose updates.
  */
-export function incrementWindowTokens(
+export async function incrementWindowTokens(
   limitId: string,
   windowStart: string,
   tokens: number
-): number {
-  ensureSchema();
-  const db = getDbInstance();
+): Promise<number> {
+  await ensureSchema();
+  const db = getAsyncDb();
   const delta = Math.max(0, Math.floor(toNumber(tokens)));
-  const row = db
+  const row = await db
     .prepare(
       `INSERT INTO api_key_token_counters (limit_id, window_start, tokens_used, updated_at)
        VALUES (@limitId, @windowStart, @tokens, datetime('now'))
@@ -301,7 +312,7 @@ export async function logTokenLimitReset(
   prevTokens: number,
   windowStart: string
 ): Promise<void> {
-  ensureSchema();
+  await ensureSchema();
   const db = getAsyncDb();
   await db
     .prepare(

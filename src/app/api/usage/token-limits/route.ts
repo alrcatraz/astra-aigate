@@ -31,18 +31,21 @@ export async function GET(request: Request) {
         status: 400,
       });
     }
-    const limits = await listTokenLimits(apiKeyId).map((limit: TokenLimit) => {
-      const usage = getWindowUsage(limit);
-      const window = resetWindowIfElapsed(limit);
-      return {
-        ...limit,
-        tokensUsed: usage,
-        windowStart: window.windowStart,
-        periodStartAt: window.periodStartAt,
-        nextResetAt: window.nextResetAt,
-        remaining: Math.max(0, limit.tokenLimit - usage),
-      };
-    });
+    const storedLimits = await listTokenLimits(apiKeyId);
+    const limits = await Promise.all(
+      storedLimits.map(async (limit: TokenLimit) => {
+        const usage = await getWindowUsage(limit);
+        const window = resetWindowIfElapsed(limit);
+        return {
+          ...limit,
+          tokensUsed: usage,
+          windowStart: window.windowStart,
+          periodStartAt: window.periodStartAt,
+          nextResetAt: window.nextResetAt,
+          remaining: Math.max(0, limit.tokenLimit - usage),
+        };
+      })
+    );
     return NextResponse.json({ apiKeyId, limits });
   } catch (error) {
     console.error("Error listing token limits:", error);
