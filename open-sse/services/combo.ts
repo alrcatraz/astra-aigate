@@ -217,6 +217,7 @@ import {
 } from "./combo/quotaExhaustionCutoff.ts";
 import { expandTargetsByFingerprints } from "./combo/fingerprintExpansion.ts";
 import { resolveComboTargetPipeline } from "./combo/targetResolution.ts";
+import { isUpstreamServerError, UPSTREAM_SERVER_ERROR_RETRY_BUDGET } from "./combo/upstreamTransient";
 
 export { RESET_WINDOW_NAMES, QUOTA_SOFT_DEPRIORITIZE_FACTOR, setCandidateQuotaSoftPenalty };
 export { scoreAutoTargets, expandAutoComboCandidatePool };
@@ -1727,11 +1728,16 @@ export async function handleComboChat({
 
           // Check if this is a transient error worth retrying on same model.
           // A token-limit 429 is terminal for the client — never retry it.
+          const upstreamServerError = isUpstreamServerError(result.status, errorText);
           const isTransient =
             !isStreamReadinessFailure &&
             !isTokenLimitBreach &&
-            [408, 429, 500, 502, 503, 504].includes(result.status);
-          if (retry < maxRetries && isTransient && !providerExhausted) {
+            (upstreamServerError || [408, 429, 500, 502, 503, 504].includes(result.status));
+          // The 400 class gets one extra attempt: a second one mostly adds latency.
+          const transientBudget = upstreamServerError
+            ? Math.min(maxRetries, UPSTREAM_SERVER_ERROR_RETRY_BUDGET)
+            : maxRetries;
+          if (retry < transientBudget && isTransient && !providerExhausted) {
             if (
               provider &&
               rawModel &&
@@ -2860,11 +2866,16 @@ async function handleRoundRobinCombo({
 
         // Transient error → retry same model.
         // A token-limit 429 is terminal for the client — never retry it.
+        const upstreamServerError = isUpstreamServerError(result.status, errorText);
         const isTransient =
           !isStreamReadinessFailure &&
           !isTokenLimitBreach &&
-          [408, 429, 500, 502, 503, 504].includes(result.status);
-        if (retry < maxRetries && isTransient && !providerExhausted) {
+          (upstreamServerError || [408, 429, 500, 502, 503, 504].includes(result.status));
+        // The 400 class gets one extra attempt: a second one mostly adds latency.
+        const transientBudget = upstreamServerError
+          ? Math.min(maxRetries, UPSTREAM_SERVER_ERROR_RETRY_BUDGET)
+          : maxRetries;
+        if (retry < transientBudget && isTransient && !providerExhausted) {
           continue;
         }
 
