@@ -50,7 +50,7 @@ export default function Navigation() {
           </Link>
           <a
             className="text-gray-300 hover:text-white text-sm font-medium transition-colors flex items-center gap-1"
-            href="https://github.com/diegosouzapw/AI Gate"
+            href="https://github.com/alrcatraz/astra-aigate"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -108,7 +108,7 @@ export default function Navigation() {
             </Link>
             <a
               className="text-gray-300 hover:text-white text-sm font-medium transition-colors"
-              href="https://github.com/diegosouzapw/AI Gate"
+              href="https://github.com/alrcatraz/astra-aigate"
               target="_blank"
               rel="noopener noreferrer"
             >

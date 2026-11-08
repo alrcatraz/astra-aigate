@@ -6,7 +6,7 @@ service gateway. This guide covers the development workflow for this repository.
 ## Project Identity
 
 - **Independent project** (not a GitHub fork), seeded from
-  [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT)
+  [OmniRoute](https://github.com/cheaper-inference/OmniRoute) (MIT)
 - **Licence:** MIT
 - **Language convention:** all user-facing content uses **British English**
   (`-ise`, `-our`, `-re`, `-ence`); locales live in `src/i18n/messages/`

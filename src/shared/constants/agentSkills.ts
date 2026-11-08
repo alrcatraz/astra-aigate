@@ -4,7 +4,7 @@
 
 import type { AgentSkill, SkillArea, SkillCategory } from "@/lib/agentSkills/types";
 
-const REPO = "diegosouzapw/AI Gate";
+const REPO = "alrcatraz/astra-aigate";
 const BRANCH = "main";
 const SKILL_PATH = "skills";
 

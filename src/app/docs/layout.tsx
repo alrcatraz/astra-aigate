@@ -40,7 +40,7 @@ const docsLayoutOptions: BaseLayoutProps = {
       secondary: true,
     },
   ],
-  githubUrl: "https://github.com/diegosouzapw/AI Gate",
+  githubUrl: "https://github.com/alrcatraz/astra-aigate",
 };
 
 export default function Layout({ children }: { children: ReactNode }) {

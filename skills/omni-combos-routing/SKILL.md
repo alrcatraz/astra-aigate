@@ -116,7 +116,7 @@ See the full OpenAPI specification at `GET /api/openapi/spec` or `docs/openapi.y
 
 # OmniRoute — Routing & Combos
 
-Requires `OMNIROUTE_URL` and `OMNIROUTE_KEY`. See [entry-point SKILL](https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/skills/omniroute/SKILL.md) for setup.
+Requires `OMNIROUTE_URL` and `OMNIROUTE_KEY`. See [entry-point SKILL](https://raw.githubusercontent.com/cheaper-inference/OmniRoute/main/skills/omniroute/SKILL.md) for setup.
 
 ## What is a combo?
 

@@ -5,7 +5,7 @@
 - **Name:** astra-aigate
 - **Repository:** `~/Projects/astra/astra-aigate/`
 - **Identity:** Independent project (NOT a GitHub fork), seeded from
-  [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT)
+  [OmniRoute](https://github.com/cheaper-inference/OmniRoute) (MIT)
 - **License:** MIT
 
 ## What It Does

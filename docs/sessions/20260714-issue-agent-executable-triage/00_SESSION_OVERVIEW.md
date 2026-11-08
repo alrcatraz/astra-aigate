@@ -2,8 +2,8 @@
 
 Machine status: `in_progress`
 Updated at: `2026-07-14`
-Issue: `https://github.com/diegosouzapw/OmniRoute/issues/5980`
-PR: `https://github.com/diegosouzapw/OmniRoute/pull/7002`
+Issue: `https://github.com/cheaper-inference/OmniRoute/issues/5980`
+PR: `https://github.com/cheaper-inference/OmniRoute/pull/7002`
 
 ## Goal
 
