@@ -515,6 +515,41 @@ async function runCompressionAsync(
     memoStore(key, result);
     return memoLookup(key)!;
   }
+  // #13154/#13145: 把纯 CPU 密集的压缩放到 worker 线程，避免拖住网关事件循环。
+  // 只对结构化克隆安全的作业生效；否则 isCompressionWorkerEligible 返回 false，
+  // 落回下面的进程内路径（行为与未引入 worker 时完全一致）。
+  //
+  // 位置在 memoize 缓存之后：memoize 命中是纯查表、成本远低于跨线程往返；
+  // 未命中时递归调用会关掉 memoize 再进到这里，仍能落进 worker。
+  const workerOptions = options
+    ? {
+        model: options.model,
+        supportsVision: options.supportsVision,
+        providerTransport: options.providerTransport,
+        config: options.config,
+        principalId: options.principalId,
+      }
+    : undefined;
+  const { isCompressionWorkerEligible } = await import("./compressionWorkerProtocol.ts");
+  if (isCompressionWorkerEligible(body, mode, workerOptions)) {
+    try {
+      const { runCompressionInWorker } = await import("./compressionWorkerPool.ts");
+      return await runCompressionInWorker(body, mode, workerOptions, options?.onEngineStep);
+    } catch (workerError) {
+      // #13145: worker 失败**绝不能**静默降级成不压缩——那会让每个合格请求都绕过
+      // 压缩管线，而响应头仍宣告已选中 "stacked" 方案，compression_analytics 也
+      // 永远是空的，失败在任何日志级别下都不可见。
+      //
+      // 恢复到什么程度取决于失败原因：线程错误/退出/引擎抛错都是快速失败，没做过
+      // 实际工作，进程内重跑成本与 worker 相同，能恢复压缩。派发超时则相反——worker
+      // 已经把整个预算烧在这个 body 上了，在主事件循环上重跑同一段 CPU 密集管线会
+      // 拖住所有在途请求，那些维持"降级为不压缩"的旧行为，但会被上报而不是吞掉。
+      const { shouldRetryCompressionInProcess } = await import("./workerFailureRecovery.ts");
+      if (!shouldRetryCompressionInProcess(workerError)) {
+        return { body, compressed: false, stats: null };
+      }
+    }
+  }
   // Single-mode omniglyph (async-only) — resolution lives in engines/omniglyphSingleMode.ts.
   if (mode === "omniglyph") return applyOmniglyphSingleMode(body, options);
   if (mode === "stacked") {
