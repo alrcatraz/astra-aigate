@@ -20,6 +20,7 @@ import type { AutoVariant } from "./autoPrefix";
 import { buildFamilyCandidateFilter, type ModelFamily } from "./modelFamily";
 import { getHiddenModelsByProvider } from "@/models";
 import { filterPaidOnlyCandidates } from "./paidModelFilter";
+import { filterModelExposureCandidates } from "./modelExposureFilter";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
 import { filterExcludedCandidates } from "./candidateOverrides";
 import { getExcludedConnectionIds } from "@/lib/db/autoCandidateOverrides";
@@ -446,6 +447,17 @@ export async function createVirtualAutoCombo(
   if (paidFilteredPool !== candidatePool) {
     candidatePool.length = 0;
     candidatePool.push(...paidFilteredPool);
+  }
+
+  // #11481: 运营者显式曝光名单。与 hidePaidModels 独立——即使 hidePaidModels
+  // 关闭也必须生效。catalog.ts 隐藏了被拒绝的模型，但 auto/* 候选池是独立
+  // 构建的（#6512 已为 hidePaidModels 修过同一类漏洞），故必须在此镜像同一
+  // 谓词，否则 auto/* 仍可能路由到运营者明确排除的模型。默认两个空名单 →
+  // hasAnyModelExposureEntries 为 false → 原样返回，零行为变化。
+  const exposureFilteredPool = filterModelExposureCandidates(candidatePool, settings);
+  if (exposureFilteredPool !== candidatePool) {
+    candidatePool.length = 0;
+    candidatePool.push(...exposureFilteredPool);
   }
 
   // #7819 (Level 2): per-API-key candidate exclusions. Fail-open — an absent

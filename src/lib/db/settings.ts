@@ -241,6 +241,11 @@ export async function getSettings() {
     // (`:free` suffix, zero-price pricing, or FREE_MODEL_BUDGETS membership). Default
     // false preserves prior behaviour; opt-in only.
     hidePaidModels: false,
+    // #11481: 显式模型曝光允许/拒绝名单，opt-in 且默认空（空数组 = 不过滤）。
+    // 谓词见 src/shared/utils/modelExposureList.ts；必须在 catalog.ts 与
+    // autoCombo/modelExposureFilter.ts 两处同时应用（#6512 的教训）。
+    modelVisibilityAllowlist: [] as string[],
+    modelVisibilityDenylist: [] as string[],
     // #6977: Opt-in per-connection auto-ping that warms a Codex OAuth connection's
     // quota window right after it resets, so the first real request doesn't land in
     // a cold window. `connections` maps connection id -> enabled. Default empty map

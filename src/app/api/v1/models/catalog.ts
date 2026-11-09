@@ -91,6 +91,10 @@ import {
 } from "./catalogRequest";
 import { incrementCcDiscoveryHitCount } from "@/lib/db/ccDiscoveryMetrics";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
+import {
+  isModelExposureAllowed,
+  hasAnyModelExposureEntries,
+} from "@/shared/utils/modelExposureList";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
 
@@ -231,7 +235,18 @@ async function buildUnifiedModelsResponseCore(
     // exempt. Combos + auto/* + synced/custom/alias-backed rows also stay unfiltered —
     // extending v1 scope to those requires per-entry pricing lookup not available today.
     const hidePaid = settings.hidePaidModels === true;
+    // #11481: 运营者显式曝光名单（允许/拒绝）。与 hidePaidModels 相互独立——
+    // 即便 hidePaidModels 关闭也必须生效，故在 shouldHide* 之外的单独判断里
+    // 先执行，且并入了 shouldHidePaid 以覆盖本文件全部 7 个调用点（provider /
+    // synced / custom / alias-backed / managed-fallback / openrouter 各行）。
+    const hasExposureList = hasAnyModelExposureEntries(settings);
+    const shouldHideByExposure = (providerKey: string, modelId: string): boolean => {
+      if (!hasExposureList) return false;
+      const provider = aliasToProviderId[providerKey] || providerKey;
+      return !isModelExposureAllowed(provider, modelId, settings);
+    };
     const shouldHidePaid = (providerKey: string, modelId: string, pricing?: unknown): boolean => {
+      if (shouldHideByExposure(providerKey, modelId)) return true;
       if (!hidePaid) return false;
       const provider = aliasToProviderId[providerKey] || providerKey;
       if (!providerHasFreeModels(provider)) return true;
