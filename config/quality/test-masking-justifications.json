@@ -151,6 +151,17 @@
         "import \"../../_setup/nextIntlDouble\" — comment: 'resolves the real English copy from src/i18n/messages/en.json'",
         "waitForPut throws 'waitForPut timed out' when no PUT arrives and returns the actual call used for the body assert"
       ]
+    },
+    {
+      "path": "tests/unit/opencode-model-windows.test.ts",
+      "kind": "test-file-deleted",
+      "reason": "Deleted by 48b4cfc1 (fix(quota): stop deriving per-model windows for OpenCode Go) together with the code it exercised. OpenCode Go bills every paid model against ONE shared allowance, so the per-model budgets the code assumed never existed; gating routing on a synthesised per-model share would strand a provider that still had allowance left. The test covered only that removed per-model window synthesis (enrichWithModelWindows + the OPENCODE_GO_MODEL_POOLS table), so it had no subject left to assert on. Account-level 5h/weekly/monthly windows and the model-scoped infrastructure (still used by Codex Spark) remain covered by the surviving quota suites.",
+      "evidence": [
+        "git show --diff-filter=D --name-only 48b4cfc1 | grep -x tests/unit/opencode-model-windows.test.ts -> present (deletion is part of that commit, not this branch)",
+        "grep -rn over src/ and tests/ at HEAD: enrichWithModelWindows 0 hits, OPENCODE_GO_MODEL_POOLS 0 hits, opencodeConsoleUsage 0 hits, windowFractions 0 hits",
+        "surviving coverage for the same provider area at HEAD: tests/unit/opencode-go-usage.test.ts, tests/unit/opencode-quota-fetcher.test.ts, tests/unit/opencode-go-quota-no-zai.test.ts, tests/unit/quota-exhaustion-cutoff-opencode.test.ts",
+        "48b4cfc1 commit message: 'opencodeConsoleUsage.ts had no remaining consumer and is deleted, as is the test that only exercised the per-model windows.'"
+      ]
     }
   ]
 }
