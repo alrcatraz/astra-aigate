@@ -834,7 +834,7 @@ export default function ProvidersPage() {
                 {providerText(t, "onboardingWizard", "Provider Onboarding Wizard")}
               </Button>
               <a
-                href="https://github.com/diegosouzapw/AI Gate#-documentation"
+                href="https://github.com/alrcatraz/astra-aigate#-documentation"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors"

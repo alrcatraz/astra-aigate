@@ -159,10 +159,10 @@ omniroute doctor
 
 | Capability                           | Skill                                                                                                 |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Server admin + backup                | https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/skills/omniroute-cli-admin/SKILL.md     |
-| Provider & key management            | https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/skills/omniroute-cli-providers/SKILL.md |
-| Cloud agents (Codex / Devin / Jules) | https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/skills/omniroute-cli-cloud/SKILL.md     |
-| Evals & benchmarking                 | https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/skills/omniroute-cli-eval/SKILL.md      |
+| Server admin + backup                | https://raw.githubusercontent.com/cheaper-inference/OmniRoute/main/skills/omniroute-cli-admin/SKILL.md     |
+| Provider & key management            | https://raw.githubusercontent.com/cheaper-inference/OmniRoute/main/skills/omniroute-cli-providers/SKILL.md |
+| Cloud agents (Codex / Devin / Jules) | https://raw.githubusercontent.com/cheaper-inference/OmniRoute/main/skills/omniroute-cli-cloud/SKILL.md     |
+| Evals & benchmarking                 | https://raw.githubusercontent.com/cheaper-inference/OmniRoute/main/skills/omniroute-cli-eval/SKILL.md      |
 
 ### Errors
 
@@ -173,7 +173,7 @@ omniroute doctor
 
 ## Admin lifecycle
 
-Requires the `omniroute` CLI. See [CLI entry-point skill](https://raw.githubusercontent.com/diegosouzapw/OmniRoute/main/skills/omniroute-cli/SKILL.md) for install + global flags.
+Requires the `omniroute` CLI. See [CLI entry-point skill](https://raw.githubusercontent.com/cheaper-inference/OmniRoute/main/skills/omniroute-cli/SKILL.md) for install + global flags.
 
 ### Server lifecycle
 

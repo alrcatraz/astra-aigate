@@ -30,7 +30,7 @@ const FIXTURE = `# Changelog
 
 ### 📝 Maintenance
 
-- **refactor(rollup):** god-file split ([#200](https://github.com/x/y/pull/200), [#201](https://github.com/x/y/pull/201) — thanks @erin); editorconfig ([#202](https://github.com/x/y/pull/202) — thanks @frank). — thanks @diegosouzapw
+- **refactor(rollup):** god-file split ([#200](https://github.com/x/y/pull/200), [#201](https://github.com/x/y/pull/201) — thanks @erin); editorconfig ([#202](https://github.com/x/y/pull/202) — thanks @frank). — thanks @alrcatraz
 
 ---
 
@@ -70,7 +70,7 @@ test("noise handles and the maintainer are excluded from the contributor map", (
   const agg = parseContributors(extractVersionSection(FIXTURE, "3.9.0"));
   assert.ok(!agg.has("toon-format"), "package scope is not a contributor");
   assert.ok(!agg.has("dnd-kit"), "package scope is not a contributor");
-  assert.ok(!agg.has("diegosouzapw"), "maintainer is rendered separately, not in the map");
+  assert.ok(!agg.has("alrcatraz"), "maintainer is rendered separately, not in the map");
   assert.ok(NOISE_HANDLES.has("toon-format"));
 });
 
@@ -80,7 +80,7 @@ test("renderContributors emits an alphabetical table with maintainer last", () =
   assert.ok(table.startsWith("### 🙌 Contributors"));
   const rows = table.split("\n").filter((l) => l.startsWith("| [@"));
   const handles = rows.map((r) => r.match(/@([A-Za-z0-9_-]+)/)[1]);
-  assert.equal(handles[handles.length - 1], "diegosouzapw", "maintainer is last");
+  assert.equal(handles[handles.length - 1], "alrcatraz", "maintainer is last");
   const external = handles.slice(0, -1);
   assert.deepEqual(
     external,

@@ -6,7 +6,7 @@ lastUpdated: 2026-07-23
 
 # SQLite coupling inventory
 
-- **Tracking issue:** [#8075](https://github.com/diegosouzapw/OmniRoute/issues/8075)
+- **Tracking issue:** [#8075](https://github.com/cheaper-inference/OmniRoute/issues/8075)
 - **Snapshot revision:** `9a3b605f3420ae3ab08bd93d6443034f03a1bcbc`
 - **Scanned-corpus SHA-256:** `72334620a7a18a42bcede1643fb2fdf95da6eae9ffa66a891ae14ed633ad43f6`
 - **Purpose:** Measure the current persistence cut lines before proposing repository interfaces

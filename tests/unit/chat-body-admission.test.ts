@@ -6,6 +6,7 @@ const {
   admitChatRequest,
   admitChatStructure,
   ChatAdmissionController,
+  CHAT_HARD_MAX_MESSAGES,
   releaseChatAdmissionAfterHandler,
   releaseChatAdmissionWhenDone,
 } = await import("../../src/shared/middleware/chatBodyAdmission.ts");
@@ -36,7 +37,12 @@ test("small known body is admitted without consuming heavyweight capacity", asyn
 test("a byte-light request above the message threshold acquires heavyweight capacity", async () => {
   const controller = new ChatAdmissionController(1);
   const result = admitChatStructure(
-    { messages: [{ role: "user", content: "one" }, { role: "user", content: "two" }] },
+    {
+      messages: [
+        { role: "user", content: "one" },
+        { role: "user", content: "two" },
+      ],
+    },
     null,
     { controller, maxMessages: 10, heavyMessages: 2, heavyTools: 10, heavyTokens: 10_000 }
   );
@@ -66,7 +72,7 @@ test("a byte-light request above the tool threshold is rejected when heavy capac
   occupied.release();
 });
 
-test("a request above the hard history cap returns structured compact-required 413", async () => {
+test("an opt-in history cap still returns the structured compact-required 413", async () => {
   const controller = new ChatAdmissionController(1);
   const result = admitChatStructure(
     { messages: Array.from({ length: 3 }, () => ({ role: "user", content: "x" })) },
@@ -80,6 +86,43 @@ test("a request above the hard history cap returns structured compact-required 4
   const payload = await result.response.json();
   assert.equal(payload.error.code, "chat_history_too_large");
   assert.equal(payload.error.reason, "message_limit");
+  assert.equal(controller.activeHeavy, 0);
+});
+
+// A message-count ceiling is deployment policy, not a universal default. With no cap
+// configured, a long conversation must reach compression and the bounded heavyweight path
+// rather than a terminal 413 the client cannot retry out of.
+test("no history cap is enforced by default; long conversations are admitted", async () => {
+  assert.equal(CHAT_HARD_MAX_MESSAGES, 0, "the shipped default must not cap history");
+
+  const controller = new ChatAdmissionController(1);
+  const result = admitChatStructure(
+    { messages: Array.from({ length: 5_000 }, () => ({ role: "user", content: "x" })) },
+    null,
+    { controller, heavyMessages: 200, heavyTools: 64, heavyTokens: 32_000 }
+  );
+
+  assert.equal(result.admit, true, "a 5,000-message conversation must not be rejected outright");
+  if (!result.admit) return;
+  assert.equal(controller.activeHeavy, 1, "it must still hold the bounded heavyweight lease");
+  result.lease.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+// An explicit cap of 0 must behave like "unset" rather than rejecting every request, which is
+// exactly what a bare `messages.length > maxMessages` comparison would do.
+test("an explicit maxMessages of 0 disables the cap", () => {
+  const controller = new ChatAdmissionController(1);
+  const result = admitChatStructure(
+    { messages: Array.from({ length: 50 }, () => ({ role: "user", content: "x" })) },
+    null,
+    { controller, maxMessages: 0, heavyMessages: 200, heavyTools: 64, heavyTokens: 32_000 }
+  );
+
+  assert.equal(result.admit, true, "0 must mean unlimited, not reject-all");
+  if (!result.admit) return;
+  // 50 short messages stay under the heavy thresholds, so no lease is taken.
+  assert.equal(result.lease, null);
   assert.equal(controller.activeHeavy, 0);
 });
 
@@ -151,11 +194,13 @@ test("non-ASCII strings use a conservative UTF-8 token estimate", () => {
 test("wide objects exhaust bounded inspection without materializing all property values", () => {
   const controller = new ChatAdmissionController(1);
   const wide = Object.fromEntries(Array.from({ length: 10_001 }, (_, index) => [`k${index}`, 0]));
-  const result = admitChatStructure(
-    { messages: [{ role: "user", content: wide }] },
-    null,
-    { controller, maxMessages: 10, heavyMessages: 10, heavyTools: 10, heavyTokens: 10_000 }
-  );
+  const result = admitChatStructure({ messages: [{ role: "user", content: wide }] }, null, {
+    controller,
+    maxMessages: 10,
+    heavyMessages: 10,
+    heavyTools: 10,
+    heavyTokens: 10_000,
+  });
 
   assert.equal(result.admit, true);
   assert.equal(controller.activeHeavy, 1);
@@ -168,7 +213,12 @@ test("an existing byte-heavy lease is reused for structure-heavy admission", () 
   assert.ok(lease);
 
   const result = admitChatStructure(
-    { messages: [{ role: "user", content: "one" }, { role: "user", content: "two" }] },
+    {
+      messages: [
+        { role: "user", content: "one" },
+        { role: "user", content: "two" },
+      ],
+    },
     lease,
     { controller, maxMessages: 10, heavyMessages: 2, heavyTools: 10, heavyTokens: 10_000 }
   );

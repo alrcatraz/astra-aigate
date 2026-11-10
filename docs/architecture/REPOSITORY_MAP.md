@@ -102,7 +102,8 @@ OmniRoute/
 | **.zizmor.yml**                             | zizmor GitHub-Actions security-lint config                                               |
 | **socket.yml**                              | Socket.dev supply-chain config                                                           |
 | **news.json**                               | In-app release-notes feed (read by `src/shared/utils/releaseNotes.ts`)                   |
-| **flake.nix** / **flake.lock**              | Nix dev-shell definition + lock                                                          |
+| **.guix/manifest.scm**                      | CI toolchain manifest — packages the Guix shell provides (no node: dist tarball shipped) |
+| **.guix/channels.scm**                      | Guix channel pin — the reproducible anchor for the CI toolchain                          |
 | **.env**                                    | Local secrets (gitignored — generated from `.env.example`)                               |
 
 > **Moved out of the root in v3.8.26 (declutter):**

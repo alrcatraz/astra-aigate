@@ -809,7 +809,7 @@ const HELP_ITEMS: readonly SidebarItemDefinition[] = [
   },
   {
     id: "issues",
-    href: "https://github.com/diegosouzapw/AI Gate/issues",
+    href: "https://github.com/alrcatraz/astra-aigate/issues",
     i18nKey: "issues",
     subtitleKey: "issuesSubtitle",
     icon: "bug_report",

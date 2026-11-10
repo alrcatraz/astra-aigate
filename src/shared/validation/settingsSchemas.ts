@@ -118,6 +118,12 @@ export const updateSettingsSchema = z.object({
   baseUrl: z.string().max(500).optional(),
   setupComplete: z.boolean().optional(),
   blockedProviders: z.array(z.string().max(100)).optional(),
+  // 显式模型曝光允许/拒绝名单（#11481）。条目可为精确目录 id 或 glob 模式，
+  // 由 src/shared/utils/modelExposureList.ts 的 globToRegex 匹配器解析。
+  // 与 hidePaidModels 相互独立——这是运营者的策展行为，不是成本信号。
+  // 默认空数组 = no-op（绝不代替运营者改变默认行为）。
+  modelVisibilityAllowlist: z.array(z.string().max(200)).max(500).optional(),
+  modelVisibilityDenylist: z.array(z.string().max(200)).max(500).optional(),
   hideHealthCheckLogs: z.boolean().optional(),
   hideEndpointCloudflaredTunnel: z.boolean().optional(),
   hideEndpointTailscaleFunnel: z.boolean().optional(),

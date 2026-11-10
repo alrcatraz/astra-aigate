@@ -7,7 +7,7 @@ lastUpdated: 2026-08-04
 # ADR: Pluggable persistence boundary
 
 - **Status:** Accepted — implemented in Phase 2.8 (2026-08-04); see "Implementation status" below
-- **Tracking issue:** [#8075](https://github.com/diegosouzapw/OmniRoute/issues/8075)
+- **Tracking issue:** [#8075](https://github.com/cheaper-inference/OmniRoute/issues/8075)
 - **Scope:** Persistence architecture only; this decision does not add or select an external database
 
 ## Context

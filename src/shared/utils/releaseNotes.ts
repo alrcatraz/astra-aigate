@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const NEWS_JSON_URL =
-  "https://raw.githubusercontent.com/diegosouzapw/AI Gate/main/news.json";
+  "https://raw.githubusercontent.com/alrcatraz/astra-aigate/main/news.json";
 export const CHANGELOG_RAW_URL =
-  "https://raw.githubusercontent.com/diegosouzapw/AI Gate/main/CHANGELOG.md";
+  "https://raw.githubusercontent.com/alrcatraz/astra-aigate/main/CHANGELOG.md";
 export const CHANGELOG_GITHUB_URL =
-  "https://github.com/diegosouzapw/AI Gate/blob/main/CHANGELOG.md";
+  "https://github.com/alrcatraz/astra-aigate/blob/main/CHANGELOG.md";
 
 const activeNewsSchema = z.object({
   active: z.literal(true),

@@ -133,13 +133,13 @@ Auto-scoring selects best provider/model per request
 A combo whose `name` is identical to a bare model id (e.g. a combo named
 `gpt-5.5`) is an **intentional, supported pattern**, not a bug: it is the
 mechanism for per-model-id provider fallback documented in
-[#6940](https://github.com/diegosouzapw/OmniRoute/issues/6940). Because combo
+[#6940](https://github.com/cheaper-inference/OmniRoute/issues/6940). Because combo
 resolution is checked before bare-model-id resolution
 (`getComboForModel()` in `src/sse/services/model.ts`), a request for the bare
 id `gpt-5.5` is routed through the combo's targets (e.g.
 `acme-responses/gpt-5.5`, `backup-responses/gpt-5.5`) instead of straight to
 a single provider — this reuses the combo-before-rewrite precedence built for
-[#3227/#3233](https://github.com/diegosouzapw/OmniRoute/issues/3227) and is
+[#3227/#3233](https://github.com/cheaper-inference/OmniRoute/issues/3227) and is
 regression-tested by `tests/unit/responses-combo-resolution-3227.test.ts` and
 `tests/unit/combo-name-codex-responses-rewrite.test.ts`.
 

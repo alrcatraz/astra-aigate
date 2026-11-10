@@ -10,7 +10,7 @@
  *
  * Usage:
  *   node scripts/features/feature-triage.mjs \
- *     --owner diegosouzapw --repo OmniRoute \
+ *     --owner alrcatraz --repo astra-aigate \
  *     --output _ideia/_triage.json
  *
  * Exit codes:

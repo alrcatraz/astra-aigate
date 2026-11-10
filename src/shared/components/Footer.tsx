@@ -11,7 +11,7 @@ const footerLinks = {
     { label: "Pricing", href: "#pricing" },
     {
       label: "Changelog",
-      href: "https://github.com/diegosouzapw/AI Gate/releases",
+      href: "https://github.com/alrcatraz/astra-aigate/releases",
       external: true,
     },
   ],
@@ -20,16 +20,16 @@ const footerLinks = {
     { label: "API Reference", href: "/docs#api-reference" },
     {
       label: "Help Center",
-      href: "https://github.com/diegosouzapw/AI Gate/discussions",
+      href: "https://github.com/alrcatraz/astra-aigate/discussions",
       external: true,
     },
   ],
   company: [
-    { label: "About", href: "https://github.com/diegosouzapw/AI Gate", external: true },
-    { label: "Blog", href: "https://github.com/diegosouzapw/AI Gate/releases", external: true },
+    { label: "About", href: "https://github.com/alrcatraz/astra-aigate", external: true },
+    { label: "Blog", href: "https://github.com/alrcatraz/astra-aigate/releases", external: true },
     {
       label: "Contact",
-      href: "https://github.com/diegosouzapw/AI Gate/issues/new/choose",
+      href: "https://github.com/alrcatraz/astra-aigate/issues/new/choose",
       external: true,
     },
     { label: "Terms", href: "/terms" },
@@ -83,7 +83,7 @@ export default function Footer() {
             {/* Social links */}
             <div className="flex gap-4">
               <a
-                href="https://github.com/diegosouzapw/AI Gate/discussions"
+                href="https://github.com/alrcatraz/astra-aigate/discussions"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-primary transition-colors"
@@ -94,7 +94,7 @@ export default function Footer() {
                 </svg>
               </a>
               <a
-                href="https://github.com/diegosouzapw/AI Gate"
+                href="https://github.com/alrcatraz/astra-aigate"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-primary transition-colors"
@@ -154,7 +154,7 @@ export default function Footer() {
               Privacy
             </Link>
             <a
-              href="https://github.com/diegosouzapw/AI Gate/blob/main/LICENSE"
+              href="https://github.com/alrcatraz/astra-aigate/blob/main/LICENSE"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-primary transition-colors"

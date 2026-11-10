@@ -35,7 +35,7 @@ export const NOISE_HANDLES = new Set([
   "types",
 ]);
 
-const MAINTAINER = "diegosouzapw";
+const MAINTAINER = "alrcatraz";
 
 /** Extract the `## [version]` … up to the next `## [` section body (exclusive of the next header). */
 export function extractVersionSection(changelog, version) {

@@ -23,7 +23,7 @@ astra-aigate is a self-hosted AI gateway console managing three categories of se
    endpoints (registered self-hosted MCPs)
 3. **Auxiliary Services** — health monitoring and reverse proxying for non-MCP tools (Camofox, SearXNG, etc.)
 
-Built on [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT): LLM provider management, combo routing and fallback, and the API-key auth model are inherited from it; the frontend (Expo design language, Next.js 16 + React 19), the MCP gateway and the auxiliary-service layer are original work. See [Credits](#credits) for the complete list of upstream projects.
+Built on [OmniRoute](https://github.com/cheaper-inference/OmniRoute) (MIT): LLM provider management, combo routing and fallback, and the API-key auth model are inherited from it; the frontend (Expo design language, Next.js 16 + React 19), the MCP gateway and the auxiliary-service layer are original work. See [Credits](#credits) for the complete list of upstream projects.
 
 ## Features
 
@@ -130,13 +130,13 @@ Full configuration reference lives in `.env.example`; the web dashboard
 
 This project builds on the following open-source work:
 
-- **[OmniRoute](https://github.com/diegosouzapw/omniroute)** (MIT) — the unified AI service gateway this project was seeded from; upstream attribution is retained in the source tree.
+- **[OmniRoute](https://github.com/cheaper-inference/OmniRoute)** (MIT) — the unified AI service gateway this project was seeded from; upstream attribution is retained in the source tree.
 - **[awesome-design-md](https://github.com/voltagent/awesome-design-md)** — source of the design-spec template used for [`DESIGN.md`](DESIGN.md).
 - **Expo** — the visual design language (bright airy canvas, pill-shaped geometry) our UI shell is based on.
 
 ## Licence
 
-MIT. Seeded from [OmniRoute](https://github.com/diegosouzapw/OmniRoute) (MIT) — upstream attribution retained in the source tree.
+MIT. Seeded from [OmniRoute](https://github.com/cheaper-inference/OmniRoute) (MIT) — upstream attribution retained in the source tree.
 
 ---
 
@@ -159,7 +159,7 @@ astra-aigate 是一个自托管的 AI 网关控制台，管理三类服务：
    自部署 MCP（本机 stdio + 远端 HTTP/SSE）
 3. **辅助服务** — 非 MCP 工具（Camofox、SearXNG 等）的健康监控和反向代理
 
-本项目基于 [OmniRoute](https://github.com/diegosouzapw/OmniRoute)（MIT）构建：LLM 提供商管理、组合路由与故障转移、API 密钥认证模型均继承自它；前端（Expo 设计语言、Next.js 16 + React 19）、MCP 网关与辅助服务层为原创。完整上游项目列表见[致谢](#致谢)。
+本项目基于 [OmniRoute](https://github.com/cheaper-inference/OmniRoute)（MIT）构建：LLM 提供商管理、组合路由与故障转移、API 密钥认证模型均继承自它；前端（Expo 设计语言、Next.js 16 + React 19）、MCP 网关与辅助服务层为原创。完整上游项目列表见[致谢](#致谢)。
 
 ## 特性
 
@@ -256,10 +256,10 @@ curl http://<host>:<port>/api/mcp/servers/aigate-omniroute/stream \
 
 本项目基于以下开源成果：
 
-- **[OmniRoute](https://github.com/diegosouzapw/omniroute)**（MIT）—— 本项目的种子来源（统一 AI 服务网关）；上游署名保留在源码树中。
+- **[OmniRoute](https://github.com/cheaper-inference/OmniRoute)**（MIT）—— 本项目的种子来源（统一 AI 服务网关）；上游署名保留在源码树中。
 - **[awesome-design-md](https://github.com/voltagent/awesome-design-md)** —— [`DESIGN.md`](DESIGN.md) 设计规范模板的来源。
 - **Expo** —— UI 外壳所采用的视觉设计语言（明亮通透的画布、胶囊形几何）。
 
 ## 许可证
 
-MIT。种子代码来自 [OmniRoute](https://github.com/diegosouzapw/OmniRoute)（MIT）——上游署名保留在源码树中。
+MIT。种子代码来自 [OmniRoute](https://github.com/cheaper-inference/OmniRoute)（MIT）——上游署名保留在源码树中。
